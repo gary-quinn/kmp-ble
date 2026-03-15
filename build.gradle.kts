@@ -14,7 +14,7 @@ kotlin {
         freeCompilerArgs.add("-opt-in=kotlin.uuid.ExperimentalUuidApi")
     }
 
-    androidLibrary {
+    android {
         namespace = "io.github.garyquinn.kmpble"
         compileSdk = libs.versions.androidCompileSdk.get().toInt()
         minSdk = libs.versions.androidMinSdk.get().toInt()
