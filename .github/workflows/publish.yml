@@ -1,8 +1,9 @@
 name: Publish
 
 on:
-  release:
-    types: [published]
+  push:
+    tags:
+      - '*'
 
 permissions:
   contents: write
@@ -24,12 +25,12 @@ jobs:
       - name: Build Android
         run: ./gradlew compileAndroidMain
         env:
-          VERSION: ${{ github.event.release.tag_name }}
+          VERSION: ${{ github.ref_name }}
 
       - name: Publish to GitHub Packages
         run: ./gradlew publish
         env:
-          VERSION: ${{ github.event.release.tag_name }}
+          VERSION: ${{ github.ref_name }}
           GITHUB_ACTOR: ${{ github.actor }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -48,23 +49,25 @@ jobs:
       - name: Build XCFramework
         run: ./gradlew assembleXCFramework
         env:
-          VERSION: ${{ github.event.release.tag_name }}
+          VERSION: ${{ github.ref_name }}
 
       - name: Zip XCFramework
         run: |
           cd build/XCFrameworks/release
           zip -r KmpBle.xcframework.zip KmpBle.xcframework
 
-      - name: Upload XCFramework to release
+      - name: Create release and upload XCFramework
         run: |
-          gh release upload ${{ github.event.release.tag_name }} \
-            build/XCFrameworks/release/KmpBle.xcframework.zip
+          gh release create ${{ github.ref_name }} \
+            build/XCFrameworks/release/KmpBle.xcframework.zip \
+            --title "${{ github.ref_name }}" \
+            --generate-notes
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Update Package.swift
         run: |
-          VERSION=${{ github.event.release.tag_name }}
+          VERSION=${{ github.ref_name }}
           CHECKSUM=$(swift package compute-checksum build/XCFrameworks/release/KmpBle.xcframework.zip)
           sed -i '' "s|VERSION_PLACEHOLDER|${VERSION}|g" Package.swift
           sed -i '' "s|CHECKSUM_PLACEHOLDER|${CHECKSUM}|g" Package.swift
