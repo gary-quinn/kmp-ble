@@ -55,10 +55,29 @@ jobs:
         run: |
           VERSION=${{ github.ref_name }}
           CHECKSUM=$(swift package compute-checksum build/XCFrameworks/release/KmpBle.xcframework.zip)
-          sed -i '' "s|VERSION_PLACEHOLDER|${VERSION}|g" Package.swift
-          sed -i '' "s|CHECKSUM_PLACEHOLDER|${CHECKSUM}|g" Package.swift
+          git fetch origin main
+          git checkout main
+          cat > Package.swift << SWIFT
+          // swift-tools-version:5.9
+          import PackageDescription
+
+          let package = Package(
+              name: "KmpBle",
+              platforms: [.iOS(.v15)],
+              products: [
+                  .library(name: "KmpBle", targets: ["KmpBle"]),
+              ],
+              targets: [
+                  .binaryTarget(
+                      name: "KmpBle",
+                      url: "https://github.com/gary-quinn/kmp-ble/releases/download/${VERSION}/KmpBle.xcframework.zip",
+                      checksum: "${CHECKSUM}"
+                  ),
+              ]
+          )
+          SWIFT
           git config user.email "gary@atruedev.com"
           git config user.name "Gary Quinn"
           git add Package.swift
-          git commit -m "update Package.swift for ${VERSION}"
-          git push origin HEAD:main
+          git diff --cached --quiet || git commit -m "update Package.swift for ${VERSION}"
+          git push origin main
