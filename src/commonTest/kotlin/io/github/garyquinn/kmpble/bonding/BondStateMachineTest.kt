@@ -4,6 +4,10 @@ import io.github.garyquinn.kmpble.connection.State
 import io.github.garyquinn.kmpble.connection.internal.ConnectionEvent
 import io.github.garyquinn.kmpble.connection.internal.StateMachine
 import io.github.garyquinn.kmpble.error.BleError
+import io.github.garyquinn.kmpble.error.ConnectionFailed
+import io.github.garyquinn.kmpble.error.ConnectionLost
+import io.github.garyquinn.kmpble.error.GattError
+import io.github.garyquinn.kmpble.error.OperationFailed
 import kotlin.test.Test
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
@@ -48,7 +52,7 @@ class BondStateMachineTest {
     @Test
     fun bondFailureDuringAuthentication() {
         var s: State = State.Connecting.Authenticating
-        s = transition(s, ConnectionEvent.BondFailed(BleError.ConnectionFailed("Pairing rejected")))
+        s = transition(s, ConnectionEvent.BondFailed(ConnectionFailed("Pairing rejected")))
         assertIs<State.Disconnected.ByError>(s)
     }
 
@@ -73,7 +77,7 @@ class BondStateMachineTest {
     fun connectionLostDuringBondChange() {
         val s = transition(
             State.Connected.BondingChange,
-            ConnectionEvent.ConnectionLost(BleError.ConnectionLost("Lost"))
+            ConnectionEvent.ConnectionLost(ConnectionLost("Lost"))
         )
         assertIs<State.Disconnecting.Error>(s)
     }

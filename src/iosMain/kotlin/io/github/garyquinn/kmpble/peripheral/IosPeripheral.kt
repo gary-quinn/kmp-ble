@@ -5,6 +5,10 @@ import io.github.garyquinn.kmpble.connection.ConnectionOptions
 import io.github.garyquinn.kmpble.connection.State
 import io.github.garyquinn.kmpble.connection.internal.ConnectionEvent
 import io.github.garyquinn.kmpble.error.BleError
+import io.github.garyquinn.kmpble.error.ConnectionFailed
+import io.github.garyquinn.kmpble.error.ConnectionLost
+import io.github.garyquinn.kmpble.error.GattError
+import io.github.garyquinn.kmpble.error.OperationFailed
 import io.github.garyquinn.kmpble.gatt.BackpressureStrategy
 import io.github.garyquinn.kmpble.gatt.Characteristic
 import io.github.garyquinn.kmpble.gatt.Descriptor
@@ -105,7 +109,7 @@ public class IosPeripheral(
                         if (!deferred.isCompleted) {
                             peripheralContext.processEvent(
                                 ConnectionEvent.ConnectionLost(
-                                    BleError.ConnectionFailed("Connection failed (peripheral disconnected)")
+                                    ConnectionFailed("Connection failed (peripheral disconnected)")
                                 )
                             )
                             deferred.complete(Unit)
@@ -122,7 +126,7 @@ public class IosPeripheral(
             } catch (_: kotlinx.coroutines.TimeoutCancellationException) {
                 bridge.disconnect()
                 peripheralContext.processEvent(
-                    ConnectionEvent.ConnectionLost(BleError.ConnectionFailed("Connection timeout"))
+                    ConnectionEvent.ConnectionLost(ConnectionFailed("Connection timeout"))
                 )
             } finally {
                 failureDetector.cancel()
@@ -144,7 +148,7 @@ public class IosPeripheral(
                 withTimeout(5_000) { disconnectComplete!!.await() }
             } catch (_: kotlinx.coroutines.TimeoutCancellationException) {
                 peripheralContext.processEvent(
-                    ConnectionEvent.ConnectionLost(BleError.OperationFailed("Disconnect timeout"))
+                    ConnectionEvent.ConnectionLost(OperationFailed("Disconnect timeout"))
                 )
             } finally {
                 disconnectComplete = null
@@ -207,9 +211,9 @@ public class IosPeripheral(
                 bridge.discoverServices()
             } else {
                 val bleError = if (error != null) {
-                    BleError.ConnectionFailed(error.localizedDescription, error.code.toInt())
+                    ConnectionFailed(error.localizedDescription, error.code.toInt())
                 } else {
-                    BleError.ConnectionLost("Disconnected")
+                    ConnectionLost("Disconnected")
                 }
 
                 if (peripheralContext.state.value is State.Disconnecting.Requested) {
@@ -289,7 +293,7 @@ public class IosPeripheral(
         if (event.error != null) {
             peripheralContext.processEvent(
                 ConnectionEvent.DiscoveryFailed(
-                    BleError.GattError("discoverServices", event.error.toGattStatus())
+                    GattError("discoverServices", event.error.toGattStatus())
                 )
             )
             connectionComplete?.complete(Unit)

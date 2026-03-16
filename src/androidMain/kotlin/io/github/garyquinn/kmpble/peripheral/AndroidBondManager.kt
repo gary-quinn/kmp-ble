@@ -114,7 +114,7 @@ internal class AndroidBondManager(
                             if (previousState == BluetoothDevice.BOND_BONDING) {
                                 peripheralContext.processEvent(
                                     ConnectionEvent.BondFailed(
-                                        io.github.garyquinn.kmpble.error.BleError.ConnectionFailed("Bonding failed")
+                                        io.github.garyquinn.kmpble.error.ConnectionFailed(reason = "Bonding failed")
                                     )
                                 )
                                 bondComplete?.complete(false)

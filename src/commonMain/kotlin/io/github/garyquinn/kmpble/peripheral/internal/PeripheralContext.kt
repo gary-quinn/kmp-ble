@@ -7,6 +7,8 @@ import io.github.garyquinn.kmpble.connection.internal.ConnectionEvent
 import io.github.garyquinn.kmpble.connection.internal.StateMachine
 import io.github.garyquinn.kmpble.gatt.DiscoveredService
 import io.github.garyquinn.kmpble.gatt.internal.GattOperationQueue
+import io.github.garyquinn.kmpble.logging.BleLogEvent
+import io.github.garyquinn.kmpble.logging.logEvent
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
@@ -48,12 +50,14 @@ internal class PeripheralContext(val identifier: Identifier) {
     suspend fun processEvent(event: ConnectionEvent): State = withContext(dispatcher) {
         check(!closed) { "PeripheralContext is closed" }
 
-        val result = StateMachine.transition(_state.value, event)
+        val previousState = _state.value
+        val result = StateMachine.transition(previousState, event)
         if (!result.valid) {
-            return@withContext _state.value
+            return@withContext previousState
         }
 
         _state.value = result.newState
+        logEvent(BleLogEvent.StateTransition(identifier, from = previousState, to = result.newState))
 
         if (result.newState is State.Disconnected) {
             gattQueue.drain()

@@ -3,6 +3,9 @@ package io.github.garyquinn.kmpble.connection
 import io.github.garyquinn.kmpble.connection.internal.ConnectionEvent
 import io.github.garyquinn.kmpble.connection.internal.StateMachine
 import io.github.garyquinn.kmpble.error.BleError
+import io.github.garyquinn.kmpble.error.ConnectionFailed
+import io.github.garyquinn.kmpble.error.ConnectionLost
+import io.github.garyquinn.kmpble.error.OperationFailed
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -11,7 +14,7 @@ import kotlin.test.assertTrue
 
 class StateMachineTest {
 
-    private val testError = BleError.OperationFailed("test")
+    private val testError = OperationFailed("test")
 
     private fun transition(from: State, event: ConnectionEvent): State {
         val result = StateMachine.transition(from, event)

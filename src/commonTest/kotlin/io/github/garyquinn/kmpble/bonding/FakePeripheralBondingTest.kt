@@ -3,6 +3,10 @@ package io.github.garyquinn.kmpble.bonding
 import io.github.garyquinn.kmpble.connection.State
 import io.github.garyquinn.kmpble.connection.internal.ConnectionEvent
 import io.github.garyquinn.kmpble.error.BleError
+import io.github.garyquinn.kmpble.error.ConnectionFailed
+import io.github.garyquinn.kmpble.error.ConnectionLost
+import io.github.garyquinn.kmpble.error.GattError
+import io.github.garyquinn.kmpble.error.OperationFailed
 import io.github.garyquinn.kmpble.testing.FakePeripheral
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
@@ -42,7 +46,7 @@ class FakePeripheralBondingTest {
         peripheral.simulateEvent(ConnectionEvent.BondRequired)
 
         peripheral.simulateEvent(
-            ConnectionEvent.BondFailed(BleError.ConnectionFailed("User rejected pairing"))
+            ConnectionEvent.BondFailed(ConnectionFailed("User rejected pairing"))
         )
         assertIs<State.Disconnected.ByError>(peripheral.state.value)
     }

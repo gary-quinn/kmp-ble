@@ -13,6 +13,10 @@ import io.github.garyquinn.kmpble.connection.ConnectionOptions
 import io.github.garyquinn.kmpble.connection.State
 import io.github.garyquinn.kmpble.connection.internal.ConnectionEvent
 import io.github.garyquinn.kmpble.error.BleError
+import io.github.garyquinn.kmpble.error.ConnectionFailed
+import io.github.garyquinn.kmpble.error.ConnectionLost
+import io.github.garyquinn.kmpble.error.GattError
+import io.github.garyquinn.kmpble.error.OperationFailed
 import io.github.garyquinn.kmpble.gatt.BackpressureStrategy
 import io.github.garyquinn.kmpble.gatt.Characteristic
 import io.github.garyquinn.kmpble.gatt.Descriptor
@@ -94,7 +98,7 @@ public class AndroidPeripheral(
             val gatt = bridge.connect(options)
             if (gatt == null) {
                 peripheralContext.processEvent(
-                    ConnectionEvent.ConnectionLost(BleError.ConnectionFailed("connectGatt returned null"))
+                    ConnectionEvent.ConnectionLost(ConnectionFailed("connectGatt returned null"))
                 )
                 return@withContext
             }
@@ -107,7 +111,7 @@ public class AndroidPeripheral(
                 bridge.disconnect()
                 bridge.releaseGatt()
                 peripheralContext.processEvent(
-                    ConnectionEvent.ConnectionLost(BleError.ConnectionFailed("Connection timeout"))
+                    ConnectionEvent.ConnectionLost(ConnectionFailed("Connection timeout"))
                 )
             } finally {
                 connectionComplete = null
@@ -130,7 +134,7 @@ public class AndroidPeripheral(
             } catch (_: kotlinx.coroutines.TimeoutCancellationException) {
                 // Force transition if OS didn't confirm disconnect
                 peripheralContext.processEvent(
-                    ConnectionEvent.ConnectionLost(BleError.OperationFailed("Disconnect timeout"))
+                    ConnectionEvent.ConnectionLost(OperationFailed("Disconnect timeout"))
                 )
             } finally {
                 disconnectComplete = null
@@ -247,7 +251,7 @@ public class AndroidPeripheral(
                         val bonded = bondManager.createBond()
                         if (!bonded) {
                             peripheralContext.processEvent(
-                                ConnectionEvent.BondFailed(BleError.ConnectionFailed("Bonding rejected"))
+                                ConnectionEvent.BondFailed(ConnectionFailed("Bonding rejected"))
                             )
                             connectionComplete?.complete(Unit)
                             return
@@ -256,7 +260,7 @@ public class AndroidPeripheral(
                     bridge.discoverServices()
                 } else {
                     peripheralContext.processEvent(
-                        ConnectionEvent.ConnectionLost(BleError.ConnectionFailed("GATT status: $status", event.status))
+                        ConnectionEvent.ConnectionLost(ConnectionFailed("GATT status: $status", event.status))
                     )
                     connectionComplete?.complete(Unit)
                 }
@@ -264,12 +268,12 @@ public class AndroidPeripheral(
             BluetoothProfile.STATE_DISCONNECTED -> {
                 if (peripheralContext.state.value is State.Disconnecting.Requested) {
                     peripheralContext.processEvent(
-                        ConnectionEvent.ConnectionLost(BleError.OperationFailed("disconnect"))
+                        ConnectionEvent.ConnectionLost(OperationFailed("disconnect"))
                     )
                     disconnectComplete?.complete(Unit)
                 } else {
                     peripheralContext.processEvent(
-                        ConnectionEvent.ConnectionLost(BleError.ConnectionLost("Remote disconnect", event.status))
+                        ConnectionEvent.ConnectionLost(ConnectionLost("Remote disconnect", event.status))
                     )
                 }
                 onDisconnectCleanup()
@@ -291,7 +295,7 @@ public class AndroidPeripheral(
             discoveryComplete?.complete(discovered)
         } else {
             peripheralContext.processEvent(
-                ConnectionEvent.DiscoveryFailed(BleError.GattError("discoverServices", status))
+                ConnectionEvent.DiscoveryFailed(GattError("discoverServices", status))
             )
             connectionComplete?.complete(Unit)
             discoveryComplete?.completeExceptionally(

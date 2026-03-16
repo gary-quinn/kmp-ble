@@ -5,6 +5,10 @@ import io.github.garyquinn.kmpble.connection.ConnectionOptions
 import io.github.garyquinn.kmpble.connection.State
 import io.github.garyquinn.kmpble.connection.internal.ConnectionEvent
 import io.github.garyquinn.kmpble.error.BleError
+import io.github.garyquinn.kmpble.error.ConnectionFailed
+import io.github.garyquinn.kmpble.error.ConnectionLost
+import io.github.garyquinn.kmpble.error.GattError
+import io.github.garyquinn.kmpble.error.OperationFailed
 import io.github.garyquinn.kmpble.gatt.BackpressureStrategy
 import io.github.garyquinn.kmpble.gatt.Characteristic
 import io.github.garyquinn.kmpble.gatt.Descriptor
@@ -50,7 +54,7 @@ public class FakePeripheral internal constructor(
             context.updateServices(fakeServices)
             context.processEvent(ConnectionEvent.ConfigurationComplete)
         } else {
-            val error = BleError.ConnectionFailed(
+            val error = ConnectionFailed(
                 result.exceptionOrNull()?.message ?: "Connection failed"
             )
             context.processEvent(ConnectionEvent.ConnectionLost(error))
@@ -67,7 +71,7 @@ public class FakePeripheral internal constructor(
         if (context.state.value is State.Disconnected) return
         context.processEvent(ConnectionEvent.DisconnectRequested)
         onDisconnectHandler()
-        context.processEvent(ConnectionEvent.ConnectionLost(BleError.OperationFailed("disconnect")))
+        context.processEvent(ConnectionEvent.ConnectionLost(OperationFailed("disconnect")))
     }
 
     @io.github.garyquinn.kmpble.ExperimentalBleApi

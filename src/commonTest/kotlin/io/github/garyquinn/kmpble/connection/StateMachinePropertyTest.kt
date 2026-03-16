@@ -3,6 +3,9 @@ package io.github.garyquinn.kmpble.connection
 import io.github.garyquinn.kmpble.connection.internal.ConnectionEvent
 import io.github.garyquinn.kmpble.connection.internal.StateMachine
 import io.github.garyquinn.kmpble.error.BleError
+import io.github.garyquinn.kmpble.error.ConnectionFailed
+import io.github.garyquinn.kmpble.error.ConnectionLost
+import io.github.garyquinn.kmpble.error.OperationFailed
 import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertNotNull
@@ -10,7 +13,7 @@ import kotlin.test.assertTrue
 
 class StateMachinePropertyTest {
 
-    private val testError = BleError.OperationFailed("test")
+    private val testError = OperationFailed("test")
 
     private val allEvents: List<ConnectionEvent> = listOf(
         ConnectionEvent.ConnectRequested,

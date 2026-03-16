@@ -3,11 +3,12 @@ package io.github.garyquinn.kmpble.connection.internal
 import io.github.garyquinn.kmpble.connection.State
 import io.github.garyquinn.kmpble.connection.State.*
 import io.github.garyquinn.kmpble.error.BleError
+import io.github.garyquinn.kmpble.error.OperationFailed
 import kotlin.reflect.KClass
 
 internal object StateMachine {
 
-    private val errorFallback = BleError.OperationFailed("Unknown error")
+    private val errorFallback = OperationFailed("Unknown error")
 
     private fun ConnectionEvent.extractError(): BleError = when (this) {
         is ConnectionEvent.BondFailed -> error ?: errorFallback

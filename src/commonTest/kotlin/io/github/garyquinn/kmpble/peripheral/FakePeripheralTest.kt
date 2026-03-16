@@ -3,6 +3,9 @@ package io.github.garyquinn.kmpble.peripheral
 import io.github.garyquinn.kmpble.connection.State
 import io.github.garyquinn.kmpble.connection.internal.ConnectionEvent
 import io.github.garyquinn.kmpble.error.BleError
+import io.github.garyquinn.kmpble.error.ConnectionFailed
+import io.github.garyquinn.kmpble.error.ConnectionLost
+import io.github.garyquinn.kmpble.error.OperationFailed
 import io.github.garyquinn.kmpble.scanner.uuidFrom
 import io.github.garyquinn.kmpble.testing.FakePeripheral
 import kotlinx.coroutines.test.runTest
@@ -150,7 +153,7 @@ class FakePeripheralTest {
         val peripheral = createPeripheral()
         peripheral.connect()
 
-        val error = BleError.ConnectionLost("link supervision timeout")
+        val error = ConnectionLost("link supervision timeout")
         val s = peripheral.simulateEvent(ConnectionEvent.ConnectionLost(error))
         assertIs<State.Disconnecting.Error>(s)
     }
