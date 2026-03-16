@@ -64,6 +64,7 @@ public class IosPeripheral(
     private val nativeDescMap = mutableMapOf<Descriptor, CBDescriptor>()
 
     override val state: StateFlow<State> get() = peripheralContext.state
+    override val bondState: StateFlow<io.github.garyquinn.kmpble.bonding.BondState> get() = peripheralContext.bondState
     override val services: StateFlow<List<DiscoveredService>?> get() = peripheralContext.services
     override val maximumWriteValueLength: StateFlow<Int> get() = peripheralContext.maximumWriteValueLength
 

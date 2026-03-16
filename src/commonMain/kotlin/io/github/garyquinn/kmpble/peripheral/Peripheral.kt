@@ -1,6 +1,7 @@
 package io.github.garyquinn.kmpble.peripheral
 
 import io.github.garyquinn.kmpble.Identifier
+import io.github.garyquinn.kmpble.bonding.BondState
 import io.github.garyquinn.kmpble.connection.ConnectionOptions
 import io.github.garyquinn.kmpble.connection.State
 import io.github.garyquinn.kmpble.gatt.BackpressureStrategy
@@ -24,6 +25,7 @@ public interface Peripheral : AutoCloseable {
     public suspend fun disconnect()
     override fun close()
     public val state: StateFlow<State>
+    public val bondState: StateFlow<BondState>
 
     // --- Discovery ---
     public val services: StateFlow<List<DiscoveredService>?>

@@ -61,7 +61,10 @@ public class AndroidPeripheral(
     private val nativeCharMap = mutableMapOf<Characteristic, BluetoothGattCharacteristic>()
     private val nativeDescMap = mutableMapOf<Descriptor, BluetoothGattDescriptor>()
 
+    private val bondManager = AndroidBondManager(device, context, peripheralContext)
+
     override val state: StateFlow<State> get() = peripheralContext.state
+    override val bondState: StateFlow<io.github.garyquinn.kmpble.bonding.BondState> get() = bondManager.bondState
     override val services: StateFlow<List<DiscoveredService>?> get() = peripheralContext.services
     override val maximumWriteValueLength: StateFlow<Int> get() = peripheralContext.maximumWriteValueLength
 
@@ -79,6 +82,7 @@ public class AndroidPeripheral(
     override suspend fun connect(options: ConnectionOptions) {
         checkNotClosed()
         reconnectionHandler.start(options)
+        bondManager.start()
         withContext(peripheralContext.dispatcher) {
             peripheralContext.processEvent(ConnectionEvent.ConnectRequested)
             peripheralContext.gattQueue.start()
@@ -136,9 +140,16 @@ public class AndroidPeripheral(
         if (closed) return
         closed = true
         reconnectionHandler.stop()
+        bondManager.stop()
         bridge.close()
         peripheralContext.close()
         PeripheralRegistry.remove(identifier)
+    }
+
+    @io.github.garyquinn.kmpble.ExperimentalBleApi
+    public suspend fun removeBond(): io.github.garyquinn.kmpble.bonding.BondRemovalResult {
+        checkNotClosed()
+        return bondManager.removeBond()
     }
 
     override suspend fun refreshServices(): List<DiscoveredService> {

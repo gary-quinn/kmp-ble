@@ -1,6 +1,7 @@
 package io.github.garyquinn.kmpble.peripheral.internal
 
 import io.github.garyquinn.kmpble.Identifier
+import io.github.garyquinn.kmpble.bonding.BondState
 import io.github.garyquinn.kmpble.connection.State
 import io.github.garyquinn.kmpble.connection.internal.ConnectionEvent
 import io.github.garyquinn.kmpble.connection.internal.StateMachine
@@ -29,6 +30,9 @@ internal class PeripheralContext(val identifier: Identifier) {
 
     private val _services = MutableStateFlow<List<DiscoveredService>?>(null)
     val services: StateFlow<List<DiscoveredService>?> = _services.asStateFlow()
+
+    private val _bondState = MutableStateFlow<BondState>(BondState.Unknown)
+    val bondState: StateFlow<BondState> = _bondState.asStateFlow()
 
     private val _maximumWriteValueLength = MutableStateFlow(20) // ATT_MTU 23 - 3
     val maximumWriteValueLength: StateFlow<Int> = _maximumWriteValueLength.asStateFlow()
@@ -61,6 +65,10 @@ internal class PeripheralContext(val identifier: Identifier) {
 
     suspend fun updateServices(discovered: List<DiscoveredService>) = withContext(dispatcher) {
         _services.value = discovered
+    }
+
+    suspend fun updateBondState(state: BondState) = withContext(dispatcher) {
+        _bondState.value = state
     }
 
     suspend fun updateMtu(mtu: Int) = withContext(dispatcher) {

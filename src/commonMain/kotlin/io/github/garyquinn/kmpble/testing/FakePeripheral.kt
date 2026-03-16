@@ -34,6 +34,7 @@ public class FakePeripheral internal constructor(
     private var closed = false
 
     override val state: StateFlow<State> get() = context.state
+    override val bondState: StateFlow<io.github.garyquinn.kmpble.bonding.BondState> get() = context.bondState
     override val services: StateFlow<List<DiscoveredService>?> get() = context.services
     override val maximumWriteValueLength: StateFlow<Int> get() = context.maximumWriteValueLength
 
