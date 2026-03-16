@@ -1,20 +1,22 @@
 # kmp-ble
 
-Kotlin Multiplatform BLE library for Android and iOS.
+[![CI](https://github.com/gary-quinn/kmp-ble/actions/workflows/ci.yml/badge.svg)](https://github.com/gary-quinn/kmp-ble/actions/workflows/ci.yml)
+[![Publish](https://github.com/gary-quinn/kmp-ble/actions/workflows/publish.yml/badge.svg)](https://github.com/gary-quinn/kmp-ble/actions/workflows/publish.yml)
+[![Maven Central](https://img.shields.io/maven-central/v/com.atruedev/kmp-ble)](https://central.sonatype.com/artifact/com.atruedev/kmp-ble)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+[![Kotlin](https://img.shields.io/badge/Kotlin-2.3.10-purple.svg)](https://kotlinlang.org)
 
-**Status:** v0.1.0-alpha01 — scanning, connecting, GATT read/write/observe.
+Kotlin Multiplatform BLE library for Android and iOS.
 
 ## Setup
 
 ### Android / KMP (Gradle)
 
-Add the dependency to your module `build.gradle.kts`:
-
 ```kotlin
 kotlin {
     sourceSets {
         commonMain.dependencies {
-            implementation("com.atruedev:kmp-ble:0.1.0-alpha01")
+            implementation("com.atruedev:kmp-ble:0.1.0-alpha09")
         }
     }
 }
@@ -41,8 +43,6 @@ https://github.com/gary-quinn/kmp-ble
 
 Select the version and add `KmpBle` to your target.
 
-Then import in Swift:
-
 ```swift
 import KmpBle
 ```
@@ -57,8 +57,8 @@ services, use the UUID from your device's documentation or GATT profile.
 See: [Bluetooth SIG Service UUIDs](https://bitbucket.org/bluetooth-SIG/public/src/main/assigned_numbers/uuids/service_uuids.yaml)
 
 ```kotlin
-// Android
-val scanner = AndroidScanner(context) {
+// Common code — works on both Android and iOS
+val scanner = Scanner {
     timeout = 30.seconds
     emission = EmissionPolicy.FirstThenChanges(rssiThreshold = 10)
     filters {
@@ -66,15 +66,6 @@ val scanner = AndroidScanner(context) {
     }
 }
 
-// iOS
-val scanner = IosScanner {
-    filters {
-        match { serviceUuid(ServiceUuid.HEART_RATE) }
-        // or custom UUID: match { serviceUuid("6e400001-b5a3-f393-e0a9-e50e24dcca9e") }
-    }
-}
-
-// Collect (both platforms)
 scanner.advertisements.collect { ad ->
     println("Found: ${ad.name} (${ad.identifier}) rssi=${ad.rssi}")
 }
@@ -85,10 +76,7 @@ scanner.close()
 ### Monitor adapter state
 
 ```kotlin
-// Android
-val adapter = AndroidBluetoothAdapter(context)
-// iOS
-val adapter = IosBluetoothAdapter()
+val adapter = BluetoothAdapter()
 
 adapter.state.collect { state ->
     when (state) {
@@ -103,10 +91,7 @@ adapter.state.collect { state ->
 ### Connect and read/write
 
 ```kotlin
-// Android
-val peripheral = AndroidPeripheral(bluetoothDevice, context)
-// iOS
-val peripheral = IosPeripheral(cbPeripheral)
+val peripheral = advertisement.toPeripheral()
 
 peripheral.connect()
 
@@ -127,13 +112,67 @@ peripheral.observeValues(hrChar).collect { data ->
 }
 
 peripheral.disconnect()
-peripheral.close()
+peripheral.close() // or use peripheral.use { ... }
+```
+
+### Bonding
+
+```kotlin
+// Proactive bonding
+peripheral.connect(ConnectionOptions(bondingPreference = BondingPreference.Required))
+
+// Observe bond state
+peripheral.bondState.collect { state ->
+    println("Bond: $state") // NotBonded, Bonding, Bonded, Unknown
+}
+
+// Remove bond (Android only)
+@OptIn(ExperimentalBleApi::class)
+val result = peripheral.removeBond()
+```
+
+### Reconnection
+
+```kotlin
+peripheral.connect(ConnectionOptions(
+    reconnectionStrategy = ReconnectionStrategy.ExponentialBackoff(
+        initialDelay = 1.seconds,
+        maxDelay = 30.seconds,
+        maxAttempts = 10,
+    )
+))
+```
+
+### Permissions
+
+```kotlin
+when (val result = checkBlePermissions()) {
+    is PermissionResult.Granted -> { /* ready to scan */ }
+    is PermissionResult.Denied -> { /* request permissions */ }
+    is PermissionResult.PermanentlyDenied -> { /* open settings */ }
+}
+```
+
+### Logging
+
+```kotlin
+BleLogConfig.logger = PrintBleLogger() // stdout/logcat
+// or
+BleLogConfig.logger = BleLogger { event -> Timber.d("BLE: $event") }
 ```
 
 ### Test without hardware
 
 ```kotlin
-val fake = FakePeripheral {
+val scanner = FakeScanner {
+    advertisement {
+        name("HeartSensor")
+        rssi(-55)
+        serviceUuids("180d")
+    }
+}
+
+val peripheral = FakePeripheral {
     service("180d") {
         characteristic("2a37") {
             properties(notify = true, read = true)
@@ -148,19 +187,16 @@ val fake = FakePeripheral {
         }
     }
 }
-
-fake.connect()
-val hr = fake.read(fake.findCharacteristic(uuidFrom("180d"), uuidFrom("2a37"))!!)
-// hr == [0x00, 72]
 ```
 
 ## Architecture
 
 - **State machine:** 14 states with declarative transition table — no invalid states in production
 - **Per-peripheral concurrency:** `limitedParallelism(1)` serialization, no locks
-- **GATT queue:** FIFO with timeout watchdog, Immediate priority for disconnect
-- **Zero-copy:** `BleData` wraps `NSData` on iOS, `ByteArray` on Android — no memcpy on scan
+- **GATT queue:** FIFO with timeout watchdog
+- **Zero-copy:** `BleData` wraps `NSData` on iOS, `ByteArray` on Android
 - **Object identity:** `Characteristic` and `Descriptor` use reference equality, matching native API behavior
+- **Composable errors:** Sealed interfaces — `AuthError`, `GattOperationError`, `ConnectionError`
 
 ## Requirements
 
@@ -171,4 +207,4 @@ val hr = fake.read(fake.findCharacteristic(uuidFrom("180d"), uuidFrom("2a37"))!!
 
 ## License
 
-Apache 2.0
+[Apache 2.0](LICENSE) — Copyright (C) 2026 Huynh Thien Thach
