@@ -4,7 +4,7 @@ plugins {
     alias(libs.plugins.vanniktech.publish)
 }
 
-group = "io.github.garyquinn"
+group = "com.atruedev"
 version = providers.environmentVariable("VERSION").getOrElse("0.0.0-local")
 
 kotlin {
@@ -27,7 +27,7 @@ kotlin {
     }
 
     android {
-        namespace = "io.github.garyquinn.kmpble"
+        namespace = "com.atruedev.kmpble"
         compileSdk = libs.versions.androidCompileSdk.get().toInt()
         minSdk = libs.versions.androidMinSdk.get().toInt()
 
@@ -88,7 +88,7 @@ mavenPublishing {
     publishToMavenCentral(com.vanniktech.maven.publish.SonatypeHost.CENTRAL_PORTAL)
     signAllPublications()
 
-    coordinates("io.github.garyquinn", "kmp-ble", version.toString())
+    coordinates("com.atruedev", "kmp-ble", version.toString())
 
     pom {
         name.set("kmp-ble")

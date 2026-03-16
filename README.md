@@ -14,7 +14,7 @@ Add the dependency to your module `build.gradle.kts`:
 kotlin {
     sourceSets {
         commonMain.dependencies {
-            implementation("io.github.garyquinn:kmp-ble:0.1.0-alpha01")
+            implementation("com.atruedev:kmp-ble:0.1.0-alpha01")
         }
     }
 }

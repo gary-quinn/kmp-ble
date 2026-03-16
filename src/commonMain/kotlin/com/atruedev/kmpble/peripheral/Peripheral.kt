@@ -1,0 +1,60 @@
+package com.atruedev.kmpble.peripheral
+
+import com.atruedev.kmpble.ExperimentalBleApi
+import com.atruedev.kmpble.Identifier
+import com.atruedev.kmpble.bonding.BondRemovalResult
+import com.atruedev.kmpble.bonding.BondState
+import com.atruedev.kmpble.connection.ConnectionOptions
+import com.atruedev.kmpble.connection.State
+import com.atruedev.kmpble.gatt.BackpressureStrategy
+import com.atruedev.kmpble.gatt.Characteristic
+import com.atruedev.kmpble.gatt.Descriptor
+import com.atruedev.kmpble.gatt.DiscoveredService
+import com.atruedev.kmpble.gatt.Observation
+import com.atruedev.kmpble.gatt.WriteType
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.StateFlow
+import kotlin.uuid.ExperimentalUuidApi
+import kotlin.uuid.Uuid
+
+@OptIn(ExperimentalUuidApi::class)
+public interface Peripheral : AutoCloseable {
+
+    public val identifier: Identifier
+
+    // --- Connection ---
+    public suspend fun connect(options: ConnectionOptions = ConnectionOptions())
+    public suspend fun disconnect()
+    override fun close()
+    public val state: StateFlow<State>
+    public val bondState: StateFlow<BondState>
+    @ExperimentalBleApi
+    public fun removeBond(): BondRemovalResult
+
+    // --- Discovery ---
+    public val services: StateFlow<List<DiscoveredService>?>
+    public suspend fun refreshServices(): List<DiscoveredService>
+    public fun findCharacteristic(serviceUuid: Uuid, characteristicUuid: Uuid): Characteristic?
+    public fun findDescriptor(serviceUuid: Uuid, characteristicUuid: Uuid, descriptorUuid: Uuid): Descriptor?
+
+    // --- GATT Operations ---
+    public suspend fun read(characteristic: Characteristic): ByteArray
+    public suspend fun write(characteristic: Characteristic, data: ByteArray, writeType: WriteType)
+    public fun observe(
+        characteristic: Characteristic,
+        backpressure: BackpressureStrategy = BackpressureStrategy.Latest,
+    ): Flow<Observation>
+    public fun observeValues(
+        characteristic: Characteristic,
+        backpressure: BackpressureStrategy = BackpressureStrategy.Latest,
+    ): Flow<ByteArray>
+
+    // --- Descriptors ---
+    public suspend fun readDescriptor(descriptor: Descriptor): ByteArray
+    public suspend fun writeDescriptor(descriptor: Descriptor, data: ByteArray)
+
+    // --- Info ---
+    public suspend fun readRssi(): Int
+    public suspend fun requestMtu(mtu: Int): Int
+    public val maximumWriteValueLength: StateFlow<Int>
+}

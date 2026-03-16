@@ -11,7 +11,7 @@ kotlin {
     }
 
     android {
-        namespace = "io.github.garyquinn.kmpble.sample"
+        namespace = "com.atruedev.kmpble.sample"
         compileSdk = libs.versions.androidCompileSdk.get().toInt()
         minSdk = libs.versions.androidMinSdk.get().toInt()
     }
@@ -29,10 +29,14 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             implementation(project(":"))
-            implementation("org.jetbrains.compose.runtime:runtime:${libs.versions.composeMultiplatform.get()}")
-            implementation("org.jetbrains.compose.foundation:foundation:${libs.versions.composeMultiplatform.get()}")
-            implementation("org.jetbrains.compose.material3:material3:${libs.versions.composeMultiplatform.get()}")
-            implementation("org.jetbrains.compose.ui:ui:${libs.versions.composeMultiplatform.get()}")
+            @Suppress("DEPRECATION")
+            implementation(compose.runtime)
+            @Suppress("DEPRECATION")
+            implementation(compose.foundation)
+            @Suppress("DEPRECATION")
+            implementation(compose.material3)
+            @Suppress("DEPRECATION")
+            implementation(compose.ui)
             implementation(libs.lifecycle.viewmodel.compose)
             implementation(libs.lifecycle.runtime.compose)
             implementation(libs.kotlinx.coroutines.core)

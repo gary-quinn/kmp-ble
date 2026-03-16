@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-    namespace = "io.github.garyquinn.kmpble.sample.android"
+    namespace = "com.atruedev.kmpble.sample.android"
     compileSdk = libs.versions.androidCompileSdk.get().toInt()
 
     defaultConfig {
-        applicationId = "io.github.garyquinn.kmpble.sample"
+        applicationId = "com.atruedev.kmpble.sample"
         minSdk = libs.versions.androidMinSdk.get().toInt()
         targetSdk = libs.versions.androidTargetSdk.get().toInt()
         versionCode = 1

@@ -11,7 +11,7 @@ Migrating to kmp-ble from other Kotlin Multiplatform BLE libraries.
 kotlin {
     sourceSets {
         commonMain.dependencies {
-            implementation("io.github.garyquinn:kmp-ble:0.1.0-alpha01")
+            implementation("com.atruedev:kmp-ble:0.1.0-alpha01")
         }
     }
 }

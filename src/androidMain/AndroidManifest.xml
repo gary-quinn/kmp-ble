@@ -11,7 +11,7 @@
             android:authorities="${applicationId}.androidx-startup"
             android:exported="false">
             <meta-data
-                android:name="io.github.garyquinn.kmpble.KmpBleInitializer"
+                android:name="com.atruedev.kmpble.KmpBleInitializer"
                 android:value="androidx.startup" />
         </provider>
     </application>
