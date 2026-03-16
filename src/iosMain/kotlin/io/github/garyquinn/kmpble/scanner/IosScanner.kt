@@ -1,5 +1,6 @@
 package io.github.garyquinn.kmpble.scanner
 
+import io.github.garyquinn.kmpble.adapter.BluetoothAdapterState
 import io.github.garyquinn.kmpble.internal.CentralManagerProvider
 import io.github.garyquinn.kmpble.scanner.internal.applyEmissionPolicy
 import io.github.garyquinn.kmpble.scanner.internal.matchesFilters
@@ -12,6 +13,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.takeWhile
 import kotlinx.coroutines.launch
@@ -52,6 +54,12 @@ public class IosScanner(
     private fun createRawScanFlow(): Flow<Advertisement> = callbackFlow {
         val manager = CentralManagerProvider.manager
         val delegate = CentralManagerProvider.scanDelegate
+
+        // Wait for CBCentralManager to reach poweredOn before scanning.
+        // Without this, scanForPeripheralsWithServices is silently ignored
+        // and CoreBluetooth logs "API MISUSE: can only accept this command
+        // while in the powered on state".
+        CentralManagerProvider.adapterStateFlow.first { it == BluetoothAdapterState.On }
 
         val serviceUuids = config.filterGroups.flatMap { andGroup ->
             andGroup.filterIsInstance<ScanPredicate.ServiceUuid>()

@@ -14,3 +14,6 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "kmp-ble"
+
+include(":sample")
+include(":sample-android")

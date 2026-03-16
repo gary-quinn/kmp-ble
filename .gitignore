@@ -20,3 +20,7 @@ local.properties
 # Swift Package Manager
 .build/
 .swiftpm/
+
+# Xcode
+xcuserdata/
+*.xcuserstate
