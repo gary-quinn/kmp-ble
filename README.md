@@ -8,22 +8,6 @@ Kotlin Multiplatform BLE library for Android and iOS.
 
 ### Android / KMP (Gradle)
 
-Add the GitHub Packages repository to your `settings.gradle.kts`:
-
-```kotlin
-dependencyResolutionManagement {
-    repositories {
-        maven {
-            url = uri("https://maven.pkg.github.com/gary-quinn/kmp-ble")
-            credentials {
-                username = project.findProperty("gpr.user") as String? ?: System.getenv("GITHUB_ACTOR")
-                password = project.findProperty("gpr.key") as String? ?: System.getenv("GITHUB_TOKEN")
-            }
-        }
-    }
-}
-```
-
 Add the dependency to your module `build.gradle.kts`:
 
 ```kotlin
