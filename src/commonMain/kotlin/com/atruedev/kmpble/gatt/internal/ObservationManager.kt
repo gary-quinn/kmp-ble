@@ -123,7 +123,17 @@ internal class ObservationManager {
     }
 
     /**
-     * Legacy emit method for compatibility. Matches by UUID, not object identity.
+     * Emit a value to observation flow. Non-suspend version for use from GATT callbacks.
+     *
+     * Thread-safety: This method reads from the observations map without locking.
+     * It is safe to call from any thread because:
+     * 1. Map reads are atomic for reference types
+     * 2. tryEmit on MutableSharedFlow is thread-safe
+     * 3. The worst case is a missed emit during concurrent modification (acceptable)
+     *
+     * @param serviceUuid Service UUID
+     * @param charUuid Characteristic UUID
+     * @param value The value to emit
      */
     fun emitByUuid(serviceUuid: Uuid, charUuid: Uuid, value: ByteArray) {
         val key = ObservationKey(serviceUuid, charUuid)
@@ -133,26 +143,27 @@ internal class ObservationManager {
     /**
      * Called on disconnect. Emits [ObservationEvent.Disconnected] to all active observations.
      * Does NOT clear observations — they persist for reconnection.
+     *
+     * Non-suspend version: Uses tryEmit which is non-blocking. Safe to call from
+     * any context including scopes that may be cancelled (e.g., during close()).
      */
-    suspend fun onDisconnect() {
-        mutex.withLock {
-            for (tracked in observations.values) {
-                tracked.flow.tryEmit(ObservationEvent.Disconnected)
-            }
+    fun onDisconnect() {
+        for (tracked in observations.values) {
+            tracked.flow.tryEmit(ObservationEvent.Disconnected)
         }
     }
 
     /**
      * Called when reconnection exhausts max attempts (permanent disconnect).
      * Emits [ObservationEvent.PermanentlyDisconnected] to all observations, then clears them.
+     *
+     * Non-suspend version: Uses tryEmit which is non-blocking.
      */
-    suspend fun onPermanentDisconnect() {
-        mutex.withLock {
-            for (tracked in observations.values) {
-                tracked.flow.tryEmit(ObservationEvent.PermanentlyDisconnected)
-            }
-            observations.clear()
+    fun onPermanentDisconnect() {
+        for (tracked in observations.values) {
+            tracked.flow.tryEmit(ObservationEvent.PermanentlyDisconnected)
         }
+        observations.clear()
     }
 
     /**

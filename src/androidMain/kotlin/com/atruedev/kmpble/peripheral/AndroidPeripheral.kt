@@ -589,9 +589,7 @@ public class AndroidPeripheral(
     private fun onDisconnectCleanup() {
         nativeCharMap.clear()
         nativeDescMap.clear()
-        peripheralContext.scope.launch {
-            observationManager.onDisconnect()
-        }
+        observationManager.onDisconnect()
         pendingOps.cancelAll(com.atruedev.kmpble.gatt.internal.NotConnectedException())
     }
 
