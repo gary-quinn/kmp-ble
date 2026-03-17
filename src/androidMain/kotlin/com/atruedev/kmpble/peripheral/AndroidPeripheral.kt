@@ -9,10 +9,12 @@ import android.bluetooth.BluetoothGattDescriptor
 import android.bluetooth.BluetoothProfile
 import android.content.Context
 import com.atruedev.kmpble.Identifier
+import com.atruedev.kmpble.bonding.BondState
+import com.atruedev.kmpble.connection.BondingPreference
 import com.atruedev.kmpble.connection.ConnectionOptions
 import com.atruedev.kmpble.connection.State
 import com.atruedev.kmpble.connection.internal.ConnectionEvent
-import com.atruedev.kmpble.error.BleError
+import com.atruedev.kmpble.internal.DeviceQuirks
 import com.atruedev.kmpble.error.ConnectionFailed
 import com.atruedev.kmpble.error.ConnectionLost
 import com.atruedev.kmpble.error.GattError
@@ -37,6 +39,7 @@ import com.atruedev.kmpble.gatt.internal.applyBackpressure
 import com.atruedev.kmpble.peripheral.internal.PeripheralContext
 import com.atruedev.kmpble.peripheral.internal.PeripheralRegistry
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.onCompletion
@@ -71,7 +74,7 @@ public class AndroidPeripheral(
     private val bondManager = AndroidBondManager(device, context, peripheralContext)
 
     override val state: StateFlow<State> get() = peripheralContext.state
-    override val bondState: StateFlow<com.atruedev.kmpble.bonding.BondState> get() = bondManager.bondState
+    override val bondState: StateFlow<BondState> get() = bondManager.bondState
     override val services: StateFlow<List<DiscoveredService>?> get() = peripheralContext.services
     override val maximumWriteValueLength: StateFlow<Int> get() = peripheralContext.maximumWriteValueLength
 
@@ -93,32 +96,66 @@ public class AndroidPeripheral(
         currentConnectionOptions = options
         reconnectionHandler.start(options)
         bondManager.start()
+
+        val maxAttempts = DeviceQuirks.connectGattRetryCount()
+        val retryDelay = DeviceQuirks.gattConnectionRetryDelay()
+        val timeout = maxOf(options.timeout, DeviceQuirks.connectionTimeout())
+
         withContext(peripheralContext.dispatcher) {
-            peripheralContext.processEvent(ConnectionEvent.ConnectRequested)
-            peripheralContext.gattQueue.start()
-
-            connectionComplete = CompletableDeferred()
-
-            val gatt = bridge.connect(options)
-            if (gatt == null) {
-                peripheralContext.processEvent(
-                    ConnectionEvent.ConnectionLost(ConnectionFailed("connectGatt returned null"))
-                )
-                return@withContext
+            // Samsung quirk: bond before calling connectGatt()
+            if (DeviceQuirks.shouldBondBeforeConnect()
+                && peripheralContext.bondState.value == BondState.NotBonded
+                && options.bondingPreference != BondingPreference.None
+            ) {
+                try {
+                    withTimeout(DeviceQuirks.bondStateChangeTimeout()) {
+                        bondManager.createBond()
+                    }
+                } catch (_: kotlinx.coroutines.TimeoutCancellationException) {
+                    // Bond timed out — proceed with connection attempt anyway
+                }
             }
 
-            try {
-                withTimeout(options.timeout) {
-                    connectionComplete!!.await()
+            repeat(maxAttempts) { attempt ->
+                peripheralContext.processEvent(ConnectionEvent.ConnectRequested)
+                peripheralContext.gattQueue.start()
+
+                connectionComplete = CompletableDeferred()
+
+                val gatt = bridge.connect(options)
+                if (gatt == null) {
+                    peripheralContext.processEvent(
+                        ConnectionEvent.ConnectionLost(ConnectionFailed("connectGatt returned null"))
+                    )
+                    connectionComplete = null
+                    if (attempt < maxAttempts - 1) {
+                        delay(retryDelay)
+                    }
+                    return@repeat
                 }
-            } catch (_: kotlinx.coroutines.TimeoutCancellationException) {
-                bridge.disconnect()
-                bridge.releaseGatt()
-                peripheralContext.processEvent(
-                    ConnectionEvent.ConnectionLost(ConnectionFailed("Connection timeout"))
-                )
-            } finally {
-                connectionComplete = null
+
+                try {
+                    withTimeout(timeout) {
+                        connectionComplete!!.await()
+                    }
+                } catch (_: kotlinx.coroutines.TimeoutCancellationException) {
+                    bridge.disconnect()
+                    bridge.releaseGatt()
+                    peripheralContext.processEvent(
+                        ConnectionEvent.ConnectionLost(ConnectionFailed("Connection timeout"))
+                    )
+                } finally {
+                    connectionComplete = null
+                }
+
+                if (peripheralContext.state.value is State.Connected) {
+                    return@withContext
+                }
+
+                if (attempt < maxAttempts - 1) {
+                    bridge.releaseGatt()
+                    delay(retryDelay)
+                }
             }
         }
     }
@@ -247,19 +284,27 @@ public class AndroidPeripheral(
             BluetoothProfile.STATE_CONNECTED -> {
                 if (status.isSuccess()) {
                     peripheralContext.processEvent(ConnectionEvent.LinkEstablished)
-                    // Proactive bonding if Required and not already bonded
                     val bondPref = currentConnectionOptions?.bondingPreference
-                    if (bondPref == com.atruedev.kmpble.connection.BondingPreference.Required
+                    if (bondPref == BondingPreference.Required
                         && device.bondState != BluetoothDevice.BOND_BONDED
                     ) {
                         peripheralContext.processEvent(ConnectionEvent.BondRequired)
-                        val bonded = bondManager.createBond()
+                        val bonded = try {
+                            withTimeout(DeviceQuirks.bondStateChangeTimeout()) {
+                                bondManager.createBond()
+                            }
+                        } catch (_: kotlinx.coroutines.TimeoutCancellationException) {
+                            false
+                        }
                         if (!bonded) {
                             peripheralContext.processEvent(
-                                ConnectionEvent.BondFailed(ConnectionFailed("Bonding rejected"))
+                                ConnectionEvent.BondFailed(ConnectionFailed("Bonding rejected or timed out"))
                             )
                             connectionComplete?.complete(Unit)
                             return
+                        }
+                        if (DeviceQuirks.shouldRefreshServicesOnBond()) {
+                            bridge.refreshDeviceCache()
                         }
                     }
                     bridge.discoverServices()

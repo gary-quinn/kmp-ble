@@ -164,6 +164,8 @@ internal class AndroidGattBridge(
             TransportType.LE -> BluetoothDevice.TRANSPORT_LE
             TransportType.BrEdr -> BluetoothDevice.TRANSPORT_BREDR
         }
+        callbackThread?.quitSafely()
+
         val thread = HandlerThread("kmp-ble-cb/${device.address}").apply { start() }
         callbackThread = thread
         callbackHandler = Handler(thread.looper)
@@ -220,6 +222,16 @@ internal class AndroidGattBridge(
 
     internal fun readRemoteRssi(): Boolean {
         return gatt?.readRemoteRssi() ?: false
+    }
+
+    internal fun refreshDeviceCache(): Boolean {
+        val g = gatt ?: return false
+        return try {
+            val method = g.javaClass.getMethod("refresh")
+            method.invoke(g) as? Boolean ?: false
+        } catch (_: Exception) {
+            false
+        }
     }
 
     internal fun disconnect() {
