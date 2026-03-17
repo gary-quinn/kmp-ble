@@ -23,14 +23,21 @@ import com.atruedev.kmpble.gatt.internal.ObservationManager
 import com.atruedev.kmpble.gatt.internal.PendingOperations
 import com.atruedev.kmpble.gatt.internal.applyBackpressure
 import com.atruedev.kmpble.internal.CentralManagerProvider
+import com.atruedev.kmpble.l2cap.IosL2capChannel
+import com.atruedev.kmpble.l2cap.L2capChannel
+import com.atruedev.kmpble.l2cap.L2capException
 import com.atruedev.kmpble.peripheral.internal.PeripheralContext
 import com.atruedev.kmpble.peripheral.internal.PeripheralRegistry
 import com.atruedev.kmpble.scanner.uuidFrom
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.getAndUpdate
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
@@ -42,6 +49,7 @@ import platform.CoreBluetooth.CBCharacteristicPropertyRead
 import platform.CoreBluetooth.CBCharacteristicPropertyWrite
 import platform.CoreBluetooth.CBCharacteristicPropertyWriteWithoutResponse
 import platform.CoreBluetooth.CBDescriptor
+import platform.CoreBluetooth.CBL2CAPChannel
 import platform.CoreBluetooth.CBPeripheral
 import platform.CoreBluetooth.CBService
 import com.atruedev.kmpble.bleDataFromNSData
@@ -68,6 +76,10 @@ public class IosPeripheral(
     // Map our Characteristic/Descriptor objects to native CBCharacteristic/CBDescriptor
     private val nativeCharMap = mutableMapOf<Characteristic, CBCharacteristic>()
     private val nativeDescMap = mutableMapOf<Descriptor, CBDescriptor>()
+
+    // L2CAP state
+    private var pendingL2capChannel: CompletableDeferred<CBL2CAPChannel>? = null
+    private val activeL2capChannels = MutableStateFlow<List<IosL2capChannel>>(emptyList())
 
     override val state: StateFlow<State> get() = peripheralContext.state
     override val bondState: StateFlow<com.atruedev.kmpble.bonding.BondState> get() = peripheralContext.bondState
@@ -170,6 +182,7 @@ public class IosPeripheral(
         if (closed) return
         closed = true
         reconnectionHandler.stop()
+        closeL2capChannels()
         observationManager.clear()
         centralDelegate.unregisterConnectionCallback(identifier.value)
         bridge.close()
@@ -288,6 +301,9 @@ public class IosPeripheral(
                         )
                     }
                     pendingOps.rssiRead = null
+                }
+                is AppleCallbackEvent.DidOpenL2CAPChannel -> {
+                    handleDidOpenL2CAPChannel(event)
                 }
             }
         }
@@ -566,14 +582,81 @@ public class IosPeripheral(
         return actualMtu
     }
 
+    // --- L2CAP ---
+
+    override suspend fun openL2capChannel(psm: Int, secure: Boolean): L2capChannel {
+        checkNotClosed()
+        if (peripheralContext.state.value !is State.Connected) {
+            throw L2capException.NotConnected("Peripheral is not connected (state: ${peripheralContext.state.value})")
+        }
+
+        return withContext(peripheralContext.dispatcher) {
+            if (pendingL2capChannel != null) {
+                throw L2capException.OpenFailed(psm, "Another L2CAP channel open is already in progress")
+            }
+            val deferred = CompletableDeferred<CBL2CAPChannel>()
+            pendingL2capChannel = deferred
+
+            bridge.openL2CAPChannel(psm.toUShort())
+
+            try {
+                val cbChannel = withTimeout(L2CAP_OPEN_TIMEOUT_MS) {
+                    deferred.await()
+                }
+                val channel = IosL2capChannel(cbChannel, peripheralContext.scope)
+                activeL2capChannels.update { it + channel }
+                channel
+            } catch (_: TimeoutCancellationException) {
+                pendingL2capChannel = null
+                throw L2capException.OpenFailed(psm, "Timeout waiting for L2CAP channel")
+            } catch (e: L2capException) {
+                pendingL2capChannel = null
+                throw e
+            } catch (e: Exception) {
+                pendingL2capChannel = null
+                throw L2capException.OpenFailed(psm, e.message ?: "Unknown error", e)
+            }
+        }
+    }
+
+    private fun handleDidOpenL2CAPChannel(event: AppleCallbackEvent.DidOpenL2CAPChannel) {
+        val deferred = pendingL2capChannel ?: return
+        pendingL2capChannel = null
+
+        if (event.error != null) {
+            deferred.completeExceptionally(
+                L2capException.OpenFailed(
+                    psm = event.channel?.PSM?.toInt() ?: -1,
+                    message = event.error.localizedDescription,
+                )
+            )
+        } else if (event.channel != null) {
+            deferred.complete(event.channel)
+        } else {
+            deferred.completeExceptionally(
+                L2capException.OpenFailed(psm = -1, message = "Channel is null with no error")
+            )
+        }
+    }
+
+    private fun closeL2capChannels() {
+        val channels = activeL2capChannels.getAndUpdate { emptyList() }
+        channels.forEach { it.close() }
+    }
+
     private fun onDisconnectCleanup() {
         nativeCharMap.clear()
         nativeDescMap.clear()
+        closeL2capChannels()
         observationManager.onDisconnect()
         pendingOps.cancelAll(com.atruedev.kmpble.gatt.internal.NotConnectedException())
     }
 
     private fun checkNotClosed() {
         check(!closed) { "Peripheral is closed" }
+    }
+
+    private companion object {
+        const val L2CAP_OPEN_TIMEOUT_MS = 30_000L
     }
 }

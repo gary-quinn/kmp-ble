@@ -4,6 +4,7 @@ import com.atruedev.kmpble.Identifier
 import com.atruedev.kmpble.gatt.Characteristic
 import com.atruedev.kmpble.gatt.DiscoveredService
 import com.atruedev.kmpble.gatt.WriteType
+import com.atruedev.kmpble.l2cap.L2capChannel
 import com.atruedev.kmpble.scanner.uuidFrom
 import kotlinx.coroutines.flow.Flow
 import kotlin.uuid.ExperimentalUuidApi
@@ -12,6 +13,7 @@ import kotlin.uuid.Uuid
 public typealias ReadHandler = suspend () -> ByteArray
 public typealias WriteHandler = suspend (data: ByteArray, writeType: WriteType) -> Unit
 public typealias ObserveHandler = () -> Flow<ByteArray>
+public typealias L2capHandler = suspend (psm: Int) -> L2capChannel
 
 @OptIn(ExperimentalUuidApi::class)
 internal data class FakeCharacteristicConfig(
@@ -27,6 +29,7 @@ public class FakePeripheralBuilder {
     internal val characteristicConfigs: MutableList<FakeCharacteristicConfig> = mutableListOf()
     private var connectHandler: suspend () -> Result<Unit> = { Result.success(Unit) }
     private var disconnectHandler: suspend () -> Result<Unit> = { Result.success(Unit) }
+    internal var l2capHandler: L2capHandler? = null
     public var identifier: Identifier = Identifier("fake-peripheral")
 
     public fun service(uuid: String, block: FakeServiceBuilder.() -> Unit = {}) {
@@ -48,12 +51,21 @@ public class FakePeripheralBuilder {
         disconnectHandler = handler
     }
 
+    /**
+     * Configure L2CAP channel opening behavior.
+     * The handler receives the PSM and returns an [L2capChannel] (typically [FakeL2capChannel]).
+     */
+    public fun onOpenL2capChannel(handler: L2capHandler) {
+        l2capHandler = handler
+    }
+
     internal fun build(): FakePeripheral = FakePeripheral(
         identifier = identifier,
         fakeServices = services.toList(),
         characteristicConfigs = characteristicConfigs.toList(),
         onConnectHandler = connectHandler,
         onDisconnectHandler = disconnectHandler,
+        onL2capHandler = l2capHandler,
     )
 }
 

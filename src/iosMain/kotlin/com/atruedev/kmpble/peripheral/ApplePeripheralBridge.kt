@@ -3,6 +3,7 @@ package com.atruedev.kmpble.peripheral
 import com.atruedev.kmpble.internal.CentralManagerProvider
 import platform.CoreBluetooth.CBCharacteristicWriteWithResponse
 import platform.CoreBluetooth.CBCharacteristicWriteWithoutResponse
+import platform.CoreBluetooth.CBL2CAPChannel
 import platform.CoreBluetooth.CBPeripheral
 import platform.CoreBluetooth.CBPeripheralDelegateProtocol
 import platform.CoreBluetooth.CBService
@@ -24,6 +25,7 @@ internal sealed interface AppleCallbackEvent {
     data class DidUpdateValueForDescriptor(val descriptor: CBDescriptor, val error: NSError?) : AppleCallbackEvent
     data class DidWriteValueForDescriptor(val descriptor: CBDescriptor, val error: NSError?) : AppleCallbackEvent
     data class DidReadRSSI(val rssi: NSNumber, val error: NSError?) : AppleCallbackEvent
+    data class DidOpenL2CAPChannel(val channel: CBL2CAPChannel?, val error: NSError?) : AppleCallbackEvent
 }
 
 internal class ApplePeripheralBridge(
@@ -78,6 +80,14 @@ internal class ApplePeripheralBridge(
         override fun peripheral(peripheral: CBPeripheral, didReadRSSI: NSNumber, error: NSError?) {
             onEvent?.invoke(AppleCallbackEvent.DidReadRSSI(didReadRSSI, error))
         }
+
+        override fun peripheral(
+            peripheral: CBPeripheral,
+            didOpenL2CAPChannel: CBL2CAPChannel?,
+            error: NSError?,
+        ) {
+            onEvent?.invoke(AppleCallbackEvent.DidOpenL2CAPChannel(didOpenL2CAPChannel, error))
+        }
     }
 
     init {
@@ -119,6 +129,10 @@ internal class ApplePeripheralBridge(
 
     internal fun readRSSI() {
         cbPeripheral.readRSSI()
+    }
+
+    internal fun openL2CAPChannel(psm: UShort) {
+        cbPeripheral.openL2CAPChannel(psm)
     }
 
     internal fun disconnect() {

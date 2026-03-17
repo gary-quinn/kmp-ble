@@ -13,6 +13,7 @@ import com.atruedev.kmpble.bonding.BondState
 import com.atruedev.kmpble.connection.BondingPreference
 import com.atruedev.kmpble.connection.ConnectionOptions
 import com.atruedev.kmpble.connection.State
+import com.atruedev.kmpble.l2cap.L2capChannel
 import com.atruedev.kmpble.connection.internal.ConnectionEvent
 import com.atruedev.kmpble.error.ConnectionFailed
 import com.atruedev.kmpble.error.ConnectionLost
@@ -673,6 +674,12 @@ public class AndroidPeripheral internal constructor(
             }
             deferred.await()
         }
+    }
+
+    // --- L2CAP ---
+
+    override suspend fun openL2capChannel(psm: Int, secure: Boolean): L2capChannel {
+        TODO("Android L2CAP implementation in next PR")
     }
 
     private fun onDisconnectCleanup() {

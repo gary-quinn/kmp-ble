@@ -12,6 +12,7 @@ import com.atruedev.kmpble.gatt.Descriptor
 import com.atruedev.kmpble.gatt.DiscoveredService
 import com.atruedev.kmpble.gatt.Observation
 import com.atruedev.kmpble.gatt.WriteType
+import com.atruedev.kmpble.l2cap.L2capChannel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import kotlin.uuid.ExperimentalUuidApi
@@ -95,4 +96,52 @@ public interface Peripheral : AutoCloseable {
     public suspend fun readRssi(): Int
     public suspend fun requestMtu(mtu: Int): Int
     public val maximumWriteValueLength: StateFlow<Int>
+
+    // --- L2CAP ---
+
+    /**
+     * Open an L2CAP Connection-Oriented Channel to this peripheral.
+     *
+     * L2CAP channels provide high-throughput, stream-oriented communication
+     * that bypasses GATT. Use for firmware updates, bulk data transfer,
+     * or any scenario requiring sustained throughput.
+     *
+     * ## Prerequisites
+     *
+     * - Peripheral must be connected (state = [State.Connected.Ready])
+     * - Peripheral must support L2CAP and advertise the PSM
+     * - PSM is typically discovered via a GATT characteristic
+     *
+     * ## Example
+     *
+     * ```kotlin
+     * // Read PSM from a GATT characteristic (device-specific)
+     * val psmBytes = peripheral.read(psmCharacteristic)
+     * val psm = psmBytes.toInt()
+     *
+     * // Open channel
+     * val channel = peripheral.openL2capChannel(psm)
+     *
+     * // Use channel
+     * channel.write(data)
+     * channel.incoming.collect { response -> ... }
+     *
+     * // Close when done
+     * channel.close()
+     * ```
+     *
+     * @param psm Protocol/Service Multiplexer identifying the L2CAP service
+     * @param secure If true, requires an encrypted connection (default: true).
+     *               **Platform behavior varies:**
+     *               - **iOS:** This parameter is ignored. CoreBluetooth determines
+     *                 encryption at the connection level, not per-channel. All L2CAP
+     *                 channels inherit the connection's security level.
+     *               - **Android:** When true, uses `createL2capChannel()` (encrypted);
+     *                 when false, uses `createInsecureL2capChannel()`.
+     * @return Open L2CAP channel ready for communication
+     * @throws com.atruedev.kmpble.l2cap.L2capException.NotConnected if peripheral is not connected
+     * @throws com.atruedev.kmpble.l2cap.L2capException.OpenFailed if channel cannot be opened
+     * @throws com.atruedev.kmpble.l2cap.L2capException.NotSupported if L2CAP is not available
+     */
+    public suspend fun openL2capChannel(psm: Int, secure: Boolean = true): L2capChannel
 }

@@ -19,6 +19,8 @@ import com.atruedev.kmpble.gatt.internal.ObservationEvent
 import com.atruedev.kmpble.gatt.internal.ObservationKey
 import com.atruedev.kmpble.gatt.internal.ObservationManager
 import com.atruedev.kmpble.gatt.internal.applyBackpressure
+import com.atruedev.kmpble.l2cap.L2capChannel
+import com.atruedev.kmpble.l2cap.L2capException
 import com.atruedev.kmpble.peripheral.Peripheral
 import com.atruedev.kmpble.peripheral.internal.PeripheralContext
 import kotlinx.coroutines.flow.Flow
@@ -37,6 +39,7 @@ public class FakePeripheral internal constructor(
     private val characteristicConfigs: List<FakeCharacteristicConfig>,
     private val onConnectHandler: suspend () -> Result<Unit>,
     private val onDisconnectHandler: suspend () -> Result<Unit>,
+    private val onL2capHandler: L2capHandler?,
 ) : Peripheral {
 
     private val context = PeripheralContext(identifier)
@@ -243,6 +246,16 @@ public class FakePeripheral internal constructor(
     override suspend fun writeDescriptor(descriptor: Descriptor, data: ByteArray) {
         checkNotClosed()
         checkConnected()
+    }
+
+    override suspend fun openL2capChannel(psm: Int, secure: Boolean): L2capChannel {
+        checkNotClosed()
+        if (context.state.value !is State.Connected) {
+            throw L2capException.NotConnected("Peripheral is not connected (state: ${context.state.value})")
+        }
+        val handler = onL2capHandler
+            ?: throw L2capException.NotSupported("No onOpenL2capChannel handler configured")
+        return handler(psm)
     }
 
     override suspend fun readRssi(): Int {
