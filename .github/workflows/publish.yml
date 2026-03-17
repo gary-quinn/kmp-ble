@@ -70,7 +70,7 @@ jobs:
               targets: [
                   .binaryTarget(
                       name: "KmpBle",
-                      url: "https://github.com/gary-quinn/kmp-ble/releases/download/${VERSION}/KmpBle.xcframework.zip",
+                      url: "https://github.com/atruedeveloper/kmp-ble/releases/download/${VERSION}/KmpBle.xcframework.zip",
                       checksum: "${CHECKSUM}"
                   ),
               ]
