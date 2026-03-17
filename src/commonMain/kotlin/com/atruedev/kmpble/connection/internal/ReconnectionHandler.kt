@@ -16,6 +16,7 @@ internal class ReconnectionHandler(
     private val scope: CoroutineScope,
     private val stateFlow: StateFlow<State>,
     private val connectAction: suspend (ConnectionOptions) -> Unit,
+    private val onMaxAttemptsExhausted: (suspend () -> Unit)? = null,
 ) {
     private var options: ConnectionOptions? = null
     private var job: Job? = null
@@ -32,6 +33,7 @@ internal class ReconnectionHandler(
                 if (state is State.Disconnected && state !is State.Disconnected.ByRequest) {
                     val opts = options ?: return@collect
                     val nextDelay = computeDelay(opts.reconnectionStrategy, attempt) ?: run {
+                        onMaxAttemptsExhausted?.invoke()
                         stop()
                         return@collect
                     }

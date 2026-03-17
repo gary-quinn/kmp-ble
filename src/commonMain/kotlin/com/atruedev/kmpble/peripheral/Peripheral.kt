@@ -40,10 +40,48 @@ public interface Peripheral : AutoCloseable {
     // --- GATT Operations ---
     public suspend fun read(characteristic: Characteristic): ByteArray
     public suspend fun write(characteristic: Characteristic, data: ByteArray, writeType: WriteType)
+
+    /**
+     * Observe notifications/indications from a characteristic.
+     *
+     * The returned flow survives disconnects and auto-resubscribes on reconnect:
+     * - Emits [Observation.Value] when data is received
+     * - Emits [Observation.Disconnected] when connection is lost
+     * - Resumes emitting [Observation.Value] when reconnected
+     * - Completes normally when reconnection exhausts max attempts
+     *
+     * May be called before connecting — CCCD will be enabled when connection is established.
+     *
+     * @param characteristic The characteristic to observe (must support notify or indicate)
+     * @param backpressure Strategy for handling backpressure when values arrive faster than consumed
+     * @return A cold flow that emits [Observation] events
+     */
     public fun observe(
         characteristic: Characteristic,
         backpressure: BackpressureStrategy = BackpressureStrategy.Latest,
     ): Flow<Observation>
+
+    /**
+     * Observe raw notification/indication values from a characteristic.
+     *
+     * Similar to [observe], but provides transparent reconnection — the flow suspends during
+     * disconnects and resumes when reconnected, without emitting disconnect events.
+     *
+     * The returned flow survives disconnects and auto-resubscribes on reconnect:
+     * - Emits [ByteArray] when data is received
+     * - Suspends (no emission) during disconnect
+     * - Resumes emitting [ByteArray] when reconnected
+     * - Completes normally when reconnection exhausts max attempts
+     *
+     * Use this when you want to process values without handling connection state changes.
+     * Consumers will see a gap in data during disconnects but no error handling is required.
+     *
+     * May be called before connecting — CCCD will be enabled when connection is established.
+     *
+     * @param characteristic The characteristic to observe (must support notify or indicate)
+     * @param backpressure Strategy for handling backpressure when values arrive faster than consumed
+     * @return A cold flow that emits raw [ByteArray] values
+     */
     public fun observeValues(
         characteristic: Characteristic,
         backpressure: BackpressureStrategy = BackpressureStrategy.Latest,

@@ -17,6 +17,8 @@ import com.atruedev.kmpble.gatt.Observation
 import com.atruedev.kmpble.gatt.WriteType
 import com.atruedev.kmpble.gatt.internal.GattResult
 import com.atruedev.kmpble.gatt.internal.LargeWriteHandler
+import com.atruedev.kmpble.gatt.internal.ObservationEvent
+import com.atruedev.kmpble.gatt.internal.ObservationKey
 import com.atruedev.kmpble.gatt.internal.ObservationManager
 import com.atruedev.kmpble.gatt.internal.PendingOperations
 import com.atruedev.kmpble.gatt.internal.applyBackpressure
@@ -27,8 +29,8 @@ import com.atruedev.kmpble.scanner.uuidFrom
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onCompletion
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
@@ -79,6 +81,7 @@ public class IosPeripheral(
         scope = peripheralContext.scope,
         stateFlow = peripheralContext.state,
         connectAction = { opts -> connect(opts.copy(reconnectionStrategy = com.atruedev.kmpble.connection.ReconnectionStrategy.None)) },
+        onMaxAttemptsExhausted = { observationManager.onPermanentDisconnect() },
     )
 
     init {
@@ -167,6 +170,7 @@ public class IosPeripheral(
         if (closed) return
         closed = true
         reconnectionHandler.stop()
+        observationManager.clear()
         centralDelegate.unregisterConnectionCallback(identifier.value)
         bridge.close()
         peripheralContext.close()
@@ -327,9 +331,26 @@ public class IosPeripheral(
     private suspend fun finishDiscovery(discovered: List<DiscoveredService>) {
         peripheralContext.processEvent(ConnectionEvent.ServicesDiscovered)
         peripheralContext.updateServices(discovered)
+
+        // Re-enable notifications for any observations that survived the disconnect
+        resubscribeObservations()
+
         peripheralContext.processEvent(ConnectionEvent.ConfigurationComplete)
         connectionComplete?.complete(Unit)
         discoveryComplete?.complete(discovered)
+    }
+
+    private suspend fun resubscribeObservations() {
+        val toResubscribe = observationManager.getObservationsToResubscribe()
+        for (key in toResubscribe) {
+            val char = findCharacteristic(key.serviceUuid, key.charUuid)
+            if (char != null) {
+                enableNotifications(char)
+            } else {
+                // Characteristic no longer exists — complete that observation
+                observationManager.completeObservation(key)
+            }
+        }
     }
 
     // --- Service parsing ---
@@ -425,13 +446,31 @@ public class IosPeripheral(
         backpressure: BackpressureStrategy,
     ): Flow<Observation> {
         checkNotClosed()
-        check(peripheralContext.state.value is State.Connected) { "Peripheral is not connected" }
-        val dataFlow = observationManager.getOrCreateFlow(characteristic)
-        enableNotifications(characteristic)
-        return dataFlow
-            .map<ByteArray, Observation> { Observation.Value(it) }
+        val serviceUuid = characteristic.serviceUuid
+        val charUuid = characteristic.uuid
+
+        return kotlinx.coroutines.flow.flow {
+            val eventFlow = observationManager.subscribe(serviceUuid, charUuid, backpressure)
+            eventFlow.collect { event ->
+                when (event) {
+                    is ObservationEvent.Value -> emit(Observation.Value(event.data))
+                    is ObservationEvent.Disconnected -> emit(Observation.Disconnected)
+                    is ObservationEvent.PermanentlyDisconnected -> emit(Observation.Disconnected)
+                }
+            }
+        }
+            .onStart {
+                if (peripheralContext.state.value is State.Connected.Ready) {
+                    enableNotifications(characteristic)
+                }
+            }
             .applyBackpressure(backpressure)
-            .onCompletion { disableNotifications(characteristic) }
+            .onCompletion {
+                val wasLastCollector = observationManager.unsubscribe(serviceUuid, charUuid)
+                if (wasLastCollector) {
+                    disableNotifications(characteristic)
+                }
+            }
     }
 
     override fun observeValues(
@@ -439,12 +478,35 @@ public class IosPeripheral(
         backpressure: BackpressureStrategy,
     ): Flow<ByteArray> {
         checkNotClosed()
-        check(peripheralContext.state.value is State.Connected) { "Peripheral is not connected" }
-        val dataFlow = observationManager.getOrCreateFlow(characteristic)
-        enableNotifications(characteristic)
-        return dataFlow
+        val serviceUuid = characteristic.serviceUuid
+        val charUuid = characteristic.uuid
+
+        return kotlinx.coroutines.flow.flow {
+            val eventFlow = observationManager.subscribe(serviceUuid, charUuid, backpressure)
+            eventFlow.collect { event ->
+                when (event) {
+                    is ObservationEvent.Value -> emit(event.data)
+                    is ObservationEvent.Disconnected -> {
+                        // Transparent reconnection — no emission during disconnect
+                    }
+                    is ObservationEvent.PermanentlyDisconnected -> {
+                        // Flow completes normally, no emission (transformWhile ends the flow)
+                    }
+                }
+            }
+        }
+            .onStart {
+                if (peripheralContext.state.value is State.Connected.Ready) {
+                    enableNotifications(characteristic)
+                }
+            }
             .applyBackpressure(backpressure)
-            .onCompletion { disableNotifications(characteristic) }
+            .onCompletion {
+                val wasLastCollector = observationManager.unsubscribe(serviceUuid, charUuid)
+                if (wasLastCollector) {
+                    disableNotifications(characteristic)
+                }
+            }
     }
 
     private fun enableNotifications(characteristic: Characteristic) {
@@ -507,7 +569,7 @@ public class IosPeripheral(
     private fun onDisconnectCleanup() {
         nativeCharMap.clear()
         nativeDescMap.clear()
-        observationManager.clear()
+        observationManager.onDisconnect()
         pendingOps.cancelAll(com.atruedev.kmpble.gatt.internal.NotConnectedException())
     }
 
