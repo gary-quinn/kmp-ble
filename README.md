@@ -1,7 +1,7 @@
 # kmp-ble
 
-[![CI](https://github.com/gary-quinn/kmp-ble/actions/workflows/ci.yml/badge.svg)](https://github.com/gary-quinn/kmp-ble/actions/workflows/ci.yml)
-[![Publish](https://github.com/gary-quinn/kmp-ble/actions/workflows/publish.yml/badge.svg)](https://github.com/gary-quinn/kmp-ble/actions/workflows/publish.yml)
+[![CI](https://github.com/atruedeveloper/kmp-ble/actions/workflows/ci.yml/badge.svg)](https://github.com/atruedeveloper/kmp-ble/actions/workflows/ci.yml)
+[![Publish](https://github.com/atruedeveloper/kmp-ble/actions/workflows/publish.yml/badge.svg)](https://github.com/atruedeveloper/kmp-ble/actions/workflows/publish.yml)
 [![Maven Central](https://img.shields.io/maven-central/v/com.atruedev/kmp-ble)](https://central.sonatype.com/artifact/com.atruedev/kmp-ble)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.3.10-purple.svg)](https://kotlinlang.org)
@@ -38,7 +38,7 @@ class MyApp : Application() {
 In Xcode: **File > Add Package Dependencies** and enter:
 
 ```
-https://github.com/gary-quinn/kmp-ble
+https://github.com/atruedeveloper/kmp-ble
 ```
 
 Select the version and add `KmpBle` to your target.

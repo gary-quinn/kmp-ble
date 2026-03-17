@@ -101,7 +101,7 @@ mavenPublishing {
     pom {
         name.set("kmp-ble")
         description.set("Kotlin Multiplatform BLE library for Android and iOS")
-        url.set("https://github.com/gary-quinn/kmp-ble")
+        url.set("https://github.com/atruedeveloper/kmp-ble")
         licenses {
             license {
                 name.set("Apache-2.0")
@@ -110,15 +110,15 @@ mavenPublishing {
         }
         developers {
             developer {
-                id.set("gary-quinn")
+                id.set("atruedeveloper")
                 name.set("Gary Quinn")
                 email.set("gary@atruedev.com")
             }
         }
         scm {
-            url.set("https://github.com/gary-quinn/kmp-ble")
-            connection.set("scm:git:git://github.com/gary-quinn/kmp-ble.git")
-            developerConnection.set("scm:git:ssh://github.com/gary-quinn/kmp-ble.git")
+            url.set("https://github.com/atruedeveloper/kmp-ble")
+            connection.set("scm:git:git://github.com/atruedeveloper/kmp-ble.git")
+            developerConnection.set("scm:git:ssh://github.com/atruedeveloper/kmp-ble.git")
         }
     }
 }
