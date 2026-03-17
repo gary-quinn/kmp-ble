@@ -21,21 +21,24 @@ import kotlin.time.Duration.Companion.seconds
  *
  * 1. Exact match: `manufacturer:model:display`
  * 2. Model match: `manufacturer:model`
- * 3. Model prefix match: `manufacturer:model-prefix` (first 6 chars, for series matching)
+ * 3. Model prefix match: `manufacturer:model-prefix` (first [MODEL_PREFIX_LENGTH] chars)
  * 4. Manufacturer match: `manufacturer`
  * 5. Default value
+ *
+ * @param currentDevice the device to look up quirks for. Use [forCurrentDevice] in production;
+ *   pass a custom [DeviceInfo] in tests.
  */
 internal class DeviceQuirks(private val currentDevice: DeviceInfo) {
 
     companion object {
-        private val instance: DeviceQuirks by lazy { DeviceQuirks(DeviceInfo.current()) }
+        /**
+         * Samsung model numbers follow the SM-XXXX pattern (e.g. SM-G991B for Galaxy S21).
+         * 6 characters captures prefixes like "sm-g99" to match an entire series (S21 → sm-g990/991/996).
+         * Other OEMs with different naming may need entries at manufacturer or full-model level instead.
+         */
+        const val MODEL_PREFIX_LENGTH = 6
 
-        fun shouldBondBeforeConnect(): Boolean = instance.shouldBondBeforeConnect()
-        fun gattConnectionRetryDelay(): Duration = instance.gattConnectionRetryDelay()
-        fun connectGattRetryCount(): Int = instance.connectGattRetryCount()
-        fun shouldRefreshServicesOnBond(): Boolean = instance.shouldRefreshServicesOnBond()
-        fun bondStateChangeTimeout(): Duration = instance.bondStateChangeTimeout()
-        fun connectionTimeout(): Duration = instance.connectionTimeout()
+        fun forCurrentDevice(): DeviceQuirks = DeviceQuirks(DeviceInfo.current())
     }
 
     // =========================================================================
@@ -150,6 +153,29 @@ internal class DeviceQuirks(private val currentDevice: DeviceInfo) {
     }
 
     // =========================================================================
+    // Observability
+    // =========================================================================
+
+    /**
+     * Returns a human-readable summary of all active quirks for this device.
+     * Used for logging at connection time so field issues can be diagnosed.
+     */
+    fun describe(): String = buildString {
+        append("${currentDevice.manufacturer}/${currentDevice.model}")
+        val active = mutableListOf<String>()
+        if (shouldBondBeforeConnect()) active += "bond-before-connect"
+        if (shouldRefreshServicesOnBond()) active += "refresh-services-on-bond"
+        if (connectGattRetryCount() > 1) active += "retry=${connectGattRetryCount()}x@${gattConnectionRetryDelay()}"
+        if (bondStateChangeTimeout() != defaultBondStateTimeout) active += "bond-timeout=${bondStateChangeTimeout()}"
+        if (connectionTimeout() != defaultConnectionTimeout) active += "conn-timeout=${connectionTimeout()}"
+        if (active.isEmpty()) {
+            append(" — no device-specific quirks")
+        } else {
+            append(" — ${active.joinToString()}")
+        }
+    }
+
+    // =========================================================================
     // Matching logic
     // =========================================================================
 
@@ -178,7 +204,7 @@ internal class DeviceQuirks(private val currentDevice: DeviceInfo) {
      * Generate match keys from most specific to least specific:
      * 1. `manufacturer:model:display` (exact)
      * 2. `manufacturer:model` (any display/firmware)
-     * 3. `manufacturer:model-prefix` (e.g., "samsung:sm-g99" matches "sm-g990", "sm-g991")
+     * 3. `manufacturer:model-prefix` (first [MODEL_PREFIX_LENGTH] chars for series matching)
      * 4. `manufacturer` (any model)
      */
     private fun generateMatchKeys(): List<String> {
@@ -186,7 +212,7 @@ internal class DeviceQuirks(private val currentDevice: DeviceInfo) {
         return listOf(
             "${d.manufacturer}:${d.model}:${d.display}",
             "${d.manufacturer}:${d.model}",
-            "${d.manufacturer}:${d.model.take(6)}",
+            "${d.manufacturer}:${d.model.take(MODEL_PREFIX_LENGTH)}",
             d.manufacturer,
         )
     }

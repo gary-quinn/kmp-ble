@@ -220,24 +220,20 @@ class DeviceQuirksTest {
     @Test
     fun `manufacturer match when model not in registry`() {
         val quirks = DeviceQuirks(DeviceInfo("samsung", "sm-z999z", "unknown"))
-        // Samsung manufacturer-level quirks still apply
         assertEquals(500.milliseconds, quirks.gattConnectionRetryDelay())
         assertEquals(2, quirks.connectGattRetryCount())
     }
 
     @Test
     fun `model prefix match for series`() {
-        // sm-g991b take(6) = "sm-g99" which matches "samsung:sm-g99" (Galaxy S21 series)
         val quirks = DeviceQuirks(DeviceInfo("samsung", "sm-g991b", "g991bxxu1aua1"))
         assertTrue(quirks.shouldBondBeforeConnect())
-        // sm-g990b take(6) = "sm-g99" also matches
         val quirks2 = DeviceQuirks(DeviceInfo("samsung", "sm-g990b", "g990bxxu1aua1"))
         assertTrue(quirks2.shouldBondBeforeConnect())
     }
 
     @Test
     fun `specific model match takes priority over manufacturer`() {
-        // "google:pixel 7" has 1500ms, "google" has 1s
         val quirks = DeviceQuirks(DeviceInfo("google", "pixel 7", "tp1a.221005.002"))
         assertEquals(1500.milliseconds, quirks.gattConnectionRetryDelay())
     }
@@ -252,4 +248,58 @@ class DeviceQuirksTest {
         assertEquals(10.seconds, quirks.bondStateChangeTimeout())
         assertEquals(30.seconds, quirks.connectionTimeout())
     }
+
+    // =========================================================================
+    // MODEL_PREFIX_LENGTH constant
+    // =========================================================================
+
+    @Test
+    fun `model prefix length matches samsung naming convention`() {
+        assertEquals(6, DeviceQuirks.MODEL_PREFIX_LENGTH)
+        // "sm-g991b".take(6) = "sm-g99" which is the Galaxy S21 series key
+        assertEquals("sm-g99", "sm-g991b".take(DeviceQuirks.MODEL_PREFIX_LENGTH))
+        assertEquals("sm-g99", "sm-g990b".take(DeviceQuirks.MODEL_PREFIX_LENGTH))
+        assertEquals("sm-g99", "sm-g996u".take(DeviceQuirks.MODEL_PREFIX_LENGTH))
+    }
+
+    // =========================================================================
+    // describe() — observability
+    // =========================================================================
+
+    @Test
+    fun `describe includes active quirks for samsung`() {
+        val quirks = DeviceQuirks(DeviceInfo("samsung", "sm-g991b", "g991bxxu1aua1"))
+        val desc = quirks.describe()
+        assertTrue(desc.contains("samsung/sm-g991b"), "should contain device id")
+        assertTrue(desc.contains("bond-before-connect"), "samsung s21 should have bond-before-connect")
+        assertTrue(desc.contains("retry="), "samsung should have retry quirk")
+    }
+
+    @Test
+    fun `describe includes active quirks for xiaomi`() {
+        val quirks = DeviceQuirks(DeviceInfo("xiaomi", "22071219cg", "v14.0.2.0"))
+        val desc = quirks.describe()
+        assertTrue(desc.contains("xiaomi/22071219cg"))
+        assertTrue(desc.contains("refresh-services-on-bond"))
+        assertTrue(desc.contains("bond-timeout="))
+    }
+
+    @Test
+    fun `describe shows no quirks for unknown device`() {
+        val quirks = DeviceQuirks(DeviceInfo("acme", "widget-3000", "v1.0"))
+        val desc = quirks.describe()
+        assertTrue(desc.contains("no device-specific quirks"))
+    }
+
+    @Test
+    fun `describe includes active quirks for google pixel`() {
+        val quirks = DeviceQuirks(DeviceInfo("google", "pixel 7", "tp1a.221005.002"))
+        val desc = quirks.describe()
+        assertTrue(desc.contains("google/pixel 7"))
+        assertTrue(desc.contains("retry=3x"))
+    }
+
+    // Note: DeviceQuirks.forCurrentDevice() is not testable in JVM host tests
+    // because Build.MANUFACTURER/MODEL/DISPLAY are null outside Android runtime.
+    // It is exercised in instrumentation tests and production code.
 }

@@ -14,7 +14,6 @@ import com.atruedev.kmpble.connection.BondingPreference
 import com.atruedev.kmpble.connection.ConnectionOptions
 import com.atruedev.kmpble.connection.State
 import com.atruedev.kmpble.connection.internal.ConnectionEvent
-import com.atruedev.kmpble.internal.DeviceQuirks
 import com.atruedev.kmpble.error.ConnectionFailed
 import com.atruedev.kmpble.error.ConnectionLost
 import com.atruedev.kmpble.error.GattError
@@ -32,10 +31,13 @@ import com.atruedev.kmpble.gatt.internal.ENABLE_NOTIFICATION_VALUE
 import com.atruedev.kmpble.gatt.internal.GattResult
 import com.atruedev.kmpble.gatt.internal.LargeWriteHandler
 import com.atruedev.kmpble.gatt.internal.ObservationEvent
-import com.atruedev.kmpble.gatt.internal.ObservationKey
 import com.atruedev.kmpble.gatt.internal.ObservationManager
 import com.atruedev.kmpble.gatt.internal.PendingOperations
 import com.atruedev.kmpble.gatt.internal.applyBackpressure
+import com.atruedev.kmpble.internal.DeviceInfo
+import com.atruedev.kmpble.internal.DeviceQuirks
+import com.atruedev.kmpble.logging.BleLogEvent
+import com.atruedev.kmpble.logging.logEvent
 import com.atruedev.kmpble.peripheral.internal.PeripheralContext
 import com.atruedev.kmpble.peripheral.internal.PeripheralRegistry
 import kotlinx.coroutines.CompletableDeferred
@@ -44,18 +46,25 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onStart
-import kotlinx.coroutines.flow.transform
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
+/**
+ * @param quirks device-specific BLE workarounds. Defaults to the current device's quirks;
+ *   pass a custom instance in tests to simulate OEM-specific behavior.
+ */
 @OptIn(ExperimentalUuidApi::class)
-public class AndroidPeripheral(
+public class AndroidPeripheral internal constructor(
     private val device: BluetoothDevice,
     context: Context,
+    internal val quirks: DeviceQuirks,
 ) : Peripheral {
+
+    public constructor(device: BluetoothDevice, context: Context) :
+        this(device, context, DeviceQuirks(DeviceInfo.current()))
 
     override val identifier: Identifier = Identifier(device.address)
     private val peripheralContext = PeripheralContext(identifier)
@@ -67,7 +76,6 @@ public class AndroidPeripheral(
     private val pendingOps = PendingOperations()
     private val observationManager = ObservationManager()
 
-    // Map our Characteristic objects back to native BluetoothGattCharacteristic
     private val nativeCharMap = mutableMapOf<Characteristic, BluetoothGattCharacteristic>()
     private val nativeDescMap = mutableMapOf<Descriptor, BluetoothGattDescriptor>()
 
@@ -89,6 +97,7 @@ public class AndroidPeripheral(
 
     init {
         bridge.onEvent = { event -> handleGattEvent(event) }
+        logEvent(BleLogEvent.GattOperation(identifier, "DeviceQuirks: ${quirks.describe()}", uuid = null, status = null))
     }
 
     override suspend fun connect(options: ConnectionOptions) {
@@ -97,65 +106,98 @@ public class AndroidPeripheral(
         reconnectionHandler.start(options)
         bondManager.start()
 
-        val maxAttempts = DeviceQuirks.connectGattRetryCount()
-        val retryDelay = DeviceQuirks.gattConnectionRetryDelay()
-        val timeout = maxOf(options.timeout, DeviceQuirks.connectionTimeout())
-
         withContext(peripheralContext.dispatcher) {
-            // Samsung quirk: bond before calling connectGatt()
-            if (DeviceQuirks.shouldBondBeforeConnect()
-                && peripheralContext.bondState.value == BondState.NotBonded
-                && options.bondingPreference != BondingPreference.None
-            ) {
-                try {
-                    withTimeout(DeviceQuirks.bondStateChangeTimeout()) {
-                        bondManager.createBond()
-                    }
-                } catch (_: kotlinx.coroutines.TimeoutCancellationException) {
-                    // Bond timed out — proceed with connection attempt anyway
-                }
+            ensureBondedIfRequired(options)
+            connectWithRetry(options)
+        }
+    }
+
+    /**
+     * Samsung quirk: some Galaxy devices require bonding BEFORE calling connectGatt(),
+     * otherwise the connection fails silently or returns GATT 133.
+     */
+    private suspend fun ensureBondedIfRequired(options: ConnectionOptions) {
+        if (!quirks.shouldBondBeforeConnect()) return
+        if (peripheralContext.bondState.value != BondState.NotBonded) return
+        if (options.bondingPreference == BondingPreference.None) return
+
+        logEvent(BleLogEvent.BondEvent(identifier, "Quirk: bond-before-connect initiated"))
+        try {
+            withTimeout(quirks.bondStateChangeTimeout()) {
+                bondManager.createBond()
+            }
+            logEvent(BleLogEvent.BondEvent(identifier, "Quirk: bond-before-connect succeeded"))
+        } catch (_: kotlinx.coroutines.TimeoutCancellationException) {
+            logEvent(BleLogEvent.Error(
+                identifier,
+                "Quirk: bond-before-connect timed out after ${quirks.bondStateChangeTimeout()}, proceeding with connection",
+                cause = null,
+            ))
+        }
+    }
+
+    /**
+     * Attempts GATT connection with device-specific retry behavior.
+     *
+     * Pixel devices commonly return GATT error 133 on the first attempt — a retry with
+     * a short delay (1–1.5s) typically succeeds. The retry count and delay are sourced
+     * from [DeviceQuirks] so each OEM gets appropriate handling.
+     *
+     * The effective timeout is `max(options.timeout, quirks.connectionTimeout())` so that
+     * user-configured values are respected while still accommodating OEMs that need longer
+     * timeouts (e.g. Huawei at 35s vs the 30s default).
+     */
+    private suspend fun connectWithRetry(options: ConnectionOptions) {
+        val maxAttempts = quirks.connectGattRetryCount()
+        val retryDelay = quirks.gattConnectionRetryDelay()
+        val timeout = maxOf(options.timeout, quirks.connectionTimeout())
+
+        repeat(maxAttempts) { attempt ->
+            if (attempt > 0) {
+                logEvent(BleLogEvent.GattOperation(
+                    identifier, "Connection retry ${attempt + 1}/$maxAttempts after ${retryDelay}",
+                    uuid = null, status = null,
+                ))
             }
 
-            repeat(maxAttempts) { attempt ->
-                peripheralContext.processEvent(ConnectionEvent.ConnectRequested)
-                peripheralContext.gattQueue.start()
+            peripheralContext.processEvent(ConnectionEvent.ConnectRequested)
+            peripheralContext.gattQueue.start()
 
-                connectionComplete = CompletableDeferred()
+            connectionComplete = CompletableDeferred()
 
-                val gatt = bridge.connect(options)
-                if (gatt == null) {
-                    peripheralContext.processEvent(
-                        ConnectionEvent.ConnectionLost(ConnectionFailed("connectGatt returned null"))
-                    )
-                    connectionComplete = null
-                    if (attempt < maxAttempts - 1) {
-                        delay(retryDelay)
-                    }
-                    return@repeat
-                }
-
-                try {
-                    withTimeout(timeout) {
-                        connectionComplete!!.await()
-                    }
-                } catch (_: kotlinx.coroutines.TimeoutCancellationException) {
-                    bridge.disconnect()
-                    bridge.releaseGatt()
-                    peripheralContext.processEvent(
-                        ConnectionEvent.ConnectionLost(ConnectionFailed("Connection timeout"))
-                    )
-                } finally {
-                    connectionComplete = null
-                }
-
-                if (peripheralContext.state.value is State.Connected) {
-                    return@withContext
-                }
-
+            val gatt = bridge.connect(options)
+            if (gatt == null) {
+                peripheralContext.processEvent(
+                    ConnectionEvent.ConnectionLost(ConnectionFailed("connectGatt returned null"))
+                )
+                connectionComplete = null
                 if (attempt < maxAttempts - 1) {
-                    bridge.releaseGatt()
                     delay(retryDelay)
                 }
+                return@repeat
+            }
+
+            try {
+                withTimeout(timeout) {
+                    connectionComplete!!.await()
+                }
+            } catch (_: kotlinx.coroutines.TimeoutCancellationException) {
+                bridge.disconnect()
+                bridge.releaseGatt()
+                peripheralContext.processEvent(
+                    ConnectionEvent.ConnectionLost(ConnectionFailed("Connection timeout after $timeout"))
+                )
+            } finally {
+                connectionComplete = null
+            }
+
+            if (peripheralContext.state.value is State.Connected) {
+                return
+            }
+
+            if (attempt < maxAttempts - 1) {
+                bridge.releaseGatt()
+                delay(retryDelay)
             }
         }
     }
@@ -173,7 +215,6 @@ public class AndroidPeripheral(
             try {
                 withTimeout(5_000) { disconnectComplete!!.await() }
             } catch (_: kotlinx.coroutines.TimeoutCancellationException) {
-                // Force transition if OS didn't confirm disconnect
                 peripheralContext.processEvent(
                     ConnectionEvent.ConnectionLost(OperationFailed("Disconnect timeout"))
                 )
@@ -290,10 +331,15 @@ public class AndroidPeripheral(
                     ) {
                         peripheralContext.processEvent(ConnectionEvent.BondRequired)
                         val bonded = try {
-                            withTimeout(DeviceQuirks.bondStateChangeTimeout()) {
+                            withTimeout(quirks.bondStateChangeTimeout()) {
                                 bondManager.createBond()
                             }
                         } catch (_: kotlinx.coroutines.TimeoutCancellationException) {
+                            logEvent(BleLogEvent.Error(
+                                identifier,
+                                "Bond state change timed out after ${quirks.bondStateChangeTimeout()}",
+                                cause = null,
+                            ))
                             false
                         }
                         if (!bonded) {
@@ -303,7 +349,11 @@ public class AndroidPeripheral(
                             connectionComplete?.complete(Unit)
                             return
                         }
-                        if (DeviceQuirks.shouldRefreshServicesOnBond()) {
+                        if (quirks.shouldRefreshServicesOnBond()) {
+                            logEvent(BleLogEvent.GattOperation(
+                                identifier, "Quirk: refreshing GATT cache after bond",
+                                uuid = null, status = null,
+                            ))
                             bridge.refreshDeviceCache()
                         }
                     }
@@ -339,10 +389,8 @@ public class AndroidPeripheral(
             peripheralContext.processEvent(ConnectionEvent.ServicesDiscovered)
             peripheralContext.updateServices(discovered)
 
-            // Re-enable notifications for any observations that survived the disconnect
             resubscribeObservations()
 
-            // MTU negotiation or skip to ready
             peripheralContext.processEvent(ConnectionEvent.ConfigurationComplete)
             connectionComplete?.complete(Unit)
             discoveryComplete?.complete(discovered)
@@ -364,7 +412,6 @@ public class AndroidPeripheral(
             if (char != null) {
                 enableNotifications(char)
             } else {
-                // Characteristic no longer exists — complete that observation
                 observationManager.completeObservation(key)
             }
         }
@@ -387,7 +434,6 @@ public class AndroidPeripheral(
             characteristics = characteristics.map { nativeChar ->
                 val char = nativeChar.toCharacteristic(svcUuid)
                 nativeCharMap[char] = nativeChar
-                // Map descriptors
                 char.descriptors.forEachIndexed { i, desc ->
                     if (i < nativeChar.descriptors.size) {
                         nativeDescMap[desc] = nativeChar.descriptors[i]
@@ -454,7 +500,6 @@ public class AndroidPeripheral(
         }
 
         val chunks = LargeWriteHandler.chunk(data, maximumWriteValueLength.value)
-        // Single queue entry for all chunks — prevents interleaving with other ops
         peripheralContext.gattQueue.enqueue {
             for (chunk in chunks) {
                 val deferred = CompletableDeferred<com.atruedev.kmpble.error.GattStatus>()
@@ -540,7 +585,6 @@ public class AndroidPeripheral(
     private fun enableNotifications(characteristic: Characteristic) {
         val native = requireNativeChar(characteristic)
         bridge.setCharacteristicNotification(native, true)
-        // Write CCCD
         val cccd = native.getDescriptor(java.util.UUID.fromString(CCCD_UUID.toString()))
         if (cccd != null) {
             val value = if (characteristic.properties.indicate) ENABLE_INDICATION_VALUE else ENABLE_NOTIFICATION_VALUE
