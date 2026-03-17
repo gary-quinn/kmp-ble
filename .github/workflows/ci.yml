@@ -25,8 +25,15 @@ jobs:
       - name: Build Android
         run: ./gradlew compileAndroidMain
 
-      - name: Test (common on JVM)
-        run: ./gradlew compileAndroidHostTest
+      - name: Test (Android host tests)
+        run: ./gradlew testAndroidHostTest
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: android-test-results
+          path: build/reports/tests/
 
   ios:
     runs-on: macos-26

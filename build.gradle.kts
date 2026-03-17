@@ -60,6 +60,14 @@ kotlin {
     }
 }
 
+// KMP 2.1+ new Android DSL absorbs the AGP extension, so consumerProguardFiles
+// isn't directly configurable. Inject the rules into the AAR at bundle time.
+tasks.withType<Zip>().matching { it.name == "bundleAndroidMainAar" }.configureEach {
+    from("src/androidMain/consumer-rules.pro") {
+        rename { "proguard.txt" }
+    }
+}
+
 tasks.register<Exec>("assembleXCFramework") {
     dependsOn("linkReleaseFrameworkIosArm64", "linkReleaseFrameworkIosSimulatorArm64")
     group = "build"
