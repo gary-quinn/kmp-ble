@@ -14,6 +14,8 @@ import android.os.Handler
 import android.os.HandlerThread
 import com.atruedev.kmpble.connection.ConnectionOptions
 import com.atruedev.kmpble.connection.TransportType
+import com.atruedev.kmpble.logging.BleLogEvent
+import com.atruedev.kmpble.logging.logEvent
 
 internal sealed interface GattCallbackEvent {
     data class ConnectionStateChanged(val status: Int, val newState: Int) : GattCallbackEvent
@@ -164,6 +166,8 @@ internal class AndroidGattBridge(
             TransportType.LE -> BluetoothDevice.TRANSPORT_LE
             TransportType.BrEdr -> BluetoothDevice.TRANSPORT_BREDR
         }
+        callbackThread?.quitSafely()
+
         val thread = HandlerThread("kmp-ble-cb/${device.address}").apply { start() }
         callbackThread = thread
         callbackHandler = Handler(thread.looper)
@@ -220,6 +224,34 @@ internal class AndroidGattBridge(
 
     internal fun readRemoteRssi(): Boolean {
         return gatt?.readRemoteRssi() ?: false
+    }
+
+    /**
+     * Clears the GATT service cache via the internal `BluetoothGatt.refresh()` API.
+     *
+     * This is an **undocumented Android API** accessed through reflection. It exists on all
+     * AOSP builds but is not part of the public SDK contract, so it may break in future
+     * Android versions. If using R8/ProGuard, add a keep rule:
+     * ```
+     * -keepclassmembers class android.bluetooth.BluetoothGatt { boolean refresh(); }
+     * ```
+     *
+     * Used as a workaround for OEMs (OnePlus, Xiaomi) that return stale cached services
+     * after bonding. See [DeviceQuirks.shouldRefreshServicesOnBond].
+     */
+    internal fun refreshDeviceCache(): Boolean {
+        val g = gatt ?: return false
+        return try {
+            val method = g.javaClass.getMethod("refresh")
+            method.invoke(g) as? Boolean ?: false
+        } catch (e: Exception) {
+            logEvent(BleLogEvent.Error(
+                identifier = null,
+                message = "BluetoothGatt.refresh() unavailable via reflection",
+                cause = e,
+            ))
+            false
+        }
     }
 
     internal fun disconnect() {
