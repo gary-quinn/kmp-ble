@@ -31,7 +31,9 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.uuid.Uuid
 import kotlin.uuid.toJavaUuid
 import kotlin.uuid.toKotlinUuid
@@ -50,9 +52,15 @@ import kotlin.uuid.toKotlinUuid
  *
  * ## Threading
  *
- * - BluetoothGattServerCallback methods arrive on Binder threads
- * - All handler invocations and state mutations serialized via dispatcher
- * - notify/indicate use CompletableDeferred to bridge callback -> suspend
+ * All mutable state is accessed exclusively on the serialized [dispatcher]
+ * (limitedParallelism(1)). Binder-thread callbacks dispatch to [scope]
+ * which runs on the same dispatcher. [close] also routes through the
+ * dispatcher via [runBlocking] to ensure safe teardown.
+ *
+ * The only exception is [pendingIndicationSent] — a [ConcurrentHashMap]
+ * of per-device [CompletableDeferred] instances. The map is thread-safe
+ * and [CompletableDeferred.complete] is thread-safe, so
+ * [onNotificationSent] can safely call it from a Binder thread.
  *
  * ## Service Setup
  *
@@ -79,6 +87,8 @@ internal class AndroidGattServer(
     private val dispatcher: CoroutineDispatcher = Dispatchers.Default.limitedParallelism(1)
     private val scope = CoroutineScope(SupervisorJob() + dispatcher)
 
+    // --- All fields below are accessed ONLY on [dispatcher] unless noted ---
+
     private var nativeServer: BluetoothGattServer? = null
 
     private val _connections = MutableStateFlow<List<ServerConnection>>(emptyList())
@@ -100,12 +110,15 @@ internal class AndroidGattServer(
     private val readHandlers = mutableMapOf<Uuid, suspend (Identifier) -> ByteArray>()
     private val writeHandlers = mutableMapOf<Uuid, suspend (Identifier, ByteArray, Boolean) -> GattStatus?>()
 
-    // Pending notification/indication acknowledgement
-    private var pendingNotificationSent: CompletableDeferred<Int>? = null
+    // Per-device indication acknowledgement — ConcurrentHashMap because
+    // onNotificationSent fires on a Binder thread and completes the deferred,
+    // while indicate() writes the entry from the serialized dispatcher.
+    private val pendingIndicationSent = ConcurrentHashMap<String, CompletableDeferred<Int>>()
 
-    // Pending service addition
+    // Pending service addition (only used inside open(), always on dispatcher)
     private var pendingServiceAdd: CompletableDeferred<Int>? = null
 
+    @Volatile
     private var isOpen = false
 
     private val callback = object : BluetoothGattServerCallback() {
@@ -131,6 +144,9 @@ internal class AndroidGattServer(
                         _connections.update { list ->
                             list.filter { it.device != deviceId }
                         }
+                        // Cancel any pending indication for this device
+                        pendingIndicationSent.remove(device.address)
+                            ?.cancel(kotlinx.coroutines.CancellationException("Device disconnected"))
                         _connectionEvents.emit(ServerConnectionEvent.Disconnected(deviceId))
                     }
                 }
@@ -164,7 +180,7 @@ internal class AndroidGattServer(
                         data
                     }
                     sendResponseSafe(device, requestId, BluetoothGatt.GATT_SUCCESS, offset, responseData)
-                } catch (e: Exception) {
+                } catch (_: Exception) {
                     sendResponseSafe(device, requestId, BluetoothGatt.GATT_FAILURE, offset, null)
                 }
             }
@@ -183,7 +199,7 @@ internal class AndroidGattServer(
                 val deviceId = Identifier(device.address)
                 val charUuid = characteristic.uuid.toKotlinUuid()
 
-                // Prepared writes (long writes) — not supported in v0.2
+                // Prepared writes (long writes) — not supported, respond with RequestNotSupported
                 if (preparedWrite) {
                     if (responseNeeded) {
                         sendResponseSafe(device, requestId, BluetoothGatt.GATT_REQUEST_NOT_SUPPORTED, offset, null)
@@ -205,7 +221,7 @@ internal class AndroidGattServer(
                         val nativeStatus = status?.toAndroidGattStatus() ?: BluetoothGatt.GATT_SUCCESS
                         sendResponseSafe(device, requestId, nativeStatus, offset, null)
                     }
-                } catch (e: Exception) {
+                } catch (_: Exception) {
                     if (responseNeeded) {
                         sendResponseSafe(device, requestId, BluetoothGatt.GATT_FAILURE, offset, null)
                     }
@@ -232,7 +248,6 @@ internal class AndroidGattServer(
                     }
                     sendResponseSafe(device, requestId, BluetoothGatt.GATT_SUCCESS, offset, value)
                 } else {
-                    // Non-CCCD descriptors: return empty
                     sendResponseSafe(device, requestId, BluetoothGatt.GATT_SUCCESS, offset, byteArrayOf())
                 }
             }
@@ -264,7 +279,8 @@ internal class AndroidGattServer(
         }
 
         override fun onNotificationSent(device: BluetoothDevice, status: Int) {
-            pendingNotificationSent?.complete(status)
+            // Called on Binder thread — ConcurrentHashMap + CompletableDeferred are both thread-safe
+            pendingIndicationSent.remove(device.address)?.complete(status)
         }
 
         override fun onServiceAdded(status: Int, service: BluetoothGattService) {
@@ -339,10 +355,14 @@ internal class AndroidGattServer(
                 ?: throw ServerException.NotifyFailed("Characteristic $characteristicUuid not found")
 
             val targets = if (device != null) {
+                // Specific device — verify connected and subscribed
                 val connected = connectedDevices[device]
                     ?: throw ServerException.DeviceNotConnected("Device $device not connected")
+                val subscribed = subscriptions.value[characteristicUuid] ?: emptySet()
+                if (device !in subscribed) return@withContext // Not subscribed, skip silently
                 listOf(connected)
             } else {
+                // All subscribed devices
                 val subscribed = subscriptions.value[characteristicUuid] ?: emptySet()
                 connectedDevices.filterKeys { it in subscribed }.values.toList()
             }
@@ -368,17 +388,16 @@ internal class AndroidGattServer(
                 ?: throw ServerException.DeviceNotConnected("Device $device not connected")
 
             val deferred = CompletableDeferred<Int>()
-            pendingNotificationSent = deferred
+            pendingIndicationSent[target.address] = deferred
 
             try {
                 notifyDevice(server, target, nativeChar, data, confirm = true)
             } catch (e: SecurityException) {
-                pendingNotificationSent = null
+                pendingIndicationSent.remove(target.address)
                 throw ServerException.NotifyFailed("Missing BLUETOOTH_CONNECT permission", e)
             }
 
             val status = deferred.await()
-            pendingNotificationSent = null
             if (status != BluetoothGatt.GATT_SUCCESS) {
                 throw ServerException.NotifyFailed("Indication failed with status ${status.toGattStatus()}")
             }
@@ -387,19 +406,31 @@ internal class AndroidGattServer(
 
     override fun close() {
         if (!isOpen) return
-        isOpen = false
-        try {
-            nativeServer?.close()
-        } catch (_: SecurityException) {
-            // Ignore permission errors on close
+        // Route teardown through the serialized dispatcher so in-flight
+        // callbacks finish before we clear state.
+        runBlocking(dispatcher) {
+            if (!isOpen) return@runBlocking
+            isOpen = false
+
+            try {
+                nativeServer?.close()
+            } catch (_: SecurityException) {
+                // Ignore permission errors on close
+            }
+            nativeServer = null
+            connectedDevices.clear()
+            deviceMtu.clear()
+            readHandlers.clear()
+            writeHandlers.clear()
+            subscriptions.value = emptyMap()
+            _connections.value = emptyList()
+
+            // Cancel all pending indications
+            for ((_, deferred) in pendingIndicationSent) {
+                deferred.cancel(kotlinx.coroutines.CancellationException("Server closed"))
+            }
+            pendingIndicationSent.clear()
         }
-        nativeServer = null
-        connectedDevices.clear()
-        deviceMtu.clear()
-        readHandlers.clear()
-        writeHandlers.clear()
-        subscriptions.value = emptyMap()
-        _connections.value = emptyList()
         scope.cancel()
     }
 

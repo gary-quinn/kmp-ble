@@ -6,6 +6,13 @@ import com.atruedev.kmpble.scanner.uuidFrom
 import kotlin.uuid.Uuid
 
 /**
+ * Restricts DSL scope so that, e.g., `service {}` cannot be called
+ * inside a `characteristic {}` block.
+ */
+@DslMarker
+public annotation class GattServerDsl
+
+/**
  * Factory function to create a [GattServer] with DSL configuration.
  *
  * ```kotlin
@@ -25,6 +32,7 @@ import kotlin.uuid.Uuid
  */
 public expect fun GattServer(builder: GattServerBuilder.() -> Unit): GattServer
 
+@GattServerDsl
 public class GattServerBuilder {
     internal val services = mutableListOf<ServiceDefinition>()
 
@@ -40,6 +48,7 @@ public class GattServerBuilder {
     }
 }
 
+@GattServerDsl
 public class ServiceBuilder(private val uuid: Uuid) {
     internal val characteristics = mutableListOf<CharacteristicDefinition>()
 
@@ -56,6 +65,7 @@ public class ServiceBuilder(private val uuid: Uuid) {
     internal fun build(): ServiceDefinition = ServiceDefinition(uuid, characteristics.toList())
 }
 
+@GattServerDsl
 public class CharacteristicBuilder(private val uuid: Uuid) {
     private var props = ServerCharacteristic.Properties()
     private var perms = ServerCharacteristic.Permissions()
@@ -109,6 +119,7 @@ public class CharacteristicBuilder(private val uuid: Uuid) {
     )
 }
 
+@GattServerDsl
 public class PropertiesBuilder {
     public var read: Boolean = false
     public var write: Boolean = false
@@ -120,6 +131,7 @@ public class PropertiesBuilder {
         ServerCharacteristic.Properties(read, write, writeWithoutResponse, notify, indicate)
 }
 
+@GattServerDsl
 public class PermissionsBuilder {
     public var read: Boolean = false
     public var readEncrypted: Boolean = false
@@ -131,13 +143,13 @@ public class PermissionsBuilder {
 }
 
 /** Internal representation of a configured service. */
-internal data class ServiceDefinition(
+internal class ServiceDefinition(
     val uuid: Uuid,
     val characteristics: List<CharacteristicDefinition>,
 )
 
 /** Internal representation of a configured characteristic with handlers. */
-internal data class CharacteristicDefinition(
+internal class CharacteristicDefinition(
     val uuid: Uuid,
     val properties: ServerCharacteristic.Properties,
     val permissions: ServerCharacteristic.Permissions,

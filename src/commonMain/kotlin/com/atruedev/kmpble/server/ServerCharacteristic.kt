@@ -34,8 +34,3 @@ public data class ServerCharacteristic(
 public data class ServerDescriptor(
     val uuid: Uuid,
 )
-
-public data class ServerService(
-    val uuid: Uuid,
-    val characteristics: List<ServerCharacteristic>,
-)
