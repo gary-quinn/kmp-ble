@@ -14,6 +14,11 @@ public sealed interface BleLogEvent {
     public data class DataTransfer(val identifier: Identifier, val direction: Direction, val uuid: Uuid, val bytes: Int) : BleLogEvent
     public data class BondEvent(val identifier: Identifier, val event: String) : BleLogEvent
     public data class Error(val identifier: Identifier?, val message: String, val cause: Throwable?) : BleLogEvent
+
+    // Server events
+    public data class ServerLifecycle(val event: String) : BleLogEvent
+    public data class ServerClientEvent(val device: Identifier, val event: String) : BleLogEvent
+    public data class ServerRequest(val device: Identifier, val operation: String, val uuid: Uuid?, val status: GattStatus?) : BleLogEvent
 }
 
 public enum class Direction {

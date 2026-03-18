@@ -18,6 +18,9 @@ public class PrintBleLogger : BleLogger {
             is BleLogEvent.DataTransfer -> "[${event.identifier.value}] ${event.direction} uuid=${event.uuid} ${event.bytes} bytes"
             is BleLogEvent.BondEvent -> "[${event.identifier.value}] Bond: ${event.event}"
             is BleLogEvent.Error -> "[${event.identifier?.value ?: "global"}] ERROR: ${event.message}"
+            is BleLogEvent.ServerLifecycle -> "[Server] ${event.event}"
+            is BleLogEvent.ServerClientEvent -> "[Server] ${event.device.value}: ${event.event}"
+            is BleLogEvent.ServerRequest -> "[Server] ${event.device.value} ${event.operation} uuid=${event.uuid} status=${event.status}"
         }
         println("kmp-ble: $message")
     }
