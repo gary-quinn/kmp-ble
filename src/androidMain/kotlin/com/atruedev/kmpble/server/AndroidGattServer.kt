@@ -71,7 +71,13 @@ import kotlin.uuid.toKotlinUuid
  * Thread-safe fields accessed from Binder threads:
  * - [pendingNotifySent]: ConcurrentHashMap, CompletableDeferred.complete is safe
  * - [pendingServiceAdd]: @Volatile, CompletableDeferred.complete is safe
- * - [isOpen]: @Volatile for visibility
+ * - [isOpen]: AtomicBoolean for visibility and atomic close
+ *
+ * ## Lifecycle
+ *
+ * Each instance is single-use: after [close], the scope is cancelled and
+ * cannot be restarted. Create a new instance via [GattServer] factory to
+ * reopen. This matches the Android resource lifecycle.
  *
  * ## Single Instance
  *
@@ -95,6 +101,14 @@ import kotlin.uuid.toKotlinUuid
  * - [0x00, 0x00] = disable
  * The server tracks subscription mode per device per characteristic.
  * notify()/indicate() only send to subscribed devices.
+ *
+ * ## Pre-API-33 Note
+ *
+ * On API < 33, [BluetoothGattCharacteristic.value] is set before calling
+ * [BluetoothGattServer.notifyCharacteristicChanged]. When sending the same
+ * notification to multiple devices in parallel, all async blocks share the
+ * same data argument so the write is safe. API 33+ uses the data-parameter
+ * overload and avoids the shared mutable field entirely.
  */
 internal class AndroidGattServer(
     private val context: Context,
@@ -102,7 +116,7 @@ internal class AndroidGattServer(
 ) : GattServer {
 
     private val dispatcher: CoroutineDispatcher = Dispatchers.Default.limitedParallelism(1)
-    private val scope = CoroutineScope(SupervisorJob() + dispatcher + CoroutineName("GattServer"))
+    private var scope = CoroutineScope(SupervisorJob() + dispatcher + CoroutineName("GattServer"))
 
     // --- All fields below are accessed ONLY on [dispatcher] unless noted ---
 
@@ -111,7 +125,10 @@ internal class AndroidGattServer(
     private val _connections = MutableStateFlow<List<ServerConnection>>(emptyList())
     override val connections: StateFlow<List<ServerConnection>> = _connections.asStateFlow()
 
-    private val _connectionEvents = MutableSharedFlow<ServerConnectionEvent>(extraBufferCapacity = 16)
+    // Use tryEmit to avoid blocking Binder callback thread on slow collectors.
+    // With extraBufferCapacity = 64, events are buffered. If the buffer fills,
+    // the oldest event is silently dropped and a warning is logged.
+    private val _connectionEvents = MutableSharedFlow<ServerConnectionEvent>(extraBufferCapacity = 64)
     override val connectionEvents: Flow<ServerConnectionEvent> = _connectionEvents.asSharedFlow()
 
     // Track connected BluetoothDevice instances by Identifier
@@ -144,8 +161,11 @@ internal class AndroidGattServer(
     @Volatile
     private var pendingServiceAdd: CompletableDeferred<Int>? = null
 
-    @Volatile
-    private var isOpen = false
+    // AtomicBoolean for atomic close (prevents double-close waste)
+    private val isOpen = AtomicBoolean(false)
+
+    // Tracks whether close() has been called — prevents reopen after close
+    private val isClosed = AtomicBoolean(false)
 
     private val callback = object : BluetoothGattServerCallback() {
 
@@ -159,7 +179,9 @@ internal class AndroidGattServer(
                             list + ServerConnection(deviceId, device.name)
                         }
                         logEvent(BleLogEvent.ServerClientEvent(deviceId, "connected"))
-                        _connectionEvents.emit(ServerConnectionEvent.Connected(deviceId))
+                        if (!_connectionEvents.tryEmit(ServerConnectionEvent.Connected(deviceId))) {
+                            logEvent(BleLogEvent.Error(deviceId, "Connection event buffer full, event dropped", null))
+                        }
                     }
                     BluetoothProfile.STATE_DISCONNECTED -> {
                         connectedDevices.remove(deviceId)
@@ -173,7 +195,9 @@ internal class AndroidGattServer(
                         pendingNotifySent.remove(device.address)
                             ?.cancel(kotlinx.coroutines.CancellationException("Device disconnected"))
                         logEvent(BleLogEvent.ServerClientEvent(deviceId, "disconnected"))
-                        _connectionEvents.emit(ServerConnectionEvent.Disconnected(deviceId))
+                        if (!_connectionEvents.tryEmit(ServerConnectionEvent.Disconnected(deviceId))) {
+                            logEvent(BleLogEvent.Error(deviceId, "Connection event buffer full, event dropped", null))
+                        }
                     }
                 }
             }
@@ -335,8 +359,15 @@ internal class AndroidGattServer(
     }
 
     override suspend fun open() {
+        if (isClosed.get()) {
+            throw ServerException.OpenFailed(
+                "This server instance has been closed and cannot be reopened. " +
+                    "Create a new instance via GattServer { ... } factory.",
+            )
+        }
+
         withContext(dispatcher) {
-            if (isOpen) return@withContext
+            if (isOpen.get()) return@withContext
 
             // Single-instance enforcement
             if (!instanceLock.compareAndSet(false, true)) {
@@ -410,7 +441,7 @@ internal class AndroidGattServer(
             }
         }
 
-        isOpen = true
+        isOpen.set(true)
         logEvent(BleLogEvent.ServerLifecycle("open (${serviceDefinitions.size} services)"))
     }
 
@@ -433,6 +464,7 @@ internal class AndroidGattServer(
                 listOf(connected)
             } else {
                 // All subscribed devices for this characteristic
+                // TODO: optimize for high connection counts with secondary index Map<Uuid, Set<Identifier>>
                 subscriptionModes.entries
                     .filter { (key, value) ->
                         key.characteristicUuid == characteristicUuid &&
@@ -441,14 +473,30 @@ internal class AndroidGattServer(
                     .mapNotNull { (key, _) -> connectedDevices[key.device] }
             }
 
+            // Warn if notification payload exceeds any target's MTU
+            for (target in targets) {
+                val targetId = Identifier(target.address)
+                val mtu = deviceMtu[targetId] ?: DEFAULT_MTU
+                val maxPayload = mtu - ATT_HEADER_SIZE
+                if (data.size > maxPayload) {
+                    logEvent(BleLogEvent.Error(
+                        targetId,
+                        "Notification payload (${data.size}B) exceeds device MTU ($mtu, max payload ${maxPayload}B). " +
+                            "Data will be truncated by the BLE stack.",
+                        null,
+                    ))
+                }
+            }
+
             // Send to all targets in parallel — Android only requires
-            // per-device serialization, not global serialization
+            // per-device serialization, not global serialization.
+            // Individual failures are logged but don't cancel other sends.
             targets.map { target ->
                 async {
                     try {
                         awaitNotifySend(server, target, nativeChar, data, confirm = false)
-                    } catch (e: SecurityException) {
-                        throw ServerException.NotifyFailed("Missing BLUETOOTH_CONNECT permission", e)
+                    } catch (e: Exception) {
+                        logEvent(BleLogEvent.Error(Identifier(target.address), "notify failed", e))
                     }
                 }
             }.awaitAll()
@@ -476,6 +524,18 @@ internal class AndroidGattServer(
             val mode = subscriptionModes[key]
             if (mode == null || mode.contentEquals(BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE)) {
                 throw ServerException.NotifyFailed("Device $device is not subscribed to $characteristicUuid")
+            }
+
+            // Warn on MTU truncation
+            val mtu = deviceMtu[device] ?: DEFAULT_MTU
+            val maxPayload = mtu - ATT_HEADER_SIZE
+            if (data.size > maxPayload) {
+                logEvent(BleLogEvent.Error(
+                    device,
+                    "Indication payload (${data.size}B) exceeds device MTU ($mtu, max payload ${maxPayload}B). " +
+                        "Data will be truncated by the BLE stack.",
+                    null,
+                ))
             }
 
             try {
@@ -532,10 +592,13 @@ internal class AndroidGattServer(
      * Follows the AndroidPeripheral pattern: set closed flag, release native
      * resources synchronously (BluetoothGattServer.close() is thread-safe),
      * then cancel the scope. No runBlocking — no deadlock risk.
+     *
+     * Uses [AtomicBoolean.compareAndSet] to ensure exactly one close executes
+     * even under concurrent calls.
      */
     override fun close() {
-        if (!isOpen) return
-        isOpen = false
+        if (!isOpen.compareAndSet(true, false)) return
+        isClosed.set(true)
         logEvent(BleLogEvent.ServerLifecycle("closing"))
 
         // Close native server first — stops all Binder callbacks
@@ -615,6 +678,8 @@ internal class AndroidGattServer(
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             server.notifyCharacteristicChanged(device, characteristic, confirm, data)
         } else {
+            // Pre-API-33: shared mutable field. Safe in parallel notify because all
+            // asyncs write the same data bytes. See class KDoc for details.
             characteristic.value = data
             server.notifyCharacteristicChanged(device, characteristic, confirm)
         }
@@ -644,7 +709,7 @@ internal class AndroidGattServer(
         offset: Int,
         value: ByteArray?,
     ) {
-        if (!isOpen) return
+        if (!isOpen.get()) return
         try {
             nativeServer?.sendResponse(device, requestId, status, offset, value)
         } catch (_: SecurityException) {
@@ -653,12 +718,14 @@ internal class AndroidGattServer(
     }
 
     private fun checkOpen() {
-        if (!isOpen) throw ServerException.NotOpen()
+        if (!isOpen.get()) throw ServerException.NotOpen()
     }
 
     internal companion object {
         val CCCD_UUID: Uuid = com.atruedev.kmpble.scanner.uuidFrom("2902")
         const val NOTIFY_TIMEOUT_MS = 5_000L
+        const val DEFAULT_MTU = 23
+        const val ATT_HEADER_SIZE = 3
 
         // Global single-instance guard — Android supports one GATT server per app
         private val instanceLock = AtomicBoolean(false)
