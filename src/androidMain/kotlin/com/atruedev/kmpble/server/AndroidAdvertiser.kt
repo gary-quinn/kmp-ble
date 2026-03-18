@@ -10,6 +10,8 @@ import android.bluetooth.le.AdvertiseSettings
 import android.bluetooth.le.BluetoothLeAdvertiser
 import android.content.Context
 import android.os.ParcelUuid
+import com.atruedev.kmpble.logging.BleLogEvent
+import com.atruedev.kmpble.logging.logEvent
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -27,6 +29,11 @@ import kotlin.uuid.toJavaUuid
  * - Service UUIDs in AdvertiseData must use either 16-bit or 128-bit format
  * - Total advertisement payload limited to 31 bytes (legacy advertising)
  * - If config exceeds this, Android's onStartFailure fires with ADVERTISE_FAILED_DATA_TOO_LARGE
+ *
+ * ## Device Name
+ *
+ * If [AdvertiseConfig.name] is set, the system Bluetooth adapter name is changed.
+ * The original name is saved and restored when advertising stops.
  *
  * ## Threading
  *
@@ -46,14 +53,17 @@ internal class AndroidAdvertiser(private val context: Context) : Advertiser {
     override val isAdvertising: StateFlow<Boolean> = _isAdvertising.asStateFlow()
 
     private var advertiser: BluetoothLeAdvertiser? = null
+    private var originalAdapterName: String? = null
 
     private val advertiseCallback = object : AdvertiseCallback() {
         override fun onStartSuccess(settingsInEffect: AdvertiseSettings) {
             _isAdvertising.value = true
+            logEvent(BleLogEvent.ServerLifecycle("advertising started"))
         }
 
         override fun onStartFailure(errorCode: Int) {
             _isAdvertising.value = false
+            logEvent(BleLogEvent.Error(null, "Advertising start failed (error=$errorCode)", null))
         }
     }
 
@@ -97,9 +107,10 @@ internal class AndroidAdvertiser(private val context: Context) : Advertiser {
                 dataBuilder.addManufacturerData(companyId, data)
             }
 
-            // Set device name if provided
+            // Set device name if provided, saving original for restore
             if (config.name != null) {
                 try {
+                    originalAdapterName = adapter.name
                     adapter.name = config.name
                 } catch (_: SecurityException) {
                     // Non-critical: device name may not be settable
@@ -109,6 +120,7 @@ internal class AndroidAdvertiser(private val context: Context) : Advertiser {
             try {
                 bleAdvertiser.startAdvertising(settings, dataBuilder.build(), advertiseCallback)
             } catch (e: SecurityException) {
+                restoreAdapterName()
                 throw AdvertiserException.StartFailed("Missing BLUETOOTH_ADVERTISE permission", e)
             }
         }
@@ -121,7 +133,9 @@ internal class AndroidAdvertiser(private val context: Context) : Advertiser {
             } catch (_: SecurityException) {
                 // Ignore permission errors on stop
             }
+            restoreAdapterName()
             _isAdvertising.value = false
+            logEvent(BleLogEvent.ServerLifecycle("advertising stopped"))
         }
     }
 
@@ -132,8 +146,20 @@ internal class AndroidAdvertiser(private val context: Context) : Advertiser {
             } catch (_: SecurityException) {
                 // Ignore permission errors on stop
             }
+            restoreAdapterName()
             _isAdvertising.value = false
             advertiser = null
+        }
+    }
+
+    private fun restoreAdapterName() {
+        val name = originalAdapterName ?: return
+        originalAdapterName = null
+        try {
+            val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
+            bluetoothManager?.adapter?.let { it.name = name }
+        } catch (_: SecurityException) {
+            // Best-effort restore
         }
     }
 }

@@ -3,6 +3,7 @@ package com.atruedev.kmpble.server
 import android.bluetooth.BluetoothGatt
 import android.bluetooth.BluetoothGattCharacteristic
 import com.atruedev.kmpble.error.GattStatus
+import com.atruedev.kmpble.peripheral.toAndroidGattStatus
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue

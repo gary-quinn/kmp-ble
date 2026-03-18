@@ -1,10 +1,10 @@
 package com.atruedev.kmpble.server
 
-import com.atruedev.kmpble.Identifier
 import com.atruedev.kmpble.error.GattStatus
 import com.atruedev.kmpble.scanner.uuidFrom
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
@@ -24,6 +24,7 @@ class GattServerBuilderTest {
             characteristic(charUuid1) {
                 properties { read = true }
                 permissions { read = true }
+                onRead { byteArrayOf() }
             }
         }
 
@@ -68,6 +69,8 @@ class GattServerBuilderTest {
                     write = true
                     writeEncrypted = true
                 }
+                onRead { byteArrayOf() }
+                onWrite { _, _, _ -> GattStatus.Success }
             }
         }
 
@@ -88,7 +91,7 @@ class GattServerBuilderTest {
         val builder = GattServerBuilder()
         builder.service("180d") {
             characteristic("2a37") {
-                properties { read = true }
+                properties { notify = true }
                 permissions { read = true }
             }
         }
@@ -106,6 +109,7 @@ class GattServerBuilderTest {
             characteristic(charUuid1) {
                 properties { read = true }
                 permissions { read = true }
+                onRead { byteArrayOf() }
             }
         }
         builder.service(serviceUuid2) {
@@ -130,11 +134,11 @@ class GattServerBuilderTest {
     }
 
     @Test
-    fun characteristic_without_handlers_has_null_handlers() {
+    fun notify_only_characteristic_has_null_handlers() {
         val builder = GattServerBuilder()
         builder.service(serviceUuid) {
             characteristic(charUuid1) {
-                properties { read = true }
+                properties { notify = true }
                 permissions { read = true }
             }
         }
@@ -173,7 +177,7 @@ class GattServerBuilderTest {
         val builder = GattServerBuilder()
         builder.service(serviceUuid) {
             characteristic(charUuid1) {
-                properties { read = true }
+                properties { notify = true }
                 permissions { read = true }
                 descriptor(descUuid)
             }
@@ -182,5 +186,57 @@ class GattServerBuilderTest {
         val charDef = builder.services[0].characteristics[0]
         assertEquals(1, charDef.descriptors.size)
         assertEquals(descUuid, charDef.descriptors[0].uuid)
+    }
+
+    // --- Validation tests ---
+
+    @Test
+    fun read_property_without_handler_throws() {
+        val builder = GattServerBuilder()
+        assertFailsWith<IllegalArgumentException> {
+            builder.service(serviceUuid) {
+                characteristic(charUuid1) {
+                    properties { read = true }
+                    permissions { read = true }
+                }
+            }
+        }
+    }
+
+    @Test
+    fun write_property_without_handler_throws() {
+        val builder = GattServerBuilder()
+        assertFailsWith<IllegalArgumentException> {
+            builder.service(serviceUuid) {
+                characteristic(charUuid1) {
+                    properties { write = true }
+                    permissions { write = true }
+                }
+            }
+        }
+    }
+
+    @Test
+    fun duplicate_characteristic_uuids_throws() {
+        val builder = GattServerBuilder()
+        assertFailsWith<IllegalArgumentException> {
+            builder.service(serviceUuid) {
+                characteristic(charUuid1) {
+                    properties { notify = true }
+                }
+                characteristic(charUuid1) {
+                    properties { notify = true }
+                }
+            }
+        }
+    }
+
+    @Test
+    fun duplicate_service_uuids_throws() {
+        val builder = GattServerBuilder()
+        builder.service(serviceUuid) {}
+        assertFailsWith<IllegalArgumentException> {
+            builder.service(serviceUuid) {}
+        }
     }
 }

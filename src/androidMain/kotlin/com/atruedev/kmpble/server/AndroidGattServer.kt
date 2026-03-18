@@ -16,9 +16,13 @@ import android.content.Context
 import android.os.Build
 import com.atruedev.kmpble.Identifier
 import com.atruedev.kmpble.error.GattStatus
+import com.atruedev.kmpble.logging.BleLogEvent
+import com.atruedev.kmpble.logging.logEvent
+import com.atruedev.kmpble.peripheral.toAndroidGattStatus
 import com.atruedev.kmpble.peripheral.toGattStatus
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -33,6 +37,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.uuid.Uuid
 import kotlin.uuid.toJavaUuid
@@ -57,7 +62,7 @@ import kotlin.uuid.toKotlinUuid
  * which runs on the same dispatcher. [close] also routes through the
  * dispatcher via [runBlocking] to ensure safe teardown.
  *
- * The only exception is [pendingIndicationSent] — a [ConcurrentHashMap]
+ * The only exception is [pendingNotifySent] — a [ConcurrentHashMap]
  * of per-device [CompletableDeferred] instances. The map is thread-safe
  * and [CompletableDeferred.complete] is thread-safe, so
  * [onNotificationSent] can safely call it from a Binder thread.
@@ -76,8 +81,8 @@ import kotlin.uuid.toKotlinUuid
  * - [0x01, 0x00] = enable notifications
  * - [0x02, 0x00] = enable indications
  * - [0x00, 0x00] = disable
- * The server tracks this internally per device per characteristic.
- * notify() only sends to subscribed devices.
+ * The server tracks subscription mode per device per characteristic.
+ * notify()/indicate() only send to subscribed devices.
  */
 internal class AndroidGattServer(
     private val context: Context,
@@ -85,7 +90,7 @@ internal class AndroidGattServer(
 ) : GattServer {
 
     private val dispatcher: CoroutineDispatcher = Dispatchers.Default.limitedParallelism(1)
-    private val scope = CoroutineScope(SupervisorJob() + dispatcher)
+    private val scope = CoroutineScope(SupervisorJob() + dispatcher + CoroutineName("GattServer"))
 
     // --- All fields below are accessed ONLY on [dispatcher] unless noted ---
 
@@ -100,8 +105,10 @@ internal class AndroidGattServer(
     // Track connected BluetoothDevice instances by Identifier
     private val connectedDevices = mutableMapOf<Identifier, BluetoothDevice>()
 
-    // Track per-device per-characteristic CCCD subscriptions
-    private val subscriptions = MutableStateFlow<Map<Uuid, Set<Identifier>>>(emptyMap())
+    // Track per-device per-characteristic CCCD subscription mode.
+    // Value: the raw CCCD bytes the device wrote (0x01,0x00 / 0x02,0x00 / 0x00,0x00)
+    private data class SubscriptionKey(val characteristicUuid: Uuid, val device: Identifier)
+    private val subscriptionModes = mutableMapOf<SubscriptionKey, ByteArray>()
 
     // Track per-device MTU
     private val deviceMtu = mutableMapOf<Identifier, Int>()
@@ -110,10 +117,13 @@ internal class AndroidGattServer(
     private val readHandlers = mutableMapOf<Uuid, suspend (Identifier) -> ByteArray>()
     private val writeHandlers = mutableMapOf<Uuid, suspend (Identifier, ByteArray, Boolean) -> GattStatus?>()
 
-    // Per-device indication acknowledgement — ConcurrentHashMap because
+    // Per-device pending onNotificationSent — ConcurrentHashMap because
     // onNotificationSent fires on a Binder thread and completes the deferred,
-    // while indicate() writes the entry from the serialized dispatcher.
-    private val pendingIndicationSent = ConcurrentHashMap<String, CompletableDeferred<Int>>()
+    // while notify/indicate write the entry from the serialized dispatcher.
+    // Used for BOTH notifications and indications because Android's
+    // onNotificationSent fires for both, and you must wait for it before
+    // sending the next to the same device.
+    private val pendingNotifySent = ConcurrentHashMap<String, CompletableDeferred<Int>>()
 
     // Pending service addition (only used inside open(), always on dispatcher)
     private var pendingServiceAdd: CompletableDeferred<Int>? = null
@@ -132,21 +142,21 @@ internal class AndroidGattServer(
                         _connections.update { list ->
                             list + ServerConnection(deviceId, device.name)
                         }
+                        logEvent(BleLogEvent.ServerClientEvent(deviceId, "connected"))
                         _connectionEvents.emit(ServerConnectionEvent.Connected(deviceId))
                     }
                     BluetoothProfile.STATE_DISCONNECTED -> {
                         connectedDevices.remove(deviceId)
                         deviceMtu.remove(deviceId)
-                        // Remove from all subscriptions
-                        subscriptions.update { current ->
-                            current.mapValues { (_, subscribers) -> subscribers - deviceId }
-                        }
+                        // Remove all subscriptions for this device
+                        subscriptionModes.keys.removeAll { it.device == deviceId }
                         _connections.update { list ->
                             list.filter { it.device != deviceId }
                         }
-                        // Cancel any pending indication for this device
-                        pendingIndicationSent.remove(device.address)
+                        // Cancel any pending notification/indication for this device
+                        pendingNotifySent.remove(device.address)
                             ?.cancel(kotlinx.coroutines.CancellationException("Device disconnected"))
+                        logEvent(BleLogEvent.ServerClientEvent(deviceId, "disconnected"))
                         _connectionEvents.emit(ServerConnectionEvent.Disconnected(deviceId))
                     }
                 }
@@ -165,6 +175,7 @@ internal class AndroidGattServer(
                 val handler = readHandlers[charUuid]
 
                 if (handler == null) {
+                    logEvent(BleLogEvent.ServerRequest(deviceId, "read-rejected (no handler)", charUuid, GattStatus.ReadNotPermitted))
                     sendResponseSafe(device, requestId, BluetoothGatt.GATT_READ_NOT_PERMITTED, offset, null)
                     return@launch
                 }
@@ -179,8 +190,10 @@ internal class AndroidGattServer(
                     } else {
                         data
                     }
+                    logEvent(BleLogEvent.ServerRequest(deviceId, "read (${responseData.size}B, offset=$offset)", charUuid, GattStatus.Success))
                     sendResponseSafe(device, requestId, BluetoothGatt.GATT_SUCCESS, offset, responseData)
                 } catch (_: Exception) {
+                    logEvent(BleLogEvent.ServerRequest(deviceId, "read-failed (handler threw)", charUuid, GattStatus.Failure))
                     sendResponseSafe(device, requestId, BluetoothGatt.GATT_FAILURE, offset, null)
                 }
             }
@@ -201,6 +214,7 @@ internal class AndroidGattServer(
 
                 // Prepared writes (long writes) — not supported, respond with RequestNotSupported
                 if (preparedWrite) {
+                    logEvent(BleLogEvent.ServerRequest(deviceId, "prepared-write-rejected", charUuid, GattStatus.RequestNotSupported))
                     if (responseNeeded) {
                         sendResponseSafe(device, requestId, BluetoothGatt.GATT_REQUEST_NOT_SUPPORTED, offset, null)
                     }
@@ -209,6 +223,7 @@ internal class AndroidGattServer(
 
                 val handler = writeHandlers[charUuid]
                 if (handler == null) {
+                    logEvent(BleLogEvent.ServerRequest(deviceId, "write-rejected (no handler)", charUuid, GattStatus.WriteNotPermitted))
                     if (responseNeeded) {
                         sendResponseSafe(device, requestId, BluetoothGatt.GATT_WRITE_NOT_PERMITTED, offset, null)
                     }
@@ -217,11 +232,13 @@ internal class AndroidGattServer(
 
                 try {
                     val status = handler(deviceId, value ?: byteArrayOf(), responseNeeded)
+                    logEvent(BleLogEvent.ServerRequest(deviceId, "write (${value?.size ?: 0}B)", charUuid, status))
                     if (responseNeeded) {
                         val nativeStatus = status?.toAndroidGattStatus() ?: BluetoothGatt.GATT_SUCCESS
                         sendResponseSafe(device, requestId, nativeStatus, offset, null)
                     }
                 } catch (_: Exception) {
+                    logEvent(BleLogEvent.ServerRequest(deviceId, "write-failed (handler threw)", charUuid, GattStatus.Failure))
                     if (responseNeeded) {
                         sendResponseSafe(device, requestId, BluetoothGatt.GATT_FAILURE, offset, null)
                     }
@@ -240,12 +257,9 @@ internal class AndroidGattServer(
                 if (descUuid == CCCD_UUID) {
                     val deviceId = Identifier(device.address)
                     val charUuid = descriptor.characteristic.uuid.toKotlinUuid()
-                    val subs = subscriptions.value[charUuid] ?: emptySet()
-                    val value = if (deviceId in subs) {
-                        BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
-                    } else {
-                        BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE
-                    }
+                    val key = SubscriptionKey(charUuid, deviceId)
+                    // Return the actual CCCD value the device wrote, or disabled
+                    val value = subscriptionModes[key] ?: BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE
                     sendResponseSafe(device, requestId, BluetoothGatt.GATT_SUCCESS, offset, value)
                 } else {
                     sendResponseSafe(device, requestId, BluetoothGatt.GATT_SUCCESS, offset, byteArrayOf())
@@ -280,7 +294,7 @@ internal class AndroidGattServer(
 
         override fun onNotificationSent(device: BluetoothDevice, status: Int) {
             // Called on Binder thread — ConcurrentHashMap + CompletableDeferred are both thread-safe
-            pendingIndicationSent.remove(device.address)?.complete(status)
+            pendingNotifySent.remove(device.address)?.complete(status)
         }
 
         override fun onServiceAdded(status: Int, service: BluetoothGattService) {
@@ -291,6 +305,7 @@ internal class AndroidGattServer(
             scope.launch {
                 val deviceId = Identifier(device.address)
                 deviceMtu[deviceId] = mtu
+                logEvent(BleLogEvent.ServerClientEvent(deviceId, "MTU changed to $mtu"))
             }
         }
     }
@@ -298,6 +313,8 @@ internal class AndroidGattServer(
     override suspend fun open() {
         withContext(dispatcher) {
             if (isOpen) return@withContext
+
+            logEvent(BleLogEvent.ServerLifecycle("opening"))
 
             val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
                 ?: throw ServerException.NotSupported("BluetoothManager not available")
@@ -341,9 +358,11 @@ internal class AndroidGattServer(
                         "addService failed for ${serviceDef.uuid} with status ${status.toGattStatus()}",
                     )
                 }
+                logEvent(BleLogEvent.ServerLifecycle("service added: ${serviceDef.uuid}"))
             }
 
             isOpen = true
+            logEvent(BleLogEvent.ServerLifecycle("open (${serviceDefinitions.size} services)"))
         }
     }
 
@@ -358,22 +377,34 @@ internal class AndroidGattServer(
                 // Specific device — verify connected and subscribed
                 val connected = connectedDevices[device]
                     ?: throw ServerException.DeviceNotConnected("Device $device not connected")
-                val subscribed = subscriptions.value[characteristicUuid] ?: emptySet()
-                if (device !in subscribed) return@withContext // Not subscribed, skip silently
+                val key = SubscriptionKey(characteristicUuid, device)
+                val mode = subscriptionModes[key]
+                if (mode == null || mode.contentEquals(BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE)) {
+                    return@withContext // Not subscribed, skip silently
+                }
                 listOf(connected)
             } else {
-                // All subscribed devices
-                val subscribed = subscriptions.value[characteristicUuid] ?: emptySet()
-                connectedDevices.filterKeys { it in subscribed }.values.toList()
+                // All subscribed devices for this characteristic
+                subscriptionModes.entries
+                    .filter { (key, value) ->
+                        key.characteristicUuid == characteristicUuid &&
+                            !value.contentEquals(BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE)
+                    }
+                    .mapNotNull { (key, _) -> connectedDevices[key.device] }
             }
 
             for (target in targets) {
                 try {
-                    notifyDevice(server, target, nativeChar, data, confirm = false)
+                    awaitNotifySend(server, target, nativeChar, data, confirm = false)
                 } catch (e: SecurityException) {
                     throw ServerException.NotifyFailed("Missing BLUETOOTH_CONNECT permission", e)
                 }
             }
+            logEvent(BleLogEvent.ServerRequest(
+                device ?: Identifier("broadcast"),
+                "notify (${data.size}B to ${targets.size} devices)",
+                characteristicUuid, GattStatus.Success,
+            ))
         }
     }
 
@@ -387,25 +418,64 @@ internal class AndroidGattServer(
             val target = connectedDevices[device]
                 ?: throw ServerException.DeviceNotConnected("Device $device not connected")
 
-            val deferred = CompletableDeferred<Int>()
-            pendingIndicationSent[target.address] = deferred
+            // Check CCCD subscription
+            val key = SubscriptionKey(characteristicUuid, device)
+            val mode = subscriptionModes[key]
+            if (mode == null || mode.contentEquals(BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE)) {
+                throw ServerException.NotifyFailed("Device $device is not subscribed to $characteristicUuid")
+            }
 
             try {
-                notifyDevice(server, target, nativeChar, data, confirm = true)
+                val status = awaitNotifySend(server, target, nativeChar, data, confirm = true)
+                if (status != BluetoothGatt.GATT_SUCCESS) {
+                    throw ServerException.NotifyFailed("Indication failed with status ${status.toGattStatus()}")
+                }
             } catch (e: SecurityException) {
-                pendingIndicationSent.remove(target.address)
                 throw ServerException.NotifyFailed("Missing BLUETOOTH_CONNECT permission", e)
             }
+            logEvent(BleLogEvent.ServerRequest(device, "indicate (${data.size}B)", characteristicUuid, GattStatus.Success))
+        }
+    }
 
-            val status = deferred.await()
-            if (status != BluetoothGatt.GATT_SUCCESS) {
-                throw ServerException.NotifyFailed("Indication failed with status ${status.toGattStatus()}")
-            }
+    /**
+     * Send a notification or indication to a device and await [onNotificationSent].
+     *
+     * Android's BLE stack requires waiting for onNotificationSent before sending
+     * the next notification to the same device. This method serializes per-device
+     * and handles both notifications (confirm=false) and indications (confirm=true).
+     *
+     * @return The GATT status from onNotificationSent
+     */
+    private suspend fun awaitNotifySend(
+        server: BluetoothGattServer,
+        device: BluetoothDevice,
+        characteristic: BluetoothGattCharacteristic,
+        data: ByteArray,
+        confirm: Boolean,
+    ): Int {
+        val deferred = CompletableDeferred<Int>()
+        pendingNotifySent[device.address] = deferred
+
+        try {
+            notifyDevice(server, device, characteristic, data, confirm)
+        } catch (e: Exception) {
+            pendingNotifySent.remove(device.address)
+            throw e
+        }
+
+        return try {
+            withTimeout(NOTIFY_TIMEOUT_MS) { deferred.await() }
+        } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
+            pendingNotifySent.remove(device.address)
+            throw ServerException.NotifyFailed(
+                if (confirm) "Indication timed out" else "Notification timed out",
+            )
         }
     }
 
     override fun close() {
         if (!isOpen) return
+        logEvent(BleLogEvent.ServerLifecycle("closing"))
         // Route teardown through the serialized dispatcher so in-flight
         // callbacks finish before we clear state.
         runBlocking(dispatcher) {
@@ -420,18 +490,19 @@ internal class AndroidGattServer(
             nativeServer = null
             connectedDevices.clear()
             deviceMtu.clear()
+            subscriptionModes.clear()
             readHandlers.clear()
             writeHandlers.clear()
-            subscriptions.value = emptyMap()
             _connections.value = emptyList()
 
-            // Cancel all pending indications
-            for ((_, deferred) in pendingIndicationSent) {
+            // Cancel all pending notifications/indications
+            for ((_, deferred) in pendingNotifySent) {
                 deferred.cancel(kotlinx.coroutines.CancellationException("Server closed"))
             }
-            pendingIndicationSent.clear()
+            pendingNotifySent.clear()
         }
         scope.cancel()
+        logEvent(BleLogEvent.ServerLifecycle("closed"))
     }
 
     private fun buildNativeService(definition: ServiceDefinition): BluetoothGattService {
@@ -487,18 +558,18 @@ internal class AndroidGattServer(
 
     private fun handleCccdWrite(device: BluetoothDevice, characteristicUuid: Uuid, value: ByteArray) {
         val deviceId = Identifier(device.address)
-        subscriptions.update { current ->
-            val subscribers = current[characteristicUuid]?.toMutableSet() ?: mutableSetOf()
-            when {
-                value.contentEquals(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE) ||
-                    value.contentEquals(BluetoothGattDescriptor.ENABLE_INDICATION_VALUE) -> {
-                    subscribers.add(deviceId)
-                }
-                value.contentEquals(BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE) -> {
-                    subscribers.remove(deviceId)
-                }
+        val key = SubscriptionKey(characteristicUuid, deviceId)
+        if (value.contentEquals(BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE)) {
+            subscriptionModes.remove(key)
+            logEvent(BleLogEvent.ServerClientEvent(deviceId, "unsubscribed from $characteristicUuid"))
+        } else {
+            subscriptionModes[key] = value.copyOf()
+            val mode = when {
+                value.contentEquals(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE) -> "notifications"
+                value.contentEquals(BluetoothGattDescriptor.ENABLE_INDICATION_VALUE) -> "indications"
+                else -> "unknown mode"
             }
-            current + (characteristicUuid to subscribers)
+            logEvent(BleLogEvent.ServerClientEvent(deviceId, "subscribed to $characteristicUuid ($mode)"))
         }
     }
 
@@ -533,6 +604,7 @@ internal class AndroidGattServer(
 
     internal companion object {
         val CCCD_UUID: Uuid = com.atruedev.kmpble.scanner.uuidFrom("2902")
+        const val NOTIFY_TIMEOUT_MS = 10_000L
     }
 }
 
@@ -553,19 +625,4 @@ internal fun ServerCharacteristic.Permissions.toAndroidPermissions(): Int {
     if (write) flags = flags or BluetoothGattCharacteristic.PERMISSION_WRITE
     if (writeEncrypted) flags = flags or BluetoothGattCharacteristic.PERMISSION_WRITE_ENCRYPTED
     return flags
-}
-
-internal fun GattStatus.toAndroidGattStatus(): Int = when (this) {
-    GattStatus.Success -> BluetoothGatt.GATT_SUCCESS
-    GattStatus.InsufficientAuthentication -> BluetoothGatt.GATT_INSUFFICIENT_AUTHENTICATION
-    GattStatus.InsufficientEncryption -> BluetoothGatt.GATT_INSUFFICIENT_ENCRYPTION
-    GattStatus.InsufficientAuthorization -> BluetoothGatt.GATT_INSUFFICIENT_AUTHORIZATION
-    GattStatus.InvalidOffset -> BluetoothGatt.GATT_INVALID_OFFSET
-    GattStatus.InvalidAttributeLength -> BluetoothGatt.GATT_INVALID_ATTRIBUTE_LENGTH
-    GattStatus.ReadNotPermitted -> BluetoothGatt.GATT_READ_NOT_PERMITTED
-    GattStatus.WriteNotPermitted -> BluetoothGatt.GATT_WRITE_NOT_PERMITTED
-    GattStatus.RequestNotSupported -> BluetoothGatt.GATT_REQUEST_NOT_SUPPORTED
-    GattStatus.ConnectionCongested -> BluetoothGatt.GATT_CONNECTION_CONGESTED
-    GattStatus.Failure -> BluetoothGatt.GATT_FAILURE
-    is GattStatus.Unknown -> platformCode
 }

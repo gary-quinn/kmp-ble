@@ -35,8 +35,10 @@ public expect fun GattServer(builder: GattServerBuilder.() -> Unit): GattServer
 @GattServerDsl
 public class GattServerBuilder {
     internal val services = mutableListOf<ServiceDefinition>()
+    private val serviceUuids = mutableSetOf<Uuid>()
 
     public fun service(uuid: Uuid, block: ServiceBuilder.() -> Unit) {
+        require(serviceUuids.add(uuid)) { "Duplicate service UUID: $uuid" }
         val builder = ServiceBuilder(uuid)
         builder.block()
         services.add(builder.build())
@@ -62,7 +64,14 @@ public class ServiceBuilder(private val uuid: Uuid) {
         characteristic(uuidFrom(uuid), block)
     }
 
-    internal fun build(): ServiceDefinition = ServiceDefinition(uuid, characteristics.toList())
+    internal fun build(): ServiceDefinition {
+        val uuids = characteristics.map { it.uuid }
+        val duplicates = uuids.groupBy { it }.filter { it.value.size > 1 }.keys
+        require(duplicates.isEmpty()) {
+            "Duplicate characteristic UUIDs in service $uuid: $duplicates"
+        }
+        return ServiceDefinition(uuid, characteristics.toList())
+    }
 }
 
 @GattServerDsl
@@ -109,14 +118,22 @@ public class CharacteristicBuilder(private val uuid: Uuid) {
         descriptors.add(ServerDescriptor(uuid))
     }
 
-    internal fun build(): CharacteristicDefinition = CharacteristicDefinition(
-        uuid = uuid,
-        properties = props,
-        permissions = perms,
-        readHandler = readHandler,
-        writeHandler = writeHandler,
-        descriptors = descriptors.toList(),
-    )
+    internal fun build(): CharacteristicDefinition {
+        require(!props.read || readHandler != null) {
+            "Characteristic $uuid has read property but no onRead handler"
+        }
+        require(!(props.write || props.writeWithoutResponse) || writeHandler != null) {
+            "Characteristic $uuid has write property but no onWrite handler"
+        }
+        return CharacteristicDefinition(
+            uuid = uuid,
+            properties = props,
+            permissions = perms,
+            readHandler = readHandler,
+            writeHandler = writeHandler,
+            descriptors = descriptors.toList(),
+        )
+    }
 }
 
 @GattServerDsl

@@ -61,17 +61,45 @@ public interface Advertiser : AutoCloseable {
     override fun close()
 }
 
-public data class AdvertiseConfig(
+public class AdvertiseConfig(
     /** Device name included in advertisement. Null = use system device name. */
-    val name: String? = null,
+    public val name: String? = null,
     /** Service UUIDs to advertise. */
-    val serviceUuids: List<Uuid> = emptyList(),
+    public val serviceUuids: List<Uuid> = emptyList(),
     /** Manufacturer-specific data keyed by company ID. */
-    val manufacturerData: Map<Int, ByteArray> = emptyMap(),
+    public val manufacturerData: Map<Int, ByteArray> = emptyMap(),
     /** Whether the advertisement is connectable. */
-    val connectable: Boolean = true,
+    public val connectable: Boolean = true,
     /** Include TX power level in advertisement. */
-    val includeTxPower: Boolean = false,
-)
+    public val includeTxPower: Boolean = false,
+) {
+    public override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other == null || this::class != other::class) return false
+        other as AdvertiseConfig
+        return name == other.name &&
+            serviceUuids == other.serviceUuids &&
+            connectable == other.connectable &&
+            includeTxPower == other.includeTxPower &&
+            manufacturerData.keys == other.manufacturerData.keys &&
+            manufacturerData.all { (key, value) ->
+                other.manufacturerData[key]?.contentEquals(value) == true
+            }
+    }
+
+    public override fun hashCode(): Int {
+        var result = name?.hashCode() ?: 0
+        result = 31 * result + serviceUuids.hashCode()
+        result = 31 * result + manufacturerData.entries.fold(0) { acc, (key, value) ->
+            acc + key.hashCode() + value.contentHashCode()
+        }
+        result = 31 * result + connectable.hashCode()
+        result = 31 * result + includeTxPower.hashCode()
+        return result
+    }
+
+    public override fun toString(): String =
+        "AdvertiseConfig(name=$name, serviceUuids=$serviceUuids, connectable=$connectable, includeTxPower=$includeTxPower)"
+}
 
 public expect fun Advertiser(): Advertiser
