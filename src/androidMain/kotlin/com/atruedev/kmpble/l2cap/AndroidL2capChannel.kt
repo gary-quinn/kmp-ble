@@ -1,9 +1,8 @@
-@file:SuppressLint("MissingPermission")
-
 package com.atruedev.kmpble.l2cap
 
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothSocket
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -33,9 +32,8 @@ import java.util.concurrent.atomic.AtomicBoolean
  * ## MTU
  *
  * Android's L2CAP CoC uses a default MTU of 672 bytes, but the actual negotiated
- * MTU is not exposed via public API. We use [BluetoothSocket.maxReceivePacketSize]
- * and [BluetoothSocket.maxTransmitPacketSize] when available (API 23+), falling
- * back to a conservative default.
+ * MTU is not exposed via public API. We use [BluetoothSocket.maxTransmitPacketSize]
+ * (API 23+) as the write-side limit, falling back to a conservative default.
  */
 internal class AndroidL2capChannel(
     private val socket: BluetoothSocket,
@@ -48,13 +46,12 @@ internal class AndroidL2capChannel(
     private val inputStream: InputStream = socket.inputStream
     private val outputStream: OutputStream = socket.outputStream
 
+    private val closedDeferred = CompletableDeferred<Unit>()
+
     override val mtu: Int
+        @SuppressLint("NewApi")
         get() = try {
-            maxOf(
-                socket.maxReceivePacketSize,
-                socket.maxTransmitPacketSize,
-                DEFAULT_MTU,
-            )
+            maxOf(socket.maxTransmitPacketSize, DEFAULT_MTU)
         } catch (_: Exception) {
             DEFAULT_MTU
         }
@@ -66,10 +63,19 @@ internal class AndroidL2capChannel(
 
     override val incoming: Flow<ByteArray> = incomingChannel.receiveAsFlow()
 
-    private val readJob: Job
+    internal val readJob: Job
 
     init {
         readJob = startReadLoop()
+    }
+
+    /**
+     * Suspend until the channel is closed (locally or remotely).
+     * Used by [AndroidPeripheral][com.atruedev.kmpble.peripheral.AndroidPeripheral]
+     * to track active channels without consuming [incoming] data.
+     */
+    internal suspend fun awaitClosed() {
+        closedDeferred.await()
     }
 
     private fun startReadLoop(): Job = scope.launch(Dispatchers.IO) {
@@ -90,7 +96,6 @@ internal class AndroidL2capChannel(
                     }
                 } catch (_: IOException) {
                     if (!closed.get()) {
-                        // Unexpected error (e.g. remote disconnect), not from local close
                         break
                     }
                     break
@@ -98,6 +103,10 @@ internal class AndroidL2capChannel(
             }
         } finally {
             incomingChannel.close()
+            if (closed.compareAndSet(false, true)) {
+                closeSocket()
+            }
+            closedDeferred.complete(Unit)
         }
     }
 
@@ -112,8 +121,17 @@ internal class AndroidL2capChannel(
 
         withContext(Dispatchers.IO) {
             try {
-                outputStream.write(data)
-                outputStream.flush()
+                var totalWritten = 0
+                while (totalWritten < data.size) {
+                    if (closed.get()) {
+                        throw L2capException.ChannelClosed("Channel closed during write")
+                    }
+                    outputStream.write(data, totalWritten, data.size - totalWritten)
+                    totalWritten = data.size
+                    outputStream.flush()
+                }
+            } catch (e: L2capException) {
+                throw e
             } catch (e: IOException) {
                 throw L2capException.WriteFailed(e.message ?: "Write failed", e)
             }
@@ -126,7 +144,13 @@ internal class AndroidL2capChannel(
         }
 
         readJob.cancel()
+        closeSocket()
+        incomingChannel.close()
+        closedDeferred.complete(Unit)
+    }
 
+    @SuppressLint("NewApi")
+    private fun closeSocket() {
         try {
             inputStream.close()
         } catch (_: IOException) { }
@@ -138,8 +162,6 @@ internal class AndroidL2capChannel(
         try {
             socket.close()
         } catch (_: IOException) { }
-
-        incomingChannel.close()
     }
 
     private companion object {

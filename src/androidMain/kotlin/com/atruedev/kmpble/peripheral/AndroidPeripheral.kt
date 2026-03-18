@@ -44,6 +44,7 @@ import com.atruedev.kmpble.logging.BleLogEvent
 import com.atruedev.kmpble.logging.logEvent
 import com.atruedev.kmpble.peripheral.internal.PeripheralContext
 import com.atruedev.kmpble.peripheral.internal.PeripheralRegistry
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -55,9 +56,12 @@ import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import java.io.IOException
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 import kotlin.time.Duration.Companion.seconds
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
@@ -703,57 +707,80 @@ public class AndroidPeripheral internal constructor(
      * All blocking socket I/O runs on [Dispatchers.IO]; the caller's coroutine
      * context is never blocked.
      */
+    @android.annotation.SuppressLint("MissingPermission")
     override suspend fun openL2capChannel(psm: Int, secure: Boolean): L2capChannel {
         checkNotClosed()
 
         val currentState = state.value
-        if (currentState !is State.Connected) {
-            throw L2capException.NotConnected("Peripheral is not connected (state: $currentState)")
+        if (currentState !is State.Connected.Ready) {
+            throw L2capException.NotConnected(
+                "Peripheral is not connected and ready (state: $currentState)",
+            )
         }
 
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
             throw L2capException.NotSupported("L2CAP channels require Android 10 (API 29) or higher")
         }
 
-        return withContext(peripheralContext.dispatcher) {
-            try {
-                val socket = withContext(Dispatchers.IO) {
-                    if (secure) {
-                        device.createL2capChannel(psm)
-                    } else {
-                        device.createInsecureL2capChannel(psm)
-                    }
-                }
+        logEvent(BleLogEvent.GattOperation(
+            identifier, "L2CAP open PSM=$psm secure=$secure", uuid = null, status = null,
+        ))
 
+        return withContext(peripheralContext.dispatcher) {
+            val socket = withContext(Dispatchers.IO) {
+                if (secure) {
+                    device.createL2capChannel(psm)
+                } else {
+                    device.createInsecureL2capChannel(psm)
+                }
+            }
+
+            try {
                 withContext(Dispatchers.IO) {
                     withTimeout(L2CAP_OPEN_TIMEOUT) {
-                        try {
-                            socket.connect()
-                        } catch (e: IOException) {
-                            socket.close()
-                            throw L2capException.OpenFailed(psm, "Failed to connect: ${e.message}", e)
+                        suspendCancellableCoroutine { cont ->
+                            cont.invokeOnCancellation {
+                                try { socket.close() } catch (_: IOException) { }
+                            }
+                            try {
+                                socket.connect()
+                                cont.resume(Unit)
+                            } catch (e: IOException) {
+                                try { socket.close() } catch (_: IOException) { }
+                                cont.resumeWithException(
+                                    L2capException.OpenFailed(psm, "Failed to connect: ${e.message}", e),
+                                )
+                            }
                         }
                     }
                 }
 
                 val channel = AndroidL2capChannel(socket, psm, peripheralContext.scope)
-
                 activeL2capChannels.update { it + channel }
 
                 peripheralContext.scope.launch {
                     try {
-                        channel.incoming.collect { }
+                        channel.awaitClosed()
                     } finally {
                         activeL2capChannels.update { channels -> channels - channel }
                     }
                 }
 
+                logEvent(BleLogEvent.GattOperation(
+                    identifier, "L2CAP opened PSM=$psm mtu=${channel.mtu}", uuid = null, status = null,
+                ))
+
                 channel
             } catch (e: L2capException) {
                 throw e
+            } catch (e: CancellationException) {
+                try { socket.close() } catch (_: IOException) { }
+                throw L2capException.OpenFailed(psm, "Connection timed out", e)
             } catch (e: IOException) {
+                try { socket.close() } catch (_: IOException) { }
                 throw L2capException.OpenFailed(psm, e.message ?: "Unknown error", e)
             } catch (e: SecurityException) {
+                try { socket.close() } catch (_: IOException) { }
                 throw L2capException.OpenFailed(psm, "Missing BLUETOOTH_CONNECT permission", e)
             }
         }
@@ -761,6 +788,11 @@ public class AndroidPeripheral internal constructor(
 
     private fun closeL2capChannels() {
         val channels = activeL2capChannels.getAndUpdate { emptyList() }
+        if (channels.isNotEmpty()) {
+            logEvent(BleLogEvent.GattOperation(
+                identifier, "L2CAP closing ${channels.size} channel(s)", uuid = null, status = null,
+            ))
+        }
         channels.forEach { it.close() }
     }
 
