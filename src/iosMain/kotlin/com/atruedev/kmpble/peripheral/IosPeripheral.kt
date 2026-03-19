@@ -53,6 +53,7 @@ import platform.CoreBluetooth.CBL2CAPChannel
 import platform.CoreBluetooth.CBPeripheral
 import platform.CoreBluetooth.CBService
 import com.atruedev.kmpble.bleDataFromNSData
+import kotlin.concurrent.Volatile
 import platform.Foundation.NSData
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
@@ -86,6 +87,7 @@ public class IosPeripheral(
     override val services: StateFlow<List<DiscoveredService>?> get() = peripheralContext.services
     override val maximumWriteValueLength: StateFlow<Int> get() = peripheralContext.maximumWriteValueLength
 
+    @Volatile
     private var closed = false
     // Safe: all callbacks dispatched to peripheralContext.scope (limitedParallelism(1))
     private var pendingCharacteristicDiscovery = 0
@@ -118,7 +120,7 @@ public class IosPeripheral(
             // to detect connection failure early instead of waiting for the full timeout.
             val failureDetector = peripheralContext.scope.launch {
                 while (connectionComplete?.isCompleted == false) {
-                    kotlinx.coroutines.delay(500)
+                    kotlinx.coroutines.delay(CONNECT_POLL_INTERVAL_MS)
                     if (cbPeripheral.state == platform.CoreBluetooth.CBPeripheralStateDisconnected) {
                         val deferred = connectionComplete ?: break
                         if (!deferred.isCompleted) {
@@ -160,7 +162,7 @@ public class IosPeripheral(
             bridge.disconnect()
 
             try {
-                withTimeout(5_000) { disconnectComplete!!.await() }
+                withTimeout(DISCONNECT_TIMEOUT_MS) { disconnectComplete!!.await() }
             } catch (_: kotlinx.coroutines.TimeoutCancellationException) {
                 peripheralContext.processEvent(
                     ConnectionEvent.ConnectionLost(OperationFailed("Disconnect timeout"))
@@ -183,9 +185,9 @@ public class IosPeripheral(
         closed = true
         reconnectionHandler.stop()
         closeL2capChannels()
-        observationManager.clear()
         centralDelegate.unregisterConnectionCallback(identifier.value)
         bridge.close()
+        observationManager.clear()
         peripheralContext.close()
         PeripheralRegistry.remove(identifier)
     }
@@ -196,7 +198,7 @@ public class IosPeripheral(
             discoveryComplete = CompletableDeferred()
             bridge.discoverServices()
             try {
-                withTimeout(10_000) { discoveryComplete!!.await() }
+                withTimeout(DISCOVERY_TIMEOUT_MS) { discoveryComplete!!.await() }
             } finally {
                 discoveryComplete = null
             }
@@ -577,7 +579,7 @@ public class IosPeripheral(
         // Read the actual negotiated value from CoreBluetooth.
         val actualMtu = cbPeripheral.maximumWriteValueLengthForType(
             platform.CoreBluetooth.CBCharacteristicWriteWithResponse
-        ).toInt() + 3 // maximumWriteValueLength = MTU - 3
+        ).toInt() + ATT_HEADER_SIZE
         peripheralContext.updateMtu(actualMtu)
         return actualMtu
     }
@@ -658,5 +660,9 @@ public class IosPeripheral(
 
     private companion object {
         const val L2CAP_OPEN_TIMEOUT_MS = 30_000L
+        const val CONNECT_POLL_INTERVAL_MS = 500L
+        const val DISCONNECT_TIMEOUT_MS = 5_000L
+        const val DISCOVERY_TIMEOUT_MS = 10_000L
+        const val ATT_HEADER_SIZE = 3
     }
 }

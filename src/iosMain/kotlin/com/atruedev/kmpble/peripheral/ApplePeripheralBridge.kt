@@ -1,6 +1,7 @@
 package com.atruedev.kmpble.peripheral
 
 import com.atruedev.kmpble.internal.CentralManagerProvider
+import kotlin.concurrent.Volatile
 import platform.CoreBluetooth.CBCharacteristicWriteWithResponse
 import platform.CoreBluetooth.CBCharacteristicWriteWithoutResponse
 import platform.CoreBluetooth.CBL2CAPChannel
@@ -31,7 +32,7 @@ internal sealed interface AppleCallbackEvent {
 internal class ApplePeripheralBridge(
     internal val cbPeripheral: CBPeripheral,
 ) {
-    internal var onEvent: ((AppleCallbackEvent) -> Unit)? = null
+    @Volatile internal var onEvent: ((AppleCallbackEvent) -> Unit)? = null
 
     // Kotlin/Native CBPeripheralDelegateProtocol:
     // didUpdateValueForCharacteristic and didWriteValueForCharacteristic have

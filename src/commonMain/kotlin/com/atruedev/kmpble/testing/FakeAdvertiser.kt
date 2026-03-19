@@ -28,8 +28,10 @@ public class FakeAdvertiser : Advertiser {
     override val isAdvertising: StateFlow<Boolean> = _isAdvertising.asStateFlow()
 
     private var lastConfig: AdvertiseConfig? = null
+    private var isClosed = false
 
     override fun startAdvertising(config: AdvertiseConfig) {
+        check(!isClosed) { "Advertiser has been closed" }
         if (_isAdvertising.value) throw AdvertiserException.AlreadyAdvertising()
         lastConfig = config
         _isAdvertising.value = true
@@ -40,6 +42,7 @@ public class FakeAdvertiser : Advertiser {
     }
 
     override fun close() {
+        isClosed = true
         stopAdvertising()
     }
 

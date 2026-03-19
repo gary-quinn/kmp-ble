@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.buffer
 import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.transformWhile
+import kotlin.concurrent.Volatile
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlin.uuid.ExperimentalUuidApi
@@ -62,6 +63,18 @@ internal class ObservationManager {
     private val observations = mutableMapOf<ObservationKey, TrackedObservation>()
 
     /**
+     * Snapshot of observations for lock-free reads from non-suspend contexts.
+     * Updated under [mutex] whenever [observations] changes. Reads are safe from
+     * any thread because the reference is @Volatile and the Map is immutable.
+     */
+    @Volatile
+    private var observationsSnapshot = mapOf<ObservationKey, TrackedObservation>()
+
+    private fun updateSnapshot() {
+        observationsSnapshot = observations.toMap()
+    }
+
+    /**
      * Subscribe to a characteristic's notifications/indications.
      * Returns a Flow that emits [ObservationEvent]s.
      *
@@ -81,9 +94,12 @@ internal class ObservationManager {
                 TrackedObservation(
                     key = key,
                     backpressure = backpressure,
-                    flow = MutableSharedFlow(extraBufferCapacity = 64),
+                    flow = MutableSharedFlow(extraBufferCapacity = OBSERVATION_BUFFER_CAPACITY),
                 )
-            }.also { it.collectorCount++ }
+            }.also {
+                it.collectorCount++
+                updateSnapshot()
+            }
         }
 
         // Use transformWhile to complete the flow when PermanentlyDisconnected is emitted
@@ -104,6 +120,7 @@ internal class ObservationManager {
             tracked.collectorCount--
             if (tracked.collectorCount <= 0) {
                 observations.remove(key)
+                updateSnapshot()
                 true
             } else {
                 false
@@ -125,30 +142,23 @@ internal class ObservationManager {
     /**
      * Emit a value to observation flow. Non-suspend version for use from GATT callbacks.
      *
-     * Thread-safety: This method reads from the observations map without locking.
-     * It is safe to call from any thread because:
-     * 1. Map reads are atomic for reference types
-     * 2. tryEmit on MutableSharedFlow is thread-safe
-     * 3. The worst case is a missed emit during concurrent modification (acceptable)
-     *
-     * @param serviceUuid Service UUID
-     * @param charUuid Characteristic UUID
-     * @param value The value to emit
+     * Thread-safety: Reads from an immutable @Volatile snapshot, so no locking is needed.
+     * tryEmit on MutableSharedFlow is thread-safe. Worst case during concurrent
+     * subscribe/unsubscribe is a missed emit (acceptable for transient race windows).
      */
     fun emitByUuid(serviceUuid: Uuid, charUuid: Uuid, value: ByteArray) {
         val key = ObservationKey(serviceUuid, charUuid)
-        observations[key]?.flow?.tryEmit(ObservationEvent.Value(value))
+        observationsSnapshot[key]?.flow?.tryEmit(ObservationEvent.Value(value))
     }
 
     /**
      * Called on disconnect. Emits [ObservationEvent.Disconnected] to all active observations.
      * Does NOT clear observations — they persist for reconnection.
      *
-     * Non-suspend version: Uses tryEmit which is non-blocking. Safe to call from
-     * any context including scopes that may be cancelled (e.g., during close()).
+     * Thread-safety: Reads from an immutable @Volatile snapshot.
      */
     fun onDisconnect() {
-        for (tracked in observations.values) {
+        for (tracked in observationsSnapshot.values) {
             tracked.flow.tryEmit(ObservationEvent.Disconnected)
         }
     }
@@ -157,13 +167,16 @@ internal class ObservationManager {
      * Called when reconnection exhausts max attempts (permanent disconnect).
      * Emits [ObservationEvent.PermanentlyDisconnected] to all observations, then clears them.
      *
-     * Non-suspend version: Uses tryEmit which is non-blocking.
+     * Thread-safety: Reads snapshot, then clears both map and snapshot atomically
+     * (single-writer assumption — only called from the peripheral's serialized context).
      */
     fun onPermanentDisconnect() {
-        for (tracked in observations.values) {
+        val snapshot = observationsSnapshot
+        for (tracked in snapshot.values) {
             tracked.flow.tryEmit(ObservationEvent.PermanentlyDisconnected)
         }
         observations.clear()
+        observationsSnapshot = emptyMap()
     }
 
     /**
@@ -182,6 +195,7 @@ internal class ObservationManager {
         mutex.withLock {
             observations[key]?.flow?.tryEmit(ObservationEvent.PermanentlyDisconnected)
             observations.remove(key)
+            updateSnapshot()
         }
     }
 
@@ -198,12 +212,20 @@ internal class ObservationManager {
     /**
      * Terminal cleanup — clear all observations.
      * Called on Peripheral.close().
+     *
+     * Thread-safety: Reads snapshot for iteration, then clears both map and snapshot.
      */
     fun clear() {
-        observations.values.forEach { tracked ->
+        val snapshot = observationsSnapshot
+        for (tracked in snapshot.values) {
             tracked.flow.tryEmit(ObservationEvent.PermanentlyDisconnected)
         }
         observations.clear()
+        observationsSnapshot = emptyMap()
+    }
+
+    private companion object {
+        const val OBSERVATION_BUFFER_CAPACITY = 64
     }
 }
 

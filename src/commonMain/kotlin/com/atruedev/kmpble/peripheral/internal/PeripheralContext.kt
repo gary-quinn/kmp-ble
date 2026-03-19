@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
+import kotlin.concurrent.Volatile
 
 internal class PeripheralContext(val identifier: Identifier) {
 
@@ -36,11 +37,12 @@ internal class PeripheralContext(val identifier: Identifier) {
     private val _bondState = MutableStateFlow<BondState>(BondState.Unknown)
     val bondState: StateFlow<BondState> = _bondState.asStateFlow()
 
-    private val _maximumWriteValueLength = MutableStateFlow(20) // ATT_MTU 23 - 3
+    private val _maximumWriteValueLength = MutableStateFlow(DEFAULT_ATT_MTU - ATT_HEADER_SIZE)
     val maximumWriteValueLength: StateFlow<Int> = _maximumWriteValueLength.asStateFlow()
 
     val gattQueue = GattOperationQueue(scope)
 
+    @Volatile
     private var closed = false
 
     /**
@@ -76,7 +78,7 @@ internal class PeripheralContext(val identifier: Identifier) {
     }
 
     suspend fun updateMtu(mtu: Int) = withContext(dispatcher) {
-        _maximumWriteValueLength.value = (mtu - 3).coerceAtLeast(20)
+        _maximumWriteValueLength.value = (mtu - ATT_HEADER_SIZE).coerceAtLeast(DEFAULT_ATT_MTU - ATT_HEADER_SIZE)
     }
 
     /**
@@ -88,5 +90,10 @@ internal class PeripheralContext(val identifier: Identifier) {
         closed = true
         gattQueue.close()
         scope.cancel()
+    }
+
+    internal companion object {
+        const val DEFAULT_ATT_MTU = 23
+        const val ATT_HEADER_SIZE = 3
     }
 }

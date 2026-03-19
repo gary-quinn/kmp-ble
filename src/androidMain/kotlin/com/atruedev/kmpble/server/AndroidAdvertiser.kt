@@ -137,30 +137,27 @@ internal class AndroidAdvertiser(private val context: Context) : Advertiser {
 
     override fun stopAdvertising() {
         synchronized(lock) {
-            try {
-                advertiser?.stopAdvertising(advertiseCallback)
-            } catch (_: SecurityException) {
-                // Ignore permission errors on stop
-            }
-            isStarting = false
-            restoreAdapterName()
-            _isAdvertising.value = false
+            stopAdvertisingLocked()
             logEvent(BleLogEvent.ServerLifecycle("advertising stopped"))
         }
     }
 
     override fun close() {
         synchronized(lock) {
-            try {
-                advertiser?.stopAdvertising(advertiseCallback)
-            } catch (_: SecurityException) {
-                // Ignore permission errors on stop
-            }
-            isStarting = false
-            restoreAdapterName()
-            _isAdvertising.value = false
+            stopAdvertisingLocked()
             advertiser = null
         }
+    }
+
+    private fun stopAdvertisingLocked() {
+        try {
+            advertiser?.stopAdvertising(advertiseCallback)
+        } catch (_: SecurityException) {
+            // Ignore permission errors on stop
+        }
+        isStarting = false
+        restoreAdapterName()
+        _isAdvertising.value = false
     }
 
     private fun restoreAdapterName() {

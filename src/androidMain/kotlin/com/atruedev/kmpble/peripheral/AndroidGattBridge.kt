@@ -14,6 +14,7 @@ import android.os.Handler
 import android.os.HandlerThread
 import com.atruedev.kmpble.connection.ConnectionOptions
 import com.atruedev.kmpble.connection.TransportType
+import kotlin.concurrent.Volatile
 import com.atruedev.kmpble.logging.BleLogEvent
 import com.atruedev.kmpble.logging.logEvent
 
@@ -97,8 +98,8 @@ internal class AndroidGattBridge(
     private var callbackThread: HandlerThread? = null
     private var callbackHandler: Handler? = null
 
-    private var gatt: BluetoothGatt? = null
-    internal var onEvent: ((GattCallbackEvent) -> Unit)? = null
+    @Volatile private var gatt: BluetoothGatt? = null
+    @Volatile internal var onEvent: ((GattCallbackEvent) -> Unit)? = null
 
     private val gattCallback = object : BluetoothGattCallback() {
         override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
