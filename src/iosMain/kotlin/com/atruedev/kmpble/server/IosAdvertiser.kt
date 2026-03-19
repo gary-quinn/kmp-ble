@@ -76,7 +76,7 @@ internal class IosAdvertiser : Advertiser {
                 ),
             )
         }
-        if (config.mode != AdvertiseMode.Balanced) {
+        if (config.mode != DEFAULTS.mode) {
             logEvent(
                 BleLogEvent.Error(
                     identifier = null,
@@ -85,7 +85,7 @@ internal class IosAdvertiser : Advertiser {
                 ),
             )
         }
-        if (config.txPower != AdvertiseTxPower.Medium) {
+        if (config.txPower != DEFAULTS.txPower) {
             logEvent(
                 BleLogEvent.Error(
                     identifier = null,
@@ -129,6 +129,10 @@ internal class IosAdvertiser : Advertiser {
             _isAdvertising.value = false
         }
         delegate.onStartAdvertising = null
+    }
+
+    private companion object {
+        val DEFAULTS = AdvertiseConfig()
     }
 
     private fun handleDidStartAdvertising(error: NSError?) {

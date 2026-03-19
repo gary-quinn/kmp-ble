@@ -519,7 +519,7 @@ internal class AndroidGattServer(
             }.awaitAll()
 
             logEvent(BleLogEvent.ServerRequest(
-                device ?: Identifier("broadcast"),
+                device ?: BROADCAST_IDENTIFIER,
                 "notify (${data.size}B to ${targets.size} devices)",
                 characteristicUuid, GattStatus.Success,
             ))
@@ -745,6 +745,7 @@ internal class AndroidGattServer(
 
     internal companion object {
         val CCCD_UUID: Uuid = com.atruedev.kmpble.scanner.uuidFrom("2902")
+        val BROADCAST_IDENTIFIER = Identifier("broadcast")
         const val NOTIFY_TIMEOUT_MS = 5_000L
         const val DEFAULT_MTU = 23
         const val ATT_HEADER_SIZE = 3

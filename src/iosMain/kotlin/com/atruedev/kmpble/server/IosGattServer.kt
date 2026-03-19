@@ -9,6 +9,10 @@ import com.atruedev.kmpble.internal.PeripheralManagerProvider
 import com.atruedev.kmpble.logging.BleLogEvent
 import com.atruedev.kmpble.logging.logEvent
 import com.atruedev.kmpble.scanner.uuidFrom
+import kotlin.concurrent.AtomicInt
+import kotlin.concurrent.Volatile
+import kotlin.time.Duration.Companion.seconds
+import kotlin.uuid.Uuid
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineName
@@ -55,9 +59,6 @@ import platform.CoreBluetooth.CBPeripheralManagerStatePoweredOn
 import platform.CoreBluetooth.CBUUID
 import platform.Foundation.NSData
 import platform.Foundation.NSError
-import kotlin.concurrent.Volatile
-import kotlin.time.Duration.Companion.seconds
-import kotlin.uuid.Uuid
 
 /**
  * iOS implementation of [GattServer] using [CBPeripheralManager].
@@ -101,10 +102,13 @@ import kotlin.uuid.Uuid
  *
  * ## Threading
  *
- * All delegate callbacks arrive on [PeripheralManagerProvider]'s
- * serial GCD queue. Handler invocations dispatch to serialized
- * coroutine [dispatcher]. CBPeripheralManager.respondToRequest()
- * can be called from any thread.
+ * Delegate callbacks arrive on [PeripheralManagerProvider]'s serial GCD
+ * queue and dispatch all mutable-state access into [scope] (serialized
+ * via [dispatcher]). CBPeripheralManager.respondToRequest() can be called
+ * from any thread.
+ *
+ * [close] uses [AtomicInt] CAS for exactly-once semantics and is safe
+ * to call from any thread, matching the Android pattern.
  */
 internal class IosGattServer(
     private val serviceDefinitions: List<ServiceDefinition>,
@@ -122,36 +126,28 @@ internal class IosGattServer(
     private val _connectionEvents = MutableSharedFlow<ServerConnectionEvent>(extraBufferCapacity = 64)
     override val connectionEvents: Flow<ServerConnectionEvent> = _connectionEvents.asSharedFlow()
 
-    // Connected centrals: UUID string -> CBCentral reference
+    // --- All mutable collections below accessed ONLY on [dispatcher] ---
+
     private val connectedCentrals = mutableMapOf<String, CBCentral>()
-
-    // Subscription tracking: char UUID string -> set of central UUID strings
     private val subscriptions = mutableMapOf<String, MutableSet<String>>()
-
-    // Handlers mapped by characteristic UUID
     private val readHandlers = mutableMapOf<Uuid, suspend (Identifier) -> BleData>()
     private val writeHandlers =
         mutableMapOf<Uuid, suspend (Identifier, BleData, Boolean) -> GattStatus?>()
-
-    // Native characteristic cache: Uuid -> CBMutableCharacteristic (stored at build time)
     private val characteristicCache = mutableMapOf<Uuid, CBMutableCharacteristic>()
 
-    // Backpressure: completed when transmit queue has space
+    @Volatile
     private var readyToUpdate = CompletableDeferred<Unit>().apply { complete(Unit) }
 
-    // Pending service add
     @Volatile
     private var pendingServiceAdd: CompletableDeferred<NSError?>? = null
 
-    // Lifecycle
-    @Volatile
-    private var isOpen = false
-    private var isClosed = false
+    private val isOpen = AtomicInt(0)
+    private val isClosed = AtomicInt(0)
 
     // --- Public API ---
 
     override suspend fun open() {
-        if (isClosed) {
+        if (isClosed.value != 0) {
             throw ServerException.OpenFailed(
                 "This server instance has been closed and cannot be reopened. " +
                     "Create a new instance via GattServer { ... } factory.",
@@ -159,67 +155,77 @@ internal class IosGattServer(
         }
 
         withContext(dispatcher) {
-            if (isOpen) return@withContext
+            if (isOpen.value != 0) return@withContext
 
-            logEvent(BleLogEvent.ServerLifecycle("opening"))
-
-            // Register callbacks with delegate
-            registerDelegateCallbacks()
-
-            // Trigger lazy init — CBPeripheralManager constructor fires
-            // peripheralManagerDidUpdateState on the delegate
-            manager
-
-            // Wait for powered on state
-            try {
-                withTimeout(POWER_ON_TIMEOUT_MS) {
-                    delegate.managerState.first { it == CBPeripheralManagerStatePoweredOn }
-                }
-            } catch (_: kotlinx.coroutines.TimeoutCancellationException) {
-                clearDelegateCallbacks()
+            if (!instanceLock.compareAndSet(0, 1)) {
                 throw ServerException.OpenFailed(
-                    "Timeout waiting for Bluetooth to power on (state: ${delegate.managerState.value})",
+                    "Another IosGattServer is already open. iOS uses a single " +
+                        "CBPeripheralManager — call close() on the existing server first.",
                 )
             }
 
-            // Register handlers from service definitions
-            for (serviceDef in serviceDefinitions) {
-                for (charDef in serviceDef.characteristics) {
-                    charDef.readHandler?.let { readHandlers[charDef.uuid] = it }
-                    charDef.writeHandler?.let { writeHandlers[charDef.uuid] = it }
-                }
+            logEvent(BleLogEvent.ServerLifecycle("opening"))
+
+            try {
+                openInternal()
+            } catch (e: Exception) {
+                instanceLock.value = 0
+                throw e
             }
+        }
+    }
 
-            // Add services sequentially (must wait for didAdd callback for each)
-            for (serviceDef in serviceDefinitions) {
-                val nativeService = buildNativeService(serviceDef)
-                val deferred = CompletableDeferred<NSError?>()
-                pendingServiceAdd = deferred
-                manager.addService(nativeService)
+    private suspend fun openInternal() {
+        registerDelegateCallbacks()
 
-                try {
-                    val error = withTimeout(SERVICE_ADD_TIMEOUT_MS) { deferred.await() }
-                    pendingServiceAdd = null
-                    if (error != null) {
-                        throw ServerException.OpenFailed(
-                            "addService failed for ${serviceDef.uuid}: ${error.localizedDescription}",
-                        )
-                    }
-                } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
-                    pendingServiceAdd = null
-                    throw ServerException.OpenFailed(
-                        "Timeout adding service ${serviceDef.uuid}",
-                    )
-                }
+        manager
 
-                logEvent(BleLogEvent.ServerLifecycle("service added: ${serviceDef.uuid}"))
+        try {
+            withTimeout(POWER_ON_TIMEOUT_MS) {
+                delegate.managerState.first { it == CBPeripheralManagerStatePoweredOn }
             }
-
-            isOpen = true
-            logEvent(
-                BleLogEvent.ServerLifecycle("open (${serviceDefinitions.size} services)"),
+        } catch (_: kotlinx.coroutines.TimeoutCancellationException) {
+            clearDelegateCallbacks()
+            throw ServerException.OpenFailed(
+                "Timeout waiting for Bluetooth to power on (state: ${delegate.managerState.value})",
             )
         }
+
+        for (serviceDef in serviceDefinitions) {
+            for (charDef in serviceDef.characteristics) {
+                charDef.readHandler?.let { readHandlers[charDef.uuid] = it }
+                charDef.writeHandler?.let { writeHandlers[charDef.uuid] = it }
+            }
+        }
+
+        for (serviceDef in serviceDefinitions) {
+            val nativeService = buildNativeService(serviceDef)
+            val deferred = CompletableDeferred<NSError?>()
+            pendingServiceAdd = deferred
+            manager.addService(nativeService)
+
+            try {
+                val error = withTimeout(SERVICE_ADD_TIMEOUT_MS) { deferred.await() }
+                pendingServiceAdd = null
+                if (error != null) {
+                    throw ServerException.OpenFailed(
+                        "addService failed for ${serviceDef.uuid}: ${error.localizedDescription}",
+                    )
+                }
+            } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
+                pendingServiceAdd = null
+                throw ServerException.OpenFailed(
+                    "Timeout adding service ${serviceDef.uuid}",
+                )
+            }
+
+            logEvent(BleLogEvent.ServerLifecycle("service added: ${serviceDef.uuid}"))
+        }
+
+        isOpen.value = 1
+        logEvent(
+            BleLogEvent.ServerLifecycle("open (${serviceDefinitions.size} services)"),
+        )
     }
 
     override suspend fun notify(characteristicUuid: Uuid, device: Identifier?, data: BleData) {
@@ -244,7 +250,7 @@ internal class IosGattServer(
 
             logEvent(
                 BleLogEvent.ServerRequest(
-                    device ?: Identifier("broadcast"),
+                    device ?: BROADCAST_IDENTIFIER,
                     "notify (${data.size}B)",
                     characteristicUuid,
                     GattStatus.Success,
@@ -267,27 +273,22 @@ internal class IosGattServer(
     }
 
     override fun close() {
-        if (!isOpen && !isClosed) {
-            isClosed = true
+        if (isClosed.compareAndSet(0, 1).not()) return
+
+        val wasOpen = isOpen.compareAndSet(1, 0)
+        if (!wasOpen) {
             clearDelegateCallbacks()
             return
         }
-        if (!isOpen) return
 
-        isOpen = false
-        isClosed = true
         logEvent(BleLogEvent.ServerLifecycle("closing"))
 
-        // Remove all services from the peripheral manager
         manager.removeAllServices()
 
-        // Cancel pending backpressure
         readyToUpdate.cancel(kotlinx.coroutines.CancellationException("Server closed"))
 
-        // Cancel scope
         scope.cancel()
 
-        // Clear state
         connectedCentrals.clear()
         subscriptions.clear()
         characteristicCache.clear()
@@ -295,36 +296,36 @@ internal class IosGattServer(
         writeHandlers.clear()
         _connections.value = emptyList()
 
-        // Unregister from delegate
         clearDelegateCallbacks()
 
+        instanceLock.value = 0
         logEvent(BleLogEvent.ServerLifecycle("closed"))
     }
 
-    // --- Delegate callback handlers (called on GCD queue) ---
+    // --- Delegate callback handlers (called on GCD queue, dispatch to scope) ---
 
     private fun handleServiceAdded(error: NSError?) {
         pendingServiceAdd?.complete(error)
     }
 
     private fun handleReadRequest(peripheral: CBPeripheralManager, request: CBATTRequest) {
-        val charUuid = uuidFrom(request.characteristic.UUID.UUIDString)
-        val centralId = Identifier(request.central.identifier.UUIDString)
-
-        trackCentral(request.central)
-
-        val handler = readHandlers[charUuid]
-        if (handler == null) {
-            logEvent(
-                BleLogEvent.ServerRequest(
-                    centralId, "read-rejected (no handler)", charUuid, GattStatus.ReadNotPermitted,
-                ),
-            )
-            peripheral.respondToRequest(request, withResult = CBATTErrorRequestNotSupported)
-            return
-        }
-
         scope.launch {
+            val charUuid = uuidFrom(request.characteristic.UUID.UUIDString)
+            val centralId = Identifier(request.central.identifier.UUIDString)
+
+            trackCentral(request.central)
+
+            val handler = readHandlers[charUuid]
+            if (handler == null) {
+                logEvent(
+                    BleLogEvent.ServerRequest(
+                        centralId, "read-rejected (no handler)", charUuid, GattStatus.ReadNotPermitted,
+                    ),
+                )
+                peripheral.respondToRequest(request, withResult = CBATTErrorRequestNotSupported)
+                return@launch
+            }
+
             try {
                 val bleData = handler(centralId)
 
@@ -351,13 +352,14 @@ internal class IosGattServer(
                         GattStatus.Success,
                     ),
                 )
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 logEvent(
                     BleLogEvent.ServerRequest(
                         centralId, "read-failed (handler threw)", charUuid, GattStatus.Failure,
                     ),
                 )
-                peripheral.respondToRequest(request, withResult = CBATTErrorUnlikelyError)
+                peripheral.respondToRequest(request, withResult = CB_ATT_ERROR_UNLIKELY)
             }
         }
     }
@@ -371,7 +373,7 @@ internal class IosGattServer(
 
         scope.launch {
             var failed = false
-            var failError: Long = CBATTErrorUnlikelyError
+            var failError: Long = CB_ATT_ERROR_UNLIKELY
 
             for (request in requests) {
                 val charUuid = uuidFrom(request.characteristic.UUID.UUIDString)
@@ -405,7 +407,8 @@ internal class IosGattServer(
                             centralId, "write (${data.size}B)", charUuid, status,
                         ),
                     )
-                } catch (_: Exception) {
+                } catch (e: Exception) {
+                    if (e is kotlinx.coroutines.CancellationException) throw e
                     logEvent(
                         BleLogEvent.ServerRequest(
                             centralId, "write-failed (handler threw)", charUuid, GattStatus.Failure,
@@ -416,7 +419,6 @@ internal class IosGattServer(
                 }
             }
 
-            // Respond once to the first request — iOS applies the result to the entire batch
             if (failed) {
                 peripheral.respondToRequest(firstRequest, withResult = failError)
             } else {
@@ -426,18 +428,18 @@ internal class IosGattServer(
     }
 
     private fun handleSubscribe(central: CBCentral, characteristic: CBCharacteristic) {
-        val charUuid = characteristic.UUID.UUIDString
-        val centralId = Identifier(central.identifier.UUIDString)
-        val isNewCentral = trackCentral(central)
+        scope.launch {
+            val charUuid = characteristic.UUID.UUIDString
+            val centralId = Identifier(central.identifier.UUIDString)
+            val isNewCentral = trackCentral(central)
 
-        subscriptions.getOrPut(charUuid) { mutableSetOf() }.add(central.identifier.UUIDString)
+            subscriptions.getOrPut(charUuid) { mutableSetOf() }.add(central.identifier.UUIDString)
 
-        logEvent(
-            BleLogEvent.ServerClientEvent(centralId, "subscribed to $charUuid"),
-        )
+            logEvent(
+                BleLogEvent.ServerClientEvent(centralId, "subscribed to $charUuid"),
+            )
 
-        if (isNewCentral) {
-            scope.launch {
+            if (isNewCentral) {
                 if (!_connectionEvents.tryEmit(ServerConnectionEvent.Connected(centralId))) {
                     logEvent(
                         BleLogEvent.Error(
@@ -473,6 +475,7 @@ internal class IosGattServer(
 
     /**
      * Track a central as connected. Returns true if the central is newly discovered.
+     * Must be called on [dispatcher].
      */
     private fun trackCentral(central: CBCentral): Boolean {
         val id = central.identifier.UUIDString
@@ -494,23 +497,22 @@ internal class IosGattServer(
         nsData: NSData,
         targets: List<CBCentral>?,
     ) {
-        var sent = manager.updateValue(nsData, forCharacteristic = characteristic, onSubscribedCentrals = targets)
-        if (!sent) {
-            // Transmit queue full — wait for peripheralManagerIsReadyToUpdateSubscribers
+        repeat(MAX_NOTIFY_RETRIES) { attempt ->
+            val sent = manager.updateValue(nsData, forCharacteristic = characteristic, onSubscribedCentrals = targets)
+            if (sent) return
+
             readyToUpdate = CompletableDeferred()
             try {
                 withTimeout(NOTIFY_TIMEOUT) {
                     readyToUpdate.await()
                 }
             } catch (_: kotlinx.coroutines.TimeoutCancellationException) {
-                throw ServerException.NotifyFailed("Transmit queue full — timeout waiting for ready")
-            }
-            // Retry once
-            sent = manager.updateValue(nsData, forCharacteristic = characteristic, onSubscribedCentrals = targets)
-            if (!sent) {
-                throw ServerException.NotifyFailed("Transmit queue full after retry")
+                throw ServerException.NotifyFailed(
+                    "Transmit queue full — timeout waiting for ready (attempt ${attempt + 1}/$MAX_NOTIFY_RETRIES)",
+                )
             }
         }
+        throw ServerException.NotifyFailed("Transmit queue full after $MAX_NOTIFY_RETRIES retries")
     }
 
     private fun buildNativeService(definition: ServiceDefinition): CBMutableService {
@@ -524,10 +526,9 @@ internal class IosGattServer(
             val char = CBMutableCharacteristic(
                 type = CBUUID.UUIDWithString(charDef.uuid.toString()),
                 properties = properties,
-                value = null, // Dynamic — value served via delegate read callback
+                value = null,
                 permissions = permissions,
             )
-            // Cache for updateValue calls
             characteristicCache[charDef.uuid] = char
             char
         }
@@ -537,17 +538,21 @@ internal class IosGattServer(
     }
 
     private fun checkOpen() {
-        if (!isOpen) throw ServerException.NotOpen()
+        if (isOpen.value == 0) throw ServerException.NotOpen()
     }
 
     private companion object {
         const val POWER_ON_TIMEOUT_MS = 10_000L
         const val SERVICE_ADD_TIMEOUT_MS = 10_000L
+        const val MAX_NOTIFY_RETRIES = 3
         val NOTIFY_TIMEOUT = 5.seconds
+        val BROADCAST_IDENTIFIER = Identifier("broadcast")
 
-        const val CBATTErrorUnlikelyError: Long = 0x0E
+        val instanceLock = AtomicInt(0)
     }
 }
+
+private const val CB_ATT_ERROR_UNLIKELY: Long = 0x0E
 
 private fun buildCBProperties(props: ServerCharacteristic.Properties): ULong {
     var flags: ULong = 0u
@@ -578,7 +583,7 @@ private fun GattStatus.toCBATTError(): Long = when (this) {
     GattStatus.InsufficientEncryption -> CBATTErrorInsufficientEncryption
     GattStatus.InsufficientAuthorization -> CBATTErrorInsufficientAuthorization
     GattStatus.RequestNotSupported -> CBATTErrorRequestNotSupported
-    GattStatus.ConnectionCongested -> 0x0E // CBATTErrorUnlikelyError
-    GattStatus.Failure -> 0x0E
-    is GattStatus.Unknown -> 0x0E
+    GattStatus.ConnectionCongested -> CB_ATT_ERROR_UNLIKELY
+    GattStatus.Failure -> CB_ATT_ERROR_UNLIKELY
+    is GattStatus.Unknown -> CB_ATT_ERROR_UNLIKELY
 }
