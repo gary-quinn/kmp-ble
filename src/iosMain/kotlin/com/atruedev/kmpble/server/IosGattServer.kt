@@ -3,6 +3,7 @@ package com.atruedev.kmpble.server
 import com.atruedev.kmpble.BleData
 import com.atruedev.kmpble.Identifier
 import com.atruedev.kmpble.bleDataFromNSData
+import com.atruedev.kmpble.emptyBleData
 import com.atruedev.kmpble.error.GattStatus
 import com.atruedev.kmpble.internal.PeripheralManagerProvider
 import com.atruedev.kmpble.logging.BleLogEvent
@@ -128,9 +129,9 @@ internal class IosGattServer(
     private val subscriptions = mutableMapOf<String, MutableSet<String>>()
 
     // Handlers mapped by characteristic UUID
-    private val readHandlers = mutableMapOf<Uuid, suspend (Identifier) -> ByteArray>()
+    private val readHandlers = mutableMapOf<Uuid, suspend (Identifier) -> BleData>()
     private val writeHandlers =
-        mutableMapOf<Uuid, suspend (Identifier, ByteArray, Boolean) -> GattStatus?>()
+        mutableMapOf<Uuid, suspend (Identifier, BleData, Boolean) -> GattStatus?>()
 
     // Native characteristic cache: Uuid -> CBMutableCharacteristic (stored at build time)
     private val characteristicCache = mutableMapOf<Uuid, CBMutableCharacteristic>()
@@ -221,7 +222,7 @@ internal class IosGattServer(
         }
     }
 
-    override suspend fun notify(characteristicUuid: Uuid, device: Identifier?, data: ByteArray) {
+    override suspend fun notify(characteristicUuid: Uuid, device: Identifier?, data: BleData) {
         withContext(dispatcher) {
             checkOpen()
             val nativeChar = characteristicCache[characteristicUuid]
@@ -236,11 +237,10 @@ internal class IosGattServer(
                     )
                 listOf(central)
             } else {
-                // null = all subscribed centrals (iOS default behavior)
                 null
             }
 
-            sendUpdate(nativeChar, data.toNSData(), targets)
+            sendUpdate(nativeChar, data.nsData, targets)
 
             logEvent(
                 BleLogEvent.ServerRequest(
@@ -262,7 +262,7 @@ internal class IosGattServer(
      * This method delegates to [notify] with the same underlying
      * `updateValue` call.
      */
-    override suspend fun indicate(characteristicUuid: Uuid, device: Identifier, data: ByteArray) {
+    override suspend fun indicate(characteristicUuid: Uuid, device: Identifier, data: BleData) {
         notify(characteristicUuid, device, data)
     }
 
@@ -326,8 +326,7 @@ internal class IosGattServer(
 
         scope.launch {
             try {
-                val data = handler(centralId)
-                val bleData = BleData(data)
+                val bleData = handler(centralId)
 
                 val offset = request.offset.toInt()
                 if (offset > bleData.size) {
@@ -377,7 +376,7 @@ internal class IosGattServer(
             for (request in requests) {
                 val charUuid = uuidFrom(request.characteristic.UUID.UUIDString)
                 val centralId = Identifier(request.central.identifier.UUIDString)
-                val data = request.value?.toByteArray() ?: byteArrayOf()
+                val data = if (request.value != null) bleDataFromNSData(request.value!!) else emptyBleData()
 
                 trackCentral(request.central)
 
@@ -540,10 +539,6 @@ internal class IosGattServer(
     private fun checkOpen() {
         if (!isOpen) throw ServerException.NotOpen()
     }
-
-    private fun ByteArray.toNSData(): NSData = BleData(this).nsData
-
-    private fun NSData.toByteArray(): ByteArray = bleDataFromNSData(this).toByteArray()
 
     private companion object {
         const val POWER_ON_TIMEOUT_MS = 10_000L

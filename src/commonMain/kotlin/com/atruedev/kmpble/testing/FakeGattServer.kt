@@ -1,5 +1,6 @@
 package com.atruedev.kmpble.testing
 
+import com.atruedev.kmpble.BleData
 import com.atruedev.kmpble.Identifier
 import com.atruedev.kmpble.server.GattServer
 import com.atruedev.kmpble.server.ServerConnection
@@ -30,7 +31,7 @@ import kotlin.uuid.Uuid
  * server.simulateConnection(Identifier("AA:BB:CC:DD:EE:FF"), "TestDevice")
  * assertEquals(1, server.connections.value.size)
  *
- * server.notify(charUuid, null, byteArrayOf(0x01))
+ * server.notify(charUuid, null, BleData(byteArrayOf(0x01)))
  * assertEquals(1, server.getNotifications().size)
  * ```
  */
@@ -51,18 +52,18 @@ public class FakeGattServer : GattServer {
         _isOpen = true
     }
 
-    override suspend fun notify(characteristicUuid: Uuid, device: Identifier?, data: ByteArray) {
+    override suspend fun notify(characteristicUuid: Uuid, device: Identifier?, data: BleData) {
         checkOpen()
         if (device != null) {
             checkConnected(device)
         }
-        notifications.add(NotificationRecord(characteristicUuid, device, data.copyOf()))
+        notifications.add(NotificationRecord(characteristicUuid, device, data))
     }
 
-    override suspend fun indicate(characteristicUuid: Uuid, device: Identifier, data: ByteArray) {
+    override suspend fun indicate(characteristicUuid: Uuid, device: Identifier, data: BleData) {
         checkOpen()
         checkConnected(device)
-        indications.add(NotificationRecord(characteristicUuid, device, data.copyOf()))
+        indications.add(NotificationRecord(characteristicUuid, device, data))
     }
 
     override fun close() {
@@ -106,24 +107,8 @@ public class FakeGattServer : GattServer {
     public data class NotificationRecord(
         val characteristicUuid: Uuid,
         val device: Identifier?,
-        val data: ByteArray,
-    ) {
-        override fun equals(other: Any?): Boolean {
-            if (this === other) return true
-            if (other == null || this::class != other::class) return false
-            other as NotificationRecord
-            return characteristicUuid == other.characteristicUuid &&
-                device == other.device &&
-                data.contentEquals(other.data)
-        }
-
-        override fun hashCode(): Int {
-            var result = characteristicUuid.hashCode()
-            result = 31 * result + (device?.hashCode() ?: 0)
-            result = 31 * result + data.contentHashCode()
-            return result
-        }
-    }
+        val data: BleData,
+    )
 
     private fun checkOpen() {
         if (!_isOpen) throw ServerException.NotOpen()

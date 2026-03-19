@@ -1,5 +1,6 @@
 package com.atruedev.kmpble.server
 
+import com.atruedev.kmpble.BleData
 import com.atruedev.kmpble.Identifier
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
@@ -27,7 +28,7 @@ import kotlin.uuid.Uuid
  *         characteristic(statusUuid) {
  *             properties { read = true; notify = true }
  *             permissions { read = true }
- *             onRead { device -> currentStatus.toByteArray() }
+ *             onRead { device -> BleData(currentStatus.toByteArray()) }
  *         }
  *     }
  * }
@@ -35,7 +36,7 @@ import kotlin.uuid.Uuid
  * server.open()
  *
  * // Notify connected devices when status changes
- * server.notify(statusUuid, device, newStatusBytes)
+ * server.notify(statusUuid, device, BleData(newStatusBytes))
  *
  * // When done
  * server.close()
@@ -97,7 +98,7 @@ public interface GattServer : AutoCloseable {
      * @throws ServerException.NotOpen if server is not open
      * @throws ServerException.DeviceNotConnected if device is not connected
      */
-    public suspend fun notify(characteristicUuid: Uuid, device: Identifier?, data: ByteArray)
+    public suspend fun notify(characteristicUuid: Uuid, device: Identifier?, data: BleData)
 
     /**
      * Send an indication (acknowledged notification) to a connected device.
@@ -111,7 +112,7 @@ public interface GattServer : AutoCloseable {
      * @throws ServerException.NotOpen if server is not open
      * @throws ServerException.DeviceNotConnected if device is not connected
      */
-    public suspend fun indicate(characteristicUuid: Uuid, device: Identifier, data: ByteArray)
+    public suspend fun indicate(characteristicUuid: Uuid, device: Identifier, data: BleData)
 
     /**
      * Close the server.
