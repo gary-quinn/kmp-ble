@@ -4,6 +4,7 @@ import com.atruedev.kmpble.internal.IosPeripheralManagerDelegate
 import com.atruedev.kmpble.internal.PeripheralManagerProvider
 import com.atruedev.kmpble.logging.BleLogEvent
 import com.atruedev.kmpble.logging.logEvent
+import kotlin.concurrent.AtomicInt
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -42,18 +43,15 @@ internal class IosAdvertiser(
     private val _isAdvertising = MutableStateFlow(false)
     override val isAdvertising: StateFlow<Boolean> = _isAdvertising.asStateFlow()
 
-    private var isClosed = false
+    private val isClosed = AtomicInt(0)
 
     override fun startAdvertising(config: AdvertiseConfig) {
-        if (isClosed) {
+        if (isClosed.value != 0) {
             throw AdvertiserException.StartFailed("Advertiser has been closed")
         }
         if (_isAdvertising.value) {
             throw AdvertiserException.AlreadyAdvertising()
         }
-
-        // Trigger lazy init
-        manager
 
         if (manager.state != CBPeripheralManagerStatePoweredOn) {
             throw AdvertiserException.StartFailed("Bluetooth is not powered on")
@@ -90,8 +88,7 @@ internal class IosAdvertiser(
     }
 
     override fun close() {
-        if (isClosed) return
-        isClosed = true
+        if (isClosed.compareAndSet(0, 1).not()) return
         if (_isAdvertising.value) {
             manager.stopAdvertising()
             _isAdvertising.value = false

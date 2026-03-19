@@ -136,3 +136,6 @@ public sealed interface ServerConnectionEvent {
     public data class Connected(val device: Identifier) : ServerConnectionEvent
     public data class Disconnected(val device: Identifier) : ServerConnectionEvent
 }
+
+/** Sentinel [Identifier] used in log events when [GattServer.notify] targets all subscribed centrals. */
+internal val BROADCAST_IDENTIFIER = Identifier("broadcast")

@@ -476,6 +476,11 @@ internal class IosGattServer(
         return true
     }
 
+    // iOS silently truncates notification/indication payloads to the negotiated
+    // ATT MTU. Unlike Android, there is no API to query the per-central MTU or
+    // receive a truncation warning — callers must size payloads conservatively
+    // (typically ≤ 182 bytes for default MTU, or negotiate a larger MTU from
+    // the central side).
     private suspend fun sendUpdate(
         characteristic: CBMutableCharacteristic,
         nsData: NSData,
@@ -530,7 +535,6 @@ internal class IosGattServer(
         const val SERVICE_ADD_TIMEOUT_MS = 10_000L
         const val MAX_NOTIFY_RETRIES = 3
         val NOTIFY_TIMEOUT = 5.seconds
-        val BROADCAST_IDENTIFIER = Identifier("broadcast")
 
         val instanceLock = AtomicInt(0)
     }
