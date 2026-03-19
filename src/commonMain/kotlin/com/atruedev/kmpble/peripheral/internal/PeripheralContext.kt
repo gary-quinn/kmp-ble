@@ -93,9 +93,7 @@ internal class PeripheralContext(val identifier: Identifier) {
     }
 
     internal companion object {
-        /** Minimum ATT MTU per BLE spec (BT Core Spec 5.x Vol 3, Part F, §3.2.9). */
         const val DEFAULT_ATT_MTU = 23
-        /** ATT header overhead (opcode + handle = 3 bytes). */
         const val ATT_HEADER_SIZE = 3
     }
 }

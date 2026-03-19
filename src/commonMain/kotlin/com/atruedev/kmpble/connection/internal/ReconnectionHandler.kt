@@ -60,7 +60,6 @@ internal class ReconnectionHandler(
     }
 
     internal companion object {
-        /** Max safe left-shift for Long without overflow. */
         private const val MAX_BACKOFF_SHIFT = 30
 
         internal fun computeDelay(strategy: ReconnectionStrategy, attempt: Int): Duration? =

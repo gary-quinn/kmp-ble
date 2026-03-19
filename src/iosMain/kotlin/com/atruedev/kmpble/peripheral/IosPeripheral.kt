@@ -663,7 +663,6 @@ public class IosPeripheral(
         const val CONNECT_POLL_INTERVAL_MS = 500L
         const val DISCONNECT_TIMEOUT_MS = 5_000L
         const val DISCOVERY_TIMEOUT_MS = 10_000L
-        /** ATT header overhead (opcode + handle = 3 bytes). */
         const val ATT_HEADER_SIZE = 3
     }
 }

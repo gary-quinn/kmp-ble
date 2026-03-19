@@ -636,11 +636,7 @@ internal class AndroidGattServer(
         }
         pendingNotifySent.clear()
 
-        // Cancel scope — all in-flight coroutines (handlers, connection events) stop.
-        // Collections are NOT cleared here to avoid races with in-flight coroutines
-        // that haven't reached their next suspension point yet. After scope.cancel(),
-        // no new coroutines can be launched, and the collections become GC-eligible
-        // once all references are released.
+        // Don't clear collections here — races with in-flight coroutines before cancellation.
         scope.cancel()
         _connections.value = emptyList()
 

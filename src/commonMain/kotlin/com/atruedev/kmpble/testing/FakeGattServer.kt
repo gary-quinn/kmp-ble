@@ -50,12 +50,7 @@ public class FakeGattServer : GattServer {
     private val indications = mutableListOf<NotificationRecord>()
 
     override suspend fun open() {
-        if (_isClosed) {
-            throw ServerException.OpenFailed(
-                "This server instance has been closed and cannot be reopened. " +
-                    "Create a new instance.",
-            )
-        }
+        if (_isClosed) throw ServerException.OpenFailed("Server has been closed")
         _isOpen = true
     }
 

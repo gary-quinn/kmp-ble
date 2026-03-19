@@ -293,9 +293,7 @@ internal class IosGattServer(
 
         readyToUpdate.cancel(kotlinx.coroutines.CancellationException("Server closed"))
 
-        // Collections are NOT cleared here to avoid races with in-flight coroutines
-        // that haven't reached their next suspension point yet. After scope.cancel(),
-        // no new coroutines can be launched, and collections become GC-eligible.
+        // Don't clear collections here — races with in-flight coroutines before cancellation.
         scope.cancel()
         _connections.value = emptyList()
 
