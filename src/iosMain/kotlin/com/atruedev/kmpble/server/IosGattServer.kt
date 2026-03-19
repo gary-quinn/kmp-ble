@@ -5,6 +5,7 @@ import com.atruedev.kmpble.Identifier
 import com.atruedev.kmpble.bleDataFromNSData
 import com.atruedev.kmpble.emptyBleData
 import com.atruedev.kmpble.error.GattStatus
+import com.atruedev.kmpble.internal.IosPeripheralManagerDelegate
 import com.atruedev.kmpble.internal.PeripheralManagerProvider
 import com.atruedev.kmpble.logging.BleLogEvent
 import com.atruedev.kmpble.logging.logEvent
@@ -112,13 +113,12 @@ import platform.Foundation.NSError
  */
 internal class IosGattServer(
     private val serviceDefinitions: List<ServiceDefinition>,
+    private val manager: CBPeripheralManager = PeripheralManagerProvider.manager,
+    private val delegate: IosPeripheralManagerDelegate = PeripheralManagerProvider.delegate,
 ) : GattServer {
 
     private val dispatcher: CoroutineDispatcher = Dispatchers.Default.limitedParallelism(1)
     private val scope = CoroutineScope(SupervisorJob() + dispatcher + CoroutineName("IosGattServer"))
-
-    private val manager get() = PeripheralManagerProvider.manager
-    private val delegate get() = PeripheralManagerProvider.delegate
 
     private val _connections = MutableStateFlow<List<ServerConnection>>(emptyList())
     override val connections: StateFlow<List<ServerConnection>> = _connections.asStateFlow()
@@ -176,7 +176,7 @@ internal class IosGattServer(
     }
 
     private suspend fun openInternal() {
-        registerDelegateCallbacks()
+        setDelegateCallbacks(active = true)
 
         manager
 
@@ -185,7 +185,7 @@ internal class IosGattServer(
                 delegate.managerState.first { it == CBPeripheralManagerStatePoweredOn }
             }
         } catch (_: kotlinx.coroutines.TimeoutCancellationException) {
-            clearDelegateCallbacks()
+            setDelegateCallbacks(active = false)
             throw ServerException.OpenFailed(
                 "Timeout waiting for Bluetooth to power on (state: ${delegate.managerState.value})",
             )
@@ -277,7 +277,7 @@ internal class IosGattServer(
 
         val wasOpen = isOpen.compareAndSet(1, 0)
         if (!wasOpen) {
-            clearDelegateCallbacks()
+            setDelegateCallbacks(active = false)
             return
         }
 
@@ -296,7 +296,7 @@ internal class IosGattServer(
         writeHandlers.clear()
         _connections.value = emptyList()
 
-        clearDelegateCallbacks()
+        setDelegateCallbacks(active = false)
 
         instanceLock.value = 0
         logEvent(BleLogEvent.ServerLifecycle("closed"))
@@ -310,16 +310,14 @@ internal class IosGattServer(
 
     private fun handleReadRequest(peripheral: CBPeripheralManager, request: CBATTRequest) {
         scope.launch {
-            val charUuid = uuidFrom(request.characteristic.UUID.UUIDString)
-            val centralId = Identifier(request.central.identifier.UUIDString)
-
             trackCentral(request.central)
 
-            val handler = readHandlers[charUuid]
+            val handler = readHandlers[request.charUuid]
             if (handler == null) {
                 logEvent(
                     BleLogEvent.ServerRequest(
-                        centralId, "read-rejected (no handler)", charUuid, GattStatus.ReadNotPermitted,
+                        request.centralId, "read-rejected (no handler)", request.charUuid,
+                        GattStatus.ReadNotPermitted,
                     ),
                 )
                 peripheral.respondToRequest(request, withResult = CBATTErrorRequestNotSupported)
@@ -327,28 +325,22 @@ internal class IosGattServer(
             }
 
             try {
-                val bleData = handler(centralId)
-
+                val bleData = handler(request.centralId)
                 val offset = request.offset.toInt()
-                if (offset > bleData.size) {
-                    peripheral.respondToRequest(request, withResult = CBATTErrorInvalidOffset)
-                    return@launch
-                }
 
-                val responseNsData = if (offset > 0) {
-                    bleData.slice(offset, bleData.size).nsData
-                } else {
-                    bleData.nsData
+                val responseNsData = when {
+                    offset >= bleData.size && offset > 0 -> emptyBleData().nsData
+                    offset > 0 -> bleData.slice(offset, bleData.size).nsData
+                    else -> bleData.nsData
                 }
                 request.value = responseNsData
                 peripheral.respondToRequest(request, withResult = CBATTErrorSuccess)
 
-                val responseSize = responseNsData.length.toInt()
                 logEvent(
                     BleLogEvent.ServerRequest(
-                        centralId,
-                        "read (${responseSize}B, offset=$offset)",
-                        charUuid,
+                        request.centralId,
+                        "read (${responseNsData.length.toInt()}B, offset=$offset)",
+                        request.charUuid,
                         GattStatus.Success,
                     ),
                 )
@@ -356,7 +348,8 @@ internal class IosGattServer(
                 if (e is kotlinx.coroutines.CancellationException) throw e
                 logEvent(
                     BleLogEvent.ServerRequest(
-                        centralId, "read-failed (handler threw)", charUuid, GattStatus.Failure,
+                        request.centralId, "read-failed (handler threw)", request.charUuid,
+                        GattStatus.Failure,
                     ),
                 )
                 peripheral.respondToRequest(request, withResult = CB_ATT_ERROR_UNLIKELY)
@@ -376,17 +369,15 @@ internal class IosGattServer(
             var failError: Long = CB_ATT_ERROR_UNLIKELY
 
             for (request in requests) {
-                val charUuid = uuidFrom(request.characteristic.UUID.UUIDString)
-                val centralId = Identifier(request.central.identifier.UUIDString)
                 val data = if (request.value != null) bleDataFromNSData(request.value!!) else emptyBleData()
 
                 trackCentral(request.central)
 
-                val handler = writeHandlers[charUuid]
+                val handler = writeHandlers[request.charUuid]
                 if (handler == null) {
                     logEvent(
                         BleLogEvent.ServerRequest(
-                            centralId, "write-rejected (no handler)", charUuid,
+                            request.centralId, "write-rejected (no handler)", request.charUuid,
                             GattStatus.WriteNotPermitted,
                         ),
                     )
@@ -396,7 +387,7 @@ internal class IosGattServer(
                 }
 
                 try {
-                    val status = handler(centralId, data, true)
+                    val status = handler(request.centralId, data, true)
                     if (status != null && status != GattStatus.Success) {
                         failed = true
                         failError = status.toCBATTError()
@@ -404,14 +395,15 @@ internal class IosGattServer(
                     }
                     logEvent(
                         BleLogEvent.ServerRequest(
-                            centralId, "write (${data.size}B)", charUuid, status,
+                            request.centralId, "write (${data.size}B)", request.charUuid, status,
                         ),
                     )
                 } catch (e: Exception) {
                     if (e is kotlinx.coroutines.CancellationException) throw e
                     logEvent(
                         BleLogEvent.ServerRequest(
-                            centralId, "write-failed (handler threw)", charUuid, GattStatus.Failure,
+                            request.centralId, "write-failed (handler threw)", request.charUuid,
+                            GattStatus.Failure,
                         ),
                     )
                     failed = true
@@ -430,10 +422,10 @@ internal class IosGattServer(
     private fun handleSubscribe(central: CBCentral, characteristic: CBCharacteristic) {
         scope.launch {
             val charUuid = characteristic.UUID.UUIDString
-            val centralId = Identifier(central.identifier.UUIDString)
+            val centralId = Identifier(central.id)
             val isNewCentral = trackCentral(central)
 
-            subscriptions.getOrPut(charUuid) { mutableSetOf() }.add(central.identifier.UUIDString)
+            subscriptions.getOrPut(charUuid) { mutableSetOf() }.add(central.id)
 
             logEvent(
                 BleLogEvent.ServerClientEvent(centralId, "subscribed to $charUuid"),
@@ -457,20 +449,12 @@ internal class IosGattServer(
 
     // --- Internal helpers ---
 
-    private fun registerDelegateCallbacks() {
-        delegate.onServiceAdded = ::handleServiceAdded
-        delegate.onReadRequest = ::handleReadRequest
-        delegate.onWriteRequests = ::handleWriteRequests
-        delegate.onSubscribe = ::handleSubscribe
-        delegate.onReadyToUpdate = ::handleReadyToUpdate
-    }
-
-    private fun clearDelegateCallbacks() {
-        delegate.onServiceAdded = null
-        delegate.onReadRequest = null
-        delegate.onWriteRequests = null
-        delegate.onSubscribe = null
-        delegate.onReadyToUpdate = null
+    private fun setDelegateCallbacks(active: Boolean) {
+        delegate.onServiceAdded = if (active) ::handleServiceAdded else null
+        delegate.onReadRequest = if (active) ::handleReadRequest else null
+        delegate.onWriteRequests = if (active) ::handleWriteRequests else null
+        delegate.onSubscribe = if (active) ::handleSubscribe else null
+        delegate.onReadyToUpdate = if (active) ::handleReadyToUpdate else null
     }
 
     /**
@@ -478,7 +462,7 @@ internal class IosGattServer(
      * Must be called on [dispatcher].
      */
     private fun trackCentral(central: CBCentral): Boolean {
-        val id = central.identifier.UUIDString
+        val id = central.id
         if (connectedCentrals.containsKey(id)) return false
         connectedCentrals[id] = central
         _connections.update { list ->
@@ -551,6 +535,12 @@ internal class IosGattServer(
         val instanceLock = AtomicInt(0)
     }
 }
+
+// --- Private extensions to reduce CBATTRequest/CBCentral identity boilerplate ---
+
+private val CBATTRequest.charUuid: Uuid get() = uuidFrom(characteristic.UUID.UUIDString)
+private val CBATTRequest.centralId: Identifier get() = Identifier(central.identifier.UUIDString)
+private val CBCentral.id: String get() = identifier.UUIDString
 
 private const val CB_ATT_ERROR_UNLIKELY: Long = 0x0E
 

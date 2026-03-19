@@ -1,5 +1,6 @@
 package com.atruedev.kmpble.server
 
+import com.atruedev.kmpble.internal.IosPeripheralManagerDelegate
 import com.atruedev.kmpble.internal.PeripheralManagerProvider
 import com.atruedev.kmpble.logging.BleLogEvent
 import com.atruedev.kmpble.logging.logEvent
@@ -8,6 +9,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import platform.CoreBluetooth.CBAdvertisementDataLocalNameKey
 import platform.CoreBluetooth.CBAdvertisementDataServiceUUIDsKey
+import platform.CoreBluetooth.CBPeripheralManager
 import platform.CoreBluetooth.CBPeripheralManagerStatePoweredOn
 import platform.CoreBluetooth.CBUUID
 import platform.Foundation.NSError
@@ -32,10 +34,10 @@ import platform.Foundation.NSError
  * - [AdvertiseConfig.mode] — ignored (iOS controls interval)
  * - [AdvertiseConfig.txPower] — ignored (iOS controls power)
  */
-internal class IosAdvertiser : Advertiser {
-
-    private val manager get() = PeripheralManagerProvider.manager
-    private val delegate get() = PeripheralManagerProvider.delegate
+internal class IosAdvertiser(
+    private val manager: CBPeripheralManager = PeripheralManagerProvider.manager,
+    private val delegate: IosPeripheralManagerDelegate = PeripheralManagerProvider.delegate,
+) : Advertiser {
 
     private val _isAdvertising = MutableStateFlow(false)
     override val isAdvertising: StateFlow<Boolean> = _isAdvertising.asStateFlow()
@@ -57,43 +59,10 @@ internal class IosAdvertiser : Advertiser {
             throw AdvertiserException.StartFailed("Bluetooth is not powered on")
         }
 
-        // Log warnings for unsupported iOS fields
-        if (config.manufacturerData.isNotEmpty()) {
-            logEvent(
-                BleLogEvent.Error(
-                    identifier = null,
-                    message = "AdvertiseConfig.manufacturerData is not supported on iOS (ignored)",
-                    cause = null,
-                ),
-            )
-        }
-        if (config.includeTxPower) {
-            logEvent(
-                BleLogEvent.Error(
-                    identifier = null,
-                    message = "AdvertiseConfig.includeTxPower is not supported on iOS (ignored)",
-                    cause = null,
-                ),
-            )
-        }
-        if (config.mode != DEFAULTS.mode) {
-            logEvent(
-                BleLogEvent.Error(
-                    identifier = null,
-                    message = "AdvertiseConfig.mode is not supported on iOS — system controls interval (ignored)",
-                    cause = null,
-                ),
-            )
-        }
-        if (config.txPower != DEFAULTS.txPower) {
-            logEvent(
-                BleLogEvent.Error(
-                    identifier = null,
-                    message = "AdvertiseConfig.txPower is not supported on iOS — system controls power (ignored)",
-                    cause = null,
-                ),
-            )
-        }
+        if (config.manufacturerData.isNotEmpty()) warnUnsupported("manufacturerData")
+        if (config.includeTxPower) warnUnsupported("includeTxPower")
+        if (config.mode != DEFAULTS.mode) warnUnsupported("mode", "system controls interval")
+        if (config.txPower != DEFAULTS.txPower) warnUnsupported("txPower", "system controls power")
 
         val advertisementData = mutableMapOf<String, Any>()
 
@@ -107,7 +76,6 @@ internal class IosAdvertiser : Advertiser {
             }
         }
 
-        // Register callback to receive the advertising result
         delegate.onStartAdvertising = { error -> handleDidStartAdvertising(error) }
 
         @Suppress("UNCHECKED_CAST")
@@ -131,8 +99,14 @@ internal class IosAdvertiser : Advertiser {
         delegate.onStartAdvertising = null
     }
 
-    private companion object {
-        val DEFAULTS = AdvertiseConfig()
+    private fun warnUnsupported(field: String, reason: String = "ignored") {
+        logEvent(
+            BleLogEvent.Error(
+                identifier = null,
+                message = "AdvertiseConfig.$field is not supported on iOS ($reason)",
+                cause = null,
+            ),
+        )
     }
 
     private fun handleDidStartAdvertising(error: NSError?) {
@@ -149,5 +123,9 @@ internal class IosAdvertiser : Advertiser {
             _isAdvertising.value = true
             logEvent(BleLogEvent.ServerLifecycle("advertising started"))
         }
+    }
+
+    private companion object {
+        val DEFAULTS = AdvertiseConfig()
     }
 }
