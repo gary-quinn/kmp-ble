@@ -43,6 +43,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.concurrent.Volatile
 import kotlin.uuid.Uuid
 import kotlin.uuid.toJavaUuid
 import kotlin.uuid.toKotlinUuid
@@ -122,6 +123,7 @@ internal class AndroidGattServer(
 
     // --- All fields below are accessed ONLY on [dispatcher] unless noted ---
 
+    @Volatile
     private var nativeServer: BluetoothGattServer? = null
 
     private val _connections = MutableStateFlow<List<ServerConnection>>(emptyList())
@@ -634,17 +636,12 @@ internal class AndroidGattServer(
         }
         pendingNotifySent.clear()
 
-        // Cancel scope — all in-flight coroutines (handlers, connection events) stop
+        // Cancel scope — all in-flight coroutines (handlers, connection events) stop.
+        // Collections are NOT cleared here to avoid races with in-flight coroutines
+        // that haven't reached their next suspension point yet. After scope.cancel(),
+        // no new coroutines can be launched, and the collections become GC-eligible
+        // once all references are released.
         scope.cancel()
-
-        // Reset state (no more coroutines can access these after scope.cancel)
-        connectedDevices.clear()
-        deviceMtu.clear()
-        subscriptionModes.clear()
-        subscribersByChar.clear()
-        characteristicCache.clear()
-        readHandlers.clear()
-        writeHandlers.clear()
         _connections.value = emptyList()
 
         // Release singleton lock
@@ -744,7 +741,7 @@ internal class AndroidGattServer(
     }
 
     internal companion object {
-        val CCCD_UUID: Uuid = com.atruedev.kmpble.scanner.uuidFrom("2902")
+        val CCCD_UUID: Uuid = com.atruedev.kmpble.gatt.internal.CCCD_UUID
         const val NOTIFY_TIMEOUT_MS = 5_000L
         const val DEFAULT_MTU = 23
         const val ATT_HEADER_SIZE = 3

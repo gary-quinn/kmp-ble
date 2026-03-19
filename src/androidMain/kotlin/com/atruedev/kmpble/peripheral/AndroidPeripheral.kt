@@ -61,6 +61,7 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import java.io.IOException
+import kotlin.concurrent.Volatile
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.time.Duration.Companion.seconds
@@ -101,6 +102,7 @@ public class AndroidPeripheral internal constructor(
     override val services: StateFlow<List<DiscoveredService>?> get() = peripheralContext.services
     override val maximumWriteValueLength: StateFlow<Int> get() = peripheralContext.maximumWriteValueLength
 
+    @Volatile
     private var closed = false
     private var currentConnectionOptions: ConnectionOptions? = null
     private val reconnectionHandler = com.atruedev.kmpble.connection.internal.ReconnectionHandler(
@@ -228,7 +230,7 @@ public class AndroidPeripheral internal constructor(
             bridge.disconnect()
 
             try {
-                withTimeout(5_000) { disconnectComplete!!.await() }
+                withTimeout(DISCONNECT_TIMEOUT) { disconnectComplete!!.await() }
             } catch (_: kotlinx.coroutines.TimeoutCancellationException) {
                 peripheralContext.processEvent(
                     ConnectionEvent.ConnectionLost(OperationFailed("Disconnect timeout"))
@@ -246,8 +248,8 @@ public class AndroidPeripheral internal constructor(
         reconnectionHandler.stop()
         bondManager.stop()
         closeL2capChannels()
-        observationManager.clear()
         bridge.close()
+        observationManager.clear()
         peripheralContext.close()
         PeripheralRegistry.remove(identifier)
     }
@@ -267,7 +269,7 @@ public class AndroidPeripheral internal constructor(
                 throw IllegalStateException("discoverServices() returned false")
             }
             try {
-                withTimeout(10_000) { discoveryComplete!!.await() }
+                withTimeout(SERVICE_DISCOVERY_TIMEOUT) { discoveryComplete!!.await() }
             } finally {
                 discoveryComplete = null
             }
@@ -708,7 +710,6 @@ public class AndroidPeripheral internal constructor(
      * All blocking socket I/O runs on [Dispatchers.IO]; the caller's coroutine
      * context is never blocked.
      */
-    @android.annotation.SuppressLint("MissingPermission")
     override suspend fun openL2capChannel(psm: Int, secure: Boolean): L2capChannel {
         checkNotClosed()
 
@@ -811,5 +812,7 @@ public class AndroidPeripheral internal constructor(
 
     private companion object {
         val L2CAP_OPEN_TIMEOUT = 30.seconds
+        val DISCONNECT_TIMEOUT = 5.seconds
+        val SERVICE_DISCOVERY_TIMEOUT = 10.seconds
     }
 }

@@ -42,7 +42,7 @@ internal class ReconnectionHandler(
                     try {
                         connectAction(opts)
                         attempt = 0
-                    } catch (_: Throwable) {
+                    } catch (_: Exception) {
                         // Will re-enter this collector on next Disconnected state
                     }
                 } else if (state is State.Connected.Ready) {
@@ -60,6 +60,9 @@ internal class ReconnectionHandler(
     }
 
     internal companion object {
+        /** Max safe left-shift for Long without overflow. */
+        private const val MAX_BACKOFF_SHIFT = 30
+
         internal fun computeDelay(strategy: ReconnectionStrategy, attempt: Int): Duration? =
             when (strategy) {
                 is ReconnectionStrategy.None -> null
@@ -67,7 +70,7 @@ internal class ReconnectionHandler(
                     if (attempt >= strategy.maxAttempts) null
                     else {
                         val delayMs = strategy.initialDelay.inWholeMilliseconds *
-                            (1L shl min(attempt, 30))
+                            (1L shl min(attempt, MAX_BACKOFF_SHIFT))
                         val capped = min(delayMs, strategy.maxDelay.inWholeMilliseconds)
                         capped.milliseconds
                     }

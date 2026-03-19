@@ -44,7 +44,7 @@ internal class GattOperationQueue(private val scope: CoroutineScope) {
 
     @Suppress("UNCHECKED_CAST")
     suspend fun <T> enqueue(
-        timeout: Duration = 10.seconds,
+        timeout: Duration = DEFAULT_OPERATION_TIMEOUT,
         block: suspend () -> T,
     ): T {
         if (!accepting) throw NotConnectedException()
@@ -73,3 +73,5 @@ internal class GattOperationQueue(private val scope: CoroutineScope) {
 }
 
 internal class NotConnectedException : Exception("Peripheral is not connected")
+
+private val DEFAULT_OPERATION_TIMEOUT = 10.seconds

@@ -2,9 +2,9 @@ package com.atruedev.kmpble.testing
 
 import com.atruedev.kmpble.l2cap.L2capChannel
 import com.atruedev.kmpble.l2cap.L2capException
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.consumeAsFlow
 
 /**
  * Fake L2CAP channel for unit testing.
@@ -29,8 +29,8 @@ public class FakeL2capChannel(
     override val mtu: Int = 2048,
 ) : L2capChannel {
 
-    private val _incoming = MutableSharedFlow<ByteArray>(replay = 1, extraBufferCapacity = 64)
-    override val incoming: Flow<ByteArray> = _incoming.asSharedFlow()
+    private val _incomingChannel = Channel<ByteArray>(Channel.BUFFERED)
+    override val incoming: Flow<ByteArray> = _incomingChannel.consumeAsFlow()
 
     private var _isOpen = true
     override val isOpen: Boolean get() = _isOpen
@@ -43,7 +43,9 @@ public class FakeL2capChannel(
     }
 
     override fun close() {
+        if (!_isOpen) return
         _isOpen = false
+        _incomingChannel.close()
     }
 
     /**
@@ -53,7 +55,7 @@ public class FakeL2capChannel(
      * so tests don't need to guarantee collector startup ordering.
      */
     public suspend fun emitIncoming(data: ByteArray) {
-        _incoming.emit(data)
+        _incomingChannel.send(data)
     }
 
     /**

@@ -44,11 +44,18 @@ public class FakeGattServer : GattServer {
     override val connectionEvents: Flow<ServerConnectionEvent> = _connectionEvents.asSharedFlow()
 
     private var _isOpen = false
+    private var _isClosed = false
 
     private val notifications = mutableListOf<NotificationRecord>()
     private val indications = mutableListOf<NotificationRecord>()
 
     override suspend fun open() {
+        if (_isClosed) {
+            throw ServerException.OpenFailed(
+                "This server instance has been closed and cannot be reopened. " +
+                    "Create a new instance.",
+            )
+        }
         _isOpen = true
     }
 
@@ -67,6 +74,7 @@ public class FakeGattServer : GattServer {
     }
 
     override fun close() {
+        _isClosed = true
         _isOpen = false
         _connections.value = emptyList()
     }
