@@ -1,5 +1,6 @@
 package com.atruedev.kmpble.server
 
+import com.atruedev.kmpble.BleData
 import com.atruedev.kmpble.Identifier
 import com.atruedev.kmpble.testing.FakeGattServer
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -26,14 +27,14 @@ class FakeGattServerTest {
         server.open()
         server.simulateConnection(device1)
 
-        val data = byteArrayOf(0x01, 0x02, 0x03)
+        val data = BleData(byteArrayOf(0x01, 0x02, 0x03))
         server.notify(charUuid, device1, data)
 
         val records = server.getNotifications()
         assertEquals(1, records.size)
         assertEquals(charUuid, records[0].characteristicUuid)
         assertEquals(device1, records[0].device)
-        assertTrue(data.contentEquals(records[0].data))
+        assertEquals(data, records[0].data)
     }
 
     @Test
@@ -42,14 +43,14 @@ class FakeGattServerTest {
         server.open()
         server.simulateConnection(device1)
 
-        val data = byteArrayOf(0x04, 0x05)
+        val data = BleData(byteArrayOf(0x04, 0x05))
         server.indicate(charUuid, device1, data)
 
         val records = server.getIndications()
         assertEquals(1, records.size)
         assertEquals(charUuid, records[0].characteristicUuid)
         assertEquals(device1, records[0].device)
-        assertTrue(data.contentEquals(records[0].data))
+        assertEquals(data, records[0].data)
     }
 
     @Test
@@ -108,7 +109,7 @@ class FakeGattServerTest {
         val server = FakeGattServer()
 
         assertFailsWith<ServerException.NotOpen> {
-            server.notify(charUuid, device1, byteArrayOf(0x01))
+            server.notify(charUuid, device1, BleData(byteArrayOf(0x01)))
         }
     }
 
@@ -117,7 +118,7 @@ class FakeGattServerTest {
         val server = FakeGattServer()
 
         assertFailsWith<ServerException.NotOpen> {
-            server.indicate(charUuid, device1, byteArrayOf(0x01))
+            server.indicate(charUuid, device1, BleData(byteArrayOf(0x01)))
         }
     }
 
@@ -127,7 +128,7 @@ class FakeGattServerTest {
         server.open()
 
         assertFailsWith<ServerException.DeviceNotConnected> {
-            server.notify(charUuid, device1, byteArrayOf(0x01))
+            server.notify(charUuid, device1, BleData(byteArrayOf(0x01)))
         }
     }
 
@@ -137,7 +138,7 @@ class FakeGattServerTest {
         server.open()
 
         assertFailsWith<ServerException.DeviceNotConnected> {
-            server.indicate(charUuid, device1, byteArrayOf(0x01))
+            server.indicate(charUuid, device1, BleData(byteArrayOf(0x01)))
         }
     }
 
@@ -160,7 +161,7 @@ class FakeGattServerTest {
         val server = FakeGattServer()
         server.open()
 
-        server.notify(charUuid, null, byteArrayOf(0x01))
+        server.notify(charUuid, null, BleData(byteArrayOf(0x01)))
 
         val records = server.getNotifications()
         assertEquals(1, records.size)
@@ -174,8 +175,8 @@ class FakeGattServerTest {
         server.simulateConnection(device1)
         server.simulateConnection(device2)
 
-        server.notify(charUuid, device1, byteArrayOf(0x01))
-        server.notify(charUuid, device2, byteArrayOf(0x02))
+        server.notify(charUuid, device1, BleData(byteArrayOf(0x01)))
+        server.notify(charUuid, device2, BleData(byteArrayOf(0x02)))
         assertEquals(2, server.getNotifications().size)
 
         server.clearNotifications()
@@ -189,14 +190,14 @@ class FakeGattServerTest {
         server.simulateConnection(device1)
         server.simulateConnection(device2)
 
-        server.notify(charUuid, device1, byteArrayOf(0x01))
-        server.notify(charUuid, device2, byteArrayOf(0x02))
-        server.notify(charUuid, device1, byteArrayOf(0x03))
+        server.notify(charUuid, device1, BleData(byteArrayOf(0x01)))
+        server.notify(charUuid, device2, BleData(byteArrayOf(0x02)))
+        server.notify(charUuid, device1, BleData(byteArrayOf(0x03)))
 
         val records = server.getNotifications()
         assertEquals(3, records.size)
-        assertTrue(byteArrayOf(0x01).contentEquals(records[0].data))
-        assertTrue(byteArrayOf(0x02).contentEquals(records[1].data))
-        assertTrue(byteArrayOf(0x03).contentEquals(records[2].data))
+        assertEquals(BleData(byteArrayOf(0x01)), records[0].data)
+        assertEquals(BleData(byteArrayOf(0x02)), records[1].data)
+        assertEquals(BleData(byteArrayOf(0x03)), records[2].data)
     }
 }

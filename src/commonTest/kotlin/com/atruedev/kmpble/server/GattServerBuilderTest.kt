@@ -1,5 +1,7 @@
 package com.atruedev.kmpble.server
 
+import com.atruedev.kmpble.BleData
+import com.atruedev.kmpble.emptyBleData
 import com.atruedev.kmpble.error.GattStatus
 import com.atruedev.kmpble.scanner.uuidFrom
 import kotlin.test.Test
@@ -24,7 +26,7 @@ class GattServerBuilderTest {
             characteristic(charUuid1) {
                 properties { read = true }
                 permissions { read = true }
-                onRead { byteArrayOf() }
+                onRead { emptyBleData() }
             }
         }
 
@@ -41,7 +43,7 @@ class GattServerBuilderTest {
             characteristic(charUuid1) {
                 properties { read = true; write = true }
                 permissions { read = true; write = true }
-                onRead { _ -> byteArrayOf(0x01) }
+                onRead { _ -> BleData(byteArrayOf(0x01)) }
                 onWrite { _, _, _ -> GattStatus.Success }
             }
         }
@@ -69,7 +71,7 @@ class GattServerBuilderTest {
                     write = true
                     writeEncrypted = true
                 }
-                onRead { byteArrayOf() }
+                onRead { emptyBleData() }
                 onWrite { _, _, _ -> GattStatus.Success }
             }
         }
@@ -109,7 +111,7 @@ class GattServerBuilderTest {
             characteristic(charUuid1) {
                 properties { read = true }
                 permissions { read = true }
-                onRead { byteArrayOf() }
+                onRead { emptyBleData() }
             }
         }
         builder.service(serviceUuid2) {

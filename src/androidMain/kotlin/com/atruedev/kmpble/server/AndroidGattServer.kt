@@ -14,7 +14,9 @@ import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothProfile
 import android.content.Context
 import android.os.Build
+import com.atruedev.kmpble.BleData
 import com.atruedev.kmpble.Identifier
+import com.atruedev.kmpble.emptyBleData
 import com.atruedev.kmpble.error.GattStatus
 import com.atruedev.kmpble.logging.BleLogEvent
 import com.atruedev.kmpble.logging.logEvent
@@ -147,8 +149,8 @@ internal class AndroidGattServer(
     private val deviceMtu = mutableMapOf<Identifier, Int>()
 
     // Map characteristic UUID -> handler for read/write dispatch
-    private val readHandlers = mutableMapOf<Uuid, suspend (Identifier) -> ByteArray>()
-    private val writeHandlers = mutableMapOf<Uuid, suspend (Identifier, ByteArray, Boolean) -> GattStatus?>()
+    private val readHandlers = mutableMapOf<Uuid, suspend (Identifier) -> BleData>()
+    private val writeHandlers = mutableMapOf<Uuid, suspend (Identifier, BleData, Boolean) -> GattStatus?>()
 
     // O(1) lookup cache: characteristic UUID -> native characteristic (built during open)
     private val characteristicCache = mutableMapOf<Uuid, BluetoothGattCharacteristic>()
@@ -238,14 +240,13 @@ internal class AndroidGattServer(
                 }
 
                 try {
-                    val data = handler(deviceId)
-                    // Support offset reads for characteristics > MTU
-                    val responseData = if (offset > 0 && offset < data.size) {
-                        data.sliceArray(offset until data.size)
-                    } else if (offset >= data.size && offset > 0) {
-                        byteArrayOf() // Past end of data
+                    val bleData = handler(deviceId)
+                    val responseData = if (offset > 0 && offset < bleData.size) {
+                        bleData.slice(offset, bleData.size).toByteArray()
+                    } else if (offset >= bleData.size && offset > 0) {
+                        byteArrayOf()
                     } else {
-                        data
+                        bleData.toByteArray()
                     }
                     logEvent(BleLogEvent.ServerRequest(deviceId, "read (${responseData.size}B, offset=$offset)", charUuid, GattStatus.Success))
                     sendResponseSafe(device, requestId, BluetoothGatt.GATT_SUCCESS, offset, responseData)
@@ -288,7 +289,12 @@ internal class AndroidGattServer(
                 }
 
                 try {
-                    val status = handler(deviceId, value ?: byteArrayOf(), responseNeeded)
+                    val bleData = if (value != null && value.isNotEmpty()) {
+                        BleData(value, 0, value.size)
+                    } else {
+                        emptyBleData()
+                    }
+                    val status = handler(deviceId, bleData, responseNeeded)
                     logEvent(BleLogEvent.ServerRequest(deviceId, "write (${value?.size ?: 0}B)", charUuid, status))
                     if (responseNeeded) {
                         val nativeStatus = status?.toAndroidGattStatus() ?: BluetoothGatt.GATT_SUCCESS
@@ -462,7 +468,7 @@ internal class AndroidGattServer(
         logEvent(BleLogEvent.ServerLifecycle("open (${serviceDefinitions.size} services)"))
     }
 
-    override suspend fun notify(characteristicUuid: Uuid, device: Identifier?, data: ByteArray) {
+    override suspend fun notify(characteristicUuid: Uuid, device: Identifier?, data: BleData) {
         withContext(dispatcher) {
             checkOpen()
             val server = nativeServer ?: throw ServerException.NotOpen()
@@ -485,28 +491,27 @@ internal class AndroidGattServer(
                 subscribed.mapNotNull { connectedDevices[it] }
             }
 
+            val dataBytes = data.toByteArray()
+
             // Warn if notification payload exceeds any target's MTU
             for (target in targets) {
                 val targetId = Identifier(target.address)
                 val mtu = deviceMtu[targetId] ?: DEFAULT_MTU
                 val maxPayload = mtu - ATT_HEADER_SIZE
-                if (data.size > maxPayload) {
+                if (dataBytes.size > maxPayload) {
                     logEvent(BleLogEvent.Error(
                         targetId,
-                        "Notification payload (${data.size}B) exceeds device MTU ($mtu, max payload ${maxPayload}B). " +
+                        "Notification payload (${dataBytes.size}B) exceeds device MTU ($mtu, max payload ${maxPayload}B). " +
                             "Data will be truncated by the BLE stack.",
                         null,
                     ))
                 }
             }
 
-            // Send to all targets in parallel — Android only requires
-            // per-device serialization, not global serialization.
-            // Individual failures are logged but don't cancel other sends.
             targets.map { target ->
                 async {
                     try {
-                        awaitNotifySend(server, target, nativeChar, data, confirm = false)
+                        awaitNotifySend(server, target, nativeChar, dataBytes, confirm = false)
                     } catch (e: Exception) {
                         logEvent(BleLogEvent.Error(Identifier(target.address), "notify failed", e))
                     }
@@ -514,14 +519,14 @@ internal class AndroidGattServer(
             }.awaitAll()
 
             logEvent(BleLogEvent.ServerRequest(
-                device ?: Identifier("broadcast"),
+                device ?: BROADCAST_IDENTIFIER,
                 "notify (${data.size}B to ${targets.size} devices)",
                 characteristicUuid, GattStatus.Success,
             ))
         }
     }
 
-    override suspend fun indicate(characteristicUuid: Uuid, device: Identifier, data: ByteArray) {
+    override suspend fun indicate(characteristicUuid: Uuid, device: Identifier, data: BleData) {
         withContext(dispatcher) {
             checkOpen()
             val server = nativeServer ?: throw ServerException.NotOpen()
@@ -538,20 +543,22 @@ internal class AndroidGattServer(
                 throw ServerException.NotifyFailed("Device $device is not subscribed to $characteristicUuid")
             }
 
+            val dataBytes = data.toByteArray()
+
             // Warn on MTU truncation
             val mtu = deviceMtu[device] ?: DEFAULT_MTU
             val maxPayload = mtu - ATT_HEADER_SIZE
-            if (data.size > maxPayload) {
+            if (dataBytes.size > maxPayload) {
                 logEvent(BleLogEvent.Error(
                     device,
-                    "Indication payload (${data.size}B) exceeds device MTU ($mtu, max payload ${maxPayload}B). " +
+                    "Indication payload (${dataBytes.size}B) exceeds device MTU ($mtu, max payload ${maxPayload}B). " +
                         "Data will be truncated by the BLE stack.",
                     null,
                 ))
             }
 
             try {
-                val status = awaitNotifySend(server, target, nativeChar, data, confirm = true)
+                val status = awaitNotifySend(server, target, nativeChar, dataBytes, confirm = true)
                 if (status != BluetoothGatt.GATT_SUCCESS) {
                     throw ServerException.NotifyFailed("Indication failed with status ${status.toGattStatus()}")
                 }

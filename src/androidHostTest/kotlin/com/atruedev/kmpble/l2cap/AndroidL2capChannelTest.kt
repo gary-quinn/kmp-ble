@@ -151,10 +151,8 @@ class AndroidL2capChannelTest {
         socket.remoteOutput.write(byteArrayOf(0x0A, 0x0B))
         socket.remoteOutput.flush()
 
-        // Give the read loop time to process
-        kotlinx.coroutines.delay(100)
+        awaitCondition { received.isNotEmpty() }
 
-        assertTrue(received.isNotEmpty(), "Should have received data")
         assertContentEquals(byteArrayOf(0x0A, 0x0B), received[0])
 
         channel.close()
@@ -172,13 +170,12 @@ class AndroidL2capChannelTest {
 
         socket.remoteOutput.write(byteArrayOf(0x01))
         socket.remoteOutput.flush()
-        kotlinx.coroutines.delay(50)
+        awaitCondition { received.size >= 1 }
 
         socket.remoteOutput.write(byteArrayOf(0x02))
         socket.remoteOutput.flush()
-        kotlinx.coroutines.delay(50)
+        awaitCondition { received.size >= 2 }
 
-        assertEquals(2, received.size)
         assertContentEquals(byteArrayOf(0x01), received[0])
         assertContentEquals(byteArrayOf(0x02), received[1])
 
@@ -277,6 +274,18 @@ class AndroidL2capChannelTest {
 
         assertFailsWith<L2capException.ChannelClosed> {
             channel.write(byteArrayOf(0x01))
+        }
+    }
+
+    private suspend fun awaitCondition(
+        timeoutMs: Long = 2_000,
+        intervalMs: Long = 10,
+        condition: () -> Boolean,
+    ) {
+        val deadline = System.currentTimeMillis() + timeoutMs
+        while (!condition()) {
+            check(System.currentTimeMillis() < deadline) { "Condition not met within ${timeoutMs}ms" }
+            kotlinx.coroutines.delay(intervalMs)
         }
     }
 }

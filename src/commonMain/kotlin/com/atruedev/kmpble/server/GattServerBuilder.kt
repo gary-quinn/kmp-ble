@@ -1,5 +1,6 @@
 package com.atruedev.kmpble.server
 
+import com.atruedev.kmpble.BleData
 import com.atruedev.kmpble.Identifier
 import com.atruedev.kmpble.error.GattStatus
 import com.atruedev.kmpble.scanner.uuidFrom
@@ -22,7 +23,7 @@ public annotation class GattServerDsl
  *             properties { write = true }
  *             permissions { write = true }
  *             onWrite { device, data, responseNeeded ->
- *                 processCommand(data)
+ *                 processCommand(data.toByteArray())
  *                 if (responseNeeded) GattStatus.Success else null
  *             }
  *         }
@@ -78,8 +79,8 @@ public class ServiceBuilder(private val uuid: Uuid) {
 public class CharacteristicBuilder(private val uuid: Uuid) {
     private var props = ServerCharacteristic.Properties()
     private var perms = ServerCharacteristic.Permissions()
-    private var readHandler: (suspend (device: Identifier) -> ByteArray)? = null
-    private var writeHandler: (suspend (device: Identifier, data: ByteArray, responseNeeded: Boolean) -> GattStatus?)? = null
+    private var readHandler: (suspend (device: Identifier) -> BleData)? = null
+    private var writeHandler: (suspend (device: Identifier, data: BleData, responseNeeded: Boolean) -> GattStatus?)? = null
     private val descriptors = mutableListOf<ServerDescriptor>()
 
     public fun properties(block: PropertiesBuilder.() -> Unit) {
@@ -97,9 +98,9 @@ public class CharacteristicBuilder(private val uuid: Uuid) {
     /**
      * Handler called when a remote device reads this characteristic.
      *
-     * @return The bytes to send to the client
+     * @return The data to send to the client
      */
-    public fun onRead(handler: suspend (device: Identifier) -> ByteArray) {
+    public fun onRead(handler: suspend (device: Identifier) -> BleData) {
         readHandler = handler
     }
 
@@ -110,7 +111,7 @@ public class CharacteristicBuilder(private val uuid: Uuid) {
      *                Return [GattStatus.Success] to acknowledge, or another status to reject.
      *                Return null if no response is needed (write-without-response).
      */
-    public fun onWrite(handler: suspend (device: Identifier, data: ByteArray, responseNeeded: Boolean) -> GattStatus?) {
+    public fun onWrite(handler: suspend (device: Identifier, data: BleData, responseNeeded: Boolean) -> GattStatus?) {
         writeHandler = handler
     }
 
@@ -170,7 +171,7 @@ internal class CharacteristicDefinition(
     val uuid: Uuid,
     val properties: ServerCharacteristic.Properties,
     val permissions: ServerCharacteristic.Permissions,
-    val readHandler: (suspend (Identifier) -> ByteArray)?,
-    val writeHandler: (suspend (Identifier, ByteArray, Boolean) -> GattStatus?)?,
+    val readHandler: (suspend (Identifier) -> BleData)?,
+    val writeHandler: (suspend (Identifier, BleData, Boolean) -> GattStatus?)?,
     val descriptors: List<ServerDescriptor>,
 )

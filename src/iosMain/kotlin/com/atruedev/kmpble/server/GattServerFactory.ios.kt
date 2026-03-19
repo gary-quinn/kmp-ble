@@ -1,9 +1,10 @@
 package com.atruedev.kmpble.server
 
 public actual fun GattServer(builder: GattServerBuilder.() -> Unit): GattServer {
-    TODO("iOS GATT server implementation in next PR")
+    val config = GattServerBuilder().apply(builder)
+    return IosGattServer(config.services)
 }
 
 public actual fun Advertiser(): Advertiser {
-    TODO("iOS advertiser implementation in next PR")
+    return IosAdvertiser()
 }
