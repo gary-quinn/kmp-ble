@@ -98,7 +98,7 @@ public class CharacteristicBuilder(private val uuid: Uuid) {
     /**
      * Handler called when a remote device reads this characteristic.
      *
-     * @return The data to send to the client as [BleData] (zero-copy on iOS).
+     * @return The data to send to the client
      */
     public fun onRead(handler: suspend (device: Identifier) -> BleData) {
         readHandler = handler
@@ -107,10 +107,9 @@ public class CharacteristicBuilder(private val uuid: Uuid) {
     /**
      * Handler called when a remote device writes to this characteristic.
      *
-     * @param handler Receives the writing device, the data as [BleData] (zero-copy on iOS),
-     *                and whether a response is needed. Return [GattStatus.Success] to
-     *                acknowledge, or another status to reject. Return null if no response
-     *                is needed (write-without-response).
+     * @param handler Receives the writing device, the data, and whether a response is needed.
+     *                Return [GattStatus.Success] to acknowledge, or another status to reject.
+     *                Return null if no response is needed (write-without-response).
      */
     public fun onWrite(handler: suspend (device: Identifier, data: BleData, responseNeeded: Boolean) -> GattStatus?) {
         writeHandler = handler
