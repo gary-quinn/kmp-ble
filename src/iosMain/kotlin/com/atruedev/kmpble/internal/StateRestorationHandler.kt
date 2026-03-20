@@ -69,7 +69,7 @@ internal class StateRestorationHandler(
     fun stop() {
         scope?.cancel()
         scope = null
-        started.store(0)
+        started.value = 0
     }
 
     private fun handleRestoredPeripherals(cbPeripherals: List<CBPeripheral>) {
