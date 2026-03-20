@@ -20,6 +20,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 import kotlin.concurrent.Volatile
+import kotlin.time.Duration
+import kotlin.time.TimeSource
 
 internal class PeripheralContext(val identifier: Identifier) {
 
@@ -45,9 +47,15 @@ internal class PeripheralContext(val identifier: Identifier) {
     @Volatile
     private var closed = false
 
+    /** Tracks when the current state was entered, for connection timeline logging. */
+    private var stateEnteredAt: TimeSource.Monotonic.ValueTimeMark = TimeSource.Monotonic.markNow()
+
     /**
      * Process a state machine event. Always runs on the peripheral's serialized dispatcher.
      * Returns the new state. Invalid transitions are logged and ignored (no crash).
+     *
+     * Logs [BleLogEvent.StateTransition] with the duration spent in the previous state,
+     * enabling connection timeline analysis.
      */
     suspend fun processEvent(event: ConnectionEvent): State = withContext(dispatcher) {
         check(!closed) { "PeripheralContext is closed" }
@@ -58,8 +66,19 @@ internal class PeripheralContext(val identifier: Identifier) {
             return@withContext previousState
         }
 
+        val now = TimeSource.Monotonic.markNow()
+        val durationInPrevious = now - stateEnteredAt
+        stateEnteredAt = now
+
         _state.value = result.newState
-        logEvent(BleLogEvent.StateTransition(identifier, from = previousState, to = result.newState))
+        logEvent(
+            BleLogEvent.StateTransition(
+                identifier = identifier,
+                from = previousState,
+                to = result.newState,
+                durationInPreviousState = durationInPrevious,
+            )
+        )
 
         if (result.newState is State.Disconnected) {
             gattQueue.drain()

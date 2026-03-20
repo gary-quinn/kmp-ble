@@ -13,7 +13,10 @@ public class PrintBleLogger : BleLogger {
             is BleLogEvent.ScanStarted -> "[Scan] Started (${event.filterCount} filters)"
             is BleLogEvent.ScanStopped -> "[Scan] Stopped: ${event.reason}"
             is BleLogEvent.AdvertisementReceived -> "[Scan] ${event.name ?: "Unknown"} (${event.identifier.value}) rssi=${event.rssi}"
-            is BleLogEvent.StateTransition -> "[${event.identifier.value}] ${event.from::class.simpleName} → ${event.to::class.simpleName}"
+            is BleLogEvent.StateTransition -> {
+                val dur = event.durationInPreviousState.inWholeMilliseconds
+                "[${event.identifier.value}] ${event.from::class.simpleName} → ${event.to::class.simpleName} (${dur}ms in previous)"
+            }
             is BleLogEvent.GattOperation -> "[${event.identifier.value}] ${event.operation} uuid=${event.uuid} status=${event.status}"
             is BleLogEvent.DataTransfer -> "[${event.identifier.value}] ${event.direction} uuid=${event.uuid} ${event.bytes} bytes"
             is BleLogEvent.BondEvent -> "[${event.identifier.value}] Bond: ${event.event}"
