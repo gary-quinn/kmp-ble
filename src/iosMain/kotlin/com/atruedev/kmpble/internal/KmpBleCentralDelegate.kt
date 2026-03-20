@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import platform.CoreBluetooth.CBCentralManager
 import platform.CoreBluetooth.CBCentralManagerDelegateProtocol
+import platform.CoreBluetooth.CBCentralManagerRestoredStatePeripheralsKey
 import platform.CoreBluetooth.CBCentralManagerStatePoweredOff
 import platform.CoreBluetooth.CBCentralManagerStatePoweredOn
 import platform.CoreBluetooth.CBCentralManagerStateResetting
@@ -31,7 +32,16 @@ internal data class RawScanResult(
 )
 
 /**
- * Unified CBCentralManager delegate handling both adapter state and scan results.
+ * Unified CBCentralManager delegate handling adapter state, scan results,
+ * and state restoration.
+ *
+ * State restoration flow:
+ * 1. iOS terminates the app (low memory, etc.)
+ * 2. A BLE event occurs (peripheral reconnects, data arrives)
+ * 3. iOS relaunches the app in the background
+ * 4. [centralManager:willRestoreState:] is called with previously connected peripherals
+ * 5. [centralManagerDidUpdateState:] follows with current adapter state
+ * 6. kmp-ble reconstructs Peripheral wrappers and re-subscribes observations
  */
 internal class KmpBleCentralDelegate : NSObject(), CBCentralManagerDelegateProtocol {
 
@@ -40,6 +50,14 @@ internal class KmpBleCentralDelegate : NSObject(), CBCentralManagerDelegateProto
 
     private val _scanResults = MutableSharedFlow<RawScanResult>(extraBufferCapacity = 64)
     internal val scanResults: SharedFlow<RawScanResult> = _scanResults.asSharedFlow()
+
+    /**
+     * Emits restored CBPeripherals from iOS state restoration.
+     * Replay = 1 ensures the restoration event is not lost if observers register late
+     * (after willRestoreState fires but before the consumer collects).
+     */
+    private val _restoredPeripherals = MutableSharedFlow<List<CBPeripheral>>(replay = 1)
+    internal val restoredPeripherals: SharedFlow<List<CBPeripheral>> = _restoredPeripherals.asSharedFlow()
 
     // Copy-on-write map — reads from CoreBluetooth queue, writes from Kotlin coroutines.
     // @Volatile ensures visibility across threads. Mutation creates a new map instance.
@@ -66,6 +84,19 @@ internal class KmpBleCentralDelegate : NSObject(), CBCentralManagerDelegateProto
             CBCentralManagerStateUnauthorized -> BluetoothAdapterState.Unauthorized
             CBCentralManagerStateUnsupported -> BluetoothAdapterState.Unsupported
             else -> BluetoothAdapterState.Unavailable
+        }
+    }
+
+    /**
+     * Called by iOS during state restoration before [centralManagerDidUpdateState].
+     * Provides the list of CBPeripherals that were connected or pending connection
+     * at the time the app was terminated.
+     */
+    override fun centralManager(central: CBCentralManager, willRestoreState: Map<Any?, *>) {
+        @Suppress("UNCHECKED_CAST")
+        val peripherals = willRestoreState[CBCentralManagerRestoredStatePeripheralsKey] as? List<CBPeripheral>
+        if (!peripherals.isNullOrEmpty()) {
+            _restoredPeripherals.tryEmit(peripherals)
         }
     }
 

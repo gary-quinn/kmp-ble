@@ -59,6 +59,13 @@ internal data class TrackedObservation(
 @OptIn(ExperimentalUuidApi::class)
 internal class ObservationManager {
 
+    /**
+     * Optional callback invoked when the set of active observation keys changes.
+     * Used by iOS state restoration to persist observation keys to the Keychain.
+     * Set by IosPeripheral when state restoration is enabled.
+     */
+    internal var onObservationsChanged: ((Set<ObservationKey>) -> Unit)? = null
+
     private val mutex = Mutex()
     private val observations = mutableMapOf<ObservationKey, TrackedObservation>()
 
@@ -72,6 +79,7 @@ internal class ObservationManager {
 
     private fun updateSnapshot() {
         observationsSnapshot = observations.toMap()
+        onObservationsChanged?.invoke(observations.keys.toSet())
     }
 
     /**
