@@ -15,6 +15,14 @@ _Changes on `main` that have not yet been tagged for release._
 
 ---
 
+## [0.1.8] - 2026-03-20
+
+### Added
+- feat(ios): add Core Bluetooth state restoration support
+
+
+---
+
 ## [0.1.7] - 2026-03-19
 
 ### Changed
@@ -154,7 +162,8 @@ _Changes on `main` that have not yet been tagged for release._
 
 ---
 
-[Unreleased]: https://github.com/atruedeveloper/kmp-ble/compare/v0.1.7...HEAD
+[Unreleased]: https://github.com/atruedeveloper/kmp-ble/compare/v0.1.8...HEAD
+[0.1.8]: https://github.com/atruedeveloper/kmp-ble/compare/v0.1.8-alpha2...v0.1.8
 [0.1.7]: https://github.com/atruedeveloper/kmp-ble/compare/v0.1.6...v0.1.7
 [0.1.6]: https://github.com/atruedeveloper/kmp-ble/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/atruedeveloper/kmp-ble/compare/v0.1.4...v0.1.5
