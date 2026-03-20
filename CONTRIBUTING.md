@@ -130,6 +130,8 @@ chore: update Kotlin to 2.3.1
 
 A changelog label (`added`, `changed`, or `fixed`) is **applied automatically** based on your PR title — no manual labeling needed. These labels drive the auto-generated [CHANGELOG](CHANGELOG.md) on each release.
 
+> **Maintainers:** Ensure the repository has labels `added` (green), `changed` (blue), and `fixed` (orange). The CI auto-creates them if missing, but without colors or descriptions.
+
 ### Submitting
 
 1. Ensure all tests pass: `./gradlew build`
