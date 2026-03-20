@@ -1,0 +1,100 @@
+name: PR Lint
+
+on:
+  pull_request_target:
+    types: [opened, edited, synchronize, labeled, unlabeled]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  verify-title:
+    name: Verify PR title
+    runs-on: ubuntu-latest
+    steps:
+      - uses: amannn/action-semantic-pull-request@48f256284bd46cdaab1048c3721360e808335d50 # v6.1.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          # Allowed types (conventional commit prefixes)
+          types: |
+            feat
+            fix
+            docs
+            style
+            refactor
+            perf
+            test
+            build
+            ci
+            chore
+            revert
+          requireScope: false
+          # Require a non-empty description after the prefix
+          subjectPattern: ^.+$
+          subjectPatternError: "PR title must have a description after the type prefix (e.g., 'feat: add scanning API')"
+
+  auto-label:
+    name: Auto-label from PR title
+    runs-on: ubuntu-latest
+    steps:
+      - name: Apply changelog labels
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            const title = context.payload.pull_request.title;
+
+            // Map conventional commit prefixes to changelog labels
+            const labelMap = {
+              'feat':     'added',
+              'fix':      'fixed',
+              'refactor': 'changed',
+              'perf':     'changed',
+              'chore':    'changed',
+              'docs':     'docs',
+              'style':    'changed',
+              'build':    'changed',
+              'ci':       'changed',
+              'test':     'changed',
+              'revert':   'fixed',
+            };
+
+            // Extract the type prefix from the PR title
+            const match = title.match(/^(\w+)(?:\(.+\))?!?:/);
+            if (!match) {
+              core.info('PR title does not match conventional commit format — skipping label');
+              return;
+            }
+
+            const type = match[1].toLowerCase();
+            const label = labelMap[type];
+            if (!label) {
+              core.info(`No changelog label mapped for type "${type}" — skipping`);
+              return;
+            }
+
+            // Remove any existing changelog labels first to handle title edits
+            const changelogLabels = ['added', 'changed', 'fixed'];
+            const currentLabels = context.payload.pull_request.labels.map(l => l.name);
+            for (const cl of changelogLabels) {
+              if (currentLabels.includes(cl) && cl !== label) {
+                await github.rest.issues.removeLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.issue.number,
+                  name: cl,
+                });
+              }
+            }
+
+            // Apply the correct label
+            if (!currentLabels.includes(label)) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                labels: [label],
+              });
+            }
+
+            core.info(`Applied label "${label}" based on PR title prefix "${type}"`);
