@@ -72,6 +72,7 @@ public class AndroidScanner(
         val osFilters = buildOsFilters(config.filterGroups)
         val settings = ScanSettings.Builder()
             .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
+            .setLegacy(config.legacyOnly)
             .build()
 
         leScanner.startScan(osFilters, settings, callback)

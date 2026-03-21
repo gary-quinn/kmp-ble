@@ -22,6 +22,16 @@ public class ScannerConfig internal constructor() {
     /** Advertisement deduplication policy. Default: [EmissionPolicy.FirstThenChanges]. */
     public var emission: EmissionPolicy = EmissionPolicy.FirstThenChanges()
 
+    /**
+     * When `true` (default), only legacy advertisements (≤ 31 bytes) are reported.
+     * Set to `false` to also receive BLE 5.0 extended advertisements.
+     *
+     * On Android, this maps to [android.bluetooth.le.ScanSettings.Builder.setLegacy].
+     * On iOS, CoreBluetooth receives extended advertisements transparently
+     * regardless of this setting.
+     */
+    public var legacyOnly: Boolean = true
+
     internal var filterGroups: List<List<ScanPredicate>> = emptyList()
         private set
 

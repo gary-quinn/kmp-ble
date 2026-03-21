@@ -113,10 +113,12 @@ public class AndroidPeripheral internal constructor(
         logEvent(BleLogEvent.GattOperation(identifier, "DeviceQuirks: ${quirkRegistry.describe()}", uuid = null, status = null))
     }
 
+    @OptIn(com.atruedev.kmpble.ExperimentalBleApi::class)
     override suspend fun connect(options: ConnectionOptions) {
         checkNotClosed()
         currentConnectionOptions = options
         reconnectionHandler.start(options)
+        bondManager.pairingHandler = options.pairingHandler
         bondManager.start()
 
         withContext(peripheralContext.dispatcher) {

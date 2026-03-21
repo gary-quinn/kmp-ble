@@ -14,7 +14,7 @@ This document tracks what's shipped, what's next, and where kmp-ble is headed. U
 
 ## Shipped
 
-### v0.1.x — Core BLE Toolkit (Current)
+### v0.1.x — Core BLE Toolkit
 
 Everything needed to build production BLE apps on Android and iOS from shared Kotlin code.
 
@@ -35,29 +35,27 @@ Everything needed to build production BLE apps on Android and iOS from shared Ko
 | **GATT Server** | v0.1.5–v0.1.6 | Peripheral role on both platforms. Define services, handle reads/writes, send notifications/indications |
 | **Advertiser** | v0.1.5–v0.1.6 | BLE advertising with configurable name, service UUIDs, manufacturer data, TX power |
 | **Server Testing** | v0.1.5–v0.1.6 | FakeGattServer, FakeAdvertiser, FakeL2capChannel for testing server and L2CAP code |
+| **Device Quirks Module** | v0.1.10 | Extracted OEM quirks into `kmp-ble-quirks` module with public SPI (`QuirkKey`, `QuirkProvider`, `QuirkRegistry`) |
 
-**Test coverage:** 236+ test methods across 20 test files, CI on every push
+### v0.2 — Production Hardening & Platform Expansion (Current)
+
+Hardened for production with background support, BLE 5.0 coverage, performance tooling, and complete pairing.
+
+| Feature | Version | Details |
+|---------|---------|---------|
+| **iOS State Restoration** | v0.1.8–v0.1.9 | Survive app termination and restore BLE connections on cold launch via `CBCentralManager(restoreIdentifier:)` |
+| **Extended Advertising (BLE 5.0) — Scanner** | v0.2 | `Advertisement` model extended with `isLegacy`, `primaryPhy`, `secondaryPhy`, `advertisingSid`, `periodicAdvertisingInterval`, `dataStatus`. `ScannerConfig.legacyOnly` flag for extended ad reception |
+| **Extended Advertising (BLE 5.0) — Advertiser** | v0.2 | `ExtendedAdvertiser` interface with multiple concurrent advertising sets, PHY selection (LE 1M/2M/Coded), configurable interval. Android: `AdvertisingSet` API. iOS: legacy fallback |
+| **Numeric Comparison + OOB Pairing** | v0.2 | `PairingHandler` callback for numeric comparison, passkey entry, Just Works, and OOB pairing. `PairingEvent`/`PairingResponse` sealed types. Android: handles `ACTION_PAIRING_REQUEST`. iOS: system UI with observability |
+| **Benchmark Utilities** | v0.2 | `BleStopwatch`, `ThroughputMeter`, `LatencyTracker` — measure connection time, GATT throughput, and operation latency with percentile statistics |
+
+**Test coverage:** 260+ test methods across 24 test files, CI on every push
 
 ### Known Limitations
 
-- No background scanning on iOS without state restoration (planned for v0.2)
 - Desktop (JVM), Web, and other platforms are not yet supported
-
----
-
-## Up Next
-
-### v0.2 — Production Hardening & Platform Expansion
-
-**Theme:** Harden kmp-ble for production with background support, broader BLE 5.0 coverage, and published performance data.
-
-| Feature | Priority | Description |
-|---------|----------|-------------|
-| **iOS State Restoration** | High | Survive app termination and restore BLE connections on cold launch. Required for medical/fitness background BLE. Uses `CBCentralManager(restoreIdentifier:)` |
-| **Extended Advertising (BLE 5.0)** | Medium | Scanner support for extended advertisements (payloads > 31 bytes). Advertiser support for multiple advertisement sets |
-| **Performance Benchmarks** | Medium | Published throughput, latency, and reconnection time measurements against real hardware |
-| **Power Benchmarks** | Medium | Scan energy, connected idle, and notification stream power consumption |
-| **Numeric Comparison + OOB Pairing** | Low | Complete bonding coverage beyond Just Works and Passkey Entry |
+- iOS `ExtendedAdvertiser` falls back to legacy advertising (CoreBluetooth limitation)
+- iOS does not expose PHY or advertising set ID fields in scan results
 
 ---
 
@@ -111,4 +109,4 @@ Features we're tracking but not actively working on. Community interest and use 
 
 ---
 
-*Current as of v0.1.10*
+*Current as of v0.2*

@@ -9,9 +9,15 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import com.atruedev.kmpble.ExperimentalBleApi
+import com.atruedev.kmpble.Identifier
 import com.atruedev.kmpble.bonding.BondRemovalResult
 import com.atruedev.kmpble.bonding.BondState
+import com.atruedev.kmpble.bonding.PairingEvent
+import com.atruedev.kmpble.bonding.PairingHandler
+import com.atruedev.kmpble.bonding.PairingResponse
 import com.atruedev.kmpble.connection.internal.ConnectionEvent
+import com.atruedev.kmpble.logging.BleLogEvent
+import com.atruedev.kmpble.logging.logEvent
 import com.atruedev.kmpble.peripheral.internal.PeripheralContext
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.StateFlow
@@ -22,18 +28,22 @@ internal class AndroidBondManager(
     private val context: Context,
     private val peripheralContext: PeripheralContext,
 ) {
-    private var receiver: BroadcastReceiver? = null
+    private var bondReceiver: BroadcastReceiver? = null
+    private var pairingReceiver: BroadcastReceiver? = null
     private var bondComplete: CompletableDeferred<Boolean>? = null
+    internal var pairingHandler: PairingHandler? = null
 
     internal val bondState: StateFlow<BondState> get() = peripheralContext.bondState
 
     internal fun start() {
         updateFromDevice()
-        registerReceiver()
+        registerBondReceiver()
+        registerPairingReceiver()
     }
 
     internal fun stop() {
-        unregisterReceiver()
+        unregisterBondReceiver()
+        unregisterPairingReceiver()
         bondComplete?.cancel()
         bondComplete = null
     }
@@ -86,10 +96,10 @@ internal class AndroidBondManager(
         }
     }
 
-    private fun registerReceiver() {
-        if (receiver != null) return
+    private fun registerBondReceiver() {
+        if (bondReceiver != null) return
 
-        val bondReceiver = object : BroadcastReceiver() {
+        val receiver = object : BroadcastReceiver() {
             override fun onReceive(ctx: Context, intent: Intent) {
                 if (intent.action != BluetoothDevice.ACTION_BOND_STATE_CHANGED) return
 
@@ -127,17 +137,111 @@ internal class AndroidBondManager(
             }
         }
 
-        receiver = bondReceiver
+        bondReceiver = receiver
         val filter = IntentFilter(BluetoothDevice.ACTION_BOND_STATE_CHANGED)
         androidx.core.content.ContextCompat.registerReceiver(
-            context, bondReceiver, filter, androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED
+            context, receiver, filter, androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED
         )
     }
 
-    private fun unregisterReceiver() {
-        receiver?.let {
-            context.unregisterReceiver(it)
-            receiver = null
+    @OptIn(ExperimentalBleApi::class)
+    private fun registerPairingReceiver() {
+        if (pairingReceiver != null) return
+
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(ctx: Context, intent: Intent) {
+                if (intent.action != BluetoothDevice.ACTION_PAIRING_REQUEST) return
+
+                val pairingDevice = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE, BluetoothDevice::class.java)
+                if (pairingDevice?.address != device.address) return
+
+                val handler = pairingHandler ?: return
+                val variant = intent.getIntExtra(BluetoothDevice.EXTRA_PAIRING_VARIANT, -1)
+                val key = intent.getIntExtra(BluetoothDevice.EXTRA_PAIRING_KEY, -1)
+                val identifier = Identifier(device.address)
+
+                val event = when (variant) {
+                    BluetoothDevice.PAIRING_VARIANT_PASSKEY_CONFIRMATION ->
+                        PairingEvent.NumericComparison(identifier, key)
+                    BluetoothDevice.PAIRING_VARIANT_PIN ->
+                        PairingEvent.PasskeyRequest(identifier)
+                    PAIRING_VARIANT_OOB_CONSENT ->
+                        PairingEvent.OutOfBandDataRequest(identifier)
+                    PAIRING_VARIANT_CONSENT ->
+                        PairingEvent.JustWorksConfirmation(identifier)
+                    PAIRING_VARIANT_DISPLAY_PASSKEY ->
+                        PairingEvent.PasskeyNotification(identifier, key)
+                    else -> {
+                        logEvent(BleLogEvent.Error(identifier, "Unknown pairing variant: $variant", null))
+                        return
+                    }
+                }
+
+                peripheralContext.scope.launch {
+                    try {
+                        val response = handler.onPairingEvent(event)
+                        applyPairingResponse(pairingDevice, variant, response)
+                    } catch (e: Exception) {
+                        logEvent(BleLogEvent.Error(identifier, "Pairing handler threw: ${e.message}", e))
+                    }
+                }
+
+                abortBroadcast()
+            }
         }
+
+        pairingReceiver = receiver
+        val filter = IntentFilter(BluetoothDevice.ACTION_PAIRING_REQUEST).apply {
+            priority = IntentFilter.SYSTEM_HIGH_PRIORITY
+        }
+        androidx.core.content.ContextCompat.registerReceiver(
+            context, receiver, filter, androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED
+        )
+    }
+
+    @OptIn(ExperimentalBleApi::class)
+    private fun applyPairingResponse(
+        pairingDevice: BluetoothDevice,
+        variant: Int,
+        response: PairingResponse,
+    ) {
+        when (response) {
+            is PairingResponse.Confirm -> {
+                if (response.accepted) {
+                    pairingDevice.setPairingConfirmation(true)
+                } else {
+                    pairingDevice.setPairingConfirmation(false)
+                }
+            }
+            is PairingResponse.ProvidePin -> {
+                pairingDevice.setPin(response.pin.toString().padStart(6, '0').toByteArray())
+            }
+            is PairingResponse.ProvideOobData -> {
+                // OOB data delivery is handled at a lower level via BluetoothAdapter.
+                // The pairing confirmation accepts the OOB exchange.
+                pairingDevice.setPairingConfirmation(true)
+            }
+        }
+    }
+
+    private fun unregisterBondReceiver() {
+        bondReceiver?.let {
+            context.unregisterReceiver(it)
+            bondReceiver = null
+        }
+    }
+
+    private fun unregisterPairingReceiver() {
+        pairingReceiver?.let {
+            context.unregisterReceiver(it)
+            pairingReceiver = null
+        }
+    }
+
+    private companion object {
+        // These constants are @hide in the Android SDK but stable since API 19.
+        const val PAIRING_VARIANT_CONSENT = 3
+        const val PAIRING_VARIANT_DISPLAY_PASSKEY = 4
+        const val PAIRING_VARIANT_OOB_CONSENT = 6
     }
 }

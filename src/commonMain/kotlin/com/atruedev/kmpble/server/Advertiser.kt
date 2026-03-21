@@ -141,3 +141,12 @@ public class AdvertiseConfig(
 }
 
 public expect fun Advertiser(): Advertiser
+
+/**
+ * Create a platform-specific [ExtendedAdvertiser] for BLE 5.0 extended advertising.
+ *
+ * - Android: Uses `AdvertisingSet` API with full BLE 5.0 support.
+ * - iOS: Falls back to legacy advertising via `CBPeripheralManager`.
+ */
+@com.atruedev.kmpble.ExperimentalBleApi
+public expect fun ExtendedAdvertiser(): ExtendedAdvertiser
