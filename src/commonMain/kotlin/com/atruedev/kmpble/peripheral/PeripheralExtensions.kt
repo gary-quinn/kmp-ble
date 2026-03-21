@@ -1,9 +1,11 @@
 package com.atruedev.kmpble.peripheral
 
 import com.atruedev.kmpble.connection.ConnectionOptions
+import com.atruedev.kmpble.scanner.uuidFrom
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
 import kotlin.uuid.ExperimentalUuidApi
+import kotlin.uuid.Uuid
 
 /**
  * Returns a human-readable GATT service/characteristic/descriptor tree.
@@ -60,7 +62,7 @@ public fun Peripheral.dump(): String {
                 char.descriptors.forEachIndexed { descIdx, desc ->
                     val isLastDesc = descIdx == char.descriptors.lastIndex
                     val dp = if (isLastDesc) "${descPrefix}└── " else "${descPrefix}├── "
-                    val label = WELL_KNOWN_DESCRIPTORS[desc.uuid.toString()] ?: ""
+                    val label = WELL_KNOWN_DESCRIPTORS[desc.uuid] ?: ""
                     val suffix = if (label.isNotEmpty()) " ($label)" else ""
                     appendLine("${dp}Desc ${desc.uuid}$suffix")
                 }
@@ -70,11 +72,12 @@ public fun Peripheral.dump(): String {
 }
 
 /** Well-known descriptor UUIDs for human-readable labels in dump(). */
-private val WELL_KNOWN_DESCRIPTORS = mapOf(
-    "00002902-0000-1000-8000-00805f9b34fb" to "CCCD",
-    "00002901-0000-1000-8000-00805f9b34fb" to "User Description",
-    "00002900-0000-1000-8000-00805f9b34fb" to "Extended Properties",
-    "00002904-0000-1000-8000-00805f9b34fb" to "Presentation Format",
+@OptIn(ExperimentalUuidApi::class)
+private val WELL_KNOWN_DESCRIPTORS: Map<Uuid, String> = mapOf(
+    uuidFrom("2902") to "CCCD",
+    uuidFrom("2901") to "User Description",
+    uuidFrom("2900") to "Extended Properties",
+    uuidFrom("2904") to "Presentation Format",
 )
 
 /**
