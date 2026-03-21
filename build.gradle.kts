@@ -56,6 +56,7 @@ kotlin {
             implementation(libs.kotlinx.coroutines.android)
             implementation(libs.androidx.core)
             implementation(libs.androidx.startup)
+            runtimeOnly(project(":kmp-ble-quirks"))
         }
     }
 }

@@ -39,8 +39,8 @@ import com.atruedev.kmpble.gatt.internal.ObservationEvent
 import com.atruedev.kmpble.gatt.internal.ObservationManager
 import com.atruedev.kmpble.gatt.internal.PendingOperations
 import com.atruedev.kmpble.gatt.internal.applyBackpressure
-import com.atruedev.kmpble.internal.DeviceInfo
-import com.atruedev.kmpble.internal.DeviceQuirks
+import com.atruedev.kmpble.quirks.BleQuirks
+import com.atruedev.kmpble.quirks.QuirkRegistry
 import com.atruedev.kmpble.logging.BleLogEvent
 import com.atruedev.kmpble.logging.logEvent
 import com.atruedev.kmpble.peripheral.internal.PeripheralContext
@@ -68,19 +68,15 @@ import kotlin.time.Duration.Companion.seconds
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
-/**
- * @param quirks device-specific BLE workarounds. Defaults to the current device's quirks;
- *   pass a custom instance in tests to simulate OEM-specific behavior.
- */
 @OptIn(ExperimentalUuidApi::class)
 public class AndroidPeripheral internal constructor(
     private val device: BluetoothDevice,
     context: Context,
-    internal val quirks: DeviceQuirks,
+    internal val quirkRegistry: QuirkRegistry,
 ) : Peripheral {
 
     public constructor(device: BluetoothDevice, context: Context) :
-        this(device, context, DeviceQuirks(DeviceInfo.current()))
+        this(device, context, QuirkRegistry.getInstance())
 
     override val identifier: Identifier = Identifier(device.address)
     private val peripheralContext = PeripheralContext(identifier)
@@ -114,7 +110,7 @@ public class AndroidPeripheral internal constructor(
 
     init {
         bridge.onEvent = { event -> handleGattEvent(event) }
-        logEvent(BleLogEvent.GattOperation(identifier, "DeviceQuirks: ${quirks.describe()}", uuid = null, status = null))
+        logEvent(BleLogEvent.GattOperation(identifier, "DeviceQuirks: ${quirkRegistry.describe()}", uuid = null, status = null))
     }
 
     override suspend fun connect(options: ConnectionOptions) {
@@ -134,20 +130,21 @@ public class AndroidPeripheral internal constructor(
      * otherwise the connection fails silently or returns GATT 133.
      */
     private suspend fun ensureBondedIfRequired(options: ConnectionOptions) {
-        if (!quirks.shouldBondBeforeConnect()) return
+        if (!quirkRegistry.resolve(BleQuirks.BondBeforeConnect)) return
         if (peripheralContext.bondState.value != BondState.NotBonded) return
         if (options.bondingPreference == BondingPreference.None) return
 
+        val bondTimeout = quirkRegistry.resolve(BleQuirks.BondStateTimeout)
         logEvent(BleLogEvent.BondEvent(identifier, "Quirk: bond-before-connect initiated"))
         try {
-            withTimeout(quirks.bondStateChangeTimeout()) {
+            withTimeout(bondTimeout) {
                 bondManager.createBond()
             }
             logEvent(BleLogEvent.BondEvent(identifier, "Quirk: bond-before-connect succeeded"))
         } catch (_: kotlinx.coroutines.TimeoutCancellationException) {
             logEvent(BleLogEvent.Error(
                 identifier,
-                "Quirk: bond-before-connect timed out after ${quirks.bondStateChangeTimeout()}, proceeding with connection",
+                "Quirk: bond-before-connect timed out after $bondTimeout, proceeding with connection",
                 cause = null,
             ))
         }
@@ -158,16 +155,16 @@ public class AndroidPeripheral internal constructor(
      *
      * Pixel devices commonly return GATT error 133 on the first attempt — a retry with
      * a short delay (1–1.5s) typically succeeds. The retry count and delay are sourced
-     * from [DeviceQuirks] so each OEM gets appropriate handling.
+     * from [QuirkRegistry] so each OEM gets appropriate handling.
      *
-     * The effective timeout is `max(options.timeout, quirks.connectionTimeout())` so that
+     * The effective timeout is `max(options.timeout, quirks.connectionTimeout)` so that
      * user-configured values are respected while still accommodating OEMs that need longer
      * timeouts (e.g. Huawei at 35s vs the 30s default).
      */
     private suspend fun connectWithRetry(options: ConnectionOptions) {
-        val maxAttempts = quirks.connectGattRetryCount()
-        val retryDelay = quirks.gattConnectionRetryDelay()
-        val timeout = maxOf(options.timeout, quirks.connectionTimeout())
+        val maxAttempts = quirkRegistry.resolve(BleQuirks.GattRetryCount)
+        val retryDelay = quirkRegistry.resolve(BleQuirks.GattRetryDelay)
+        val timeout = maxOf(options.timeout, quirkRegistry.resolve(BleQuirks.ConnectionTimeout))
 
         repeat(maxAttempts) { attempt ->
             if (attempt > 0) {
@@ -348,14 +345,15 @@ public class AndroidPeripheral internal constructor(
                         && device.bondState != BluetoothDevice.BOND_BONDED
                     ) {
                         peripheralContext.processEvent(ConnectionEvent.BondRequired)
+                        val bondTimeout = quirkRegistry.resolve(BleQuirks.BondStateTimeout)
                         val bonded = try {
-                            withTimeout(quirks.bondStateChangeTimeout()) {
+                            withTimeout(bondTimeout) {
                                 bondManager.createBond()
                             }
                         } catch (_: kotlinx.coroutines.TimeoutCancellationException) {
                             logEvent(BleLogEvent.Error(
                                 identifier,
-                                "Bond state change timed out after ${quirks.bondStateChangeTimeout()}",
+                                "Bond state change timed out after $bondTimeout",
                                 cause = null,
                             ))
                             false
@@ -367,7 +365,7 @@ public class AndroidPeripheral internal constructor(
                             connectionComplete?.complete(Unit)
                             return
                         }
-                        if (quirks.shouldRefreshServicesOnBond()) {
+                        if (quirkRegistry.resolve(BleQuirks.RefreshServicesOnBond)) {
                             logEvent(BleLogEvent.GattOperation(
                                 identifier, "Quirk: refreshing GATT cache after bond",
                                 uuid = null, status = null,

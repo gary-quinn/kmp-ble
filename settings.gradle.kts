@@ -15,5 +15,6 @@ dependencyResolutionManagement {
 
 rootProject.name = "kmp-ble"
 
+include(":kmp-ble-quirks")
 include(":sample")
 include(":sample-android")
