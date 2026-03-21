@@ -68,10 +68,13 @@ internal class ReconnectionHandler(
                 is ReconnectionStrategy.ExponentialBackoff -> {
                     if (attempt >= strategy.maxAttempts) null
                     else {
-                        val delayMs = strategy.initialDelay.inWholeMilliseconds *
-                            (1L shl min(attempt, MAX_BACKOFF_SHIFT))
-                        val capped = min(delayMs, strategy.maxDelay.inWholeMilliseconds)
-                        capped.milliseconds
+                        val shift = min(attempt, MAX_BACKOFF_SHIFT)
+                        val baseMs = strategy.initialDelay.inWholeMilliseconds
+                        val maxMs = strategy.maxDelay.inWholeMilliseconds
+                        val multiplier = 1L shl shift
+                        val delayMs = if (baseMs > maxMs / multiplier) maxMs
+                                      else min(baseMs * multiplier, maxMs)
+                        delayMs.milliseconds
                     }
                 }
                 is ReconnectionStrategy.LinearBackoff -> {

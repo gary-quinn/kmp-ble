@@ -66,7 +66,7 @@ internal class IosExtendedAdvertiser(
             logIosLimitations(config)
 
             val setId = ++nextSetId
-            val advertisementData = mutableMapOf<String, Any>()
+            val advertisementData = mutableMapOf<Any?, Any>()
 
             if (config.name != null) {
                 advertisementData[CBAdvertisementDataLocalNameKey] = config.name
@@ -79,8 +79,7 @@ internal class IosExtendedAdvertiser(
 
             delegate.onStartAdvertising = { error -> handleDidStartAdvertising(setId, error) }
 
-            @Suppress("UNCHECKED_CAST")
-            manager.startAdvertising(advertisementData as Map<Any?, *>)
+            manager.startAdvertising(advertisementData)
             _activeSets.update { it + setId }
             setId
         }

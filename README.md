@@ -4,7 +4,7 @@
 [![Publish](https://github.com/atruedeveloper/kmp-ble/actions/workflows/publish.yml/badge.svg)](https://github.com/atruedeveloper/kmp-ble/actions/workflows/publish.yml)
 [![Maven Central](https://img.shields.io/maven-central/v/com.atruedev/kmp-ble)](https://central.sonatype.com/artifact/com.atruedev/kmp-ble)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![Kotlin](https://img.shields.io/badge/Kotlin-2.3.10-purple.svg)](https://kotlinlang.org)
+[![Kotlin](https://img.shields.io/badge/Kotlin-2.3.20-purple.svg)](https://kotlinlang.org)
 
 Kotlin Multiplatform BLE library for Android and iOS.
 

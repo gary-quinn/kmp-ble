@@ -22,71 +22,10 @@ internal sealed interface GattCallbackEvent {
     data class ConnectionStateChanged(val status: Int, val newState: Int) : GattCallbackEvent
     data class ServicesDiscovered(val status: Int, val services: List<BluetoothGattService>) : GattCallbackEvent
     data class MtuChanged(val mtu: Int, val status: Int) : GattCallbackEvent
-    data class CharacteristicRead(val characteristic: BluetoothGattCharacteristic, val value: ByteArray, val status: Int) : GattCallbackEvent {
-        override fun equals(other: Any?): Boolean {
-            if (this === other) return true
-            if (javaClass != other?.javaClass) return false
-
-            other as CharacteristicRead
-
-            if (status != other.status) return false
-            if (characteristic != other.characteristic) return false
-            if (!value.contentEquals(other.value)) return false
-
-            return true
-        }
-
-        override fun hashCode(): Int {
-            var result = status
-            result = 31 * result + characteristic.hashCode()
-            result = 31 * result + value.contentHashCode()
-            return result
-        }
-    }
-
+    class CharacteristicRead(val characteristic: BluetoothGattCharacteristic, val value: ByteArray, val status: Int) : GattCallbackEvent
     data class CharacteristicWrite(val characteristic: BluetoothGattCharacteristic, val status: Int) : GattCallbackEvent
-    data class CharacteristicChanged(val characteristic: BluetoothGattCharacteristic, val value: ByteArray) : GattCallbackEvent {
-        override fun equals(other: Any?): Boolean {
-            if (this === other) return true
-            if (javaClass != other?.javaClass) return false
-
-            other as CharacteristicChanged
-
-            if (characteristic != other.characteristic) return false
-            if (!value.contentEquals(other.value)) return false
-
-            return true
-        }
-
-        override fun hashCode(): Int {
-            var result = characteristic.hashCode()
-            result = 31 * result + value.contentHashCode()
-            return result
-        }
-    }
-
-    data class DescriptorRead(val descriptor: BluetoothGattDescriptor, val value: ByteArray, val status: Int) : GattCallbackEvent {
-        override fun equals(other: Any?): Boolean {
-            if (this === other) return true
-            if (javaClass != other?.javaClass) return false
-
-            other as DescriptorRead
-
-            if (status != other.status) return false
-            if (descriptor != other.descriptor) return false
-            if (!value.contentEquals(other.value)) return false
-
-            return true
-        }
-
-        override fun hashCode(): Int {
-            var result = status
-            result = 31 * result + descriptor.hashCode()
-            result = 31 * result + value.contentHashCode()
-            return result
-        }
-    }
-
+    class CharacteristicChanged(val characteristic: BluetoothGattCharacteristic, val value: ByteArray) : GattCallbackEvent
+    class DescriptorRead(val descriptor: BluetoothGattDescriptor, val value: ByteArray, val status: Int) : GattCallbackEvent
     data class DescriptorWrite(val descriptor: BluetoothGattDescriptor, val status: Int) : GattCallbackEvent
     data class ReadRemoteRssi(val rssi: Int, val status: Int) : GattCallbackEvent
 }

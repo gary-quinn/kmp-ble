@@ -357,7 +357,6 @@ internal class IosGattServer(
     }
 
     private fun handleWriteRequests(peripheral: CBPeripheralManager, rawRequests: List<*>) {
-        @Suppress("UNCHECKED_CAST")
         val requests = rawRequests.filterIsInstance<CBATTRequest>()
         if (requests.isEmpty()) return
 
@@ -516,7 +515,7 @@ internal class IosGattServer(
             type = CBUUID.UUIDWithString(definition.uuid.toString()),
             primary = true,
         )
-        val nativeChars = definition.characteristics.map { charDef ->
+        val nativeChars: List<Any> = definition.characteristics.map { charDef ->
             val properties = buildCBProperties(charDef.properties)
             val permissions = buildCBPermissions(charDef.permissions)
             val char = CBMutableCharacteristic(
@@ -528,8 +527,7 @@ internal class IosGattServer(
             characteristicCache[charDef.uuid] = char
             char
         }
-        @Suppress("UNCHECKED_CAST")
-        service.setCharacteristics(nativeChars as List<Any>?)
+        service.setCharacteristics(nativeChars)
         return service
     }
 

@@ -12,70 +12,57 @@ import android.content.Context
 import android.os.ParcelUuid
 import com.atruedev.kmpble.logging.BleLogEvent
 import com.atruedev.kmpble.logging.logEvent
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import kotlin.uuid.toJavaUuid
 
 /**
  * Android implementation of [Advertiser] using [BluetoothLeAdvertiser].
  *
- * ## Key Details
- *
- * - Obtained via BluetoothAdapter.getBluetoothLeAdvertiser()
- * - Returns null if device doesn't support advertising (rare for phones, common for some tablets)
- * - AdvertiseCallback.onStartSuccess/onStartFailure are one-shot
- * - stopAdvertising() is synchronous, no callback
- * - Service UUIDs in AdvertiseData must use either 16-bit or 128-bit format
- * - Total advertisement payload limited to 31 bytes (legacy advertising)
- * - If config exceeds this, Android's onStartFailure fires with ADVERTISE_FAILED_DATA_TOO_LARGE
- *
- * ## Device Name
- *
- * If [AdvertiseConfig.name] is set, the system Bluetooth adapter name is changed.
- * The original name is saved and restored when advertising stops.
- *
- * ## Threading
- *
- * All public methods are synchronized via [lock] to prevent concurrent
- * start/stop races. [AdvertiseCallback] fires on a Binder thread; only
- * updates the atomic [_isAdvertising] StateFlow.
- *
- * ## Permissions
- *
- * - BLUETOOTH_ADVERTISE required on Android 12+
+ * All mutable state is confined to [serialDispatcher] via `limitedParallelism(1)`.
+ * [AdvertiseCallback] fires on a Binder thread and dispatches into [scope]
+ * to serialize state updates.
  */
 internal class AndroidAdvertiser(private val context: Context) : Advertiser {
 
-    private val lock = Any()
+    private val serialDispatcher = Dispatchers.Default.limitedParallelism(1)
+    private val scope = CoroutineScope(SupervisorJob() + serialDispatcher)
 
     private val _isAdvertising = MutableStateFlow(false)
     override val isAdvertising: StateFlow<Boolean> = _isAdvertising.asStateFlow()
 
     private var advertiser: BluetoothLeAdvertiser? = null
     private var originalAdapterName: String? = null
-
-    // Guards against TOCTOU race: two threads pass the _isAdvertising check
-    // before onStartSuccess fires. Set inside synchronized block, cleared on
-    // onStartSuccess/onStartFailure/stopAdvertising.
     private var isStarting = false
 
     private val advertiseCallback = object : AdvertiseCallback() {
         override fun onStartSuccess(settingsInEffect: AdvertiseSettings) {
-            synchronized(lock) { isStarting = false }
-            _isAdvertising.value = true
-            logEvent(BleLogEvent.ServerLifecycle("advertising started"))
+            scope.launch {
+                isStarting = false
+                _isAdvertising.value = true
+                logEvent(BleLogEvent.ServerLifecycle("advertising started"))
+            }
         }
 
         override fun onStartFailure(errorCode: Int) {
-            synchronized(lock) { isStarting = false }
-            _isAdvertising.value = false
-            logEvent(BleLogEvent.Error(null, "Advertising start failed (error=$errorCode)", null))
+            scope.launch {
+                isStarting = false
+                _isAdvertising.value = false
+                logEvent(BleLogEvent.Error(null, "Advertising start failed (error=$errorCode)", null))
+            }
         }
     }
 
     override fun startAdvertising(config: AdvertiseConfig) {
-        synchronized(lock) {
+        runBlocking(serialDispatcher) {
             if (_isAdvertising.value || isStarting) {
                 throw AdvertiserException.AlreadyAdvertising()
             }
@@ -99,7 +86,7 @@ internal class AndroidAdvertiser(private val context: Context) : Advertiser {
                 .setAdvertiseMode(config.mode.toAndroidMode())
                 .setConnectable(config.connectable)
                 .setTxPowerLevel(config.txPower.toAndroidTxPower())
-                .setTimeout(0) // Advertise indefinitely
+                .setTimeout(0)
                 .build()
 
             val dataBuilder = AdvertiseData.Builder()
@@ -114,7 +101,6 @@ internal class AndroidAdvertiser(private val context: Context) : Advertiser {
                 dataBuilder.addManufacturerData(companyId, data)
             }
 
-            // Set device name if provided, saving original for restore
             if (config.name != null) {
                 try {
                     originalAdapterName = adapter.name
@@ -136,24 +122,25 @@ internal class AndroidAdvertiser(private val context: Context) : Advertiser {
     }
 
     override fun stopAdvertising() {
-        synchronized(lock) {
-            stopAdvertisingLocked()
+        runBlocking(serialDispatcher) {
+            stopInternal()
             logEvent(BleLogEvent.ServerLifecycle("advertising stopped"))
         }
     }
 
     override fun close() {
-        synchronized(lock) {
-            stopAdvertisingLocked()
+        runBlocking(serialDispatcher) {
+            stopInternal()
             advertiser = null
         }
+        scope.cancel()
     }
 
-    private fun stopAdvertisingLocked() {
+    private fun stopInternal() {
         try {
             advertiser?.stopAdvertising(advertiseCallback)
         } catch (_: SecurityException) {
-            // Ignore permission errors on stop
+            // Best-effort stop
         }
         isStarting = false
         restoreAdapterName()

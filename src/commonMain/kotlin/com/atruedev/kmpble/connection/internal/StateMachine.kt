@@ -23,7 +23,7 @@ internal object StateMachine {
      * Declarative transition table. Each entry maps (StateType, EventType) → resolver.
      * The resolver receives the concrete event to extract payload (e.g., error).
      */
-    private val table: Map<Pair<KClass<out State>, KClass<out ConnectionEvent>>, (State, ConnectionEvent) -> State> =
+    private val table: Map<Pair<KClass<*>, KClass<*>>, (State, ConnectionEvent) -> State> =
         buildMap {
             // --- Disconnected.* → Connecting ---
             on<Disconnected, ConnectionEvent.ConnectRequested> { _, _ -> Connecting.Transport }
@@ -127,8 +127,7 @@ internal object StateMachine {
 
         while (stateClass != null) {
             val key = Pair(stateClass, eventClass)
-            @Suppress("UNCHECKED_CAST")
-            val resolver = table[key as Pair<KClass<out State>, KClass<out ConnectionEvent>>]
+            val resolver = table[key]
             if (resolver != null) return resolver
 
             // Walk up: e.g., Disconnected.ByRequest → Disconnected → State
@@ -148,16 +147,13 @@ internal object StateMachine {
         }
 
     /** All registered transitions, for test verification. */
-    val allTransitions: Set<Pair<KClass<out State>, KClass<out ConnectionEvent>>>
+    val allTransitions: Set<Pair<KClass<*>, KClass<*>>>
         get() = table.keys
 
-    // --- DSL helper for building the table ---
-
     private inline fun <reified S : State, reified E : ConnectionEvent>
-        MutableMap<Pair<KClass<out State>, KClass<out ConnectionEvent>>, (State, ConnectionEvent) -> State>.on(
+        MutableMap<Pair<KClass<*>, KClass<*>>, (State, ConnectionEvent) -> State>.on(
         noinline resolver: (S, E) -> State,
     ) {
-        @Suppress("UNCHECKED_CAST")
-        put(Pair(S::class, E::class), resolver as (State, ConnectionEvent) -> State)
+        put(Pair(S::class, E::class)) { state, event -> resolver(state as S, event as E) }
     }
 }

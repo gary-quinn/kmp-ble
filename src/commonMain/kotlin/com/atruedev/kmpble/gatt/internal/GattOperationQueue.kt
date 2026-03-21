@@ -12,9 +12,9 @@ import kotlin.time.Duration.Companion.seconds
 
 internal class GattOperationQueue(private val scope: CoroutineScope) {
 
-    private data class QueueEntry(
-        val block: suspend () -> Any?,
-        val result: CompletableDeferred<Any?>,
+    private class QueueEntry(
+        val action: suspend () -> Unit,
+        val cancel: (Throwable) -> Unit,
     )
 
     private val channel = Channel<QueueEntry>(Channel.UNLIMITED)
@@ -29,31 +29,35 @@ internal class GattOperationQueue(private val scope: CoroutineScope) {
         drainJob = scope.launch {
             for (entry in channel) {
                 if (!accepting) {
-                    entry.result.completeExceptionally(NotConnectedException())
+                    entry.cancel(NotConnectedException())
                     continue
                 }
-                try {
-                    val value = entry.block()
-                    entry.result.complete(value)
-                } catch (e: Throwable) {
-                    entry.result.completeExceptionally(e)
-                }
+                entry.action()
             }
         }
     }
 
-    @Suppress("UNCHECKED_CAST")
     suspend fun <T> enqueue(
         timeout: Duration = DEFAULT_OPERATION_TIMEOUT,
         block: suspend () -> T,
     ): T {
         if (!accepting) throw NotConnectedException()
 
-        val deferred = CompletableDeferred<Any?>()
-        channel.send(QueueEntry(block, deferred))
+        val deferred = CompletableDeferred<T>()
+        val entry = QueueEntry(
+            action = {
+                try {
+                    deferred.complete(block())
+                } catch (e: Throwable) {
+                    deferred.completeExceptionally(e)
+                }
+            },
+            cancel = { deferred.completeExceptionally(it) },
+        )
+        channel.send(entry)
 
         return withTimeout(timeout) {
-            deferred.await() as T
+            deferred.await()
         }
     }
 
@@ -61,7 +65,7 @@ internal class GattOperationQueue(private val scope: CoroutineScope) {
         accepting = false
         while (true) {
             val entry = channel.tryReceive().getOrNull() ?: break
-            entry.result.completeExceptionally(NotConnectedException())
+            entry.cancel(NotConnectedException())
         }
     }
 

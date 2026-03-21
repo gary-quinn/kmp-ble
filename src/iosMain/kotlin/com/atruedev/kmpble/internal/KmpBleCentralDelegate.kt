@@ -93,8 +93,8 @@ internal class KmpBleCentralDelegate : NSObject(), CBCentralManagerDelegateProto
      * at the time the app was terminated.
      */
     override fun centralManager(central: CBCentralManager, willRestoreState: Map<Any?, *>) {
-        @Suppress("UNCHECKED_CAST")
-        val peripherals = willRestoreState[CBCentralManagerRestoredStatePeripheralsKey] as? List<CBPeripheral>
+        val peripherals = (willRestoreState[CBCentralManagerRestoredStatePeripheralsKey] as? List<*>)
+            ?.filterIsInstance<CBPeripheral>()
         if (!peripherals.isNullOrEmpty()) {
             _restoredPeripherals.tryEmit(peripherals)
         }
