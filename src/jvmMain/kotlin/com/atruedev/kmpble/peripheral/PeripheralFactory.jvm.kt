@@ -1,6 +1,6 @@
 package com.atruedev.kmpble.peripheral
 
 import com.atruedev.kmpble.scanner.Advertisement
+import com.atruedev.kmpble.unsupportedBle
 
-public actual fun Advertisement.toPeripheral(): Peripheral =
-    throw UnsupportedOperationException("BLE peripherals are not available on JVM")
+public actual fun Advertisement.toPeripheral(): Peripheral = unsupportedBle("Peripheral")
