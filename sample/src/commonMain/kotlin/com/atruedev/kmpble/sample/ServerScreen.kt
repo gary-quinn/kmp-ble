@@ -45,8 +45,8 @@ fun ServerScreen(onBack: () -> Unit) {
 
     val serverOpen by vm.serverOpen.collectAsState()
     val heartRate by vm.heartRate.collectAsState()
-    val isAdvertising by vm.advertiser.isAdvertising.collectAsState()
-    val activeSets by vm.extAdvertiser.activeSets.collectAsState()
+    val isAdvertising by vm.isAdvertising.collectAsState()
+    val activeSets by vm.activeSets.collectAsState()
     val connectionLog by vm.connectionLog.collectAsState()
     val error by vm.error.collectAsState()
 
@@ -159,7 +159,7 @@ private fun LegacyAdvertiserCard(isAdvertising: Boolean, vm: ServerViewModel) {
                 ) { Text("Start") }
 
                 OutlinedButton(
-                    onClick = { vm.advertiser.stopAdvertising() },
+                    onClick = { vm.stopLegacyAdvertising() },
                     enabled = isAdvertising,
                 ) { Text("Stop") }
             }
@@ -212,7 +212,7 @@ private fun ExtendedAdvertiserCard(activeSets: Set<Int>, vm: ServerViewModel) {
 
             Spacer(Modifier.height(4.dp))
             OutlinedButton(
-                onClick = { vm.extAdvertiser.close() },
+                onClick = { vm.stopAllExtendedSets() },
                 enabled = activeSets.isNotEmpty(),
             ) { Text("Stop All") }
         }

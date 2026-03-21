@@ -506,7 +506,11 @@ private fun BenchmarkSection(
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(
-                    onClick = { vm.benchmarkConnect(ConnectionOptions()) },
+                    onClick = {
+                        vm.benchmarkConnect(
+                            ConnectionOptions(pairingHandler = vm.pairing.handler),
+                        )
+                    },
                     enabled = state is State.Connected || state is State.Disconnected,
                 ) { Text("Bench Connect") }
 

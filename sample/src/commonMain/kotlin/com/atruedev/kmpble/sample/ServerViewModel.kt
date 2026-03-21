@@ -13,6 +13,7 @@ import com.atruedev.kmpble.server.ExtendedAdvertiseConfig
 import com.atruedev.kmpble.server.ExtendedAdvertiser
 import com.atruedev.kmpble.server.GattServer
 import com.atruedev.kmpble.server.ServerConnectionEvent
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -46,8 +47,11 @@ class ServerViewModel : ViewModel() {
         }
     }
 
-    val advertiser: Advertiser = Advertiser()
-    val extAdvertiser: ExtendedAdvertiser = ExtendedAdvertiser()
+    private val advertiser = Advertiser()
+    private val extAdvertiser = ExtendedAdvertiser()
+
+    val isAdvertising: StateFlow<Boolean> = advertiser.isAdvertising
+    val activeSets: StateFlow<Set<Int>> = extAdvertiser.activeSets
 
     fun openServer() {
         viewModelScope.launch {
@@ -82,6 +86,10 @@ class ServerViewModel : ViewModel() {
                 _error.value = "Notify failed: ${e.message}"
             }
         }
+    }
+
+    fun stopLegacyAdvertising() {
+        advertiser.stopAdvertising()
     }
 
     fun startLegacyAdvertising() {
@@ -121,12 +129,23 @@ class ServerViewModel : ViewModel() {
         viewModelScope.launch { extAdvertiser.stopAdvertisingSet(setId) }
     }
 
+    fun stopAllExtendedSets() {
+        viewModelScope.launch {
+            for (setId in extAdvertiser.activeSets.value) {
+                extAdvertiser.stopAdvertisingSet(setId)
+            }
+        }
+    }
+
     fun clearError() {
         _error.value = null
     }
 
+    private var connectionEventJob: Job? = null
+
     private fun collectConnectionEvents() {
-        viewModelScope.launch {
+        connectionEventJob?.cancel()
+        connectionEventJob = viewModelScope.launch {
             server.connectionEvents.collect { event ->
                 val msg = when (event) {
                     is ServerConnectionEvent.Connected -> "Connected: ${event.device.value.take(8)}"
