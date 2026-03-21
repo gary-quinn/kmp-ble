@@ -42,6 +42,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlin.time.Duration.Companion.seconds
+import kotlin.time.TimeSource
 
 @Immutable
 private data class ScannedDevice(
@@ -85,20 +87,21 @@ fun ScannerScreen(
     var legacyOnly by remember { mutableStateOf(true) }
 
     DisposableEffect(legacyOnly) {
-        val deviceMap = HashMap<Identifier, Advertisement>()
+        val deviceMap = HashMap<Identifier, Pair<Advertisement, TimeSource.Monotonic.ValueTimeMark>>()
         val scanner = Scanner {
             emission = EmissionPolicy.FirstThenChanges(rssiThreshold = 5)
             this.legacyOnly = legacyOnly
         }
         val job = scope.launch {
-            // Accumulate scan results without touching Compose state
             launch {
-                scanner.advertisements.conflate().collect { deviceMap[it.identifier] = it }
+                scanner.advertisements.conflate().collect {
+                    deviceMap[it.identifier] = it to TimeSource.Monotonic.markNow()
+                }
             }
-            // Snapshot to UI at fixed rate
             while (isActive) {
                 delay(250)
-                val sorted = deviceMap.values.sortedByDescending { it.rssi }
+                deviceMap.entries.removeAll { it.value.second.elapsedNow() > 10.seconds }
+                val sorted = deviceMap.values.map { it.first }.sortedByDescending { it.rssi }
                 advertisementLookup.clear()
                 sorted.forEach { advertisementLookup[it.identifier.value] = it }
                 devices = sorted.map { it.toScannedDevice() }

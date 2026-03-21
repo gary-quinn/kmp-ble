@@ -15,7 +15,7 @@ Discovers nearby BLE peripherals using legacy and BLE 5.0 extended scanning.
 | `Advertisement.primaryPhy / secondaryPhy / advertisingSid` | BLE 5.0 extended advertisement metadata |
 | `EmissionPolicy.FirstThenChanges` | Reduces redundant scan results |
 
-Scan results are collected into a `HashMap` and snapshotted to an `@Immutable` data class at 4 Hz to avoid recomposition storms in `LazyColumn`.
+Scan results are collected into a `HashMap` and snapshotted to an `@Immutable` data class at 4 Hz to avoid recomposition storms in `LazyColumn`. Devices not seen for 10 seconds are evicted to keep the list bounded and relevant.
 
 ### Device Detail
 
