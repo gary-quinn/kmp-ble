@@ -1,5 +1,7 @@
 package com.atruedev.kmpble.connection
 
+import com.atruedev.kmpble.ExperimentalBleApi
+import com.atruedev.kmpble.bonding.PairingHandler
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
@@ -11,6 +13,18 @@ public data class ConnectionOptions(
     val mtuRequest: Int? = null,
     val bondingPreference: BondingPreference = BondingPreference.IfRequired,
     val reconnectionStrategy: ReconnectionStrategy = ReconnectionStrategy.None,
+    /**
+     * Handler for pairing events that require user interaction.
+     *
+     * When set, the library routes pairing requests (numeric comparison,
+     * passkey entry, OOB) through this handler instead of relying solely
+     * on the system dialog.
+     *
+     * On iOS, the system dialog is always shown. The handler receives
+     * events for observability but cannot suppress the dialog.
+     */
+    @property:ExperimentalBleApi
+    val pairingHandler: PairingHandler? = null,
 )
 
 public enum class BondingPreference {

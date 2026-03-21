@@ -17,6 +17,12 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
+/**
+ * Tracks bond state for a single [BluetoothDevice] via broadcast receiver.
+ *
+ * All mutable state is confined to [peripheralContext.scope] which uses
+ * `limitedParallelism(1)` — no synchronization primitives needed.
+ */
 internal class AndroidBondManager(
     private val device: BluetoothDevice,
     private val context: Context,

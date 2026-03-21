@@ -1,5 +1,6 @@
 package com.atruedev.kmpble.server
 
+import com.atruedev.kmpble.ExperimentalBleApi
 import com.atruedev.kmpble.KmpBle
 
 public actual fun GattServer(builder: GattServerBuilder.() -> Unit): GattServer {
@@ -9,4 +10,9 @@ public actual fun GattServer(builder: GattServerBuilder.() -> Unit): GattServer 
 
 public actual fun Advertiser(): Advertiser {
     return AndroidAdvertiser(KmpBle.requireContext())
+}
+
+@ExperimentalBleApi
+public actual fun ExtendedAdvertiser(): ExtendedAdvertiser {
+    return AndroidExtendedAdvertiser(KmpBle.requireContext())
 }

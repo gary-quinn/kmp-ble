@@ -92,6 +92,8 @@ public class AndroidPeripheral internal constructor(
     private val nativeDescMap = mutableMapOf<Descriptor, BluetoothGattDescriptor>()
 
     private val bondManager = AndroidBondManager(device, context, peripheralContext)
+    @OptIn(com.atruedev.kmpble.ExperimentalBleApi::class)
+    private val pairingRequestHandler = AndroidPairingRequestHandler(device, context, peripheralContext.scope, peripheralContext.dispatcher)
 
     override val state: StateFlow<State> get() = peripheralContext.state
     override val bondState: StateFlow<BondState> get() = bondManager.bondState
@@ -113,6 +115,7 @@ public class AndroidPeripheral internal constructor(
         logEvent(BleLogEvent.GattOperation(identifier, "DeviceQuirks: ${quirkRegistry.describe()}", uuid = null, status = null))
     }
 
+    @OptIn(com.atruedev.kmpble.ExperimentalBleApi::class)
     override suspend fun connect(options: ConnectionOptions) {
         checkNotClosed()
         currentConnectionOptions = options
@@ -120,6 +123,8 @@ public class AndroidPeripheral internal constructor(
         bondManager.start()
 
         withContext(peripheralContext.dispatcher) {
+            pairingRequestHandler.setHandler(options.pairingHandler)
+            pairingRequestHandler.start()
             ensureBondedIfRequired(options)
             connectWithRetry(options)
         }
@@ -216,11 +221,13 @@ public class AndroidPeripheral internal constructor(
         }
     }
 
+    @OptIn(com.atruedev.kmpble.ExperimentalBleApi::class)
     override suspend fun disconnect() {
         checkNotClosed()
         reconnectionHandler.stop()
         bondManager.stop()
         withContext(peripheralContext.dispatcher) {
+            pairingRequestHandler.stop()
             if (peripheralContext.state.value is State.Disconnected) return@withContext
             peripheralContext.processEvent(ConnectionEvent.DisconnectRequested)
             disconnectComplete = CompletableDeferred()
@@ -239,10 +246,12 @@ public class AndroidPeripheral internal constructor(
         }
     }
 
+    @OptIn(com.atruedev.kmpble.ExperimentalBleApi::class)
     override fun close() {
         if (closed) return
         closed = true
         reconnectionHandler.stop()
+        pairingRequestHandler.closeSync()
         bondManager.stop()
         closeL2capChannels()
         bridge.close()

@@ -2,6 +2,7 @@ package com.atruedev.kmpble.scanner
 
 import com.atruedev.kmpble.BleData
 import com.atruedev.kmpble.Identifier
+import com.atruedev.kmpble.connection.Phy
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
@@ -11,6 +12,14 @@ import kotlin.uuid.Uuid
  * [manufacturerData] and [serviceData] values are [BleData] — zero-copy on iOS
  * (wraps NSData), lightweight on Android (wraps ByteArray). Call [BleData.toByteArray]
  * only when you need a mutable copy for protocol parsing.
+ *
+ * ## BLE 5.0 Extended Advertising
+ *
+ * Extended advertisements support payloads > 31 bytes and additional PHY options.
+ * On Android, set [ScannerConfig.legacyOnly] = `false` to receive extended ads.
+ * On iOS, CoreBluetooth receives extended advertisements transparently.
+ *
+ * Check [isLegacy] to distinguish legacy from extended advertisements.
  */
 @OptIn(ExperimentalUuidApi::class)
 public class Advertisement(
@@ -23,6 +32,12 @@ public class Advertisement(
     public val manufacturerData: Map<Int, BleData>,
     public val serviceData: Map<Uuid, BleData>,
     public val timestampNanos: Long,
+    public val isLegacy: Boolean = true,
+    public val primaryPhy: Phy = Phy.Le1M,
+    public val secondaryPhy: Phy? = null,
+    public val advertisingSid: Int? = null,
+    public val periodicAdvertisingInterval: Int? = null,
+    public val dataStatus: DataStatus = DataStatus.Complete,
     internal val platformContext: Any? = null,
 ) {
     override fun equals(other: Any?): Boolean {
@@ -36,7 +51,13 @@ public class Advertisement(
             serviceUuids == other.serviceUuids &&
             manufacturerData == other.manufacturerData &&
             serviceData == other.serviceData &&
-            timestampNanos == other.timestampNanos
+            timestampNanos == other.timestampNanos &&
+            isLegacy == other.isLegacy &&
+            primaryPhy == other.primaryPhy &&
+            secondaryPhy == other.secondaryPhy &&
+            advertisingSid == other.advertisingSid &&
+            periodicAdvertisingInterval == other.periodicAdvertisingInterval &&
+            dataStatus == other.dataStatus
     }
 
     override fun hashCode(): Int {
@@ -49,10 +70,27 @@ public class Advertisement(
         result = 31 * result + manufacturerData.hashCode()
         result = 31 * result + serviceData.hashCode()
         result = 31 * result + timestampNanos.hashCode()
+        result = 31 * result + isLegacy.hashCode()
+        result = 31 * result + primaryPhy.hashCode()
+        result = 31 * result + (secondaryPhy?.hashCode() ?: 0)
+        result = 31 * result + (advertisingSid ?: 0)
+        result = 31 * result + (periodicAdvertisingInterval ?: 0)
+        result = 31 * result + dataStatus.hashCode()
         return result
     }
 
     override fun toString(): String =
         "Advertisement(identifier=$identifier, name=$name, rssi=$rssi, " +
-            "serviceUuids=$serviceUuids)"
+            "serviceUuids=$serviceUuids, isLegacy=$isLegacy)"
+}
+
+/**
+ * Whether the advertisement data is complete or truncated.
+ *
+ * Extended advertisements may arrive in fragments. [Truncated] indicates
+ * the host controller received a partial payload.
+ */
+public enum class DataStatus {
+    Complete,
+    Truncated,
 }

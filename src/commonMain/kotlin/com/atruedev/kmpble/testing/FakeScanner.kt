@@ -3,7 +3,9 @@ package com.atruedev.kmpble.testing
 import com.atruedev.kmpble.BleData
 import com.atruedev.kmpble.Identifier
 import com.atruedev.kmpble.emptyBleData
+import com.atruedev.kmpble.connection.Phy
 import com.atruedev.kmpble.scanner.Advertisement
+import com.atruedev.kmpble.scanner.DataStatus
 import com.atruedev.kmpble.scanner.Scanner
 import com.atruedev.kmpble.scanner.uuidFrom
 import kotlinx.coroutines.flow.Flow
@@ -78,12 +80,24 @@ public class FakeAdvertisementBuilder {
     private var serviceUuids: List<Uuid> = emptyList()
     private var manufacturerData: Map<Int, BleData> = emptyMap()
     private var serviceData: Map<Uuid, BleData> = emptyMap()
+    private var isLegacy: Boolean = true
+    private var primaryPhy: Phy = Phy.Le1M
+    private var secondaryPhy: Phy? = null
+    private var advertisingSid: Int? = null
+    private var periodicAdvertisingInterval: Int? = null
+    private var dataStatus: DataStatus = DataStatus.Complete
 
     public fun identifier(value: String) { identifier = value }
     public fun name(value: String) { name = value }
     public fun rssi(value: Int) { rssi = value }
     public fun txPower(value: Int) { txPower = value }
     public fun isConnectable(value: Boolean) { isConnectable = value }
+    public fun isLegacy(value: Boolean) { isLegacy = value }
+    public fun primaryPhy(value: Phy) { primaryPhy = value }
+    public fun secondaryPhy(value: Phy) { secondaryPhy = value }
+    public fun advertisingSid(value: Int) { advertisingSid = value }
+    public fun periodicAdvertisingInterval(value: Int) { periodicAdvertisingInterval = value }
+    public fun dataStatus(value: DataStatus) { dataStatus = value }
 
     public fun serviceUuids(vararg uuids: String) {
         serviceUuids = uuids.map { uuidFrom(it) }
@@ -111,6 +125,12 @@ public class FakeAdvertisementBuilder {
         manufacturerData = manufacturerData,
         serviceData = serviceData,
         timestampNanos = 0L,
+        isLegacy = isLegacy,
+        primaryPhy = primaryPhy,
+        secondaryPhy = secondaryPhy,
+        advertisingSid = advertisingSid,
+        periodicAdvertisingInterval = periodicAdvertisingInterval,
+        dataStatus = dataStatus,
     )
 
     private companion object {

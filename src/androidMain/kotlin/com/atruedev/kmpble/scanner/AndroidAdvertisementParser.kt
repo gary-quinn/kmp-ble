@@ -1,8 +1,10 @@
 package com.atruedev.kmpble.scanner
 
+import android.bluetooth.BluetoothDevice
 import android.bluetooth.le.ScanResult
 import com.atruedev.kmpble.BleData
 import com.atruedev.kmpble.Identifier
+import com.atruedev.kmpble.connection.Phy
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 import androidx.core.util.size
@@ -22,8 +24,30 @@ internal fun ScanResult.toAdvertisement(): Advertisement {
         manufacturerData = parseManufacturerData(record),
         serviceData = parseServiceData(record),
         timestampNanos = timestampNanos,
+        isLegacy = isLegacy,
+        primaryPhy = primaryPhy.toPhy(),
+        secondaryPhy = secondaryPhy.toPhyOrNull(),
+        advertisingSid = advertisingSid.takeIf { it != ScanResult.SID_NOT_PRESENT },
+        periodicAdvertisingInterval = periodicAdvertisingInterval.takeIf { it > 0 },
+        dataStatus = when (dataStatus) {
+            ScanResult.DATA_COMPLETE -> DataStatus.Complete
+            else -> DataStatus.Truncated
+        },
         platformContext = this@toAdvertisement,
     )
+}
+
+private fun Int.toPhy(): Phy = when (this) {
+    BluetoothDevice.PHY_LE_2M -> Phy.Le2M
+    BluetoothDevice.PHY_LE_CODED -> Phy.LeCoded
+    else -> Phy.Le1M
+}
+
+private fun Int.toPhyOrNull(): Phy? = when (this) {
+    BluetoothDevice.PHY_LE_1M -> Phy.Le1M
+    BluetoothDevice.PHY_LE_2M -> Phy.Le2M
+    BluetoothDevice.PHY_LE_CODED -> Phy.LeCoded
+    else -> null
 }
 
 /** Wraps ByteArray from ScanRecord — zero-copy (BleData wraps the reference). */
