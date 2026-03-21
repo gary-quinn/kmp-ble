@@ -8,7 +8,6 @@ import android.bluetooth.BluetoothGattCharacteristic
 import android.bluetooth.BluetoothGattDescriptor
 import android.bluetooth.BluetoothProfile
 import android.content.Context
-import android.os.Build
 import com.atruedev.kmpble.Identifier
 import com.atruedev.kmpble.bonding.BondState
 import com.atruedev.kmpble.connection.BondingPreference
@@ -725,10 +724,6 @@ public class AndroidPeripheral internal constructor(
             throw L2capException.NotConnected(
                 "Peripheral is not connected and ready (state: $currentState)",
             )
-        }
-
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-            throw L2capException.NotSupported("L2CAP channels require Android 10 (API 29) or higher")
         }
 
         logEvent(BleLogEvent.GattOperation(

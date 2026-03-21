@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -28,13 +27,13 @@ sealed interface Screen {
 @OptIn(ExperimentalBleApi::class)
 @Composable
 fun App() {
-    LaunchedEffect(Unit) {
+    val adapter = remember {
         BleLogConfig.logger = PrintBleLogger()
         // No-op on Android; enables BLE connection restoration after background termination on iOS.
+        // Must run before BluetoothAdapter() which lazily creates CBCentralManager.
         enableStateRestoration(StateRestorationConfig(identifier = "com.atruedev.kmpble.sample"))
+        BluetoothAdapter()
     }
-
-    val adapter = remember { BluetoothAdapter() }
     var currentScreen by remember { mutableStateOf<Screen>(Screen.Scanner) }
 
     SampleTheme {

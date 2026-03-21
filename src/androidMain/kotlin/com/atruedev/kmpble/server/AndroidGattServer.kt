@@ -13,7 +13,6 @@ import android.bluetooth.BluetoothGattService
 import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothProfile
 import android.content.Context
-import android.os.Build
 import com.atruedev.kmpble.BleData
 import com.atruedev.kmpble.Identifier
 import com.atruedev.kmpble.emptyBleData
@@ -680,7 +679,6 @@ internal class AndroidGattServer(
         return service
     }
 
-    @Suppress("DEPRECATION")
     private fun notifyDevice(
         server: BluetoothGattServer,
         device: BluetoothDevice,
@@ -688,14 +686,7 @@ internal class AndroidGattServer(
         data: ByteArray,
         confirm: Boolean,
     ) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            server.notifyCharacteristicChanged(device, characteristic, confirm, data)
-        } else {
-            // Pre-API-33: shared mutable field. Safe in parallel notify because all
-            // asyncs write the same data bytes. See class KDoc for details.
-            characteristic.value = data
-            server.notifyCharacteristicChanged(device, characteristic, confirm)
-        }
+        server.notifyCharacteristicChanged(device, characteristic, confirm, data)
     }
 
     private fun handleCccdWrite(device: BluetoothDevice, characteristicUuid: Uuid, value: ByteArray) {
