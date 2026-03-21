@@ -31,7 +31,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.atruedev.kmpble.ExperimentalBleApi
 import com.atruedev.kmpble.connection.Phy
@@ -75,6 +77,9 @@ fun ServerScreen(onBack: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             item { GattServerCard(serverOpen, heartRate, vm) }
+            if (serverOpen) {
+                item { ClientPreviewCard(heartRate, connectionLog.size) }
+            }
             item { LegacyAdvertiserCard(isAdvertising, vm) }
             item { ExtendedAdvertiserCard(activeSets, vm) }
             item { ConnectionLogCard(connectionLog) }
@@ -133,6 +138,47 @@ private fun GattServerCard(serverOpen: Boolean, heartRate: Int, vm: ServerViewMo
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun ClientPreviewCard(heartRate: Int, connectedClients: Int) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text("Client Preview", style = MaterialTheme.typography.titleSmall)
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "What connected clients see when you tap Notify All.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            Spacer(Modifier.height(16.dp))
+
+            Text(
+                text = heartRate.toString(),
+                fontSize = 72.sp,
+                fontWeight = FontWeight.Thin,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            Text(
+                text = "BPM",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            Spacer(Modifier.height(12.dp))
+
+            Text(
+                text = "To see this live on another device: start advertising below, " +
+                    "scan from the other device, connect, and open Heart Rate Monitor.",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }
