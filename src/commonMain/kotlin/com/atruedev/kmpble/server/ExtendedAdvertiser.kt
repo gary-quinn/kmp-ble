@@ -44,7 +44,7 @@ public interface ExtendedAdvertiser : AutoCloseable {
      *
      * Safe to call with an inactive set ID.
      */
-    public fun stopAdvertisingSet(setId: Int)
+    public suspend fun stopAdvertisingSet(setId: Int)
 
     /** Stop all advertising sets and release resources. */
     override fun close()

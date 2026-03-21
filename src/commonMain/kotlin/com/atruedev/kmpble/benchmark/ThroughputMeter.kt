@@ -2,12 +2,14 @@ package com.atruedev.kmpble.benchmark
 
 import com.atruedev.kmpble.ExperimentalBleApi
 import kotlin.time.Duration
+import kotlin.time.TimeMark
 import kotlin.time.TimeSource
 
 /**
  * Measures data throughput for BLE transfer operations.
  *
  * Accumulates byte counts and computes throughput over the measurement window.
+ * Not thread-safe — confine to a single coroutine or use external serialization.
  *
  * ```kotlin
  * val meter = ThroughputMeter()
@@ -24,13 +26,12 @@ import kotlin.time.TimeSource
 public class ThroughputMeter(
     private val timeSource: TimeSource = TimeSource.Monotonic,
 ) {
-    private var mark: TimeSource.Monotonic.ValueTimeMark? = null
+    private var mark: TimeMark? = null
     private var totalBytes: Long = 0
     private var sampleCount: Long = 0
 
     public fun start() {
-        mark = (timeSource as? TimeSource.Monotonic)?.markNow()
-            ?: TimeSource.Monotonic.markNow()
+        mark = timeSource.markNow()
         totalBytes = 0
         sampleCount = 0
     }

@@ -92,6 +92,8 @@ public class AndroidPeripheral internal constructor(
     private val nativeDescMap = mutableMapOf<Descriptor, BluetoothGattDescriptor>()
 
     private val bondManager = AndroidBondManager(device, context, peripheralContext)
+    @OptIn(com.atruedev.kmpble.ExperimentalBleApi::class)
+    private val pairingRequestHandler = AndroidPairingRequestHandler(device, context, peripheralContext.scope)
 
     override val state: StateFlow<State> get() = peripheralContext.state
     override val bondState: StateFlow<BondState> get() = bondManager.bondState
@@ -118,7 +120,8 @@ public class AndroidPeripheral internal constructor(
         checkNotClosed()
         currentConnectionOptions = options
         reconnectionHandler.start(options)
-        bondManager.pairingHandler = options.pairingHandler
+        pairingRequestHandler.setHandler(options.pairingHandler)
+        pairingRequestHandler.start()
         bondManager.start()
 
         withContext(peripheralContext.dispatcher) {
@@ -218,9 +221,11 @@ public class AndroidPeripheral internal constructor(
         }
     }
 
+    @OptIn(com.atruedev.kmpble.ExperimentalBleApi::class)
     override suspend fun disconnect() {
         checkNotClosed()
         reconnectionHandler.stop()
+        pairingRequestHandler.stop()
         bondManager.stop()
         withContext(peripheralContext.dispatcher) {
             if (peripheralContext.state.value is State.Disconnected) return@withContext
@@ -241,10 +246,12 @@ public class AndroidPeripheral internal constructor(
         }
     }
 
+    @OptIn(com.atruedev.kmpble.ExperimentalBleApi::class)
     override fun close() {
         if (closed) return
         closed = true
         reconnectionHandler.stop()
+        pairingRequestHandler.stop()
         bondManager.stop()
         closeL2capChannels()
         bridge.close()

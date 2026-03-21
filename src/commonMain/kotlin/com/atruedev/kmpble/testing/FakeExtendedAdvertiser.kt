@@ -38,7 +38,7 @@ public class FakeExtendedAdvertiser : ExtendedAdvertiser {
         return setId
     }
 
-    override fun stopAdvertisingSet(setId: Int) {
+    override suspend fun stopAdvertisingSet(setId: Int) {
         configs.remove(setId)
         _activeSets.update { it - setId }
     }

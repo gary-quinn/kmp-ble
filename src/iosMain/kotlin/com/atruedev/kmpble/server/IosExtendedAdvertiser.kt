@@ -5,11 +5,12 @@ import com.atruedev.kmpble.internal.IosPeripheralManagerDelegate
 import com.atruedev.kmpble.internal.PeripheralManagerProvider
 import com.atruedev.kmpble.logging.BleLogEvent
 import com.atruedev.kmpble.logging.logEvent
-import kotlin.concurrent.AtomicInt
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.withContext
 import platform.CoreBluetooth.CBAdvertisementDataLocalNameKey
 import platform.CoreBluetooth.CBAdvertisementDataServiceUUIDsKey
 import platform.CoreBluetooth.CBPeripheralManager
@@ -26,6 +27,8 @@ import platform.Foundation.NSError
  * fields from [ExtendedAdvertiseConfig] are silently ignored with a log warning.
  *
  * Only one advertising set is supported at a time (iOS limitation).
+ *
+ * All mutable state is confined to [serialDispatcher] via `limitedParallelism(1)`.
  */
 @ExperimentalBleApi
 internal class IosExtendedAdvertiser(
@@ -33,56 +36,62 @@ internal class IosExtendedAdvertiser(
     private val delegate: IosPeripheralManagerDelegate = PeripheralManagerProvider.delegate,
 ) : ExtendedAdvertiser {
 
+    private val serialDispatcher = Dispatchers.Default.limitedParallelism(1)
+
     private val _activeSets = MutableStateFlow<Set<Int>>(emptySet())
     override val activeSets: StateFlow<Set<Int>> = _activeSets.asStateFlow()
 
-    private val nextSetId = AtomicInt(0)
-    private val isClosed = AtomicInt(0)
+    private var nextSetId = 0
+    private var isClosed = false
 
-    override suspend fun startAdvertisingSet(config: ExtendedAdvertiseConfig): Int {
-        if (isClosed.value != 0) {
-            throw AdvertiserException.StartFailed("Extended advertiser has been closed")
-        }
-        if (_activeSets.value.isNotEmpty()) {
-            throw AdvertiserException.StartFailed(
-                "iOS supports only one advertising set at a time"
-            )
-        }
-        if (manager.state != CBPeripheralManagerStatePoweredOn) {
-            throw AdvertiserException.StartFailed("Bluetooth is not powered on")
-        }
-
-        logIosLimitations(config)
-
-        val setId = nextSetId.addAndGet(1)
-        val advertisementData = mutableMapOf<String, Any>()
-
-        if (config.name != null) {
-            advertisementData[CBAdvertisementDataLocalNameKey] = config.name
-        }
-        if (config.serviceUuids.isNotEmpty()) {
-            advertisementData[CBAdvertisementDataServiceUUIDsKey] = config.serviceUuids.map {
-                CBUUID.UUIDWithString(it.toString())
+    override suspend fun startAdvertisingSet(config: ExtendedAdvertiseConfig): Int =
+        withContext(serialDispatcher) {
+            if (isClosed) {
+                throw AdvertiserException.StartFailed("Extended advertiser has been closed")
             }
+            if (_activeSets.value.isNotEmpty()) {
+                throw AdvertiserException.StartFailed(
+                    "iOS supports only one advertising set at a time"
+                )
+            }
+            if (manager.state != CBPeripheralManagerStatePoweredOn) {
+                throw AdvertiserException.StartFailed("Bluetooth is not powered on")
+            }
+
+            logIosLimitations(config)
+
+            val setId = ++nextSetId
+            val advertisementData = mutableMapOf<String, Any>()
+
+            if (config.name != null) {
+                advertisementData[CBAdvertisementDataLocalNameKey] = config.name
+            }
+            if (config.serviceUuids.isNotEmpty()) {
+                advertisementData[CBAdvertisementDataServiceUUIDsKey] = config.serviceUuids.map {
+                    CBUUID.UUIDWithString(it.toString())
+                }
+            }
+
+            delegate.onStartAdvertising = { error -> handleDidStartAdvertising(setId, error) }
+
+            @Suppress("UNCHECKED_CAST")
+            manager.startAdvertising(advertisementData as Map<Any?, *>)
+            _activeSets.update { it + setId }
+            setId
         }
 
-        delegate.onStartAdvertising = { error -> handleDidStartAdvertising(setId, error) }
-
-        @Suppress("UNCHECKED_CAST")
-        manager.startAdvertising(advertisementData as Map<Any?, *>)
-        _activeSets.update { it + setId }
-        return setId
-    }
-
-    override fun stopAdvertisingSet(setId: Int) {
-        if (setId !in _activeSets.value) return
+    override suspend fun stopAdvertisingSet(setId: Int): Unit = withContext(serialDispatcher) {
+        if (setId !in _activeSets.value) return@withContext
         manager.stopAdvertising()
         _activeSets.update { it - setId }
         logEvent(BleLogEvent.ServerLifecycle("extended advertising set $setId stopped"))
     }
 
     override fun close() {
-        if (isClosed.compareAndSet(0, 1).not()) return
+        // close() is synchronous (AutoCloseable contract). Guard with isClosed flag;
+        // CBPeripheralManager calls are main-thread-safe on iOS.
+        if (isClosed) return
+        isClosed = true
         if (_activeSets.value.isNotEmpty()) {
             manager.stopAdvertising()
             _activeSets.value = emptySet()

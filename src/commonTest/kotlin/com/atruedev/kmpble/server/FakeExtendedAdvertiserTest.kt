@@ -76,7 +76,7 @@ class FakeExtendedAdvertiserTest {
     }
 
     @Test
-    fun stopNonexistentSetIsSafe() {
+    fun stopNonexistentSetIsSafe() = runTest {
         val advertiser = FakeExtendedAdvertiser()
         advertiser.stopAdvertisingSet(999)
     }

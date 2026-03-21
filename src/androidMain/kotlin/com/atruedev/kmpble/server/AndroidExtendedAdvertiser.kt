@@ -25,34 +25,35 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.util.concurrent.atomic.AtomicInteger
+import kotlinx.coroutines.withContext
 import kotlin.uuid.toJavaUuid
 
 /**
  * Android implementation of [ExtendedAdvertiser] using the BLE 5.0 `AdvertisingSet` API.
  *
- * Each advertising set runs independently with its own PHY, interval, and data.
- * The number of concurrent sets is hardware-dependent (typically 4-10).
+ * All mutable state ([advertisingSets], [nextSetId]) is confined to [serialDispatcher]
+ * via `limitedParallelism(1)`. No locks or synchronized blocks.
  */
 @ExperimentalBleApi
 internal class AndroidExtendedAdvertiser(private val context: Context) : ExtendedAdvertiser {
 
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val serialDispatcher = Dispatchers.Default.limitedParallelism(1)
+    private val scope = CoroutineScope(SupervisorJob() + serialDispatcher)
 
     private val _activeSets = MutableStateFlow<Set<Int>>(emptySet())
     override val activeSets: StateFlow<Set<Int>> = _activeSets.asStateFlow()
 
-    private val nextSetId = AtomicInteger(0)
+    private var nextSetId = 0
     private val advertisingSets = mutableMapOf<Int, AdvertisingSetHandle>()
 
     override suspend fun startAdvertisingSet(config: ExtendedAdvertiseConfig): Int {
         val advertiser = getLeAdvertiser()
-        val setId = nextSetId.incrementAndGet()
         val deferred = CompletableDeferred<Int>()
 
         val params = config.toParameters()
         val data = config.toAdvertiseData()
+
+        val setId = withContext(serialDispatcher) { ++nextSetId }
         var callbackRef: AdvertisingSetCallback? = null
 
         val callback = object : AdvertisingSetCallback() {
@@ -61,7 +62,7 @@ internal class AndroidExtendedAdvertiser(private val context: Context) : Extende
                 txPower: Int,
                 status: Int,
             ) {
-                scope.launch(serialDispatcher) {
+                scope.launch {
                     if (status == ADVERTISE_SUCCESS && advertisingSet != null) {
                         advertisingSets[setId] = AdvertisingSetHandle(advertisingSet, callbackRef!!)
                         _activeSets.update { it + setId }
@@ -76,7 +77,7 @@ internal class AndroidExtendedAdvertiser(private val context: Context) : Extende
             }
 
             override fun onAdvertisingSetStopped(advertisingSet: AdvertisingSet?) {
-                scope.launch(serialDispatcher) {
+                scope.launch {
                     val stoppedId = advertisingSets.entries
                         .firstOrNull { it.value.set === advertisingSet }?.key
                     if (stoppedId != null) {
@@ -97,8 +98,8 @@ internal class AndroidExtendedAdvertiser(private val context: Context) : Extende
         return deferred.await()
     }
 
-    override fun stopAdvertisingSet(setId: Int) {
-        val handle = advertisingSets.remove(setId) ?: return
+    override suspend fun stopAdvertisingSet(setId: Int): Unit = withContext(serialDispatcher) {
+        val handle = advertisingSets.remove(setId) ?: return@withContext
         val advertiser = getLeAdvertiser()
         try {
             advertiser.stopAdvertisingSet(handle.callback)
@@ -111,14 +112,17 @@ internal class AndroidExtendedAdvertiser(private val context: Context) : Extende
 
     override fun close() {
         val advertiser = try { getLeAdvertiser() } catch (_: Exception) { null }
-        for ((id, handle) in advertisingSets.toMap()) {
+        // Scope runs on serialDispatcher — cancel serializes with any in-flight operations.
+        // Snapshot before cancelling since scope.launch won't execute after cancel.
+        val snapshot = advertisingSets.toMap()
+        for ((id, handle) in snapshot) {
             try {
                 advertiser?.stopAdvertisingSet(handle.callback)
             } catch (_: SecurityException) {
                 // Best-effort stop
             }
-            advertisingSets.remove(id)
         }
+        advertisingSets.clear()
         _activeSets.value = emptySet()
         scope.cancel()
     }
