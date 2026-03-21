@@ -26,7 +26,6 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -38,31 +37,33 @@ import com.atruedev.kmpble.Identifier
 import com.atruedev.kmpble.scanner.Advertisement
 import com.atruedev.kmpble.scanner.EmissionPolicy
 import com.atruedev.kmpble.scanner.Scanner
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class, FlowPreview::class)
 @Composable
 fun ScannerScreen(
     onDeviceSelected: (Advertisement) -> Unit,
     onServerTapped: () -> Unit = {},
 ) {
-    val devices = remember { mutableStateMapOf<Identifier, Advertisement>() }
+    var devices by remember { mutableStateOf(emptyList<Advertisement>()) }
     val scope = rememberCoroutineScope()
 
-    // Toggle between legacy-only and extended (BLE 5.0) scanning
     var legacyOnly by remember { mutableStateOf(true) }
 
-    // (Re)start scanning when legacyOnly changes
     DisposableEffect(legacyOnly) {
-        devices.clear()
+        val deviceMap = HashMap<Identifier, Advertisement>()
         val scanner = Scanner {
             emission = EmissionPolicy.FirstThenChanges(rssiThreshold = 5)
             this.legacyOnly = legacyOnly
         }
         val job = scope.launch {
-            scanner.advertisements.collect { advertisement ->
-                devices[advertisement.identifier] = advertisement
-            }
+            scanner.advertisements
+                .onEach { deviceMap[it.identifier] = it }
+                .sample(250)
+                .collect { devices = deviceMap.values.sortedByDescending { adv -> adv.rssi } }
         }
         onDispose {
             job.cancel()
@@ -112,7 +113,7 @@ fun ScannerScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     items(
-                        items = devices.values.sortedByDescending { it.rssi },
+                        items = devices,
                         key = { it.identifier.value },
                     ) { advertisement ->
                         DeviceCard(advertisement, onClick = { onDeviceSelected(advertisement) })
