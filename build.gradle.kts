@@ -15,15 +15,6 @@ kotlin {
         freeCompilerArgs.add("-Xexpect-actual-classes")
     }
 
-    applyDefaultHierarchyTemplate {
-        common {
-            group("nonNative") {
-                withAndroidTarget()
-                withJvm()
-            }
-        }
-    }
-
     targets.withType<org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget> {
         compilations.all {
             compileTaskProvider.configure {
