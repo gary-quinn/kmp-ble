@@ -26,7 +26,6 @@ class PairingCoordinator {
         }
     }
 
-    fun respond(response: PairingResponse) {
-        responseChannel.trySend(response)
-    }
+    fun respond(response: PairingResponse): Boolean =
+        responseChannel.trySend(response).isSuccess
 }

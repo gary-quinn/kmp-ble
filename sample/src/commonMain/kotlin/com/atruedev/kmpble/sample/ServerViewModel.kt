@@ -37,31 +37,43 @@ class ServerViewModel : ViewModel() {
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
-    private val server: GattServer = GattServer {
-        service(HEART_RATE_SERVICE) {
-            characteristic(HEART_RATE_MEASUREMENT) {
-                properties { read = true; notify = true }
-                permissions { read = true }
-                onRead { _ -> BleData(byteArrayOf(0x00, _heartRate.value.toByte())) }
+    private val server by lazy {
+        GattServer {
+            service(HEART_RATE_SERVICE) {
+                characteristic(HEART_RATE_MEASUREMENT) {
+                    properties { read = true; notify = true }
+                    permissions { read = true }
+                    onRead { _ -> BleData(byteArrayOf(0x00, _heartRate.value.toByte())) }
+                }
             }
         }
     }
 
-    private val advertiser = Advertiser()
-    private val extAdvertiser = ExtendedAdvertiser()
+    private val advertiser by lazy { Advertiser() }
+    private val extAdvertiser by lazy { ExtendedAdvertiser() }
 
-    val isAdvertising: StateFlow<Boolean> = advertiser.isAdvertising
-    val activeSets: StateFlow<Set<Int>> = extAdvertiser.activeSets
+    private var advertiserInitialized = false
+    private var extAdvertiserInitialized = false
+    private var serverInitialized = false
+
+    val isAdvertising: StateFlow<Boolean>
+        get() {
+            advertiserInitialized = true
+            return advertiser.isAdvertising
+        }
+
+    val activeSets: StateFlow<Set<Int>>
+        get() {
+            extAdvertiserInitialized = true
+            return extAdvertiser.activeSets
+        }
 
     fun openServer() {
-        viewModelScope.launch {
-            try {
-                server.open()
-                _serverOpen.value = true
-                collectConnectionEvents()
-            } catch (e: Exception) {
-                _error.value = "Open failed: ${e.message}"
-            }
+        serverInitialized = true
+        launchWithErrorHandling {
+            server.open()
+            _serverOpen.value = true
+            collectConnectionEvents()
         }
     }
 
@@ -75,16 +87,12 @@ class ServerViewModel : ViewModel() {
     }
 
     fun notifyClients() {
-        viewModelScope.launch {
-            try {
-                server.notify(
-                    HEART_RATE_MEASUREMENT,
-                    null,
-                    BleData(byteArrayOf(0x00, _heartRate.value.toByte())),
-                )
-            } catch (e: Exception) {
-                _error.value = "Notify failed: ${e.message}"
-            }
+        launchWithErrorHandling {
+            server.notify(
+                HEART_RATE_MEASUREMENT,
+                null,
+                BleData(byteArrayOf(0x00, _heartRate.value.toByte())),
+            )
         }
     }
 
@@ -93,6 +101,7 @@ class ServerViewModel : ViewModel() {
     }
 
     fun startLegacyAdvertising() {
+        advertiserInitialized = true
         try {
             advertiser.startAdvertising(
                 AdvertiseConfig(
@@ -107,21 +116,18 @@ class ServerViewModel : ViewModel() {
     }
 
     fun startExtendedSet(primary: Phy, secondary: Phy, name: String, interval: AdvertiseInterval) {
-        viewModelScope.launch {
-            try {
-                extAdvertiser.startAdvertisingSet(
-                    ExtendedAdvertiseConfig(
-                        name = name,
-                        serviceUuids = listOf(HEART_RATE_SERVICE),
-                        connectable = true,
-                        primaryPhy = primary,
-                        secondaryPhy = secondary,
-                        interval = interval,
-                    ),
-                )
-            } catch (e: Exception) {
-                _error.value = "Start failed: ${e.message}"
-            }
+        extAdvertiserInitialized = true
+        launchWithErrorHandling {
+            extAdvertiser.startAdvertisingSet(
+                ExtendedAdvertiseConfig(
+                    name = name,
+                    serviceUuids = listOf(HEART_RATE_SERVICE),
+                    connectable = true,
+                    primaryPhy = primary,
+                    secondaryPhy = secondary,
+                    interval = interval,
+                ),
+            )
         }
     }
 
@@ -131,7 +137,7 @@ class ServerViewModel : ViewModel() {
 
     fun stopAllExtendedSets() {
         viewModelScope.launch {
-            for (setId in extAdvertiser.activeSets.value) {
+            extAdvertiser.activeSets.value.forEach { setId ->
                 extAdvertiser.stopAdvertisingSet(setId)
             }
         }
@@ -143,6 +149,7 @@ class ServerViewModel : ViewModel() {
 
     private var connectionEventJob: Job? = null
 
+    // Called from openServer() which runs on Main via viewModelScope.launch.
     private fun collectConnectionEvents() {
         connectionEventJob?.cancel()
         connectionEventJob = viewModelScope.launch {
@@ -157,8 +164,18 @@ class ServerViewModel : ViewModel() {
     }
 
     override fun onCleared() {
-        advertiser.close()
-        extAdvertiser.close()
-        server.close()
+        if (advertiserInitialized) advertiser.close()
+        if (extAdvertiserInitialized) extAdvertiser.close()
+        if (serverInitialized) server.close()
+    }
+
+    private fun launchWithErrorHandling(block: suspend () -> Unit) {
+        viewModelScope.launch {
+            try {
+                block()
+            } catch (e: Exception) {
+                _error.value = e.message ?: "Unknown error"
+            }
+        }
     }
 }

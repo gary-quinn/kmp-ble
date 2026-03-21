@@ -87,9 +87,9 @@ fun ScannerScreen(
     val scope = rememberCoroutineScope()
 
     var legacyOnly by remember { mutableStateOf(true) }
+    val scanContext = remember { Dispatchers.Default.limitedParallelism(1) }
 
     DisposableEffect(legacyOnly) {
-        val scanContext = Dispatchers.Default.limitedParallelism(1)
         val deviceMap = HashMap<Identifier, Pair<Advertisement, TimeSource.Monotonic.ValueTimeMark>>()
         val scanner = Scanner {
             emission = EmissionPolicy.FirstThenChanges(rssiThreshold = 5)

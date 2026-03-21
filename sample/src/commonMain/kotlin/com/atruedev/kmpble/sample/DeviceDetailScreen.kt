@@ -30,6 +30,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -126,6 +127,7 @@ fun DeviceDetailScreen(
     }
 }
 
+@Stable
 @OptIn(ExperimentalBleApi::class)
 private sealed interface RecipeOption {
     val label: String
@@ -219,7 +221,7 @@ private fun ConnectionSection(state: State, bond: BondState, vm: BleViewModel) {
                             )
                             is RecipeOption.Preset -> recipe.options
                         }
-                        vm.connect(baseOptions.copy(pairingHandler = vm.pairing.handler))
+                        vm.connect(baseOptions)
                     },
                     enabled = state is State.Disconnected,
                 ) { Text("Connect") }
@@ -519,11 +521,7 @@ private fun BenchmarkSection(
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(
-                    onClick = {
-                        vm.benchmarkConnect(
-                            ConnectionOptions(pairingHandler = vm.pairing.handler),
-                        )
-                    },
+                    onClick = { vm.benchmarkConnect() },
                     enabled = state is State.Connected || state is State.Disconnected,
                 ) { Text("Bench Connect") }
 

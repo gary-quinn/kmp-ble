@@ -53,12 +53,14 @@ class BleViewModel(advertisement: Advertisement) : ViewModel() {
     val benchmarkResult: StateFlow<String?> = _benchmarkResult.asStateFlow()
 
     @OptIn(ExperimentalBleApi::class)
-    fun benchmarkConnect(options: ConnectionOptions) {
+    fun benchmarkConnect(options: ConnectionOptions = ConnectionOptions()) {
         viewModelScope.launch {
             try {
                 _benchmarkResult.value = "Benchmarking connect..."
                 peripheral.disconnect()
-                val result = bleStopwatch("connect") { peripheral.connect(options) }
+                val result = bleStopwatch("connect") {
+                    peripheral.connect(options.copy(pairingHandler = pairing.handler))
+                }
                 _benchmarkResult.value = "Connect: ${result.duration}"
             } catch (e: Exception) {
                 _benchmarkResult.value = "Error: ${formatError(e)}"
@@ -90,24 +92,14 @@ class BleViewModel(advertisement: Advertisement) : ViewModel() {
     }
 
     fun connect(options: ConnectionOptions = ConnectionOptions()) {
-        viewModelScope.launch {
-            try {
-                _error.value = null
-                peripheral.connect(options)
-            } catch (e: Exception) {
-                _error.value = formatError(e)
-            }
+        launchWithErrorHandling {
+            _error.value = null
+            peripheral.connect(options.copy(pairingHandler = pairing.handler))
         }
     }
 
     fun disconnect() {
-        viewModelScope.launch {
-            try {
-                peripheral.disconnect()
-            } catch (e: Exception) {
-                _error.value = formatError(e)
-            }
-        }
+        launchWithErrorHandling { peripheral.disconnect() }
     }
 
     fun readCharacteristic(characteristic: Characteristic, onResult: (Result<ByteArray>) -> Unit) {
@@ -121,36 +113,18 @@ class BleViewModel(advertisement: Advertisement) : ViewModel() {
         data: ByteArray,
         writeType: WriteType = WriteType.WithResponse,
     ) {
-        viewModelScope.launch {
-            try {
-                peripheral.write(characteristic, data, writeType)
-            } catch (e: Exception) {
-                _error.value = formatError(e)
-            }
-        }
+        launchWithErrorHandling { peripheral.write(characteristic, data, writeType) }
     }
 
     fun observe(characteristic: Characteristic): Flow<Observation> =
         peripheral.observe(characteristic, BackpressureStrategy.Latest)
 
     fun readRssi() {
-        viewModelScope.launch {
-            try {
-                _rssi.value = peripheral.readRssi()
-            } catch (e: Exception) {
-                _error.value = formatError(e)
-            }
-        }
+        launchWithErrorHandling { _rssi.value = peripheral.readRssi() }
     }
 
     fun requestMtu(mtu: Int) {
-        viewModelScope.launch {
-            try {
-                _mtu.value = peripheral.requestMtu(mtu)
-            } catch (e: Exception) {
-                _error.value = formatError(e)
-            }
-        }
+        launchWithErrorHandling { _mtu.value = peripheral.requestMtu(mtu) }
     }
 
     @OptIn(ExperimentalBleApi::class)
@@ -169,6 +143,16 @@ class BleViewModel(advertisement: Advertisement) : ViewModel() {
 
     override fun onCleared() {
         peripheral.close()
+    }
+
+    private fun launchWithErrorHandling(block: suspend () -> Unit) {
+        viewModelScope.launch {
+            try {
+                block()
+            } catch (e: Exception) {
+                _error.value = formatError(e)
+            }
+        }
     }
 
     private fun formatError(e: Exception): String = e.message ?: "Unknown error"
