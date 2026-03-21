@@ -77,12 +77,12 @@ public class QuirkRegistry private constructor(
     }
 
     public companion object {
-        private var userConfig: (Builder.() -> Unit)? = null
+        private val userConfig = java.util.concurrent.atomic.AtomicReference<(Builder.() -> Unit)?>(null)
 
         private val defaultRegistryLazy: Lazy<QuirkRegistry> = lazy {
             Builder(DeviceInfo.current()).apply {
                 ServiceLoader.load(QuirkProvider::class.java).forEach(::addProvider)
-                userConfig?.invoke(this)
+                userConfig.get()?.invoke(this)
             }.build()
         }
 
@@ -94,7 +94,9 @@ public class QuirkRegistry private constructor(
             check(!defaultRegistryLazy.isInitialized()) {
                 "configure() must be called before getInstance()"
             }
-            userConfig = block
+            check(userConfig.compareAndSet(null, block)) {
+                "configure() must be called at most once"
+            }
         }
 
         public fun getInstance(): QuirkRegistry = defaultRegistryLazy.value
