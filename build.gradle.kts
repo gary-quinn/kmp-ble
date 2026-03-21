@@ -34,9 +34,12 @@ kotlin {
         withHostTestBuilder {}.configure {}
     }
 
+    jvm()
+
     listOf(
         iosArm64(),
         iosSimulatorArm64(),
+        iosX64(),
     ).forEach { target ->
         target.binaries.framework {
             baseName = "KmpBle"
@@ -101,7 +104,7 @@ mavenPublishing {
 
     pom {
         name.set("kmp-ble")
-        description.set("Kotlin Multiplatform BLE library for Android and iOS")
+        description.set("Kotlin Multiplatform BLE library for Android, iOS, and JVM")
         url.set("https://github.com/atruedeveloper/kmp-ble")
         licenses {
             license {
