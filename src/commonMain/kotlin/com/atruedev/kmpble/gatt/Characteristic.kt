@@ -19,7 +19,7 @@ public class Characteristic(
         val indicate: Boolean = false,
     ) {
         /** Human-readable property list, e.g. "read, notify". */
-        public val displayName: String = buildList {
+        public val displayName: String get() = buildList {
             if (read) add("read")
             if (write) add("write")
             if (writeWithoutResponse) add("writeNoResp")
