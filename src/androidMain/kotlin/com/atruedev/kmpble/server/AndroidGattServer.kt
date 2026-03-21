@@ -292,7 +292,7 @@ internal class AndroidGattServer(
 
                 try {
                     val bleData = if (value != null && value.isNotEmpty()) {
-                        BleData(value, 0, value.size)
+                        BleData(value)
                     } else {
                         emptyBleData()
                     }

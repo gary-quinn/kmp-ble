@@ -34,9 +34,12 @@ kotlin {
         withHostTestBuilder {}.configure {}
     }
 
+    jvm()
+
     listOf(
         iosArm64(),
         iosSimulatorArm64(),
+        iosX64(),
     ).forEach { target ->
         target.binaries.framework {
             baseName = "KmpBle"
@@ -70,13 +73,18 @@ tasks.withType<Zip>().matching { it.name == "bundleAndroidMainAar" }.configureEa
 }
 
 tasks.register<Exec>("assembleXCFramework") {
-    dependsOn("linkReleaseFrameworkIosArm64", "linkReleaseFrameworkIosSimulatorArm64")
+    dependsOn(
+        "linkReleaseFrameworkIosArm64",
+        "linkReleaseFrameworkIosSimulatorArm64",
+        "linkReleaseFrameworkIosX64",
+    )
     group = "build"
     description = "Assembles KmpBle.xcframework from iOS release frameworks"
 
     val outputDir = layout.buildDirectory.dir("XCFrameworks/release")
     val arm64 = layout.buildDirectory.dir("bin/iosArm64/releaseFramework/KmpBle.framework")
     val sim = layout.buildDirectory.dir("bin/iosSimulatorArm64/releaseFramework/KmpBle.framework")
+    val x64 = layout.buildDirectory.dir("bin/iosX64/releaseFramework/KmpBle.framework")
 
     doFirst {
         outputDir.get().asFile.let { dir ->
@@ -89,6 +97,7 @@ tasks.register<Exec>("assembleXCFramework") {
         "xcodebuild", "-create-xcframework",
         "-framework", arm64.map { it.asFile.absolutePath }.get(),
         "-framework", sim.map { it.asFile.absolutePath }.get(),
+        "-framework", x64.map { it.asFile.absolutePath }.get(),
         "-output", outputDir.map { File(it.asFile, "KmpBle.xcframework").absolutePath }.get(),
     )
 }
@@ -101,7 +110,7 @@ mavenPublishing {
 
     pom {
         name.set("kmp-ble")
-        description.set("Kotlin Multiplatform BLE library for Android and iOS")
+        description.set("Kotlin Multiplatform BLE library for Android, iOS, and JVM")
         url.set("https://github.com/atruedeveloper/kmp-ble")
         licenses {
             license {

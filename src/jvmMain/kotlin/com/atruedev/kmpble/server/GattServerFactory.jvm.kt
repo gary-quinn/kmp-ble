@@ -1,0 +1,7 @@
+package com.atruedev.kmpble.server
+
+import com.atruedev.kmpble.unsupportedBle
+
+public actual fun GattServer(builder: GattServerBuilder.() -> Unit): GattServer = unsupportedBle("GattServer")
+
+public actual fun Advertiser(): Advertiser = unsupportedBle("Advertiser")
