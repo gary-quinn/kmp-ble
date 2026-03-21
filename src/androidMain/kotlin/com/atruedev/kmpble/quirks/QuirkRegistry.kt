@@ -1,6 +1,8 @@
 package com.atruedev.kmpble.quirks
 
 import java.util.ServiceLoader
+import kotlin.concurrent.atomics.AtomicReference
+import kotlin.concurrent.atomics.ExperimentalAtomicApi
 
 /**
  * Immutable registry that resolves device-specific BLE quirks.
@@ -76,13 +78,14 @@ public class QuirkRegistry private constructor(
         }
     }
 
+    @OptIn(ExperimentalAtomicApi::class)
     public companion object {
-        private val userConfig = java.util.concurrent.atomic.AtomicReference<(Builder.() -> Unit)?>(null)
+        private val userConfig = AtomicReference<(Builder.() -> Unit)?>(null)
 
         private val defaultRegistryLazy: Lazy<QuirkRegistry> = lazy {
             Builder(DeviceInfo.current()).apply {
                 ServiceLoader.load(QuirkProvider::class.java).forEach(::addProvider)
-                userConfig.get()?.invoke(this)
+                userConfig.load()?.invoke(this)
             }.build()
         }
 
