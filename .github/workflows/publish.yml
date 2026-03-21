@@ -7,10 +7,15 @@ on:
 
 permissions:
   contents: write
+  pull-requests: write
 
 jobs:
   publish:
     runs-on: macos-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+      release_url: ${{ steps.release.outputs.release_url }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
@@ -20,6 +25,13 @@ jobs:
           java-version: 21
 
       - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+
+      - name: Extract version
+        id: version
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
 
       - name: Publish to Maven Central
         run: ./gradlew publishAllPublicationsToMavenCentralRepository
@@ -41,6 +53,7 @@ jobs:
           zip -r KmpBle.xcframework.zip KmpBle.xcframework
 
       - name: Create release and upload XCFramework
+        id: release
         run: |
           gh release create ${{ github.ref_name }} \
             --title "${{ github.ref_name }}" \
@@ -48,6 +61,7 @@ jobs:
           gh release upload ${{ github.ref_name }} \
             build/XCFrameworks/release/KmpBle.xcframework.zip \
             --clobber
+          echo "release_url=https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}" >> $GITHUB_OUTPUT
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -81,3 +95,97 @@ jobs:
           git add Package.swift
           git diff --cached --quiet || git commit -m "update Package.swift for ${VERSION}"
           git push origin main
+
+  update-docs:
+    needs: publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Get release metadata
+        id: meta
+        run: |
+          echo "date=$(date +%Y-%m-%d)" >> $GITHUB_OUTPUT
+          PREV_TAG=$(git tag --sort=-version:refname | grep -v "^${{ needs.publish.outputs.tag }}$" | head -1)
+          echo "prev_tag=$PREV_TAG" >> $GITHUB_OUTPUT
+
+      - name: Generate changelog entries from merged PRs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: .github/scripts/generate-changelog.sh "${{ steps.meta.outputs.prev_tag }}" "${{ needs.publish.outputs.tag }}"
+
+      - name: Update README.md
+        run: |
+          VERSION="${{ needs.publish.outputs.version }}"
+          sed -i "s|implementation(\"com.atruedev:kmp-ble:[^\"]*\")|implementation(\"com.atruedev:kmp-ble:$VERSION\")|g" README.md
+
+      - name: Update CHANGELOG.md
+        run: |
+          VERSION="${{ needs.publish.outputs.version }}"
+          TAG="${{ needs.publish.outputs.tag }}"
+          PREV_TAG="${{ steps.meta.outputs.prev_tag }}"
+          DATE="${{ steps.meta.outputs.date }}"
+          ENTRIES=$(cat /tmp/changelog_entries.txt)
+
+          # Build the new CHANGELOG content using awk for reliable multi-line insertion
+          awk -v version="$VERSION" -v date="$DATE" -v entries="$ENTRIES" '
+          /^## \[Unreleased\]/ {
+            print "## [Unreleased]"
+            print ""
+            print "_Changes on `main` that have not yet been tagged for release._"
+            print ""
+            print "---"
+            print ""
+            print "## [" version "] - " date
+            print entries
+            found = 1
+            next
+          }
+          # Skip the old Unreleased placeholder text
+          found && /^_Changes on `main` that have not yet been tagged for release._$/ { next }
+          { print }
+          ' CHANGELOG.md > /tmp/changelog_new.md
+          mv /tmp/changelog_new.md CHANGELOG.md
+
+          # Update the [Unreleased] compare link to point from the new tag
+          sed -i "s|\[Unreleased\]: \(.*\)/compare/.*\.\.\.HEAD|[Unreleased]: \1/compare/$TAG...HEAD|" CHANGELOG.md
+
+          # Add the new version's compare link after the [Unreleased] link
+          if [ -n "$PREV_TAG" ]; then
+            sed -i "/^\[Unreleased\]:.*$/a [$VERSION]: https://github.com/atruedeveloper/kmp-ble/compare/$PREV_TAG...$TAG" CHANGELOG.md
+          fi
+
+      - name: Update ROADMAP.md
+        run: |
+          VERSION="${{ needs.publish.outputs.version }}"
+          sed -i "s|^\*Current as of v.*\*$|*Current as of v$VERSION*|" ROADMAP.md
+
+      - name: Create Pull Request
+        id: create-pr
+        uses: peter-evans/create-pull-request@c0f553fe549906ede9cf27b5156039d195d2ece0 # v8.1.0
+        with:
+          commit-message: "docs: update docs for v${{ needs.publish.outputs.version }}"
+          title: "docs: update docs for v${{ needs.publish.outputs.version }}"
+          body: |
+            Automated PR to update project docs with the new release version.
+
+            **Updated files:**
+            - `README.md` — dependency version
+            - `CHANGELOG.md` — auto-generated entries from merged PRs
+            - `ROADMAP.md` — "Current as of" footer
+
+            Release: ${{ needs.publish.outputs.release_url }}
+          branch: update-docs-${{ needs.publish.outputs.version }}
+          base: main
+          delete-branch: true
+
+      - name: Auto-approve and merge PR
+        if: steps.create-pr.outputs.pull-request-number
+        run: |
+          gh pr review --approve "${{ steps.create-pr.outputs.pull-request-url }}"
+          gh pr merge --auto --squash "${{ steps.create-pr.outputs.pull-request-url }}"
+        env:
+          GITHUB_TOKEN: ${{ secrets.AUTO_MERGE_PAT }}
