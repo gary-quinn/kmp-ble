@@ -5,26 +5,26 @@ import kotlin.time.Duration.Companion.seconds
 /**
  * Pre-built [ConnectionOptions] for common BLE device categories.
  *
- * Each recipe provides optimized MTU, reconnection strategy, and timeout
+ * Each preset provides optimized MTU, reconnection strategy, and timeout
  * for its target use case. Use these as starting points — override individual
  * fields with [ConnectionOptions.copy] if needed.
  *
  * ```
  * // Connect to a heart rate monitor with medical-grade settings
- * peripheral.connect(ConnectionRecipe.medical())
+ * peripheral.connect(ConnectionRecipe.MEDICAL)
  *
- * // Use fitness recipe but override MTU
- * peripheral.connect(ConnectionRecipe.fitness().copy(mtuRequest = 512))
+ * // Use fitness preset but override MTU
+ * peripheral.connect(ConnectionRecipe.FITNESS.copy(mtuRequest = 512))
  * ```
  *
  * Parameter rationale:
  * ```
- * Recipe    │ MTU │ Reconnect             │ Timeout │ Rationale
+ * Preset    │ MTU │ Reconnect             │ Timeout │ Rationale
  * ──────────┼─────┼───────────────────────┼─────────┼──────────────────────────
- * medical   │ 247 │ Exp 1s-30s, 10 att    │ 60s     │ Continuous monitoring, battery
- * fitness   │ 247 │ Exp 500ms-15s, 5 att  │ 30s     │ Fast reconnect for workouts
- * iot       │ nil │ Linear 2s, 3 att      │ 15s     │ Constrained devices, minimal MTU
- * consumer  │ 247 │ Exp 1s-10s, 3 att     │ 20s     │ Fast first connect, moderate retry
+ * MEDICAL   │ 247 │ Exp 1s-30s, 10 att    │ 60s     │ Continuous monitoring, battery
+ * FITNESS   │ 247 │ Exp 500ms-15s, 5 att  │ 30s     │ Fast reconnect for workouts
+ * IOT       │ nil │ Linear 2s, 3 att      │ 15s     │ Constrained devices, minimal MTU
+ * CONSUMER  │ 247 │ Exp 1s-10s, 3 att     │ 20s     │ Fast first connect, moderate retry
  * ```
  */
 public object ConnectionRecipe {
@@ -38,7 +38,7 @@ public object ConnectionRecipe {
      * - Aggressive reconnection (10 attempts) — data gaps are unacceptable
      * - Long timeout — medical devices can be slow to respond (bonding, encryption)
      */
-    public fun medical(): ConnectionOptions = ConnectionOptions(
+    public val MEDICAL: ConnectionOptions = ConnectionOptions(
         mtuRequest = 247,
         timeout = 60.seconds,
         reconnectionStrategy = ReconnectionStrategy.ExponentialBackoff(
@@ -57,7 +57,7 @@ public object ConnectionRecipe {
      * - Fast reconnection — workout interruptions should be brief
      * - Moderate timeout — fitness devices respond reasonably fast
      */
-    public fun fitness(): ConnectionOptions = ConnectionOptions(
+    public val FITNESS: ConnectionOptions = ConnectionOptions(
         mtuRequest = 247,
         timeout = 30.seconds,
         reconnectionStrategy = ReconnectionStrategy.ExponentialBackoff(
@@ -76,7 +76,7 @@ public object ConnectionRecipe {
      * - Conservative reconnection — battery-constrained, don't hammer
      * - Short timeout — if it doesn't connect quickly, it's probably off
      */
-    public fun iot(): ConnectionOptions = ConnectionOptions(
+    public val IOT: ConnectionOptions = ConnectionOptions(
         mtuRequest = null,
         timeout = 15.seconds,
         reconnectionStrategy = ReconnectionStrategy.LinearBackoff(
@@ -94,7 +94,7 @@ public object ConnectionRecipe {
      * - Moderate reconnection — users will retry manually if needed
      * - Short timeout — consumer devices should connect quickly
      */
-    public fun consumer(): ConnectionOptions = ConnectionOptions(
+    public val CONSUMER: ConnectionOptions = ConnectionOptions(
         mtuRequest = 247,
         timeout = 20.seconds,
         reconnectionStrategy = ReconnectionStrategy.ExponentialBackoff(

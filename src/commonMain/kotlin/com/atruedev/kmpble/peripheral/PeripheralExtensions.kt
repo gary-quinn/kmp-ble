@@ -1,20 +1,14 @@
 package com.atruedev.kmpble.peripheral
 
 import com.atruedev.kmpble.connection.ConnectionOptions
-import com.atruedev.kmpble.connection.State
 import com.atruedev.kmpble.gatt.Characteristic
-import com.atruedev.kmpble.scanner.Advertisement
-import com.atruedev.kmpble.scanner.Scanner
-import kotlinx.coroutines.flow.firstOrNull
-import kotlinx.coroutines.withTimeoutOrNull
-import kotlin.time.Duration
-import kotlin.time.Duration.Companion.seconds
 import kotlin.uuid.ExperimentalUuidApi
 
 /**
  * Returns a human-readable GATT service/characteristic/descriptor tree.
  *
  * Useful for debugging — answers "what does this device expose?" in one call.
+ * Only meaningful after service discovery completes (i.e., in [State.Connected.Ready]).
  *
  * ```
  * peripheral.connect()
@@ -92,41 +86,23 @@ private fun buildProperties(p: Characteristic.Properties): String {
  * ```
  *
  * Behavior:
- * - If already connected: throws [IllegalStateException] (use [connect] directly for
- *   existing connections — whenReady owns the full lifecycle)
+ * - Delegates state validation to [connect] — if the peripheral is already connected
+ *   or connecting, [connect]'s own invariants apply
  * - If connection drops mid-block: the block's coroutine is cancelled with
  *   [kotlinx.coroutines.CancellationException], then close() runs in finally
  * - [close] always runs in a finally block, regardless of success or failure
+ *
+ * Not thread-safe — callers must ensure exclusive access to this peripheral.
  */
 @OptIn(ExperimentalUuidApi::class)
 public suspend fun Peripheral.whenReady(
     options: ConnectionOptions = ConnectionOptions(),
     block: suspend Peripheral.() -> Unit,
 ) {
-    check(state.value is State.Disconnected) {
-        "whenReady{} manages the full connection lifecycle — peripheral must be disconnected (current: ${state.value})"
-    }
     try {
         connect(options)
         block()
     } finally {
         close()
-    }
-}
-
-/**
- * Find the first advertisement matching [predicate], or null after [timeout].
- *
- * The most common scan pattern in one line:
- * ```
- * val ad = scanner.firstOrNull(timeout = 10.seconds) { it.name == "HeartSensor" }
- * ```
- */
-public suspend fun Scanner.firstOrNull(
-    timeout: Duration = 30.seconds,
-    predicate: (Advertisement) -> Boolean = { true },
-): Advertisement? {
-    return withTimeoutOrNull(timeout) {
-        advertisements.firstOrNull(predicate)
     }
 }

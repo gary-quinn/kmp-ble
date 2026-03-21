@@ -47,8 +47,11 @@ internal class PeripheralContext(val identifier: Identifier) {
     @Volatile
     private var closed = false
 
-    /** Tracks when the current state was entered, for connection timeline logging. */
-    private var stateEnteredAt: TimeSource.Monotonic.ValueTimeMark = TimeSource.Monotonic.markNow()
+    /**
+     * Tracks when the current state was entered, for connection timeline logging.
+     * Confined to [dispatcher] — only read/written inside [processEvent].
+     */
+    private var stateEnteredAt: TimeSource.Monotonic.ValueTimeMark? = null
 
     /**
      * Process a state machine event. Always runs on the peripheral's serialized dispatcher.
@@ -67,7 +70,7 @@ internal class PeripheralContext(val identifier: Identifier) {
         }
 
         val now = TimeSource.Monotonic.markNow()
-        val durationInPrevious = now - stateEnteredAt
+        val durationInPrevious = stateEnteredAt?.let { now - it } ?: Duration.ZERO
         stateEnteredAt = now
 
         _state.value = result.newState

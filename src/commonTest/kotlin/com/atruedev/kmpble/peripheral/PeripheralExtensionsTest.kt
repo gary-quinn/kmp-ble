@@ -1,7 +1,6 @@
 package com.atruedev.kmpble.peripheral
 
 import com.atruedev.kmpble.connection.State
-import com.atruedev.kmpble.gatt.BackpressureStrategy
 import com.atruedev.kmpble.scanner.uuidFrom
 import com.atruedev.kmpble.testing.FakePeripheral
 import kotlinx.coroutines.test.runTest
@@ -9,7 +8,6 @@ import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
-import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlin.uuid.ExperimentalUuidApi
 
@@ -88,7 +86,6 @@ class PeripheralExtensionsTest {
         }
 
         assertTrue(blockExecuted)
-        // Peripheral should be closed after whenReady completes
     }
 
     @Test
@@ -101,17 +98,5 @@ class PeripheralExtensionsTest {
             }
         }
         // Peripheral should still be closed even after exception
-    }
-
-    @Test
-    fun whenReadyThrowsIfAlreadyConnected() = runTest {
-        val peripheral = createPeripheral()
-        peripheral.connect()
-
-        assertFailsWith<IllegalStateException> {
-            peripheral.whenReady { }
-        }
-
-        peripheral.close()
     }
 }

@@ -10,7 +10,7 @@ class ConnectionRecipeTest {
 
     @Test
     fun medicalRecipeHasCorrectDefaults() {
-        val opts = ConnectionRecipe.medical()
+        val opts = ConnectionRecipe.MEDICAL
         assertEquals(247, opts.mtuRequest)
         assertEquals(60.seconds, opts.timeout)
         val strategy = assertIs<ReconnectionStrategy.ExponentialBackoff>(opts.reconnectionStrategy)
@@ -21,7 +21,7 @@ class ConnectionRecipeTest {
 
     @Test
     fun fitnessRecipeHasCorrectDefaults() {
-        val opts = ConnectionRecipe.fitness()
+        val opts = ConnectionRecipe.FITNESS
         assertEquals(247, opts.mtuRequest)
         assertEquals(30.seconds, opts.timeout)
         val strategy = assertIs<ReconnectionStrategy.ExponentialBackoff>(opts.reconnectionStrategy)
@@ -32,7 +32,7 @@ class ConnectionRecipeTest {
 
     @Test
     fun iotRecipeHasCorrectDefaults() {
-        val opts = ConnectionRecipe.iot()
+        val opts = ConnectionRecipe.IOT
         assertNull(opts.mtuRequest)
         assertEquals(15.seconds, opts.timeout)
         val strategy = assertIs<ReconnectionStrategy.LinearBackoff>(opts.reconnectionStrategy)
@@ -42,7 +42,7 @@ class ConnectionRecipeTest {
 
     @Test
     fun consumerRecipeHasCorrectDefaults() {
-        val opts = ConnectionRecipe.consumer()
+        val opts = ConnectionRecipe.CONSUMER
         assertEquals(247, opts.mtuRequest)
         assertEquals(20.seconds, opts.timeout)
         val strategy = assertIs<ReconnectionStrategy.ExponentialBackoff>(opts.reconnectionStrategy)
@@ -53,7 +53,7 @@ class ConnectionRecipeTest {
 
     @Test
     fun recipesAreCopyable() {
-        val custom = ConnectionRecipe.medical().copy(mtuRequest = 512)
+        val custom = ConnectionRecipe.MEDICAL.copy(mtuRequest = 512)
         assertEquals(512, custom.mtuRequest)
         assertEquals(60.seconds, custom.timeout) // other fields preserved
     }
