@@ -9,6 +9,6 @@ package com.atruedev.kmpble.logging
  */
 public class PrintBleLogger : BleLogger {
     override fun log(event: BleLogEvent) {
-        println("kmp-ble: ${event.format()}")
+        println("kmp-ble: ${event.formatted}")
     }
 }

@@ -10,21 +10,8 @@ import kotlin.time.Duration.Companion.seconds
  * fields with [ConnectionOptions.copy] if needed.
  *
  * ```
- * // Connect to a heart rate monitor with medical-grade settings
  * peripheral.connect(ConnectionRecipe.MEDICAL)
- *
- * // Use fitness preset but override MTU
  * peripheral.connect(ConnectionRecipe.FITNESS.copy(mtuRequest = 512))
- * ```
- *
- * Parameter rationale:
- * ```
- * Preset    │ MTU │ Reconnect             │ Timeout │ Rationale
- * ──────────┼─────┼───────────────────────┼─────────┼──────────────────────────
- * MEDICAL   │ 247 │ Exp 1s-30s, 10 att    │ 60s     │ Continuous monitoring, battery
- * FITNESS   │ 247 │ Exp 500ms-15s, 5 att  │ 30s     │ Fast reconnect for workouts
- * IOT       │ nil │ Linear 2s, 3 att      │ 15s     │ Constrained devices, minimal MTU
- * CONSUMER  │ 247 │ Exp 1s-10s, 3 att     │ 20s     │ Fast first connect, moderate retry
  * ```
  */
 public object ConnectionRecipe {

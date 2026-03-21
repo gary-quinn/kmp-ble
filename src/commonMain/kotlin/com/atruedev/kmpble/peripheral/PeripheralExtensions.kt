@@ -33,14 +33,13 @@ import kotlin.uuid.ExperimentalUuidApi
  * ```
  */
 @OptIn(ExperimentalUuidApi::class)
-public fun Peripheral.dump(): String {
-    val sb = StringBuilder()
-    sb.appendLine("Peripheral: ${identifier.value} (state: ${state.value})")
+public fun Peripheral.dump(): String = buildString {
+    appendLine("Peripheral: ${identifier.value} (state: ${state.value})")
 
     val discovered = services.value
     if (discovered.isNullOrEmpty()) {
-        sb.appendLine("  (no services discovered)")
-        return sb.toString()
+        appendLine("  (no services discovered)")
+        return@buildString
     }
 
     discovered.forEachIndexed { svcIdx, service ->
@@ -48,7 +47,7 @@ public fun Peripheral.dump(): String {
         val svcPrefix = if (isLastService) "└── " else "├── "
         val childPrefix = if (isLastService) "    " else "│   "
 
-        sb.appendLine("${svcPrefix}Service ${service.uuid}")
+        appendLine("${svcPrefix}Service ${service.uuid}")
 
         service.characteristics.forEachIndexed { charIdx, char ->
             val isLastChar = charIdx == service.characteristics.lastIndex
@@ -56,18 +55,16 @@ public fun Peripheral.dump(): String {
             val descPrefix = if (isLastChar) "${childPrefix}    " else "${childPrefix}│   "
 
             val props = buildProperties(char.properties)
-            sb.appendLine("${charPrefix}Char ${char.uuid} [$props]")
+            appendLine("${charPrefix}Char ${char.uuid} [$props]")
 
             char.descriptors.forEachIndexed { descIdx, desc ->
                 val isLastDesc = descIdx == char.descriptors.lastIndex
                 val dp = if (isLastDesc) "${descPrefix}└── " else "${descPrefix}├── "
-                sb.appendLine("${dp}Desc ${desc.uuid}")
+                appendLine("${dp}Desc ${desc.uuid}")
             }
         }
     }
-
-    return sb.toString().trimEnd()
-}
+}.trimEnd()
 
 private fun buildProperties(p: Characteristic.Properties): String {
     return buildList {
