@@ -15,6 +15,14 @@ _Changes on `main` that have not yet been tagged for release._
 
 ---
 
+## [0.1.10] - 2026-03-21
+
+### Changed
+- refactor: extract device quirks into kmp-ble-quirks module
+
+
+---
+
 ## [0.1.9] - 2026-03-21
 
 ### Added
@@ -170,7 +178,8 @@ _Changes on `main` that have not yet been tagged for release._
 
 ---
 
-[Unreleased]: https://github.com/atruedeveloper/kmp-ble/compare/v0.1.9...HEAD
+[Unreleased]: https://github.com/atruedeveloper/kmp-ble/compare/v0.1.10...HEAD
+[0.1.10]: https://github.com/atruedeveloper/kmp-ble/compare/v0.1.9...v0.1.10
 [0.1.9]: https://github.com/atruedeveloper/kmp-ble/compare/v0.1.8-alpha2...v0.1.9
 [0.1.8]: https://github.com/atruedeveloper/kmp-ble/compare/v0.1.8-alpha2...v0.1.8
 [0.1.7]: https://github.com/atruedeveloper/kmp-ble/compare/v0.1.6...v0.1.7
