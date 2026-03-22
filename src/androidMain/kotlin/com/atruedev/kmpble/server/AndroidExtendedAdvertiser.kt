@@ -25,7 +25,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import kotlin.uuid.toJavaUuid
 
@@ -112,17 +111,15 @@ internal class AndroidExtendedAdvertiser(private val context: Context) : Extende
     }
 
     override fun close() {
-        runBlocking(serialDispatcher) {
-            val advertiser = try { getLeAdvertiser() } catch (_: Exception) { null }
-            for ((_, handle) in advertisingSets) {
-                try {
-                    advertiser?.stopAdvertisingSet(handle.callback)
-                } catch (_: SecurityException) { }
-            }
-            advertisingSets.clear()
-            _activeSets.value = emptySet()
-        }
         scope.cancel()
+        val advertiser = try { getLeAdvertiser() } catch (_: Exception) { null }
+        for ((_, handle) in advertisingSets) {
+            try {
+                advertiser?.stopAdvertisingSet(handle.callback)
+            } catch (_: SecurityException) { }
+        }
+        advertisingSets.clear()
+        _activeSets.value = emptySet()
     }
 
     private fun getLeAdvertiser(): BluetoothLeAdvertiser {
