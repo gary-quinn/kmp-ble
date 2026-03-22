@@ -36,25 +36,28 @@ import kotlin.uuid.Uuid
  * ```
  */
 public class FakeGattServer : GattServer {
+    private val mutableConnections = MutableStateFlow<List<ServerConnection>>(emptyList())
+    override val connections: StateFlow<List<ServerConnection>> = mutableConnections.asStateFlow()
 
-    private val _connections = MutableStateFlow<List<ServerConnection>>(emptyList())
-    override val connections: StateFlow<List<ServerConnection>> = _connections.asStateFlow()
+    private val mutableConnectionEvents = MutableSharedFlow<ServerConnectionEvent>(extraBufferCapacity = 16)
+    override val connectionEvents: Flow<ServerConnectionEvent> = mutableConnectionEvents.asSharedFlow()
 
-    private val _connectionEvents = MutableSharedFlow<ServerConnectionEvent>(extraBufferCapacity = 16)
-    override val connectionEvents: Flow<ServerConnectionEvent> = _connectionEvents.asSharedFlow()
-
-    private var _isOpen = false
-    private var _isClosed = false
+    private var opened = false
+    private var closed = false
 
     private val notifications = mutableListOf<NotificationRecord>()
     private val indications = mutableListOf<NotificationRecord>()
 
     override suspend fun open() {
-        if (_isClosed) throw ServerException.OpenFailed("Server has been closed")
-        _isOpen = true
+        if (closed) throw ServerException.OpenFailed("Server has been closed")
+        opened = true
     }
 
-    override suspend fun notify(characteristicUuid: Uuid, device: Identifier?, data: BleData) {
+    override suspend fun notify(
+        characteristicUuid: Uuid,
+        device: Identifier?,
+        data: BleData,
+    ) {
         checkOpen()
         if (device != null) {
             checkConnected(device)
@@ -62,33 +65,40 @@ public class FakeGattServer : GattServer {
         notifications.add(NotificationRecord(characteristicUuid, device, data))
     }
 
-    override suspend fun indicate(characteristicUuid: Uuid, device: Identifier, data: BleData) {
+    override suspend fun indicate(
+        characteristicUuid: Uuid,
+        device: Identifier,
+        data: BleData,
+    ) {
         checkOpen()
         checkConnected(device)
         indications.add(NotificationRecord(characteristicUuid, device, data))
     }
 
     override fun close() {
-        _isClosed = true
-        _isOpen = false
-        _connections.value = emptyList()
+        closed = true
+        opened = false
+        mutableConnections.value = emptyList()
     }
 
     // --- Test helpers ---
 
     /** Whether the server is currently open. */
-    public val isOpen: Boolean get() = _isOpen
+    public val isOpen: Boolean get() = opened
 
     /** Simulate a client device connecting. */
-    public suspend fun simulateConnection(device: Identifier, name: String? = null) {
-        _connections.update { it + ServerConnection(device, name) }
-        _connectionEvents.emit(ServerConnectionEvent.Connected(device))
+    public suspend fun simulateConnection(
+        device: Identifier,
+        name: String? = null,
+    ) {
+        mutableConnections.update { it + ServerConnection(device, name) }
+        mutableConnectionEvents.emit(ServerConnectionEvent.Connected(device))
     }
 
     /** Simulate a client device disconnecting. */
     public suspend fun simulateDisconnection(device: Identifier) {
-        _connections.update { list -> list.filter { it.device != device } }
-        _connectionEvents.emit(ServerConnectionEvent.Disconnected(device))
+        mutableConnections.update { list -> list.filter { it.device != device } }
+        mutableConnectionEvents.emit(ServerConnectionEvent.Disconnected(device))
     }
 
     /** Get all captured notification records. */
@@ -114,11 +124,11 @@ public class FakeGattServer : GattServer {
     )
 
     private fun checkOpen() {
-        if (!_isOpen) throw ServerException.NotOpen()
+        if (!opened) throw ServerException.NotOpen()
     }
 
     private fun checkConnected(device: Identifier) {
-        if (_connections.value.none { it.device == device }) {
+        if (mutableConnections.value.none { it.device == device }) {
             throw ServerException.DeviceNotConnected("Device $device not connected")
         }
     }

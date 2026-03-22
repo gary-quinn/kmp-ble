@@ -39,8 +39,6 @@ import com.atruedev.kmpble.ServiceUuid
 import com.atruedev.kmpble.scanner.Advertisement
 import com.atruedev.kmpble.scanner.EmissionPolicy
 import com.atruedev.kmpble.scanner.Scanner
-import kotlin.uuid.ExperimentalUuidApi
-import kotlin.uuid.Uuid
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.conflate
@@ -49,6 +47,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
+import kotlin.uuid.ExperimentalUuidApi
+import kotlin.uuid.Uuid
 
 @Immutable
 private data class ScannedDevice(
@@ -62,21 +62,23 @@ private data class ScannedDevice(
 )
 
 @OptIn(ExperimentalUuidApi::class)
-private fun Advertisement.toScannedDevice() = ScannedDevice(
-    identifier = identifier.value,
-    name = name,
-    rssi = rssi,
-    serviceUuids = serviceUuids.map { uuid -> wellKnownServiceName(uuid) ?: uuid.toString().take(8) },
-    isLegacy = isLegacy,
-    isConnectable = isConnectable,
-    phyInfo = if (!isLegacy) {
-        "Extended | PHY: $primaryPhy" +
-            (secondaryPhy?.let { " / $it" } ?: "") +
-            (advertisingSid?.let { " | SID: $it" } ?: "")
-    } else {
-        null
-    },
-)
+private fun Advertisement.toScannedDevice() =
+    ScannedDevice(
+        identifier = identifier.value,
+        name = name,
+        rssi = rssi,
+        serviceUuids = serviceUuids.map { uuid -> wellKnownServiceName(uuid) ?: uuid.toString().take(8) },
+        isLegacy = isLegacy,
+        isConnectable = isConnectable,
+        phyInfo =
+            if (!isLegacy) {
+                "Extended | PHY: $primaryPhy" +
+                    (secondaryPhy?.let { " / $it" } ?: "") +
+                    (advertisingSid?.let { " | SID: $it" } ?: "")
+            } else {
+                null
+            },
+    )
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -95,27 +97,30 @@ fun ScannerScreen(
 
     DisposableEffect(legacyOnly) {
         val deviceMap = HashMap<Identifier, Pair<Advertisement, TimeSource.Monotonic.ValueTimeMark>>()
-        val scanner = Scanner {
-            emission = EmissionPolicy.FirstThenChanges(rssiThreshold = 5)
-            this.legacyOnly = legacyOnly
-        }
-        val job = scope.launch {
-            launch(scanContext) {
-                scanner.advertisements.conflate().collect {
-                    deviceMap[it.identifier] = it to TimeSource.Monotonic.markNow()
+        val scanner =
+            Scanner {
+                emission = EmissionPolicy.FirstThenChanges(rssiThreshold = 5)
+                this.legacyOnly = legacyOnly
+            }
+        val job =
+            scope.launch {
+                launch(scanContext) {
+                    scanner.advertisements.conflate().collect {
+                        deviceMap[it.identifier] = it to TimeSource.Monotonic.markNow()
+                    }
+                }
+                while (isActive) {
+                    delay(250)
+                    val snapshot =
+                        withContext(scanContext) {
+                            deviceMap.entries.removeAll { it.value.second.elapsedNow() > 10.seconds }
+                            deviceMap.values.map { it.first }.sortedByDescending { it.rssi }
+                        }
+                    advertisementLookup.clear()
+                    snapshot.forEach { advertisementLookup[it.identifier.value] = it }
+                    devices = snapshot.map { it.toScannedDevice() }
                 }
             }
-            while (isActive) {
-                delay(250)
-                val snapshot = withContext(scanContext) {
-                    deviceMap.entries.removeAll { it.value.second.elapsedNow() > 10.seconds }
-                    deviceMap.values.map { it.first }.sortedByDescending { it.rssi }
-                }
-                advertisementLookup.clear()
-                snapshot.forEach { advertisementLookup[it.identifier.value] = it }
-                devices = snapshot.map { it.toScannedDevice() }
-            }
-        }
         onDispose {
             job.cancel()
             scanner.close()
@@ -181,7 +186,10 @@ fun ScannerScreen(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun DeviceCard(device: ScannedDevice, onClick: () -> Unit) {
+private fun DeviceCard(
+    device: ScannedDevice,
+    onClick: () -> Unit,
+) {
     Card(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
     ) {
@@ -247,22 +255,24 @@ private fun DeviceCard(device: ScannedDevice, onClick: () -> Unit) {
 }
 
 @Composable
-private fun rssiColor(rssi: Int) = when {
-    rssi >= -50 -> MaterialTheme.colorScheme.primary
-    rssi >= -70 -> MaterialTheme.colorScheme.tertiary
-    else -> MaterialTheme.colorScheme.error
-}
+private fun rssiColor(rssi: Int) =
+    when {
+        rssi >= -50 -> MaterialTheme.colorScheme.primary
+        rssi >= -70 -> MaterialTheme.colorScheme.tertiary
+        else -> MaterialTheme.colorScheme.error
+    }
 
 @OptIn(ExperimentalUuidApi::class)
-private val WELL_KNOWN_SERVICES: Map<Uuid, String> = mapOf(
-    ServiceUuid.HEART_RATE to "Heart Rate",
-    ServiceUuid.BATTERY to "Battery",
-    ServiceUuid.DEVICE_INFORMATION to "Device Info",
-    ServiceUuid.HEALTH_THERMOMETER to "Thermometer",
-    ServiceUuid.GLUCOSE to "Glucose",
-    ServiceUuid.CURRENT_TIME to "Current Time",
-    ServiceUuid.GENERIC_ACCESS to "Generic Access",
-)
+private val WELL_KNOWN_SERVICES: Map<Uuid, String> =
+    mapOf(
+        ServiceUuid.HEART_RATE to "Heart Rate",
+        ServiceUuid.BATTERY to "Battery",
+        ServiceUuid.DEVICE_INFORMATION to "Device Info",
+        ServiceUuid.HEALTH_THERMOMETER to "Thermometer",
+        ServiceUuid.GLUCOSE to "Glucose",
+        ServiceUuid.CURRENT_TIME to "Current Time",
+        ServiceUuid.GENERIC_ACCESS to "Generic Access",
+    )
 
 @OptIn(ExperimentalUuidApi::class)
 private fun wellKnownServiceName(uuid: Uuid): String? = WELL_KNOWN_SERVICES[uuid]

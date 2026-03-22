@@ -61,11 +61,12 @@ fun HeartRateDemoScreen(
     var bpm by remember { mutableStateOf<Int?>(null) }
     var recentValues by remember { mutableStateOf(emptyList<String>()) }
 
-    val hrChar = remember(services) {
-        services?.firstOrNull { it.uuid == ServiceUuid.HEART_RATE }
-            ?.characteristics
-            ?.firstOrNull { it.uuid == HR_MEASUREMENT }
-    }
+    val hrChar =
+        remember(services) {
+            services?.firstOrNull { it.uuid == ServiceUuid.HEART_RATE }
+                ?.characteristics
+                ?.firstOrNull { it.uuid == HR_MEASUREMENT }
+        }
 
     if (hrChar != null) {
         LaunchedEffect(hrChar) {
@@ -150,12 +151,13 @@ fun HeartRateDemoScreen(
 
 @Composable
 private fun ConnectionStatusPill(state: State) {
-    val (label, isConnected) = when (state) {
-        is State.Connected -> "Connected" to true
-        is State.Connecting -> "Connecting..." to false
-        is State.Disconnecting -> "Disconnecting..." to false
-        is State.Disconnected -> "Disconnected" to false
-    }
+    val (label, isConnected) =
+        when (state) {
+            is State.Connected -> "Connected" to true
+            is State.Connecting -> "Connecting..." to false
+            is State.Disconnecting -> "Disconnecting..." to false
+            is State.Disconnected -> "Disconnected" to false
+        }
     FilterChip(
         selected = isConnected,
         onClick = {},

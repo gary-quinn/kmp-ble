@@ -34,7 +34,10 @@ public actual class BleData internal constructor(
         return bytes
     }
 
-    public actual fun slice(fromIndex: Int, toIndex: Int): BleData {
+    public actual fun slice(
+        fromIndex: Int,
+        toIndex: Int,
+    ): BleData {
         require(fromIndex in 0..toIndex && toIndex <= size) {
             "Invalid slice: fromIndex=$fromIndex, toIndex=$toIndex, size=$size"
         }
@@ -57,11 +60,13 @@ public fun bleDataFromNSData(nsData: NSData): BleData = BleData(nsData)
 
 public actual fun BleData(bytes: ByteArray): BleData {
     if (bytes.isEmpty()) return emptyBleData()
-    val nsData = bytes.usePinned { pinned ->
-        NSData.create(bytes = pinned.addressOf(0), length = bytes.size.toULong())
-    }
+    val nsData =
+        bytes.usePinned { pinned ->
+            NSData.create(bytes = pinned.addressOf(0), length = bytes.size.toULong())
+        }
     return BleData(nsData)
 }
 
 private val EMPTY = BleData(NSData())
+
 public actual fun emptyBleData(): BleData = EMPTY

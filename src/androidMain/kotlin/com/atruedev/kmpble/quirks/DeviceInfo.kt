@@ -15,18 +15,20 @@ public data class DeviceInfo(
 ) {
     /** Cached match keys from most specific to least specific. Avoids allocation on every resolve. */
     @PublishedApi
-    internal val matchKeys: List<String> = listOf(
-        "$manufacturer:$model:$display",
-        "$manufacturer:$model",
-        "$manufacturer:${model.take(DeviceMatch.MODEL_PREFIX_LENGTH)}",
-        manufacturer,
-    )
+    internal val matchKeys: List<String> =
+        listOf(
+            "$manufacturer:$model:$display",
+            "$manufacturer:$model",
+            "$manufacturer:${model.take(DeviceMatch.MODEL_PREFIX_LENGTH)}",
+            manufacturer,
+        )
 
     public companion object {
-        public fun current(): DeviceInfo = DeviceInfo(
-            manufacturer = Build.MANUFACTURER.lowercase(),
-            model = Build.MODEL.lowercase(),
-            display = Build.DISPLAY.lowercase(),
-        )
+        public fun current(): DeviceInfo =
+            DeviceInfo(
+                manufacturer = Build.MANUFACTURER.lowercase(),
+                model = Build.MODEL.lowercase(),
+                display = Build.DISPLAY.lowercase(),
+            )
     }
 }

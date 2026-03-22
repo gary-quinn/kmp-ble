@@ -38,7 +38,10 @@ public class GattServerBuilder {
     internal val services = mutableListOf<ServiceDefinition>()
     private val serviceUuids = mutableSetOf<Uuid>()
 
-    public fun service(uuid: Uuid, block: ServiceBuilder.() -> Unit) {
+    public fun service(
+        uuid: Uuid,
+        block: ServiceBuilder.() -> Unit,
+    ) {
         require(serviceUuids.add(uuid)) { "Duplicate service UUID: $uuid" }
         val builder = ServiceBuilder(uuid)
         builder.block()
@@ -46,7 +49,10 @@ public class GattServerBuilder {
     }
 
     /** Convenience: string UUID shorthand for standard 16-bit BLE UUIDs. */
-    public fun service(uuid: String, block: ServiceBuilder.() -> Unit) {
+    public fun service(
+        uuid: String,
+        block: ServiceBuilder.() -> Unit,
+    ) {
         service(uuidFrom(uuid), block)
     }
 }
@@ -55,13 +61,19 @@ public class GattServerBuilder {
 public class ServiceBuilder(private val uuid: Uuid) {
     internal val characteristics = mutableListOf<CharacteristicDefinition>()
 
-    public fun characteristic(uuid: Uuid, block: CharacteristicBuilder.() -> Unit) {
+    public fun characteristic(
+        uuid: Uuid,
+        block: CharacteristicBuilder.() -> Unit,
+    ) {
         val builder = CharacteristicBuilder(uuid)
         builder.block()
         characteristics.add(builder.build())
     }
 
-    public fun characteristic(uuid: String, block: CharacteristicBuilder.() -> Unit) {
+    public fun characteristic(
+        uuid: String,
+        block: CharacteristicBuilder.() -> Unit,
+    ) {
         characteristic(uuidFrom(uuid), block)
     }
 
@@ -80,7 +92,13 @@ public class CharacteristicBuilder(private val uuid: Uuid) {
     private var props = ServerCharacteristic.Properties()
     private var perms = ServerCharacteristic.Permissions()
     private var readHandler: (suspend (device: Identifier) -> BleData)? = null
-    private var writeHandler: (suspend (device: Identifier, data: BleData, responseNeeded: Boolean) -> GattStatus?)? = null
+    private var writeHandler: (
+        suspend (
+            device: Identifier,
+            data: BleData,
+            responseNeeded: Boolean,
+        ) -> GattStatus?
+    )? = null
     private val descriptors = mutableListOf<ServerDescriptor>()
 
     public fun properties(block: PropertiesBuilder.() -> Unit) {

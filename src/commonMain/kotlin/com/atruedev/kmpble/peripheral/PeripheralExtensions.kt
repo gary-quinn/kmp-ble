@@ -54,14 +54,14 @@ public fun Peripheral.dump(): String {
 
             service.characteristics.forEachIndexed { charIdx, char ->
                 val isLastChar = charIdx == service.characteristics.lastIndex
-                val charPrefix = if (isLastChar) "${childPrefix}└── " else "${childPrefix}├── "
-                val descPrefix = if (isLastChar) "${childPrefix}    " else "${childPrefix}│   "
+                val charPrefix = if (isLastChar) "$childPrefix└── " else "$childPrefix├── "
+                val descPrefix = if (isLastChar) "$childPrefix    " else "$childPrefix│   "
 
                 appendLine("${charPrefix}Char ${char.uuid} [${char.properties.displayName}]")
 
                 char.descriptors.forEachIndexed { descIdx, desc ->
                     val isLastDesc = descIdx == char.descriptors.lastIndex
-                    val dp = if (isLastDesc) "${descPrefix}└── " else "${descPrefix}├── "
+                    val dp = if (isLastDesc) "$descPrefix└── " else "$descPrefix├── "
                     val label = WELL_KNOWN_DESCRIPTORS[desc.uuid] ?: ""
                     val suffix = if (label.isNotEmpty()) " ($label)" else ""
                     appendLine("${dp}Desc ${desc.uuid}$suffix")
@@ -73,12 +73,13 @@ public fun Peripheral.dump(): String {
 
 /** Well-known descriptor UUIDs for human-readable labels in dump(). */
 @OptIn(ExperimentalUuidApi::class)
-private val WELL_KNOWN_DESCRIPTORS: Map<Uuid, String> = mapOf(
-    uuidFrom("2902") to "CCCD",
-    uuidFrom("2901") to "User Description",
-    uuidFrom("2900") to "Extended Properties",
-    uuidFrom("2904") to "Presentation Format",
-)
+private val WELL_KNOWN_DESCRIPTORS: Map<Uuid, String> =
+    mapOf(
+        uuidFrom("2902") to "CCCD",
+        uuidFrom("2901") to "User Description",
+        uuidFrom("2900") to "Extended Properties",
+        uuidFrom("2904") to "Presentation Format",
+    )
 
 /**
  * Connect, execute [block] in the Ready state, then disconnect and close.

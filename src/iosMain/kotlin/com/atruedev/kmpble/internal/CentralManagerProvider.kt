@@ -2,13 +2,12 @@ package com.atruedev.kmpble.internal
 
 import com.atruedev.kmpble.adapter.BluetoothAdapterState
 import kotlinx.coroutines.flow.StateFlow
-import kotlin.concurrent.Volatile
 import platform.CoreBluetooth.CBCentralManager
 import platform.CoreBluetooth.CBCentralManagerOptionRestoreIdentifierKey
 import platform.darwin.dispatch_queue_create
+import kotlin.concurrent.Volatile
 
 internal object CentralManagerProvider {
-
     private val queue = dispatch_queue_create("com.atruedev.kmpble", null)
     private val delegate = KmpBleCentralDelegate()
 
@@ -31,9 +30,10 @@ internal object CentralManagerProvider {
                 CBCentralManager(
                     delegate = delegate,
                     queue = queue,
-                    options = mapOf<Any?, Any?>(
-                        CBCentralManagerOptionRestoreIdentifierKey to restoreId,
-                    ),
+                    options =
+                        mapOf<Any?, Any?>(
+                            CBCentralManagerOptionRestoreIdentifierKey to restoreId,
+                        ),
                 )
             } else {
                 CBCentralManager(

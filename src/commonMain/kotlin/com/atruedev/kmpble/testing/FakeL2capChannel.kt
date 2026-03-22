@@ -28,24 +28,23 @@ public class FakeL2capChannel(
     override val psm: Int,
     override val mtu: Int = 2048,
 ) : L2capChannel {
+    private val incomingChannel = Channel<ByteArray>(Channel.BUFFERED)
+    override val incoming: Flow<ByteArray> = incomingChannel.consumeAsFlow()
 
-    private val _incomingChannel = Channel<ByteArray>(Channel.BUFFERED)
-    override val incoming: Flow<ByteArray> = _incomingChannel.consumeAsFlow()
-
-    private var _isOpen = true
-    override val isOpen: Boolean get() = _isOpen
+    private var opened = true
+    override val isOpen: Boolean get() = opened
 
     private val writtenData = mutableListOf<ByteArray>()
 
     override suspend fun write(data: ByteArray) {
-        if (!_isOpen) throw L2capException.ChannelClosed()
+        if (!opened) throw L2capException.ChannelClosed()
         writtenData.add(data.copyOf())
     }
 
     override fun close() {
-        if (!_isOpen) return
-        _isOpen = false
-        _incomingChannel.close()
+        if (!opened) return
+        opened = false
+        incomingChannel.close()
     }
 
     /**
@@ -55,7 +54,7 @@ public class FakeL2capChannel(
      * so tests don't need to guarantee collector startup ordering.
      */
     public suspend fun emitIncoming(data: ByteArray) {
-        _incomingChannel.send(data)
+        incomingChannel.send(data)
     }
 
     /**

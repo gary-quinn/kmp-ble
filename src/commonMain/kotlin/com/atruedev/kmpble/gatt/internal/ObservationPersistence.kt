@@ -2,7 +2,6 @@ package com.atruedev.kmpble.gatt.internal
 
 import com.atruedev.kmpble.gatt.BackpressureStrategy
 import kotlin.uuid.ExperimentalUuidApi
-import kotlin.uuid.Uuid
 
 /**
  * An observation entry persisted for state restoration.
@@ -29,7 +28,10 @@ internal expect class ObservationPersistence() {
      * Persist the current set of active observations for a specific peripheral.
      * Called whenever observations change (subscribe/unsubscribe).
      */
-    fun save(peripheralId: String, observations: Set<PersistedObservation>)
+    fun save(
+        peripheralId: String,
+        observations: Set<PersistedObservation>,
+    )
 
     /**
      * Restore previously persisted observations for a specific peripheral.

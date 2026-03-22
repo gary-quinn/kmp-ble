@@ -116,7 +116,6 @@ internal class AndroidGattServer(
     private val context: Context,
     private val serviceDefinitions: List<ServiceDefinition>,
 ) : GattServer {
-
     private val dispatcher: CoroutineDispatcher = Dispatchers.Default.limitedParallelism(1)
     private var scope = CoroutineScope(SupervisorJob() + dispatcher + CoroutineName("GattServer"))
 
@@ -140,6 +139,7 @@ internal class AndroidGattServer(
     // Track per-device per-characteristic CCCD subscription mode.
     // Value: the raw CCCD bytes the device wrote (0x01,0x00 / 0x02,0x00 / 0x00,0x00)
     private data class SubscriptionKey(val characteristicUuid: Uuid, val device: Identifier)
+
     private val subscriptionModes = mutableMapOf<SubscriptionKey, ByteArray>()
 
     // Secondary index: characteristic UUID -> set of subscribed device identifiers.
@@ -174,213 +174,280 @@ internal class AndroidGattServer(
     // Tracks whether close() has been called — prevents reopen after close
     private val isClosed = AtomicBoolean(false)
 
-    private val callback = object : BluetoothGattServerCallback() {
-
-        override fun onConnectionStateChange(device: BluetoothDevice, status: Int, newState: Int) {
-            scope.launch {
-                val deviceId = Identifier(device.address)
-                when (newState) {
-                    BluetoothProfile.STATE_CONNECTED -> {
-                        connectedDevices[deviceId] = device
-                        val connectionCount = connectedDevices.size
-                        _connections.update { list ->
-                            list + ServerConnection(deviceId, device.name)
+    private val callback =
+        object : BluetoothGattServerCallback() {
+            override fun onConnectionStateChange(
+                device: BluetoothDevice,
+                status: Int,
+                newState: Int,
+            ) {
+                scope.launch {
+                    val deviceId = Identifier(device.address)
+                    when (newState) {
+                        BluetoothProfile.STATE_CONNECTED -> {
+                            connectedDevices[deviceId] = device
+                            val connectionCount = connectedDevices.size
+                            _connections.update { list ->
+                                list + ServerConnection(deviceId, device.name)
+                            }
+                            logEvent(BleLogEvent.ServerClientEvent(deviceId, "connected ($connectionCount total)"))
+                            if (connectionCount >= CONNECTION_WARNING_THRESHOLD) {
+                                logEvent(
+                                    BleLogEvent.Error(
+                                        deviceId,
+                                        "High connection count ($connectionCount). Android typically supports " +
+                                            "7-15 concurrent BLE connections depending on device. New connections " +
+                                            "may be silently rejected.",
+                                        null,
+                                    ),
+                                )
+                            }
+                            if (!_connectionEvents.tryEmit(ServerConnectionEvent.Connected(deviceId))) {
+                                logEvent(
+                                    BleLogEvent.Error(deviceId, "Connection event buffer full, event dropped", null),
+                                )
+                            }
                         }
-                        logEvent(BleLogEvent.ServerClientEvent(deviceId, "connected ($connectionCount total)"))
-                        if (connectionCount >= CONNECTION_WARNING_THRESHOLD) {
-                            logEvent(BleLogEvent.Error(
+                        BluetoothProfile.STATE_DISCONNECTED -> {
+                            connectedDevices.remove(deviceId)
+                            deviceMtu.remove(deviceId)
+                            // Remove all subscriptions for this device
+                            subscriptionModes.keys.removeAll { it.device == deviceId }
+                            for ((_, subscribers) in subscribersByChar) {
+                                subscribers.remove(deviceId)
+                            }
+                            _connections.update { list ->
+                                list.filter { it.device != deviceId }
+                            }
+                            // Cancel any pending notification/indication for this device
+                            pendingNotifySent.remove(device.address)
+                                ?.cancel(kotlinx.coroutines.CancellationException("Device disconnected"))
+                            logEvent(BleLogEvent.ServerClientEvent(deviceId, "disconnected"))
+                            if (!_connectionEvents.tryEmit(ServerConnectionEvent.Disconnected(deviceId))) {
+                                logEvent(
+                                    BleLogEvent.Error(deviceId, "Connection event buffer full, event dropped", null),
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            override fun onCharacteristicReadRequest(
+                device: BluetoothDevice,
+                requestId: Int,
+                offset: Int,
+                characteristic: BluetoothGattCharacteristic,
+            ) {
+                scope.launch {
+                    val deviceId = Identifier(device.address)
+                    val charUuid = characteristic.uuid.toKotlinUuid()
+                    val handler = readHandlers[charUuid]
+
+                    if (handler == null) {
+                        logEvent(
+                            BleLogEvent.ServerRequest(
                                 deviceId,
-                                "High connection count ($connectionCount). Android typically supports " +
-                                    "7-15 concurrent BLE connections depending on device. New connections " +
-                                    "may be silently rejected.",
-                                null,
-                            ))
-                        }
-                        if (!_connectionEvents.tryEmit(ServerConnectionEvent.Connected(deviceId))) {
-                            logEvent(BleLogEvent.Error(deviceId, "Connection event buffer full, event dropped", null))
-                        }
+                                "read-rejected (no handler)",
+                                charUuid,
+                                GattStatus.ReadNotPermitted,
+                            ),
+                        )
+                        sendResponseSafe(device, requestId, BluetoothGatt.GATT_READ_NOT_PERMITTED, offset, null)
+                        return@launch
                     }
-                    BluetoothProfile.STATE_DISCONNECTED -> {
-                        connectedDevices.remove(deviceId)
-                        deviceMtu.remove(deviceId)
-                        // Remove all subscriptions for this device
-                        subscriptionModes.keys.removeAll { it.device == deviceId }
-                        for ((_, subscribers) in subscribersByChar) {
-                            subscribers.remove(deviceId)
-                        }
-                        _connections.update { list ->
-                            list.filter { it.device != deviceId }
-                        }
-                        // Cancel any pending notification/indication for this device
-                        pendingNotifySent.remove(device.address)
-                            ?.cancel(kotlinx.coroutines.CancellationException("Device disconnected"))
-                        logEvent(BleLogEvent.ServerClientEvent(deviceId, "disconnected"))
-                        if (!_connectionEvents.tryEmit(ServerConnectionEvent.Disconnected(deviceId))) {
-                            logEvent(BleLogEvent.Error(deviceId, "Connection event buffer full, event dropped", null))
-                        }
-                    }
-                }
-            }
-        }
 
-        override fun onCharacteristicReadRequest(
-            device: BluetoothDevice,
-            requestId: Int,
-            offset: Int,
-            characteristic: BluetoothGattCharacteristic,
-        ) {
-            scope.launch {
-                val deviceId = Identifier(device.address)
-                val charUuid = characteristic.uuid.toKotlinUuid()
-                val handler = readHandlers[charUuid]
-
-                if (handler == null) {
-                    logEvent(BleLogEvent.ServerRequest(deviceId, "read-rejected (no handler)", charUuid, GattStatus.ReadNotPermitted))
-                    sendResponseSafe(device, requestId, BluetoothGatt.GATT_READ_NOT_PERMITTED, offset, null)
-                    return@launch
-                }
-
-                try {
-                    val bleData = handler(deviceId)
-                    val responseData = if (offset > 0 && offset < bleData.size) {
-                        bleData.slice(offset, bleData.size).toByteArray()
-                    } else if (offset >= bleData.size && offset > 0) {
-                        byteArrayOf()
-                    } else {
-                        bleData.toByteArray()
-                    }
-                    logEvent(BleLogEvent.ServerRequest(deviceId, "read (${responseData.size}B, offset=$offset)", charUuid, GattStatus.Success))
-                    sendResponseSafe(device, requestId, BluetoothGatt.GATT_SUCCESS, offset, responseData)
-                } catch (_: Exception) {
-                    logEvent(BleLogEvent.ServerRequest(deviceId, "read-failed (handler threw)", charUuid, GattStatus.Failure))
-                    sendResponseSafe(device, requestId, BluetoothGatt.GATT_FAILURE, offset, null)
-                }
-            }
-        }
-
-        override fun onCharacteristicWriteRequest(
-            device: BluetoothDevice,
-            requestId: Int,
-            characteristic: BluetoothGattCharacteristic,
-            preparedWrite: Boolean,
-            responseNeeded: Boolean,
-            offset: Int,
-            value: ByteArray?,
-        ) {
-            scope.launch {
-                val deviceId = Identifier(device.address)
-                val charUuid = characteristic.uuid.toKotlinUuid()
-
-                // Prepared writes (long writes) — not supported, respond with RequestNotSupported
-                if (preparedWrite) {
-                    logEvent(BleLogEvent.ServerRequest(deviceId, "prepared-write-rejected", charUuid, GattStatus.RequestNotSupported))
-                    if (responseNeeded) {
-                        sendResponseSafe(device, requestId, BluetoothGatt.GATT_REQUEST_NOT_SUPPORTED, offset, null)
-                    }
-                    return@launch
-                }
-
-                val handler = writeHandlers[charUuid]
-                if (handler == null) {
-                    logEvent(BleLogEvent.ServerRequest(deviceId, "write-rejected (no handler)", charUuid, GattStatus.WriteNotPermitted))
-                    if (responseNeeded) {
-                        sendResponseSafe(device, requestId, BluetoothGatt.GATT_WRITE_NOT_PERMITTED, offset, null)
-                    }
-                    return@launch
-                }
-
-                try {
-                    val bleData = if (value != null && value.isNotEmpty()) {
-                        BleData(value)
-                    } else {
-                        emptyBleData()
-                    }
-                    val status = handler(deviceId, bleData, responseNeeded)
-                    logEvent(BleLogEvent.ServerRequest(deviceId, "write (${value?.size ?: 0}B)", charUuid, status))
-                    if (responseNeeded) {
-                        val nativeStatus = status?.toAndroidGattStatus() ?: BluetoothGatt.GATT_SUCCESS
-                        sendResponseSafe(device, requestId, nativeStatus, offset, null)
-                    }
-                } catch (_: Exception) {
-                    logEvent(BleLogEvent.ServerRequest(deviceId, "write-failed (handler threw)", charUuid, GattStatus.Failure))
-                    if (responseNeeded) {
+                    try {
+                        val bleData = handler(deviceId)
+                        val responseData =
+                            if (offset > 0 && offset < bleData.size) {
+                                bleData.slice(offset, bleData.size).toByteArray()
+                            } else if (offset >= bleData.size && offset > 0) {
+                                byteArrayOf()
+                            } else {
+                                bleData.toByteArray()
+                            }
+                        logEvent(
+                            BleLogEvent.ServerRequest(
+                                deviceId,
+                                "read (${responseData.size}B, offset=$offset)",
+                                charUuid,
+                                GattStatus.Success,
+                            ),
+                        )
+                        sendResponseSafe(device, requestId, BluetoothGatt.GATT_SUCCESS, offset, responseData)
+                    } catch (_: Exception) {
+                        logEvent(
+                            BleLogEvent.ServerRequest(
+                                deviceId,
+                                "read-failed (handler threw)",
+                                charUuid,
+                                GattStatus.Failure,
+                            ),
+                        )
                         sendResponseSafe(device, requestId, BluetoothGatt.GATT_FAILURE, offset, null)
                     }
                 }
             }
-        }
 
-        override fun onDescriptorReadRequest(
-            device: BluetoothDevice,
-            requestId: Int,
-            offset: Int,
-            descriptor: BluetoothGattDescriptor,
-        ) {
-            scope.launch {
-                val descUuid = descriptor.uuid.toKotlinUuid()
-                if (descUuid == CCCD_UUID) {
+            override fun onCharacteristicWriteRequest(
+                device: BluetoothDevice,
+                requestId: Int,
+                characteristic: BluetoothGattCharacteristic,
+                preparedWrite: Boolean,
+                responseNeeded: Boolean,
+                offset: Int,
+                value: ByteArray?,
+            ) {
+                scope.launch {
                     val deviceId = Identifier(device.address)
-                    val charUuid = descriptor.characteristic.uuid.toKotlinUuid()
-                    val key = SubscriptionKey(charUuid, deviceId)
-                    // Return the actual CCCD value the device wrote, or disabled
-                    val value = subscriptionModes[key] ?: BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE
-                    sendResponseSafe(device, requestId, BluetoothGatt.GATT_SUCCESS, offset, value)
-                } else {
-                    sendResponseSafe(device, requestId, BluetoothGatt.GATT_SUCCESS, offset, byteArrayOf())
+                    val charUuid = characteristic.uuid.toKotlinUuid()
+
+                    // Prepared writes (long writes) — not supported, respond with RequestNotSupported
+                    if (preparedWrite) {
+                        logEvent(
+                            BleLogEvent.ServerRequest(
+                                deviceId,
+                                "prepared-write-rejected",
+                                charUuid,
+                                GattStatus.RequestNotSupported,
+                            ),
+                        )
+                        if (responseNeeded) {
+                            sendResponseSafe(device, requestId, BluetoothGatt.GATT_REQUEST_NOT_SUPPORTED, offset, null)
+                        }
+                        return@launch
+                    }
+
+                    val handler = writeHandlers[charUuid]
+                    if (handler == null) {
+                        logEvent(
+                            BleLogEvent.ServerRequest(
+                                deviceId,
+                                "write-rejected (no handler)",
+                                charUuid,
+                                GattStatus.WriteNotPermitted,
+                            ),
+                        )
+                        if (responseNeeded) {
+                            sendResponseSafe(device, requestId, BluetoothGatt.GATT_WRITE_NOT_PERMITTED, offset, null)
+                        }
+                        return@launch
+                    }
+
+                    try {
+                        val bleData =
+                            if (value != null && value.isNotEmpty()) {
+                                BleData(value)
+                            } else {
+                                emptyBleData()
+                            }
+                        val status = handler(deviceId, bleData, responseNeeded)
+                        logEvent(BleLogEvent.ServerRequest(deviceId, "write (${value?.size ?: 0}B)", charUuid, status))
+                        if (responseNeeded) {
+                            val nativeStatus = status?.toAndroidGattStatus() ?: BluetoothGatt.GATT_SUCCESS
+                            sendResponseSafe(device, requestId, nativeStatus, offset, null)
+                        }
+                    } catch (_: Exception) {
+                        logEvent(
+                            BleLogEvent.ServerRequest(
+                                deviceId,
+                                "write-failed (handler threw)",
+                                charUuid,
+                                GattStatus.Failure,
+                            ),
+                        )
+                        if (responseNeeded) {
+                            sendResponseSafe(device, requestId, BluetoothGatt.GATT_FAILURE, offset, null)
+                        }
+                    }
+                }
+            }
+
+            override fun onDescriptorReadRequest(
+                device: BluetoothDevice,
+                requestId: Int,
+                offset: Int,
+                descriptor: BluetoothGattDescriptor,
+            ) {
+                scope.launch {
+                    val descUuid = descriptor.uuid.toKotlinUuid()
+                    if (descUuid == CCCD_UUID) {
+                        val deviceId = Identifier(device.address)
+                        val charUuid = descriptor.characteristic.uuid.toKotlinUuid()
+                        val key = SubscriptionKey(charUuid, deviceId)
+                        // Return the actual CCCD value the device wrote, or disabled
+                        val value = subscriptionModes[key] ?: BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE
+                        sendResponseSafe(device, requestId, BluetoothGatt.GATT_SUCCESS, offset, value)
+                    } else {
+                        sendResponseSafe(device, requestId, BluetoothGatt.GATT_SUCCESS, offset, byteArrayOf())
+                    }
+                }
+            }
+
+            override fun onDescriptorWriteRequest(
+                device: BluetoothDevice,
+                requestId: Int,
+                descriptor: BluetoothGattDescriptor,
+                preparedWrite: Boolean,
+                responseNeeded: Boolean,
+                offset: Int,
+                value: ByteArray?,
+            ) {
+                scope.launch {
+                    val descUuid = descriptor.uuid.toKotlinUuid()
+                    if (descUuid == CCCD_UUID && value != null) {
+                        val charUuid = descriptor.characteristic.uuid.toKotlinUuid()
+                        handleCccdWrite(device, charUuid, value)
+                        if (responseNeeded) {
+                            sendResponseSafe(device, requestId, BluetoothGatt.GATT_SUCCESS, offset, null)
+                        }
+                    } else {
+                        if (responseNeeded) {
+                            sendResponseSafe(device, requestId, BluetoothGatt.GATT_SUCCESS, offset, null)
+                        }
+                    }
+                }
+            }
+
+            override fun onExecuteWrite(
+                device: BluetoothDevice,
+                requestId: Int,
+                execute: Boolean,
+            ) {
+                // Prepared writes are rejected in onCharacteristicWriteRequest, but a
+                // misbehaving client may still send Execute Write. Respond immediately
+                // so the client doesn't hang waiting for a response.
+                sendResponseSafe(device, requestId, BluetoothGatt.GATT_REQUEST_NOT_SUPPORTED, 0, null)
+            }
+
+            override fun onNotificationSent(
+                device: BluetoothDevice,
+                status: Int,
+            ) {
+                // Called on Binder thread — ConcurrentHashMap + CompletableDeferred are both thread-safe
+                pendingNotifySent.remove(device.address)?.complete(status)
+            }
+
+            override fun onServiceAdded(
+                status: Int,
+                service: BluetoothGattService,
+            ) {
+                // Called on Binder thread — @Volatile + CompletableDeferred.complete is thread-safe
+                pendingServiceAdd?.complete(status)
+            }
+
+            override fun onMtuChanged(
+                device: BluetoothDevice,
+                mtu: Int,
+            ) {
+                scope.launch {
+                    val deviceId = Identifier(device.address)
+                    deviceMtu[deviceId] = mtu
+                    logEvent(BleLogEvent.ServerClientEvent(deviceId, "MTU changed to $mtu"))
                 }
             }
         }
-
-        override fun onDescriptorWriteRequest(
-            device: BluetoothDevice,
-            requestId: Int,
-            descriptor: BluetoothGattDescriptor,
-            preparedWrite: Boolean,
-            responseNeeded: Boolean,
-            offset: Int,
-            value: ByteArray?,
-        ) {
-            scope.launch {
-                val descUuid = descriptor.uuid.toKotlinUuid()
-                if (descUuid == CCCD_UUID && value != null) {
-                    val charUuid = descriptor.characteristic.uuid.toKotlinUuid()
-                    handleCccdWrite(device, charUuid, value)
-                    if (responseNeeded) {
-                        sendResponseSafe(device, requestId, BluetoothGatt.GATT_SUCCESS, offset, null)
-                    }
-                } else {
-                    if (responseNeeded) {
-                        sendResponseSafe(device, requestId, BluetoothGatt.GATT_SUCCESS, offset, null)
-                    }
-                }
-            }
-        }
-
-        override fun onExecuteWrite(device: BluetoothDevice, requestId: Int, execute: Boolean) {
-            // Prepared writes are rejected in onCharacteristicWriteRequest, but a
-            // misbehaving client may still send Execute Write. Respond immediately
-            // so the client doesn't hang waiting for a response.
-            sendResponseSafe(device, requestId, BluetoothGatt.GATT_REQUEST_NOT_SUPPORTED, 0, null)
-        }
-
-        override fun onNotificationSent(device: BluetoothDevice, status: Int) {
-            // Called on Binder thread — ConcurrentHashMap + CompletableDeferred are both thread-safe
-            pendingNotifySent.remove(device.address)?.complete(status)
-        }
-
-        override fun onServiceAdded(status: Int, service: BluetoothGattService) {
-            // Called on Binder thread — @Volatile + CompletableDeferred.complete is thread-safe
-            pendingServiceAdd?.complete(status)
-        }
-
-        override fun onMtuChanged(device: BluetoothDevice, mtu: Int) {
-            scope.launch {
-                val deviceId = Identifier(device.address)
-                deviceMtu[deviceId] = mtu
-                logEvent(BleLogEvent.ServerClientEvent(deviceId, "MTU changed to $mtu"))
-            }
-        }
-    }
 
     override suspend fun open() {
         if (isClosed.get()) {
@@ -413,21 +480,24 @@ internal class AndroidGattServer(
     }
 
     private suspend fun openInternal() {
-        val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
-            ?: throw ServerException.NotSupported("BluetoothManager not available")
+        val bluetoothManager =
+            context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
+                ?: throw ServerException.NotSupported("BluetoothManager not available")
 
-        val adapter = bluetoothManager.adapter
-            ?: throw ServerException.NotSupported("Bluetooth adapter not available")
+        val adapter =
+            bluetoothManager.adapter
+                ?: throw ServerException.NotSupported("Bluetooth adapter not available")
 
         if (!adapter.isEnabled) {
             throw ServerException.OpenFailed("Bluetooth is not enabled")
         }
 
-        val server = try {
-            bluetoothManager.openGattServer(context, callback)
-        } catch (e: SecurityException) {
-            throw ServerException.OpenFailed("Missing BLUETOOTH_CONNECT permission", e)
-        } ?: throw ServerException.OpenFailed("openGattServer returned null")
+        val server =
+            try {
+                bluetoothManager.openGattServer(context, callback)
+            } catch (e: SecurityException) {
+                throw ServerException.OpenFailed("Missing BLUETOOTH_CONNECT permission", e)
+            } ?: throw ServerException.OpenFailed("openGattServer returned null")
 
         nativeServer = server
 
@@ -469,28 +539,35 @@ internal class AndroidGattServer(
         logEvent(BleLogEvent.ServerLifecycle("open (${serviceDefinitions.size} services)"))
     }
 
-    override suspend fun notify(characteristicUuid: Uuid, device: Identifier?, data: BleData) {
+    override suspend fun notify(
+        characteristicUuid: Uuid,
+        device: Identifier?,
+        data: BleData,
+    ) {
         withContext(dispatcher) {
             checkOpen()
             val server = nativeServer ?: throw ServerException.NotOpen()
-            val nativeChar = characteristicCache[characteristicUuid]
-                ?: throw ServerException.NotifyFailed("Characteristic $characteristicUuid not found")
+            val nativeChar =
+                characteristicCache[characteristicUuid]
+                    ?: throw ServerException.NotifyFailed("Characteristic $characteristicUuid not found")
 
-            val targets = if (device != null) {
-                // Specific device — verify connected and subscribed
-                val connected = connectedDevices[device]
-                    ?: throw ServerException.DeviceNotConnected("Device $device not connected")
-                val key = SubscriptionKey(characteristicUuid, device)
-                val mode = subscriptionModes[key]
-                if (mode == null || mode.contentEquals(BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE)) {
-                    return@withContext // Not subscribed, skip silently
+            val targets =
+                if (device != null) {
+                    // Specific device — verify connected and subscribed
+                    val connected =
+                        connectedDevices[device]
+                            ?: throw ServerException.DeviceNotConnected("Device $device not connected")
+                    val key = SubscriptionKey(characteristicUuid, device)
+                    val mode = subscriptionModes[key]
+                    if (mode == null || mode.contentEquals(BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE)) {
+                        return@withContext // Not subscribed, skip silently
+                    }
+                    listOf(connected)
+                } else {
+                    // All subscribed devices for this characteristic — O(1) lookup via secondary index
+                    val subscribed = subscribersByChar[characteristicUuid] ?: emptySet()
+                    subscribed.mapNotNull { connectedDevices[it] }
                 }
-                listOf(connected)
-            } else {
-                // All subscribed devices for this characteristic — O(1) lookup via secondary index
-                val subscribed = subscribersByChar[characteristicUuid] ?: emptySet()
-                subscribed.mapNotNull { connectedDevices[it] }
-            }
 
             val dataBytes = data.toByteArray()
 
@@ -500,12 +577,15 @@ internal class AndroidGattServer(
                 val mtu = deviceMtu[targetId] ?: DEFAULT_MTU
                 val maxPayload = mtu - ATT_HEADER_SIZE
                 if (dataBytes.size > maxPayload) {
-                    logEvent(BleLogEvent.Error(
-                        targetId,
-                        "Notification payload (${dataBytes.size}B) exceeds device MTU ($mtu, max payload ${maxPayload}B). " +
-                            "Data will be truncated by the BLE stack.",
-                        null,
-                    ))
+                    logEvent(
+                        BleLogEvent.Error(
+                            targetId,
+                            "Notification payload (${dataBytes.size}B) exceeds " +
+                                "device MTU ($mtu, max payload ${maxPayload}B). " +
+                                "Data will be truncated by the BLE stack.",
+                            null,
+                        ),
+                    )
                 }
             }
 
@@ -519,23 +599,32 @@ internal class AndroidGattServer(
                 }
             }.awaitAll()
 
-            logEvent(BleLogEvent.ServerRequest(
-                device ?: BROADCAST_IDENTIFIER,
-                "notify (${data.size}B to ${targets.size} devices)",
-                characteristicUuid, GattStatus.Success,
-            ))
+            logEvent(
+                BleLogEvent.ServerRequest(
+                    device ?: BROADCAST_IDENTIFIER,
+                    "notify (${data.size}B to ${targets.size} devices)",
+                    characteristicUuid,
+                    GattStatus.Success,
+                ),
+            )
         }
     }
 
-    override suspend fun indicate(characteristicUuid: Uuid, device: Identifier, data: BleData) {
+    override suspend fun indicate(
+        characteristicUuid: Uuid,
+        device: Identifier,
+        data: BleData,
+    ) {
         withContext(dispatcher) {
             checkOpen()
             val server = nativeServer ?: throw ServerException.NotOpen()
-            val nativeChar = characteristicCache[characteristicUuid]
-                ?: throw ServerException.NotifyFailed("Characteristic $characteristicUuid not found")
+            val nativeChar =
+                characteristicCache[characteristicUuid]
+                    ?: throw ServerException.NotifyFailed("Characteristic $characteristicUuid not found")
 
-            val target = connectedDevices[device]
-                ?: throw ServerException.DeviceNotConnected("Device $device not connected")
+            val target =
+                connectedDevices[device]
+                    ?: throw ServerException.DeviceNotConnected("Device $device not connected")
 
             // Check CCCD subscription
             val key = SubscriptionKey(characteristicUuid, device)
@@ -550,12 +639,15 @@ internal class AndroidGattServer(
             val mtu = deviceMtu[device] ?: DEFAULT_MTU
             val maxPayload = mtu - ATT_HEADER_SIZE
             if (dataBytes.size > maxPayload) {
-                logEvent(BleLogEvent.Error(
-                    device,
-                    "Indication payload (${dataBytes.size}B) exceeds device MTU ($mtu, max payload ${maxPayload}B). " +
-                        "Data will be truncated by the BLE stack.",
-                    null,
-                ))
+                logEvent(
+                    BleLogEvent.Error(
+                        device,
+                        "Indication payload (${dataBytes.size}B) exceeds " +
+                            "device MTU ($mtu, max payload ${maxPayload}B). " +
+                            "Data will be truncated by the BLE stack.",
+                        null,
+                    ),
+                )
             }
 
             try {
@@ -566,7 +658,9 @@ internal class AndroidGattServer(
             } catch (e: SecurityException) {
                 throw ServerException.NotifyFailed("Missing BLUETOOTH_CONNECT permission", e)
             }
-            logEvent(BleLogEvent.ServerRequest(device, "indicate (${data.size}B)", characteristicUuid, GattStatus.Success))
+            logEvent(
+                BleLogEvent.ServerRequest(device, "indicate (${data.size}B)", characteristicUuid, GattStatus.Success),
+            )
         }
     }
 
@@ -645,24 +739,27 @@ internal class AndroidGattServer(
     }
 
     private fun buildNativeService(definition: ServiceDefinition): BluetoothGattService {
-        val service = BluetoothGattService(
-            definition.uuid.toJavaUuid(),
-            BluetoothGattService.SERVICE_TYPE_PRIMARY,
-        )
+        val service =
+            BluetoothGattService(
+                definition.uuid.toJavaUuid(),
+                BluetoothGattService.SERVICE_TYPE_PRIMARY,
+            )
 
         for (charDef in definition.characteristics) {
-            val characteristic = BluetoothGattCharacteristic(
-                charDef.uuid.toJavaUuid(),
-                charDef.properties.toAndroidProperties(),
-                charDef.permissions.toAndroidPermissions(),
-            )
+            val characteristic =
+                BluetoothGattCharacteristic(
+                    charDef.uuid.toJavaUuid(),
+                    charDef.properties.toAndroidProperties(),
+                    charDef.permissions.toAndroidPermissions(),
+                )
 
             // Auto-add CCCD if notify or indicate
             if (charDef.properties.notify || charDef.properties.indicate) {
-                val cccd = BluetoothGattDescriptor(
-                    CCCD_UUID.toJavaUuid(),
-                    BluetoothGattDescriptor.PERMISSION_READ or BluetoothGattDescriptor.PERMISSION_WRITE,
-                )
+                val cccd =
+                    BluetoothGattDescriptor(
+                        CCCD_UUID.toJavaUuid(),
+                        BluetoothGattDescriptor.PERMISSION_READ or BluetoothGattDescriptor.PERMISSION_WRITE,
+                    )
                 characteristic.addDescriptor(cccd)
             }
 
@@ -689,7 +786,11 @@ internal class AndroidGattServer(
         server.notifyCharacteristicChanged(device, characteristic, confirm, data)
     }
 
-    private fun handleCccdWrite(device: BluetoothDevice, characteristicUuid: Uuid, value: ByteArray) {
+    private fun handleCccdWrite(
+        device: BluetoothDevice,
+        characteristicUuid: Uuid,
+        value: ByteArray,
+    ) {
         val deviceId = Identifier(device.address)
         val key = SubscriptionKey(characteristicUuid, deviceId)
         if (value.contentEquals(BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE)) {
@@ -699,11 +800,12 @@ internal class AndroidGattServer(
         } else {
             subscriptionModes[key] = value.copyOf()
             subscribersByChar.getOrPut(characteristicUuid) { mutableSetOf() }.add(deviceId)
-            val mode = when {
-                value.contentEquals(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE) -> "notifications"
-                value.contentEquals(BluetoothGattDescriptor.ENABLE_INDICATION_VALUE) -> "indications"
-                else -> "unknown mode"
-            }
+            val mode =
+                when {
+                    value.contentEquals(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE) -> "notifications"
+                    value.contentEquals(BluetoothGattDescriptor.ENABLE_INDICATION_VALUE) -> "indications"
+                    else -> "unknown mode"
+                }
             logEvent(BleLogEvent.ServerClientEvent(deviceId, "subscribed to $characteristicUuid ($mode)"))
         }
     }

@@ -8,7 +8,6 @@ import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
 class ReconnectionHandlerTest {
-
     @Test
     fun noneReturnsNull() {
         assertNull(ReconnectionHandler.computeDelay(ReconnectionStrategy.None, 0))
@@ -31,11 +30,12 @@ class ReconnectionHandlerTest {
 
     @Test
     fun exponentialGrowsAndCaps() {
-        val strategy = ReconnectionStrategy.ExponentialBackoff(
-            initialDelay = 1.seconds,
-            maxDelay = 30.seconds,
-            maxAttempts = 100,
-        )
+        val strategy =
+            ReconnectionStrategy.ExponentialBackoff(
+                initialDelay = 1.seconds,
+                maxDelay = 30.seconds,
+                maxAttempts = 100,
+            )
         assertEquals(1.seconds, ReconnectionHandler.computeDelay(strategy, 0))
         assertEquals(2.seconds, ReconnectionHandler.computeDelay(strategy, 1))
         assertEquals(4.seconds, ReconnectionHandler.computeDelay(strategy, 2))
@@ -47,21 +47,23 @@ class ReconnectionHandlerTest {
 
     @Test
     fun exponentialReturnsNullAtMaxAttempts() {
-        val strategy = ReconnectionStrategy.ExponentialBackoff(
-            initialDelay = 1.seconds,
-            maxDelay = 30.seconds,
-            maxAttempts = 3,
-        )
+        val strategy =
+            ReconnectionStrategy.ExponentialBackoff(
+                initialDelay = 1.seconds,
+                maxDelay = 30.seconds,
+                maxAttempts = 3,
+            )
         assertNull(ReconnectionHandler.computeDelay(strategy, 3))
     }
 
     @Test
     fun exponentialDoesNotOverflowAtHighAttemptCount() {
-        val strategy = ReconnectionStrategy.ExponentialBackoff(
-            initialDelay = 100.milliseconds,
-            maxDelay = 60.seconds,
-            maxAttempts = Int.MAX_VALUE,
-        )
+        val strategy =
+            ReconnectionStrategy.ExponentialBackoff(
+                initialDelay = 100.milliseconds,
+                maxDelay = 60.seconds,
+                maxAttempts = Int.MAX_VALUE,
+            )
         // attempt=30 is the max shift (guarded by min(attempt, 30))
         val delay30 = ReconnectionHandler.computeDelay(strategy, 30)!!
         val delay50 = ReconnectionHandler.computeDelay(strategy, 50)!!
@@ -72,11 +74,12 @@ class ReconnectionHandlerTest {
 
     @Test
     fun exponentialWithSmallInitialDelay() {
-        val strategy = ReconnectionStrategy.ExponentialBackoff(
-            initialDelay = 500.milliseconds,
-            maxDelay = 10.seconds,
-            maxAttempts = 10,
-        )
+        val strategy =
+            ReconnectionStrategy.ExponentialBackoff(
+                initialDelay = 500.milliseconds,
+                maxDelay = 10.seconds,
+                maxAttempts = 10,
+            )
         assertEquals(500.milliseconds, ReconnectionHandler.computeDelay(strategy, 0))
         assertEquals(1.seconds, ReconnectionHandler.computeDelay(strategy, 1))
         assertEquals(2.seconds, ReconnectionHandler.computeDelay(strategy, 2))

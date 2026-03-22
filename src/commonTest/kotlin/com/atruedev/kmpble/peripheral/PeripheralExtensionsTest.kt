@@ -1,7 +1,6 @@
 package com.atruedev.kmpble.peripheral
 
 import com.atruedev.kmpble.connection.State
-import com.atruedev.kmpble.scanner.uuidFrom
 import com.atruedev.kmpble.testing.FakePeripheral
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
@@ -13,16 +12,16 @@ import kotlin.uuid.ExperimentalUuidApi
 
 @OptIn(ExperimentalUuidApi::class)
 class PeripheralExtensionsTest {
-
-    private fun createPeripheral(): FakePeripheral = FakePeripheral {
-        service("180d") {
-            characteristic("2a37") { properties(notify = true, read = true) }
-            characteristic("2a38") { properties(read = true) }
+    private fun createPeripheral(): FakePeripheral =
+        FakePeripheral {
+            service("180d") {
+                characteristic("2a37") { properties(notify = true, read = true) }
+                characteristic("2a38") { properties(read = true) }
+            }
+            service("180f") {
+                characteristic("2a19") { properties(read = true, notify = true) }
+            }
         }
-        service("180f") {
-            characteristic("2a19") { properties(read = true, notify = true) }
-        }
-    }
 
     // --- dump() ---
 
@@ -48,55 +47,59 @@ class PeripheralExtensionsTest {
     }
 
     @Test
-    fun dumpShowsServicesAfterConnect() = runTest {
-        val peripheral = createPeripheral()
-        peripheral.connect()
+    fun dumpShowsServicesAfterConnect() =
+        runTest {
+            val peripheral = createPeripheral()
+            peripheral.connect()
 
-        val output = peripheral.dump()
-        assertContains(output, "Service")
-        assertContains(output, "Char")
-        assertContains(output, "notify")
-        assertContains(output, "read")
+            val output = peripheral.dump()
+            assertContains(output, "Service")
+            assertContains(output, "Char")
+            assertContains(output, "notify")
+            assertContains(output, "read")
 
-        peripheral.close()
-    }
+            peripheral.close()
+        }
 
     @Test
-    fun dumpTreeStructureIsCorrect() = runTest {
-        val peripheral = createPeripheral()
-        peripheral.connect()
+    fun dumpTreeStructureIsCorrect() =
+        runTest {
+            val peripheral = createPeripheral()
+            peripheral.connect()
 
-        val output = peripheral.dump()
-        // Should have tree characters
-        assertTrue(output.contains("├──") || output.contains("└──"))
+            val output = peripheral.dump()
+            // Should have tree characters
+            assertTrue(output.contains("├──") || output.contains("└──"))
 
-        peripheral.close()
-    }
+            peripheral.close()
+        }
 
     // --- whenReady {} ---
 
     @Test
-    fun whenReadyConnectsExecutesAndCloses() = runTest {
-        val peripheral = createPeripheral()
-        var blockExecuted = false
+    fun whenReadyConnectsExecutesAndCloses() =
+        runTest {
+            val peripheral = createPeripheral()
+            var blockExecuted = false
 
-        peripheral.whenReady {
-            assertIs<State.Connected.Ready>(state.value)
-            blockExecuted = true
+            peripheral.whenReady {
+                assertIs<State.Connected.Ready>(state.value)
+                blockExecuted = true
+            }
+
+            assertTrue(blockExecuted)
         }
-
-        assertTrue(blockExecuted)
-    }
 
     @Test
-    fun whenReadyClosesOnException() = runTest {
-        val peripheral = createPeripheral()
+    fun whenReadyClosesOnException() =
+        runTest {
+            val peripheral = createPeripheral()
 
-        assertFailsWith<IllegalStateException> {
-            peripheral.whenReady {
-                throw IllegalStateException("test error")
+            assertFailsWith<IllegalStateException> {
+                peripheral.whenReady {
+                    throw IllegalStateException("test error")
+                }
             }
+            // Peripheral should still be closed even after exception
         }
-        // Peripheral should still be closed even after exception
-    }
 }

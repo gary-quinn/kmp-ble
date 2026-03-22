@@ -23,7 +23,6 @@ import kotlinx.coroutines.flow.asStateFlow
  * ```
  */
 public class FakeAdvertiser : Advertiser {
-
     private val _isAdvertising = MutableStateFlow(false)
     override val isAdvertising: StateFlow<Boolean> = _isAdvertising.asStateFlow()
 

@@ -32,11 +32,17 @@ public class FakePeripheralBuilder {
     internal var l2capHandler: L2capHandler? = null
     public var identifier: Identifier = Identifier("fake-peripheral")
 
-    public fun service(uuid: String, block: FakeServiceBuilder.() -> Unit = {}) {
+    public fun service(
+        uuid: String,
+        block: FakeServiceBuilder.() -> Unit = {},
+    ) {
         service(uuidFrom(uuid), block)
     }
 
-    public fun service(uuid: Uuid, block: FakeServiceBuilder.() -> Unit = {}) {
+    public fun service(
+        uuid: Uuid,
+        block: FakeServiceBuilder.() -> Unit = {},
+    ) {
         val builder = FakeServiceBuilder(uuid).apply(block)
         val result = builder.build()
         services += result.first
@@ -59,14 +65,15 @@ public class FakePeripheralBuilder {
         l2capHandler = handler
     }
 
-    internal fun build(): FakePeripheral = FakePeripheral(
-        identifier = identifier,
-        fakeServices = services.toList(),
-        characteristicConfigs = characteristicConfigs.toList(),
-        onConnectHandler = connectHandler,
-        onDisconnectHandler = disconnectHandler,
-        onL2capHandler = l2capHandler,
-    )
+    internal fun build(): FakePeripheral =
+        FakePeripheral(
+            identifier = identifier,
+            fakeServices = services.toList(),
+            characteristicConfigs = characteristicConfigs.toList(),
+            onConnectHandler = connectHandler,
+            onDisconnectHandler = disconnectHandler,
+            onL2capHandler = l2capHandler,
+        )
 }
 
 @OptIn(ExperimentalUuidApi::class)
@@ -74,11 +81,17 @@ public class FakeServiceBuilder(private val serviceUuid: Uuid) {
     private val characteristics = mutableListOf<Characteristic>()
     private val configs = mutableListOf<FakeCharacteristicConfig>()
 
-    public fun characteristic(uuid: String, block: FakeCharacteristicBuilder.() -> Unit = {}) {
+    public fun characteristic(
+        uuid: String,
+        block: FakeCharacteristicBuilder.() -> Unit = {},
+    ) {
         characteristic(uuidFrom(uuid), block)
     }
 
-    public fun characteristic(uuid: Uuid, block: FakeCharacteristicBuilder.() -> Unit = {}) {
+    public fun characteristic(
+        uuid: Uuid,
+        block: FakeCharacteristicBuilder.() -> Unit = {},
+    ) {
         val builder = FakeCharacteristicBuilder(serviceUuid, uuid).apply(block)
         val (char, config) = builder.build()
         characteristics += char
@@ -109,15 +122,24 @@ public class FakeCharacteristicBuilder(
         notify: Boolean = false,
         indicate: Boolean = false,
     ) {
-        props = Characteristic.Properties(
-            read = read, write = write, writeWithoutResponse = writeWithoutResponse,
-            signedWrite = signedWrite, notify = notify, indicate = indicate,
-        )
+        props =
+            Characteristic.Properties(
+                read = read, write = write, writeWithoutResponse = writeWithoutResponse,
+                signedWrite = signedWrite, notify = notify, indicate = indicate,
+            )
     }
 
-    public fun onRead(handler: ReadHandler) { readHandler = handler }
-    public fun onWrite(handler: WriteHandler) { writeHandler = handler }
-    public fun onObserve(handler: ObserveHandler) { observeHandler = handler }
+    public fun onRead(handler: ReadHandler) {
+        readHandler = handler
+    }
+
+    public fun onWrite(handler: WriteHandler) {
+        writeHandler = handler
+    }
+
+    public fun onObserve(handler: ObserveHandler) {
+        observeHandler = handler
+    }
 
     internal fun build(): Pair<Characteristic, FakeCharacteristicConfig> {
         val char = Characteristic(serviceUuid, uuid, props)

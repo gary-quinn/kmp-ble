@@ -15,5 +15,6 @@ import kotlinx.coroutines.flow.StateFlow
  */
 public interface BluetoothAdapter {
     public val state: StateFlow<BluetoothAdapterState>
+
     public fun close()
 }

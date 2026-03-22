@@ -39,7 +39,6 @@ internal class IosExtendedAdvertiser(
     private val manager: CBPeripheralManager = PeripheralManagerProvider.manager,
     private val delegate: IosPeripheralManagerDelegate = PeripheralManagerProvider.delegate,
 ) : ExtendedAdvertiser {
-
     private val serialDispatcher = Dispatchers.Default.limitedParallelism(1)
     private val scope = CoroutineScope(SupervisorJob() + serialDispatcher)
 
@@ -56,7 +55,7 @@ internal class IosExtendedAdvertiser(
             }
             if (_activeSets.value.isNotEmpty()) {
                 throw AdvertiserException.StartFailed(
-                    "iOS supports only one advertising set at a time"
+                    "iOS supports only one advertising set at a time",
                 )
             }
             if (manager.state != CBPeripheralManagerStatePoweredOn) {
@@ -72,9 +71,10 @@ internal class IosExtendedAdvertiser(
                 advertisementData[CBAdvertisementDataLocalNameKey] = config.name
             }
             if (config.serviceUuids.isNotEmpty()) {
-                advertisementData[CBAdvertisementDataServiceUUIDsKey] = config.serviceUuids.map {
-                    CBUUID.UUIDWithString(it.toString())
-                }
+                advertisementData[CBAdvertisementDataServiceUUIDsKey] =
+                    config.serviceUuids.map {
+                        CBUUID.UUIDWithString(it.toString())
+                    }
             }
 
             delegate.onStartAdvertising = { error -> handleDidStartAdvertising(setId, error) }
@@ -84,12 +84,13 @@ internal class IosExtendedAdvertiser(
             setId
         }
 
-    override suspend fun stopAdvertisingSet(setId: Int): Unit = withContext(serialDispatcher) {
-        if (setId !in _activeSets.value) return@withContext
-        manager.stopAdvertising()
-        _activeSets.update { it - setId }
-        logEvent(BleLogEvent.ServerLifecycle("extended advertising set $setId stopped"))
-    }
+    override suspend fun stopAdvertisingSet(setId: Int): Unit =
+        withContext(serialDispatcher) {
+            if (setId !in _activeSets.value) return@withContext
+            manager.stopAdvertising()
+            _activeSets.update { it - setId }
+            logEvent(BleLogEvent.ServerLifecycle("extended advertising set $setId stopped"))
+        }
 
     override fun close() {
         if (isClosed) return
@@ -102,7 +103,10 @@ internal class IosExtendedAdvertiser(
         scope.cancel()
     }
 
-    private fun handleDidStartAdvertising(setId: Int, error: NSError?) {
+    private fun handleDidStartAdvertising(
+        setId: Int,
+        error: NSError?,
+    ) {
         scope.launch {
             if (error != null) {
                 _activeSets.update { it - setId }

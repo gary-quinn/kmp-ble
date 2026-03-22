@@ -11,8 +11,11 @@ import kotlin.uuid.Uuid
 @OptIn(ExperimentalUuidApi::class)
 internal sealed interface ScanPredicate {
     data class Name(val exact: String) : ScanPredicate
+
     data class NamePrefix(val prefix: String) : ScanPredicate
+
     data class ServiceUuid(val uuid: Uuid) : ScanPredicate
+
     data class ServiceData(val uuid: Uuid, val data: ByteArray?, val mask: ByteArray?) : ScanPredicate {
         override fun equals(other: Any?): Boolean {
             if (this === other) return true
@@ -58,6 +61,7 @@ internal sealed interface ScanPredicate {
     }
 
     data class MinRssi(val minRssi: Int) : ScanPredicate
+
     data class Address(val mac: String) : ScanPredicate
 }
 
@@ -90,12 +94,20 @@ public class MatchScope internal constructor() {
     }
 
     /** Match devices with specific service data. */
-    public fun serviceData(uuid: String, data: ByteArray? = null, mask: ByteArray? = null) {
+    public fun serviceData(
+        uuid: String,
+        data: ByteArray? = null,
+        mask: ByteArray? = null,
+    ) {
         predicates += ScanPredicate.ServiceData(uuidFrom(uuid), data, mask)
     }
 
     /** Match devices with specific manufacturer data. [companyId] is the 16-bit Bluetooth SIG company ID. */
-    public fun manufacturerData(companyId: Int, data: ByteArray? = null, mask: ByteArray? = null) {
+    public fun manufacturerData(
+        companyId: Int,
+        data: ByteArray? = null,
+        mask: ByteArray? = null,
+    ) {
         predicates += ScanPredicate.ManufacturerData(companyId, data, mask)
     }
 
@@ -138,10 +150,11 @@ public class FiltersScope internal constructor() {
  */
 @OptIn(ExperimentalUuidApi::class)
 public fun uuidFrom(shortOrFull: String): Uuid {
-    val full = when (shortOrFull.length) {
-        4 -> "0000${shortOrFull}-0000-1000-8000-00805f9b34fb"
-        8 -> "${shortOrFull}-0000-1000-8000-00805f9b34fb"
-        else -> shortOrFull
-    }
+    val full =
+        when (shortOrFull.length) {
+            4 -> "0000$shortOrFull-0000-1000-8000-00805f9b34fb"
+            8 -> "$shortOrFull-0000-1000-8000-00805f9b34fb"
+            else -> shortOrFull
+        }
     return Uuid.parse(full)
 }

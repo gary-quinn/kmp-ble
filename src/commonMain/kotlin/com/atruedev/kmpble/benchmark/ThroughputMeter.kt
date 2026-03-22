@@ -63,15 +63,18 @@ public data class ThroughputResult(
     val duration: Duration,
 ) {
     val bytesPerSecond: Double
-        get() = if (duration.inWholeMilliseconds > 0) {
-            totalBytes * 1000.0 / duration.inWholeMilliseconds
-        } else 0.0
+        get() =
+            if (duration.inWholeMilliseconds > 0) {
+                totalBytes * 1000.0 / duration.inWholeMilliseconds
+            } else {
+                0.0
+            }
 
     val averageSampleSize: Double
         get() = if (sampleCount > 0) totalBytes.toDouble() / sampleCount else 0.0
 
     override fun toString(): String {
         val kbps = (bytesPerSecond / 1024 * 10).toLong() / 10.0
-        return "$label: ${totalBytes}B in $duration, ${kbps} KB/s, $sampleCount samples"
+        return "$label: ${totalBytes}B in $duration, $kbps KB/s, $sampleCount samples"
     }
 }

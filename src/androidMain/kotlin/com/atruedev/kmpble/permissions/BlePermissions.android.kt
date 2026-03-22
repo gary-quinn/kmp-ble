@@ -16,14 +16,16 @@ import com.atruedev.kmpble.KmpBle
  */
 public actual fun checkBlePermissions(): PermissionResult {
     val context = KmpBle.requireContext()
-    val required = listOf(
-        Manifest.permission.BLUETOOTH_SCAN,
-        Manifest.permission.BLUETOOTH_CONNECT,
-    )
+    val required =
+        listOf(
+            Manifest.permission.BLUETOOTH_SCAN,
+            Manifest.permission.BLUETOOTH_CONNECT,
+        )
 
-    val denied = required.filter { permission ->
-        context.checkSelfPermission(permission) != PackageManager.PERMISSION_GRANTED
-    }
+    val denied =
+        required.filter { permission ->
+            context.checkSelfPermission(permission) != PackageManager.PERMISSION_GRANTED
+        }
 
     return if (denied.isEmpty()) {
         PermissionResult.Granted

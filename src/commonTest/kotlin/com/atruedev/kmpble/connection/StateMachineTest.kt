@@ -2,8 +2,6 @@ package com.atruedev.kmpble.connection
 
 import com.atruedev.kmpble.connection.internal.ConnectionEvent
 import com.atruedev.kmpble.connection.internal.StateMachine
-import com.atruedev.kmpble.error.BleError
-import com.atruedev.kmpble.error.ConnectionFailed
 import com.atruedev.kmpble.error.ConnectionLost
 import com.atruedev.kmpble.error.OperationFailed
 import kotlin.test.Test
@@ -13,18 +11,29 @@ import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
 class StateMachineTest {
-
     private val testError = OperationFailed("test")
 
-    private fun transition(from: State, event: ConnectionEvent): State {
+    private fun transition(
+        from: State,
+        event: ConnectionEvent,
+    ): State {
         val result = StateMachine.transition(from, event)
-        assertTrue(result.valid, "Expected valid transition from ${from::class.simpleName} + ${event::class.simpleName}")
+        assertTrue(
+            result.valid,
+            "Expected valid transition from ${from::class.simpleName} + ${event::class.simpleName}",
+        )
         return result.newState
     }
 
-    private fun assertInvalid(from: State, event: ConnectionEvent) {
+    private fun assertInvalid(
+        from: State,
+        event: ConnectionEvent,
+    ) {
         val result = StateMachine.transition(from, event)
-        assertFalse(result.valid, "Expected invalid transition from ${from::class.simpleName} + ${event::class.simpleName}")
+        assertFalse(
+            result.valid,
+            "Expected invalid transition from ${from::class.simpleName} + ${event::class.simpleName}",
+        )
         assertEquals(from, result.newState)
     }
 
@@ -151,16 +160,16 @@ class StateMachineTest {
     @Test
     fun adapterOffFromAnyConnectedState() {
         assertIs<State.Disconnected.BySystemEvent>(
-            transition(State.Connected.Ready, ConnectionEvent.AdapterOff)
+            transition(State.Connected.Ready, ConnectionEvent.AdapterOff),
         )
         assertIs<State.Disconnected.BySystemEvent>(
-            transition(State.Connecting.Transport, ConnectionEvent.AdapterOff)
+            transition(State.Connecting.Transport, ConnectionEvent.AdapterOff),
         )
         assertIs<State.Disconnected.BySystemEvent>(
-            transition(State.Connecting.Discovering, ConnectionEvent.AdapterOff)
+            transition(State.Connecting.Discovering, ConnectionEvent.AdapterOff),
         )
         assertIs<State.Disconnected.BySystemEvent>(
-            transition(State.Disconnecting.Requested, ConnectionEvent.AdapterOff)
+            transition(State.Disconnecting.Requested, ConnectionEvent.AdapterOff),
         )
     }
 
@@ -172,10 +181,10 @@ class StateMachineTest {
     @Test
     fun remoteDisconnectedFromAnyConnectedState() {
         assertIs<State.Disconnected.ByRemote>(
-            transition(State.Connected.Ready, ConnectionEvent.RemoteDisconnected)
+            transition(State.Connected.Ready, ConnectionEvent.RemoteDisconnected),
         )
         assertIs<State.Disconnected.ByRemote>(
-            transition(State.Connecting.Configuring, ConnectionEvent.RemoteDisconnected)
+            transition(State.Connecting.Configuring, ConnectionEvent.RemoteDisconnected),
         )
     }
 
@@ -195,13 +204,14 @@ class StateMachineTest {
 
     @Test
     fun connectFromAllDisconnectedSubtypes() {
-        val subtypes = listOf(
-            State.Disconnected.ByRequest,
-            State.Disconnected.ByRemote,
-            State.Disconnected.ByError(testError),
-            State.Disconnected.ByTimeout,
-            State.Disconnected.BySystemEvent,
-        )
+        val subtypes =
+            listOf(
+                State.Disconnected.ByRequest,
+                State.Disconnected.ByRemote,
+                State.Disconnected.ByError(testError),
+                State.Disconnected.ByTimeout,
+                State.Disconnected.BySystemEvent,
+            )
         for (disconnected in subtypes) {
             val s = transition(disconnected, ConnectionEvent.ConnectRequested)
             assertIs<State.Connecting.Transport>(s, "Failed from $disconnected")
@@ -213,16 +223,16 @@ class StateMachineTest {
     @Test
     fun disconnectRequestedDuringConnecting() {
         assertIs<State.Disconnected.ByRequest>(
-            transition(State.Connecting.Transport, ConnectionEvent.DisconnectRequested)
+            transition(State.Connecting.Transport, ConnectionEvent.DisconnectRequested),
         )
         assertIs<State.Disconnected.ByRequest>(
-            transition(State.Connecting.Authenticating, ConnectionEvent.DisconnectRequested)
+            transition(State.Connecting.Authenticating, ConnectionEvent.DisconnectRequested),
         )
         assertIs<State.Disconnected.ByRequest>(
-            transition(State.Connecting.Discovering, ConnectionEvent.DisconnectRequested)
+            transition(State.Connecting.Discovering, ConnectionEvent.DisconnectRequested),
         )
         assertIs<State.Disconnected.ByRequest>(
-            transition(State.Connecting.Configuring, ConnectionEvent.DisconnectRequested)
+            transition(State.Connecting.Configuring, ConnectionEvent.DisconnectRequested),
         )
     }
 }

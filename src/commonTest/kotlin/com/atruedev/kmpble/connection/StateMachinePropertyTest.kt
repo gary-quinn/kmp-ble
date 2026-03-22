@@ -2,8 +2,6 @@ package com.atruedev.kmpble.connection
 
 import com.atruedev.kmpble.connection.internal.ConnectionEvent
 import com.atruedev.kmpble.connection.internal.StateMachine
-import com.atruedev.kmpble.error.BleError
-import com.atruedev.kmpble.error.ConnectionFailed
 import com.atruedev.kmpble.error.ConnectionLost
 import com.atruedev.kmpble.error.OperationFailed
 import kotlin.random.Random
@@ -12,31 +10,31 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 class StateMachinePropertyTest {
-
     private val testError = OperationFailed("test")
 
-    private val allEvents: List<ConnectionEvent> = listOf(
-        ConnectionEvent.ConnectRequested,
-        ConnectionEvent.LinkEstablished,
-        ConnectionEvent.BondRequired,
-        ConnectionEvent.BondSucceeded,
-        ConnectionEvent.BondFailed(testError),
-        ConnectionEvent.ServicesDiscovered,
-        ConnectionEvent.DiscoveryFailed(testError),
-        ConnectionEvent.ConfigurationComplete,
-        ConnectionEvent.ConfigurationFailed(testError),
-        ConnectionEvent.InsufficientAuthentication,
-        ConnectionEvent.BondStateChanged,
-        ConnectionEvent.ServiceChangedIndication,
-        ConnectionEvent.DisconnectRequested,
-        ConnectionEvent.ConnectionLost(testError),
-        ConnectionEvent.RemoteDisconnected,
-        ConnectionEvent.AdapterOff,
-        ConnectionEvent.SupervisionTimeout,
-        ConnectionEvent.RediscoverySucceeded,
-        ConnectionEvent.RediscoveryFailed(testError),
-        ConnectionEvent.BondChangeProcessed,
-    )
+    private val allEvents: List<ConnectionEvent> =
+        listOf(
+            ConnectionEvent.ConnectRequested,
+            ConnectionEvent.LinkEstablished,
+            ConnectionEvent.BondRequired,
+            ConnectionEvent.BondSucceeded,
+            ConnectionEvent.BondFailed(testError),
+            ConnectionEvent.ServicesDiscovered,
+            ConnectionEvent.DiscoveryFailed(testError),
+            ConnectionEvent.ConfigurationComplete,
+            ConnectionEvent.ConfigurationFailed(testError),
+            ConnectionEvent.InsufficientAuthentication,
+            ConnectionEvent.BondStateChanged,
+            ConnectionEvent.ServiceChangedIndication,
+            ConnectionEvent.DisconnectRequested,
+            ConnectionEvent.ConnectionLost(testError),
+            ConnectionEvent.RemoteDisconnected,
+            ConnectionEvent.AdapterOff,
+            ConnectionEvent.SupervisionTimeout,
+            ConnectionEvent.RediscoverySucceeded,
+            ConnectionEvent.RediscoveryFailed(testError),
+            ConnectionEvent.BondChangeProcessed,
+        )
 
     @Test
     fun randomEventSequencesNeverCrash() {
@@ -80,27 +78,29 @@ class StateMachinePropertyTest {
 
     @Test
     fun noStateIsTerminal() {
-        val allStates: List<State> = listOf(
-            State.Connecting.Transport,
-            State.Connecting.Authenticating,
-            State.Connecting.Discovering,
-            State.Connecting.Configuring,
-            State.Connected.Ready,
-            State.Connected.BondingChange,
-            State.Connected.ServiceChanged,
-            State.Disconnecting.Requested,
-            State.Disconnecting.Error,
-            State.Disconnected.ByRequest,
-            State.Disconnected.ByRemote,
-            State.Disconnected.ByError(testError),
-            State.Disconnected.ByTimeout,
-            State.Disconnected.BySystemEvent,
-        )
+        val allStates: List<State> =
+            listOf(
+                State.Connecting.Transport,
+                State.Connecting.Authenticating,
+                State.Connecting.Discovering,
+                State.Connecting.Configuring,
+                State.Connected.Ready,
+                State.Connected.BondingChange,
+                State.Connected.ServiceChanged,
+                State.Disconnecting.Requested,
+                State.Disconnecting.Error,
+                State.Disconnected.ByRequest,
+                State.Disconnected.ByRemote,
+                State.Disconnected.ByError(testError),
+                State.Disconnected.ByTimeout,
+                State.Disconnected.BySystemEvent,
+            )
 
         for (state in allStates) {
-            val hasValidTransition = allEvents.any { event ->
-                StateMachine.transition(state, event).valid
-            }
+            val hasValidTransition =
+                allEvents.any { event ->
+                    StateMachine.transition(state, event).valid
+                }
             assertTrue(hasValidTransition, "State ${state::class.simpleName} has no valid transitions")
         }
     }

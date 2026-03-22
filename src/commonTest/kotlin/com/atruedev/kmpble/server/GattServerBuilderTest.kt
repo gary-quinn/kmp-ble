@@ -14,7 +14,6 @@ import kotlin.test.assertTrue
 import kotlin.uuid.Uuid
 
 class GattServerBuilderTest {
-
     private val serviceUuid = Uuid.parse("0000180d-0000-1000-8000-00805f9b34fb")
     private val charUuid1 = Uuid.parse("00002a37-0000-1000-8000-00805f9b34fb")
     private val charUuid2 = Uuid.parse("00002a38-0000-1000-8000-00805f9b34fb")
@@ -41,8 +40,14 @@ class GattServerBuilderTest {
         val builder = GattServerBuilder()
         builder.service(serviceUuid) {
             characteristic(charUuid1) {
-                properties { read = true; write = true }
-                permissions { read = true; write = true }
+                properties {
+                    read = true
+                    write = true
+                }
+                permissions {
+                    read = true
+                    write = true
+                }
                 onRead { _ -> BleData(byteArrayOf(0x01)) }
                 onWrite { _, _, _ -> GattStatus.Success }
             }

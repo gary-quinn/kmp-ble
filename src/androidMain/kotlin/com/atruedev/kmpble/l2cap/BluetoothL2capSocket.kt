@@ -13,7 +13,6 @@ import java.io.OutputStream
 internal class BluetoothL2capSocket(
     private val socket: BluetoothSocket,
 ) : L2capSocket {
-
     override val inputStream: InputStream get() = socket.inputStream
     override val outputStream: OutputStream get() = socket.outputStream
     override val isConnected: Boolean get() = socket.isConnected

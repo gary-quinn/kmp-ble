@@ -51,7 +51,6 @@ import kotlin.uuid.Uuid
  *   without advertising (if client already knows the address)
  */
 public interface GattServer : AutoCloseable {
-
     /**
      * Currently connected devices.
      *
@@ -98,7 +97,11 @@ public interface GattServer : AutoCloseable {
      * @throws ServerException.NotOpen if server is not open
      * @throws ServerException.DeviceNotConnected if device is not connected
      */
-    public suspend fun notify(characteristicUuid: Uuid, device: Identifier?, data: BleData)
+    public suspend fun notify(
+        characteristicUuid: Uuid,
+        device: Identifier?,
+        data: BleData,
+    )
 
     /**
      * Send an indication (acknowledged notification) to a connected device.
@@ -112,7 +115,11 @@ public interface GattServer : AutoCloseable {
      * @throws ServerException.NotOpen if server is not open
      * @throws ServerException.DeviceNotConnected if device is not connected
      */
-    public suspend fun indicate(characteristicUuid: Uuid, device: Identifier, data: BleData)
+    public suspend fun indicate(
+        characteristicUuid: Uuid,
+        device: Identifier,
+        data: BleData,
+    )
 
     /**
      * Close the server.
@@ -134,6 +141,7 @@ public data class ServerConnection(
 
 public sealed interface ServerConnectionEvent {
     public data class Connected(val device: Identifier) : ServerConnectionEvent
+
     public data class Disconnected(val device: Identifier) : ServerConnectionEvent
 }
 

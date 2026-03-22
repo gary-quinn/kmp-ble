@@ -28,59 +28,68 @@ public class AndroidScanner(
     private val context: Context,
     configure: ScannerConfig.() -> Unit = {},
 ) : Scanner {
-
     private val config = ScannerConfig().apply(configure)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
-    private val sharedScanFlow = createRawScanFlow()
-        .shareIn(scope, SharingStarted.WhileSubscribed(), replay = 0)
+    private val sharedScanFlow =
+        createRawScanFlow()
+            .shareIn(scope, SharingStarted.WhileSubscribed(), replay = 0)
 
-    override val advertisements: Flow<Advertisement> = run {
-        var flow: Flow<Advertisement> = sharedScanFlow
-            .filter { it.matchesFilters(config.filterGroups) }
-            .applyEmissionPolicy(config.emission)
+    override val advertisements: Flow<Advertisement> =
+        run {
+            var flow: Flow<Advertisement> =
+                sharedScanFlow
+                    .filter { it.matchesFilters(config.filterGroups) }
+                    .applyEmissionPolicy(config.emission)
 
-        val timeout = config.timeout
-        if (timeout != null) {
-            val mark = TimeSource.Monotonic.markNow()
-            flow = flow.takeWhile { mark.elapsedNow() < timeout }
+            val timeout = config.timeout
+            if (timeout != null) {
+                val mark = TimeSource.Monotonic.markNow()
+                flow = flow.takeWhile { mark.elapsedNow() < timeout }
+            }
+
+            flow
         }
-
-        flow
-    }
 
     override fun close() {
         scope.cancel()
     }
 
     @SuppressLint("MissingPermission")
-    private fun createRawScanFlow(): Flow<Advertisement> = callbackFlow {
-        val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
-        val leScanner = bluetoothManager.adapter?.bluetoothLeScanner
-            ?: throw IllegalStateException("BluetoothLeScanner not available. Is Bluetooth enabled?")
+    private fun createRawScanFlow(): Flow<Advertisement> =
+        callbackFlow {
+            val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
+            val leScanner =
+                bluetoothManager.adapter?.bluetoothLeScanner
+                    ?: throw IllegalStateException("BluetoothLeScanner not available. Is Bluetooth enabled?")
 
-        val callback = object : ScanCallback() {
-            override fun onScanResult(callbackType: Int, result: ScanResult) {
-                trySend(result.toAdvertisement())
-            }
+            val callback =
+                object : ScanCallback() {
+                    override fun onScanResult(
+                        callbackType: Int,
+                        result: ScanResult,
+                    ) {
+                        trySend(result.toAdvertisement())
+                    }
 
-            override fun onScanFailed(errorCode: Int) {
-                close(ScanFailedException(errorCode))
+                    override fun onScanFailed(errorCode: Int) {
+                        close(ScanFailedException(errorCode))
+                    }
+                }
+
+            val osFilters = buildOsFilters(config.filterGroups)
+            val settings =
+                ScanSettings.Builder()
+                    .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
+                    .setLegacy(config.legacyOnly)
+                    .build()
+
+            leScanner.startScan(osFilters, settings, callback)
+
+            awaitClose {
+                leScanner.stopScan(callback)
             }
         }
-
-        val osFilters = buildOsFilters(config.filterGroups)
-        val settings = ScanSettings.Builder()
-            .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
-            .setLegacy(config.legacyOnly)
-            .build()
-
-        leScanner.startScan(osFilters, settings, callback)
-
-        awaitClose {
-            leScanner.stopScan(callback)
-        }
-    }
 
     public companion object {
         @OptIn(ExperimentalUuidApi::class)
@@ -127,7 +136,8 @@ public class AndroidScanner(
                             hasOsPredicate = true
                         }
                         is ScanPredicate.NamePrefix,
-                        is ScanPredicate.MinRssi -> { /* post-filter only */ }
+                        is ScanPredicate.MinRssi,
+                        -> { /* post-filter only */ }
                     }
                 }
 

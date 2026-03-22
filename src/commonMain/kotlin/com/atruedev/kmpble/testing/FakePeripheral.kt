@@ -7,7 +7,6 @@ import com.atruedev.kmpble.connection.internal.ConnectionEvent
 import com.atruedev.kmpble.error.BleError
 import com.atruedev.kmpble.error.ConnectionFailed
 import com.atruedev.kmpble.error.ConnectionLost
-import com.atruedev.kmpble.error.GattError
 import com.atruedev.kmpble.error.OperationFailed
 import com.atruedev.kmpble.gatt.BackpressureStrategy
 import com.atruedev.kmpble.gatt.Characteristic
@@ -16,7 +15,6 @@ import com.atruedev.kmpble.gatt.DiscoveredService
 import com.atruedev.kmpble.gatt.Observation
 import com.atruedev.kmpble.gatt.WriteType
 import com.atruedev.kmpble.gatt.internal.ObservationEvent
-import com.atruedev.kmpble.gatt.internal.ObservationKey
 import com.atruedev.kmpble.gatt.internal.ObservationManager
 import com.atruedev.kmpble.gatt.internal.applyBackpressure
 import com.atruedev.kmpble.l2cap.L2capChannel
@@ -25,7 +23,6 @@ import com.atruedev.kmpble.peripheral.Peripheral
 import com.atruedev.kmpble.peripheral.internal.PeripheralContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onStart
@@ -41,7 +38,6 @@ public class FakePeripheral internal constructor(
     private val onDisconnectHandler: suspend () -> Result<Unit>,
     private val onL2capHandler: L2capHandler?,
 ) : Peripheral {
-
     private val context = PeripheralContext(identifier)
     private val observationManager = ObservationManager()
     private var closed = false
@@ -73,9 +69,10 @@ public class FakePeripheral internal constructor(
             context.updateServices(fakeServices)
             context.processEvent(ConnectionEvent.ConfigurationComplete)
         } else {
-            val error = ConnectionFailed(
-                result.exceptionOrNull()?.message ?: "Connection failed"
-            )
+            val error =
+                ConnectionFailed(
+                    result.exceptionOrNull()?.message ?: "Connection failed",
+                )
             context.processEvent(ConnectionEvent.ConnectionLost(error))
         }
     }
@@ -111,7 +108,10 @@ public class FakePeripheral internal constructor(
         return fakeServices
     }
 
-    override fun findCharacteristic(serviceUuid: Uuid, characteristicUuid: Uuid): Characteristic? {
+    override fun findCharacteristic(
+        serviceUuid: Uuid,
+        characteristicUuid: Uuid,
+    ): Characteristic? {
         return services.value
             ?.firstOrNull { it.uuid == serviceUuid }
             ?.characteristics
@@ -133,17 +133,23 @@ public class FakePeripheral internal constructor(
         checkNotClosed()
         checkConnected()
         val config = findConfig(characteristic)
-        val handler = config?.readHandler
-            ?: throw UnsupportedOperationException("No onRead handler for ${characteristic.uuid}")
+        val handler =
+            config?.readHandler
+                ?: throw UnsupportedOperationException("No onRead handler for ${characteristic.uuid}")
         return handler()
     }
 
-    override suspend fun write(characteristic: Characteristic, data: ByteArray, writeType: WriteType) {
+    override suspend fun write(
+        characteristic: Characteristic,
+        data: ByteArray,
+        writeType: WriteType,
+    ) {
         checkNotClosed()
         checkConnected()
         val config = findConfig(characteristic)
-        val handler = config?.writeHandler
-            ?: throw UnsupportedOperationException("No onWrite handler for ${characteristic.uuid}")
+        val handler =
+            config?.writeHandler
+                ?: throw UnsupportedOperationException("No onWrite handler for ${characteristic.uuid}")
         handler(data, writeType)
     }
 
@@ -243,18 +249,25 @@ public class FakePeripheral internal constructor(
         return byteArrayOf()
     }
 
-    override suspend fun writeDescriptor(descriptor: Descriptor, data: ByteArray) {
+    override suspend fun writeDescriptor(
+        descriptor: Descriptor,
+        data: ByteArray,
+    ) {
         checkNotClosed()
         checkConnected()
     }
 
-    override suspend fun openL2capChannel(psm: Int, secure: Boolean): L2capChannel {
+    override suspend fun openL2capChannel(
+        psm: Int,
+        secure: Boolean,
+    ): L2capChannel {
         checkNotClosed()
         if (context.state.value !is State.Connected) {
             throw L2capException.NotConnected("Peripheral is not connected (state: ${context.state.value})")
         }
-        val handler = onL2capHandler
-            ?: throw L2capException.NotSupported("No onOpenL2capChannel handler configured")
+        val handler =
+            onL2capHandler
+                ?: throw L2capException.NotSupported("No onOpenL2capChannel handler configured")
         return handler(psm)
     }
 
@@ -308,9 +321,7 @@ public class FakePeripheral internal constructor(
      * 2. Re-discover services
      * 3. Re-enable CCCD for all active observations
      */
-    public suspend fun simulateReconnect(
-        newServices: List<DiscoveredService>? = null,
-    ) {
+    public suspend fun simulateReconnect(newServices: List<DiscoveredService>? = null) {
         checkNotClosed()
         // Update services if provided (simulates service change on reconnect)
         if (newServices != null) {
@@ -395,7 +406,10 @@ public class FakePeripheral internal constructor(
     /**
      * Check if there are any active collectors for a characteristic.
      */
-    public suspend fun hasCollectors(serviceUuid: Uuid, charUuid: Uuid): Boolean {
+    public suspend fun hasCollectors(
+        serviceUuid: Uuid,
+        charUuid: Uuid,
+    ): Boolean {
         return observationManager.hasCollectors(serviceUuid, charUuid)
     }
 }

@@ -7,7 +7,6 @@ import kotlin.test.assertNull
 import kotlin.time.Duration.Companion.seconds
 
 class ConnectionRecipeTest {
-
     @Test
     fun medicalRecipeHasCorrectDefaults() {
         val opts = ConnectionRecipe.MEDICAL

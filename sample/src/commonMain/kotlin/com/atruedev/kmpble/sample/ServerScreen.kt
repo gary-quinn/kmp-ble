@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -89,7 +88,11 @@ fun ServerScreen(onBack: () -> Unit) {
 }
 
 @Composable
-private fun GattServerCard(serverOpen: Boolean, heartRate: Int, vm: ServerViewModel) {
+private fun GattServerCard(
+    serverOpen: Boolean,
+    heartRate: Int,
+    vm: ServerViewModel,
+) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text("GATT Server", style = MaterialTheme.typography.titleSmall)
@@ -143,7 +146,10 @@ private fun GattServerCard(serverOpen: Boolean, heartRate: Int, vm: ServerViewMo
 }
 
 @Composable
-private fun ClientPreviewCard(heartRate: Int, connectedClients: Int) {
+private fun ClientPreviewCard(
+    heartRate: Int,
+    connectedClients: Int,
+) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -174,8 +180,9 @@ private fun ClientPreviewCard(heartRate: Int, connectedClients: Int) {
             Spacer(Modifier.height(12.dp))
 
             Text(
-                text = "To see this live on another device: start advertising below, " +
-                    "scan from the other device, connect, and open Heart Rate Monitor.",
+                text =
+                    "To see this live on another device: start advertising below, " +
+                        "scan from the other device, connect, and open Heart Rate Monitor.",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -184,7 +191,10 @@ private fun ClientPreviewCard(heartRate: Int, connectedClients: Int) {
 }
 
 @Composable
-private fun LegacyAdvertiserCard(isAdvertising: Boolean, vm: ServerViewModel) {
+private fun LegacyAdvertiserCard(
+    isAdvertising: Boolean,
+    vm: ServerViewModel,
+) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text("Legacy Advertiser", style = MaterialTheme.typography.titleSmall)
@@ -215,7 +225,10 @@ private fun LegacyAdvertiserCard(isAdvertising: Boolean, vm: ServerViewModel) {
 
 @OptIn(ExperimentalBleApi::class, ExperimentalLayoutApi::class)
 @Composable
-private fun ExtendedAdvertiserCard(activeSets: Set<Int>, vm: ServerViewModel) {
+private fun ExtendedAdvertiserCard(
+    activeSets: Set<Int>,
+    vm: ServerViewModel,
+) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text("Extended Advertiser (BLE 5.0)", style = MaterialTheme.typography.titleSmall)

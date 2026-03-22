@@ -42,6 +42,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.atruedev.kmpble.ExperimentalBleApi
+import com.atruedev.kmpble.ServiceUuid
 import com.atruedev.kmpble.bonding.BondState
 import com.atruedev.kmpble.bonding.PairingEvent
 import com.atruedev.kmpble.bonding.PairingResponse
@@ -50,7 +51,6 @@ import com.atruedev.kmpble.connection.ConnectionOptions
 import com.atruedev.kmpble.connection.ConnectionRecipe
 import com.atruedev.kmpble.connection.ReconnectionStrategy
 import com.atruedev.kmpble.connection.State
-import com.atruedev.kmpble.ServiceUuid
 import com.atruedev.kmpble.scanner.Advertisement
 import kotlin.uuid.ExperimentalUuidApi
 
@@ -157,11 +157,12 @@ private fun NavigationCard(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
-        colors = if (highlight) {
-            CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
-        } else {
-            CardDefaults.cardColors()
-        },
+        colors =
+            if (highlight) {
+                CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+            } else {
+                CardDefaults.cardColors()
+            },
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(title, style = MaterialTheme.typography.titleMedium)
@@ -169,11 +170,12 @@ private fun NavigationCard(
             Text(
                 description,
                 style = MaterialTheme.typography.bodySmall,
-                color = if (highlight) {
-                    MaterialTheme.colorScheme.onPrimaryContainer
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                },
+                color =
+                    if (highlight) {
+                        MaterialTheme.colorScheme.onPrimaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
             )
         }
     }
@@ -184,23 +186,31 @@ private fun NavigationCard(
 private sealed interface RecipeOption {
     val label: String
 
-    data object Custom : RecipeOption { override val label = "Custom" }
+    data object Custom : RecipeOption {
+        override val label = "Custom"
+    }
+
     data class Preset(override val label: String, val options: ConnectionOptions) : RecipeOption
 
     companion object {
-        val entries = listOf(
-            Custom,
-            Preset("Medical", ConnectionRecipe.MEDICAL),
-            Preset("Fitness", ConnectionRecipe.FITNESS),
-            Preset("IoT", ConnectionRecipe.IOT),
-            Preset("Consumer", ConnectionRecipe.CONSUMER),
-        )
+        val entries =
+            listOf(
+                Custom,
+                Preset("Medical", ConnectionRecipe.MEDICAL),
+                Preset("Fitness", ConnectionRecipe.FITNESS),
+                Preset("IoT", ConnectionRecipe.IOT),
+                Preset("Consumer", ConnectionRecipe.CONSUMER),
+            )
     }
 }
 
 @OptIn(ExperimentalLayoutApi::class, ExperimentalBleApi::class)
 @Composable
-private fun ConnectionSection(state: State, bond: BondState, vm: BleViewModel) {
+private fun ConnectionSection(
+    state: State,
+    bond: BondState,
+    vm: BleViewModel,
+) {
     var autoConnect by remember { mutableStateOf(false) }
     var useReconnection by remember { mutableStateOf(false) }
     var bondingPref by remember { mutableStateOf(BondingPreference.IfRequired) }
@@ -261,18 +271,21 @@ private fun ConnectionSection(state: State, bond: BondState, vm: BleViewModel) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(
                     onClick = {
-                        val baseOptions = when (val recipe = selectedRecipe) {
-                            is RecipeOption.Custom -> ConnectionOptions(
-                                autoConnect = autoConnect,
-                                bondingPreference = bondingPref,
-                                reconnectionStrategy = if (useReconnection) {
-                                    ReconnectionStrategy.ExponentialBackoff()
-                                } else {
-                                    ReconnectionStrategy.None
-                                },
-                            )
-                            is RecipeOption.Preset -> recipe.options
-                        }
+                        val baseOptions =
+                            when (val recipe = selectedRecipe) {
+                                is RecipeOption.Custom ->
+                                    ConnectionOptions(
+                                        autoConnect = autoConnect,
+                                        bondingPreference = bondingPref,
+                                        reconnectionStrategy =
+                                            if (useReconnection) {
+                                                ReconnectionStrategy.ExponentialBackoff()
+                                            } else {
+                                                ReconnectionStrategy.None
+                                            },
+                                    )
+                                is RecipeOption.Preset -> recipe.options
+                            }
                         vm.connect(baseOptions)
                     },
                     enabled = state is State.Disconnected,
@@ -301,7 +314,12 @@ private fun ConnectionSection(state: State, bond: BondState, vm: BleViewModel) {
 }
 
 @Composable
-private fun InfoSection(rssi: Int?, mtu: Int, maxWriteLen: Int, vm: BleViewModel) {
+private fun InfoSection(
+    rssi: Int?,
+    mtu: Int,
+    maxWriteLen: Int,
+    vm: BleViewModel,
+) {
     var mtuInput by remember { mutableStateOf("512") }
 
     Card(modifier = Modifier.fillMaxWidth()) {
@@ -338,7 +356,10 @@ private fun InfoSection(rssi: Int?, mtu: Int, maxWriteLen: Int, vm: BleViewModel
 
 @OptIn(ExperimentalBleApi::class)
 @Composable
-private fun PairingDialog(event: PairingEvent, onRespond: (PairingResponse) -> Unit) {
+private fun PairingDialog(
+    event: PairingEvent,
+    onRespond: (PairingResponse) -> Unit,
+) {
     var pinInput by remember { mutableStateOf("") }
 
     Card(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
@@ -395,26 +416,28 @@ private fun PairingDialog(event: PairingEvent, onRespond: (PairingResponse) -> U
     }
 }
 
-private fun stateLabel(state: State): String = when (state) {
-    is State.Connecting.Transport -> "Connecting (transport)"
-    is State.Connecting.Authenticating -> "Connecting (auth)"
-    is State.Connecting.Discovering -> "Connecting (discovery)"
-    is State.Connecting.Configuring -> "Connecting (config)"
-    is State.Connected.Ready -> "Connected"
-    is State.Connected.BondingChange -> "Connected (bonding change)"
-    is State.Connected.ServiceChanged -> "Connected (service changed)"
-    is State.Disconnecting.Requested -> "Disconnecting"
-    is State.Disconnecting.Error -> "Disconnecting (error)"
-    is State.Disconnected.ByRequest -> "Disconnected"
-    is State.Disconnected.ByRemote -> "Disconnected (remote)"
-    is State.Disconnected.ByError -> "Disconnected (error)"
-    is State.Disconnected.ByTimeout -> "Disconnected (timeout)"
-    is State.Disconnected.BySystemEvent -> "Disconnected (system)"
-}
+private fun stateLabel(state: State): String =
+    when (state) {
+        is State.Connecting.Transport -> "Connecting (transport)"
+        is State.Connecting.Authenticating -> "Connecting (auth)"
+        is State.Connecting.Discovering -> "Connecting (discovery)"
+        is State.Connecting.Configuring -> "Connecting (config)"
+        is State.Connected.Ready -> "Connected"
+        is State.Connected.BondingChange -> "Connected (bonding change)"
+        is State.Connected.ServiceChanged -> "Connected (service changed)"
+        is State.Disconnecting.Requested -> "Disconnecting"
+        is State.Disconnecting.Error -> "Disconnecting (error)"
+        is State.Disconnected.ByRequest -> "Disconnected"
+        is State.Disconnected.ByRemote -> "Disconnected (remote)"
+        is State.Disconnected.ByError -> "Disconnected (error)"
+        is State.Disconnected.ByTimeout -> "Disconnected (timeout)"
+        is State.Disconnected.BySystemEvent -> "Disconnected (system)"
+    }
 
-private fun bondLabel(state: BondState): String = when (state) {
-    BondState.NotBonded -> "Not bonded"
-    BondState.Bonding -> "Bonding..."
-    BondState.Bonded -> "Bonded"
-    BondState.Unknown -> "Unknown"
-}
+private fun bondLabel(state: BondState): String =
+    when (state) {
+        BondState.NotBonded -> "Not bonded"
+        BondState.Bonding -> "Bonding..."
+        BondState.Bonded -> "Bonded"
+        BondState.Unknown -> "Unknown"
+    }

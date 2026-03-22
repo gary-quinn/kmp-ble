@@ -32,6 +32,7 @@ internal sealed interface ObservationEvent {
     }
 
     data object Disconnected : ObservationEvent
+
     data object PermanentlyDisconnected : ObservationEvent
 }
 
@@ -67,7 +68,6 @@ internal data class TrackedObservation(
 internal class ObservationManager(
     dispatcher: CoroutineDispatcher = Dispatchers.Unconfined,
 ) {
-
     /**
      * Optional callback invoked when the set of active observations changes.
      * Used by iOS state restoration to persist observations (keys + backpressure)
@@ -108,7 +108,7 @@ internal class ObservationManager(
         onObservationsChanged?.invoke(
             observationsSnapshot.values.map { tracked ->
                 PersistedObservation(tracked.key, tracked.backpressure)
-            }.toSet()
+            }.toSet(),
         )
     }
 
@@ -128,20 +128,21 @@ internal class ObservationManager(
     ): Flow<ObservationEvent> {
         val key = ObservationKey(serviceUuid, charUuid)
         var keyAdded = false
-        val tracked = withContext(serialDispatcher) {
-            val sizeBefore = observations.size
-            observations.getOrPut(key) {
-                TrackedObservation(
-                    key = key,
-                    backpressure = backpressure,
-                    flow = MutableSharedFlow(extraBufferCapacity = OBSERVATION_BUFFER_CAPACITY),
-                )
-            }.also {
-                it.collectorCount++
-                keyAdded = observations.size > sizeBefore
-                if (keyAdded) updateSnapshot()
+        val tracked =
+            withContext(serialDispatcher) {
+                val sizeBefore = observations.size
+                observations.getOrPut(key) {
+                    TrackedObservation(
+                        key = key,
+                        backpressure = backpressure,
+                        flow = MutableSharedFlow(extraBufferCapacity = OBSERVATION_BUFFER_CAPACITY),
+                    )
+                }.also {
+                    it.collectorCount++
+                    keyAdded = observations.size > sizeBefore
+                    if (keyAdded) updateSnapshot()
+                }
             }
-        }
         if (keyAdded) notifyObservationsChanged()
 
         return tracked.flow.transformWhile { event ->
@@ -157,19 +158,23 @@ internal class ObservationManager(
      * Uses [NonCancellable] because this is called from flow onCompletion handlers
      * where the coroutine may already be cancelled. Cleanup must complete regardless.
      */
-    suspend fun unsubscribe(serviceUuid: Uuid, charUuid: Uuid): Boolean {
+    suspend fun unsubscribe(
+        serviceUuid: Uuid,
+        charUuid: Uuid,
+    ): Boolean {
         val key = ObservationKey(serviceUuid, charUuid)
-        val result = withContext(NonCancellable + serialDispatcher) {
-            val tracked = observations[key] ?: return@withContext false
-            tracked.collectorCount--
-            if (tracked.collectorCount <= 0) {
-                observations.remove(key)
-                updateSnapshot()
-                true
-            } else {
-                false
+        val result =
+            withContext(NonCancellable + serialDispatcher) {
+                val tracked = observations[key] ?: return@withContext false
+                tracked.collectorCount--
+                if (tracked.collectorCount <= 0) {
+                    observations.remove(key)
+                    updateSnapshot()
+                    true
+                } else {
+                    false
+                }
             }
-        }
         if (result) notifyObservationsChanged()
         return result
     }
@@ -178,7 +183,11 @@ internal class ObservationManager(
      * Emit a value to all collectors observing this characteristic.
      * Called from GATT callback when notification/indication is received.
      */
-    suspend fun emitValue(serviceUuid: Uuid, charUuid: Uuid, value: ByteArray) {
+    suspend fun emitValue(
+        serviceUuid: Uuid,
+        charUuid: Uuid,
+        value: ByteArray,
+    ) {
         withContext(serialDispatcher) {
             val key = ObservationKey(serviceUuid, charUuid)
             observations[key]?.flow?.tryEmit(ObservationEvent.Value(value))
@@ -192,7 +201,11 @@ internal class ObservationManager(
      * tryEmit on MutableSharedFlow is thread-safe. Worst case during concurrent
      * subscribe/unsubscribe is a missed emit (acceptable for transient race windows).
      */
-    fun emitByUuid(serviceUuid: Uuid, charUuid: Uuid, value: ByteArray) {
+    fun emitByUuid(
+        serviceUuid: Uuid,
+        charUuid: Uuid,
+        value: ByteArray,
+    ) {
         val key = ObservationKey(serviceUuid, charUuid)
         observationsSnapshot[key]?.flow?.tryEmit(ObservationEvent.Value(value))
     }
@@ -250,7 +263,10 @@ internal class ObservationManager(
     /**
      * Check if there are any active collectors for a characteristic.
      */
-    suspend fun hasCollectors(serviceUuid: Uuid, charUuid: Uuid): Boolean {
+    suspend fun hasCollectors(
+        serviceUuid: Uuid,
+        charUuid: Uuid,
+    ): Boolean {
         val key = ObservationKey(serviceUuid, charUuid)
         return withContext(serialDispatcher) {
             (observations[key]?.collectorCount ?: 0) > 0

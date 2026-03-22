@@ -20,10 +20,14 @@ public expect class BleData {
     public fun toByteArray(): ByteArray
 
     /** Zero-copy slice from [fromIndex] (inclusive) to [toIndex] (exclusive). */
-    public fun slice(fromIndex: Int, toIndex: Int): BleData
+    public fun slice(
+        fromIndex: Int,
+        toIndex: Int,
+    ): BleData
 
     /** Content-based equality. */
     override fun equals(other: Any?): Boolean
+
     override fun hashCode(): Int
 }
 

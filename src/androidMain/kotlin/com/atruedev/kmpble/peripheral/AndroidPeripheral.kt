@@ -13,10 +13,6 @@ import com.atruedev.kmpble.bonding.BondState
 import com.atruedev.kmpble.connection.BondingPreference
 import com.atruedev.kmpble.connection.ConnectionOptions
 import com.atruedev.kmpble.connection.State
-import com.atruedev.kmpble.l2cap.AndroidL2capChannel
-import com.atruedev.kmpble.l2cap.BluetoothL2capSocket
-import com.atruedev.kmpble.l2cap.L2capChannel
-import com.atruedev.kmpble.l2cap.L2capException
 import com.atruedev.kmpble.connection.internal.ConnectionEvent
 import com.atruedev.kmpble.error.ConnectionFailed
 import com.atruedev.kmpble.error.ConnectionLost
@@ -38,12 +34,16 @@ import com.atruedev.kmpble.gatt.internal.ObservationEvent
 import com.atruedev.kmpble.gatt.internal.ObservationManager
 import com.atruedev.kmpble.gatt.internal.PendingOperations
 import com.atruedev.kmpble.gatt.internal.applyBackpressure
-import com.atruedev.kmpble.quirks.BleQuirks
-import com.atruedev.kmpble.quirks.QuirkRegistry
+import com.atruedev.kmpble.l2cap.AndroidL2capChannel
+import com.atruedev.kmpble.l2cap.BluetoothL2capSocket
+import com.atruedev.kmpble.l2cap.L2capChannel
+import com.atruedev.kmpble.l2cap.L2capException
 import com.atruedev.kmpble.logging.BleLogEvent
 import com.atruedev.kmpble.logging.logEvent
 import com.atruedev.kmpble.peripheral.internal.PeripheralContext
 import com.atruedev.kmpble.peripheral.internal.PeripheralRegistry
+import com.atruedev.kmpble.quirks.BleQuirks
+import com.atruedev.kmpble.quirks.QuirkRegistry
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
@@ -73,7 +73,6 @@ public class AndroidPeripheral internal constructor(
     context: Context,
     internal val quirkRegistry: QuirkRegistry,
 ) : Peripheral {
-
     public constructor(device: BluetoothDevice, context: Context) :
         this(device, context, QuirkRegistry.getInstance())
 
@@ -91,8 +90,10 @@ public class AndroidPeripheral internal constructor(
     private val nativeDescMap = mutableMapOf<Descriptor, BluetoothGattDescriptor>()
 
     private val bondManager = AndroidBondManager(device, context, peripheralContext)
+
     @OptIn(com.atruedev.kmpble.ExperimentalBleApi::class)
-    private val pairingRequestHandler = AndroidPairingRequestHandler(device, context, peripheralContext.scope, peripheralContext.dispatcher)
+    private val pairingRequestHandler =
+        AndroidPairingRequestHandler(device, context, peripheralContext.scope, peripheralContext.dispatcher)
 
     override val state: StateFlow<State> get() = peripheralContext.state
     override val bondState: StateFlow<BondState> get() = bondManager.bondState
@@ -102,16 +103,27 @@ public class AndroidPeripheral internal constructor(
     @Volatile
     private var closed = false
     private var currentConnectionOptions: ConnectionOptions? = null
-    private val reconnectionHandler = com.atruedev.kmpble.connection.internal.ReconnectionHandler(
-        scope = peripheralContext.scope,
-        stateFlow = peripheralContext.state,
-        connectAction = { opts -> connect(opts.copy(reconnectionStrategy = com.atruedev.kmpble.connection.ReconnectionStrategy.None)) },
-        onMaxAttemptsExhausted = { observationManager.onPermanentDisconnect() },
-    )
+    private val reconnectionHandler =
+        com.atruedev.kmpble.connection.internal.ReconnectionHandler(
+            scope = peripheralContext.scope,
+            stateFlow = peripheralContext.state,
+            connectAction = {
+                    opts ->
+                connect(opts.copy(reconnectionStrategy = com.atruedev.kmpble.connection.ReconnectionStrategy.None))
+            },
+            onMaxAttemptsExhausted = { observationManager.onPermanentDisconnect() },
+        )
 
     init {
         bridge.onEvent = { event -> handleGattEvent(event) }
-        logEvent(BleLogEvent.GattOperation(identifier, "DeviceQuirks: ${quirkRegistry.describe()}", uuid = null, status = null))
+        logEvent(
+            BleLogEvent.GattOperation(
+                identifier,
+                "DeviceQuirks: ${quirkRegistry.describe()}",
+                uuid = null,
+                status = null,
+            ),
+        )
     }
 
     @OptIn(com.atruedev.kmpble.ExperimentalBleApi::class)
@@ -146,11 +158,13 @@ public class AndroidPeripheral internal constructor(
             }
             logEvent(BleLogEvent.BondEvent(identifier, "Quirk: bond-before-connect succeeded"))
         } catch (_: kotlinx.coroutines.TimeoutCancellationException) {
-            logEvent(BleLogEvent.Error(
-                identifier,
-                "Quirk: bond-before-connect timed out after $bondTimeout, proceeding with connection",
-                cause = null,
-            ))
+            logEvent(
+                BleLogEvent.Error(
+                    identifier,
+                    "Quirk: bond-before-connect timed out after $bondTimeout, proceeding with connection",
+                    cause = null,
+                ),
+            )
         }
     }
 
@@ -172,10 +186,14 @@ public class AndroidPeripheral internal constructor(
 
         repeat(maxAttempts) { attempt ->
             if (attempt > 0) {
-                logEvent(BleLogEvent.GattOperation(
-                    identifier, "Connection retry ${attempt + 1}/$maxAttempts after ${retryDelay}",
-                    uuid = null, status = null,
-                ))
+                logEvent(
+                    BleLogEvent.GattOperation(
+                        identifier,
+                        "Connection retry ${attempt + 1}/$maxAttempts after $retryDelay",
+                        uuid = null,
+                        status = null,
+                    ),
+                )
             }
 
             peripheralContext.processEvent(ConnectionEvent.ConnectRequested)
@@ -186,7 +204,7 @@ public class AndroidPeripheral internal constructor(
             val gatt = bridge.connect(options)
             if (gatt == null) {
                 peripheralContext.processEvent(
-                    ConnectionEvent.ConnectionLost(ConnectionFailed("connectGatt returned null"))
+                    ConnectionEvent.ConnectionLost(ConnectionFailed("connectGatt returned null")),
                 )
                 connectionComplete = null
                 if (attempt < maxAttempts - 1) {
@@ -203,7 +221,7 @@ public class AndroidPeripheral internal constructor(
                 bridge.disconnect()
                 bridge.releaseGatt()
                 peripheralContext.processEvent(
-                    ConnectionEvent.ConnectionLost(ConnectionFailed("Connection timeout after $timeout"))
+                    ConnectionEvent.ConnectionLost(ConnectionFailed("Connection timeout after $timeout")),
                 )
             } finally {
                 connectionComplete = null
@@ -236,7 +254,7 @@ public class AndroidPeripheral internal constructor(
                 withTimeout(DISCONNECT_TIMEOUT) { disconnectComplete!!.await() }
             } catch (_: kotlinx.coroutines.TimeoutCancellationException) {
                 peripheralContext.processEvent(
-                    ConnectionEvent.ConnectionLost(OperationFailed("Disconnect timeout"))
+                    ConnectionEvent.ConnectionLost(OperationFailed("Disconnect timeout")),
                 )
             } finally {
                 disconnectComplete = null
@@ -281,7 +299,10 @@ public class AndroidPeripheral internal constructor(
         }
     }
 
-    override fun findCharacteristic(serviceUuid: Uuid, characteristicUuid: Uuid): Characteristic? {
+    override fun findCharacteristic(
+        serviceUuid: Uuid,
+        characteristicUuid: Uuid,
+    ): Characteristic? {
         return services.value
             ?.firstOrNull { it.uuid == serviceUuid }
             ?.characteristics
@@ -333,7 +354,7 @@ public class AndroidPeripheral internal constructor(
                         pendingOps.rssiRead?.complete(event.rssi)
                     } else {
                         pendingOps.rssiRead?.completeExceptionally(
-                            Exception("readRssi failed: ${event.status.toGattStatus()}")
+                            Exception("readRssi failed: ${event.status.toGattStatus()}"),
                         )
                     }
                     pendingOps.rssiRead = null
@@ -349,42 +370,49 @@ public class AndroidPeripheral internal constructor(
                 if (status.isSuccess()) {
                     peripheralContext.processEvent(ConnectionEvent.LinkEstablished)
                     val bondPref = currentConnectionOptions?.bondingPreference
-                    if (bondPref == BondingPreference.Required
-                        && device.bondState != BluetoothDevice.BOND_BONDED
+                    if (bondPref == BondingPreference.Required &&
+                        device.bondState != BluetoothDevice.BOND_BONDED
                     ) {
                         peripheralContext.processEvent(ConnectionEvent.BondRequired)
                         val bondTimeout = quirkRegistry.resolve(BleQuirks.BondStateTimeout)
-                        val bonded = try {
-                            withTimeout(bondTimeout) {
-                                bondManager.createBond()
+                        val bonded =
+                            try {
+                                withTimeout(bondTimeout) {
+                                    bondManager.createBond()
+                                }
+                            } catch (_: kotlinx.coroutines.TimeoutCancellationException) {
+                                logEvent(
+                                    BleLogEvent.Error(
+                                        identifier,
+                                        "Bond state change timed out after $bondTimeout",
+                                        cause = null,
+                                    ),
+                                )
+                                false
                             }
-                        } catch (_: kotlinx.coroutines.TimeoutCancellationException) {
-                            logEvent(BleLogEvent.Error(
-                                identifier,
-                                "Bond state change timed out after $bondTimeout",
-                                cause = null,
-                            ))
-                            false
-                        }
                         if (!bonded) {
                             peripheralContext.processEvent(
-                                ConnectionEvent.BondFailed(ConnectionFailed("Bonding rejected or timed out"))
+                                ConnectionEvent.BondFailed(ConnectionFailed("Bonding rejected or timed out")),
                             )
                             connectionComplete?.complete(Unit)
                             return
                         }
                         if (quirkRegistry.resolve(BleQuirks.RefreshServicesOnBond)) {
-                            logEvent(BleLogEvent.GattOperation(
-                                identifier, "Quirk: refreshing GATT cache after bond",
-                                uuid = null, status = null,
-                            ))
+                            logEvent(
+                                BleLogEvent.GattOperation(
+                                    identifier,
+                                    "Quirk: refreshing GATT cache after bond",
+                                    uuid = null,
+                                    status = null,
+                                ),
+                            )
                             bridge.refreshDeviceCache()
                         }
                     }
                     bridge.discoverServices()
                 } else {
                     peripheralContext.processEvent(
-                        ConnectionEvent.ConnectionLost(ConnectionFailed("GATT status: $status", event.status))
+                        ConnectionEvent.ConnectionLost(ConnectionFailed("GATT status: $status", event.status)),
                     )
                     connectionComplete?.complete(Unit)
                 }
@@ -392,12 +420,12 @@ public class AndroidPeripheral internal constructor(
             BluetoothProfile.STATE_DISCONNECTED -> {
                 if (peripheralContext.state.value is State.Disconnecting.Requested) {
                     peripheralContext.processEvent(
-                        ConnectionEvent.ConnectionLost(OperationFailed("disconnect"))
+                        ConnectionEvent.ConnectionLost(OperationFailed("disconnect")),
                     )
                     disconnectComplete?.complete(Unit)
                 } else {
                     peripheralContext.processEvent(
-                        ConnectionEvent.ConnectionLost(ConnectionLost("Remote disconnect", event.status))
+                        ConnectionEvent.ConnectionLost(ConnectionLost("Remote disconnect", event.status)),
                     )
                 }
                 onDisconnectCleanup()
@@ -420,11 +448,11 @@ public class AndroidPeripheral internal constructor(
             discoveryComplete?.complete(discovered)
         } else {
             peripheralContext.processEvent(
-                ConnectionEvent.DiscoveryFailed(GattError("discoverServices", status))
+                ConnectionEvent.DiscoveryFailed(GattError("discoverServices", status)),
             )
             connectionComplete?.complete(Unit)
             discoveryComplete?.completeExceptionally(
-                IllegalStateException("Service discovery failed: $status")
+                IllegalStateException("Service discovery failed: $status"),
             )
         }
     }
@@ -455,29 +483,31 @@ public class AndroidPeripheral internal constructor(
         val svcUuid = Uuid.parse(uuid.toString())
         return DiscoveredService(
             uuid = svcUuid,
-            characteristics = characteristics.map { nativeChar ->
-                val char = nativeChar.toCharacteristic(svcUuid)
-                nativeCharMap[char] = nativeChar
-                char.descriptors.forEachIndexed { i, desc ->
-                    if (i < nativeChar.descriptors.size) {
-                        nativeDescMap[desc] = nativeChar.descriptors[i]
+            characteristics =
+                characteristics.map { nativeChar ->
+                    val char = nativeChar.toCharacteristic(svcUuid)
+                    nativeCharMap[char] = nativeChar
+                    char.descriptors.forEachIndexed { i, desc ->
+                        if (i < nativeChar.descriptors.size) {
+                            nativeDescMap[desc] = nativeChar.descriptors[i]
+                        }
                     }
-                }
-                char
-            },
+                    char
+                },
         )
     }
 
     private fun BluetoothGattCharacteristic.toCharacteristic(serviceUuid: Uuid): Characteristic {
         val charUuid = Uuid.parse(uuid.toString())
-        val props = Characteristic.Properties(
-            read = (properties and BluetoothGattCharacteristic.PROPERTY_READ) != 0,
-            write = (properties and BluetoothGattCharacteristic.PROPERTY_WRITE) != 0,
-            writeWithoutResponse = (properties and BluetoothGattCharacteristic.PROPERTY_WRITE_NO_RESPONSE) != 0,
-            signedWrite = (properties and BluetoothGattCharacteristic.PROPERTY_SIGNED_WRITE) != 0,
-            notify = (properties and BluetoothGattCharacteristic.PROPERTY_NOTIFY) != 0,
-            indicate = (properties and BluetoothGattCharacteristic.PROPERTY_INDICATE) != 0,
-        )
+        val props =
+            Characteristic.Properties(
+                read = (properties and BluetoothGattCharacteristic.PROPERTY_READ) != 0,
+                write = (properties and BluetoothGattCharacteristic.PROPERTY_WRITE) != 0,
+                writeWithoutResponse = (properties and BluetoothGattCharacteristic.PROPERTY_WRITE_NO_RESPONSE) != 0,
+                signedWrite = (properties and BluetoothGattCharacteristic.PROPERTY_SIGNED_WRITE) != 0,
+                notify = (properties and BluetoothGattCharacteristic.PROPERTY_NOTIFY) != 0,
+                indicate = (properties and BluetoothGattCharacteristic.PROPERTY_INDICATE) != 0,
+            )
         val descs = mutableListOf<Descriptor>()
         val char = Characteristic(serviceUuid, charUuid, props, descs)
         descriptors.forEach { descs.add(Descriptor(char, Uuid.parse(it.uuid.toString()))) }
@@ -486,7 +516,10 @@ public class AndroidPeripheral internal constructor(
 
     private fun requireNativeChar(characteristic: Characteristic): BluetoothGattCharacteristic {
         return nativeCharMap[characteristic]
-            ?: throw IllegalArgumentException("Characteristic not found in current GATT profile. Re-acquire from services after connect.")
+            ?: throw IllegalArgumentException(
+                "Characteristic not found in current GATT profile. " +
+                    "Re-acquire from services after connect.",
+            )
     }
 
     private fun requireNativeDesc(descriptor: Descriptor): BluetoothGattDescriptor {
@@ -512,16 +545,21 @@ public class AndroidPeripheral internal constructor(
         }
     }
 
-    override suspend fun write(characteristic: Characteristic, data: ByteArray, writeType: WriteType) {
+    override suspend fun write(
+        characteristic: Characteristic,
+        data: ByteArray,
+        writeType: WriteType,
+    ) {
         checkNotClosed()
         LargeWriteHandler.validateForWriteType(data, maximumWriteValueLength.value, writeType)
 
         val native = requireNativeChar(characteristic)
-        val androidWriteType = when (writeType) {
-            WriteType.WithResponse -> BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
-            WriteType.WithoutResponse -> BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE
-            WriteType.Signed -> BluetoothGattCharacteristic.WRITE_TYPE_SIGNED
-        }
+        val androidWriteType =
+            when (writeType) {
+                WriteType.WithResponse -> BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
+                WriteType.WithoutResponse -> BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE
+                WriteType.Signed -> BluetoothGattCharacteristic.WRITE_TYPE_SIGNED
+            }
 
         val chunks = LargeWriteHandler.chunk(data, maximumWriteValueLength.value)
         peripheralContext.gattQueue.enqueue {
@@ -658,7 +696,10 @@ public class AndroidPeripheral internal constructor(
         }
     }
 
-    override suspend fun writeDescriptor(descriptor: Descriptor, data: ByteArray) {
+    override suspend fun writeDescriptor(
+        descriptor: Descriptor,
+        data: ByteArray,
+    ) {
         checkNotClosed()
         peripheralContext.gattQueue.enqueue {
             val native = requireNativeDesc(descriptor)
@@ -716,7 +757,10 @@ public class AndroidPeripheral internal constructor(
      * All blocking socket I/O runs on [Dispatchers.IO]; the caller's coroutine
      * context is never blocked.
      */
-    override suspend fun openL2capChannel(psm: Int, secure: Boolean): L2capChannel {
+    override suspend fun openL2capChannel(
+        psm: Int,
+        secure: Boolean,
+    ): L2capChannel {
         checkNotClosed()
 
         val currentState = state.value
@@ -726,31 +770,43 @@ public class AndroidPeripheral internal constructor(
             )
         }
 
-        logEvent(BleLogEvent.GattOperation(
-            identifier, "L2CAP open PSM=$psm secure=$secure", uuid = null, status = null,
-        ))
+        logEvent(
+            BleLogEvent.GattOperation(
+                identifier,
+                "L2CAP open PSM=$psm secure=$secure",
+                uuid = null,
+                status = null,
+            ),
+        )
 
         return withContext(peripheralContext.dispatcher) {
-            val socket = withContext(Dispatchers.IO) {
-                if (secure) {
-                    device.createL2capChannel(psm)
-                } else {
-                    device.createInsecureL2capChannel(psm)
+            val socket =
+                withContext(Dispatchers.IO) {
+                    if (secure) {
+                        device.createL2capChannel(psm)
+                    } else {
+                        device.createInsecureL2capChannel(psm)
+                    }
                 }
-            }
 
             try {
                 withContext(Dispatchers.IO) {
                     withTimeout(L2CAP_OPEN_TIMEOUT) {
                         suspendCancellableCoroutine { cont ->
                             cont.invokeOnCancellation {
-                                try { socket.close() } catch (_: IOException) { }
+                                try {
+                                    socket.close()
+                                } catch (_: IOException) {
+                                }
                             }
                             try {
                                 socket.connect()
                                 cont.resume(Unit)
                             } catch (e: IOException) {
-                                try { socket.close() } catch (_: IOException) { }
+                                try {
+                                    socket.close()
+                                } catch (_: IOException) {
+                                }
                                 cont.resumeWithException(
                                     L2capException.OpenFailed(psm, "Failed to connect: ${e.message}", e),
                                 )
@@ -770,21 +826,35 @@ public class AndroidPeripheral internal constructor(
                     }
                 }
 
-                logEvent(BleLogEvent.GattOperation(
-                    identifier, "L2CAP opened PSM=$psm mtu=${channel.mtu}", uuid = null, status = null,
-                ))
+                logEvent(
+                    BleLogEvent.GattOperation(
+                        identifier,
+                        "L2CAP opened PSM=$psm mtu=${channel.mtu}",
+                        uuid = null,
+                        status = null,
+                    ),
+                )
 
                 channel
             } catch (e: L2capException) {
                 throw e
             } catch (e: CancellationException) {
-                try { socket.close() } catch (_: IOException) { }
+                try {
+                    socket.close()
+                } catch (_: IOException) {
+                }
                 throw L2capException.OpenFailed(psm, "Connection timed out", e)
             } catch (e: IOException) {
-                try { socket.close() } catch (_: IOException) { }
+                try {
+                    socket.close()
+                } catch (_: IOException) {
+                }
                 throw L2capException.OpenFailed(psm, e.message ?: "Unknown error", e)
             } catch (e: SecurityException) {
-                try { socket.close() } catch (_: IOException) { }
+                try {
+                    socket.close()
+                } catch (_: IOException) {
+                }
                 throw L2capException.OpenFailed(psm, "Missing BLUETOOTH_CONNECT permission", e)
             }
         }
@@ -793,9 +863,14 @@ public class AndroidPeripheral internal constructor(
     private fun closeL2capChannels() {
         val channels = activeL2capChannels.getAndUpdate { emptyList() }
         if (channels.isNotEmpty()) {
-            logEvent(BleLogEvent.GattOperation(
-                identifier, "L2CAP closing ${channels.size} channel(s)", uuid = null, status = null,
-            ))
+            logEvent(
+                BleLogEvent.GattOperation(
+                    identifier,
+                    "L2CAP closing ${channels.size} channel(s)",
+                    uuid = null,
+                    status = null,
+                ),
+            )
         }
         channels.forEach { it.close() }
     }

@@ -20,27 +20,45 @@ import kotlin.uuid.Uuid
 
 @OptIn(ExperimentalUuidApi::class)
 public interface Peripheral : AutoCloseable {
-
     public val identifier: Identifier
 
     // --- Connection ---
     public suspend fun connect(options: ConnectionOptions = ConnectionOptions())
+
     public suspend fun disconnect()
+
     override fun close()
+
     public val state: StateFlow<State>
     public val bondState: StateFlow<BondState>
+
     @ExperimentalBleApi
     public fun removeBond(): BondRemovalResult
 
     // --- Discovery ---
     public val services: StateFlow<List<DiscoveredService>?>
+
     public suspend fun refreshServices(): List<DiscoveredService>
-    public fun findCharacteristic(serviceUuid: Uuid, characteristicUuid: Uuid): Characteristic?
-    public fun findDescriptor(serviceUuid: Uuid, characteristicUuid: Uuid, descriptorUuid: Uuid): Descriptor?
+
+    public fun findCharacteristic(
+        serviceUuid: Uuid,
+        characteristicUuid: Uuid,
+    ): Characteristic?
+
+    public fun findDescriptor(
+        serviceUuid: Uuid,
+        characteristicUuid: Uuid,
+        descriptorUuid: Uuid,
+    ): Descriptor?
 
     // --- GATT Operations ---
     public suspend fun read(characteristic: Characteristic): ByteArray
-    public suspend fun write(characteristic: Characteristic, data: ByteArray, writeType: WriteType)
+
+    public suspend fun write(
+        characteristic: Characteristic,
+        data: ByteArray,
+        writeType: WriteType,
+    )
 
     /**
      * Observe notifications/indications from a characteristic.
@@ -90,11 +108,17 @@ public interface Peripheral : AutoCloseable {
 
     // --- Descriptors ---
     public suspend fun readDescriptor(descriptor: Descriptor): ByteArray
-    public suspend fun writeDescriptor(descriptor: Descriptor, data: ByteArray)
+
+    public suspend fun writeDescriptor(
+        descriptor: Descriptor,
+        data: ByteArray,
+    )
 
     // --- Info ---
     public suspend fun readRssi(): Int
+
     public suspend fun requestMtu(mtu: Int): Int
+
     public val maximumWriteValueLength: StateFlow<Int>
 
     // --- L2CAP ---
@@ -143,5 +167,8 @@ public interface Peripheral : AutoCloseable {
      * @throws com.atruedev.kmpble.l2cap.L2capException.OpenFailed if channel cannot be opened
      * @throws com.atruedev.kmpble.l2cap.L2capException.NotSupported if L2CAP is not available
      */
-    public suspend fun openL2capChannel(psm: Int, secure: Boolean = true): L2capChannel
+    public suspend fun openL2capChannel(
+        psm: Int,
+        secure: Boolean = true,
+    ): L2capChannel
 }

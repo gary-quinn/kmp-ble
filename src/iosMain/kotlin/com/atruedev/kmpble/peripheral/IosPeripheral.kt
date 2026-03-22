@@ -1,10 +1,10 @@
 package com.atruedev.kmpble.peripheral
 
 import com.atruedev.kmpble.Identifier
+import com.atruedev.kmpble.bleDataFromNSData
 import com.atruedev.kmpble.connection.ConnectionOptions
 import com.atruedev.kmpble.connection.State
 import com.atruedev.kmpble.connection.internal.ConnectionEvent
-import com.atruedev.kmpble.error.BleError
 import com.atruedev.kmpble.error.ConnectionFailed
 import com.atruedev.kmpble.error.ConnectionLost
 import com.atruedev.kmpble.error.GattError
@@ -19,8 +19,8 @@ import com.atruedev.kmpble.gatt.internal.GattResult
 import com.atruedev.kmpble.gatt.internal.LargeWriteHandler
 import com.atruedev.kmpble.gatt.internal.ObservationEvent
 import com.atruedev.kmpble.gatt.internal.ObservationManager
-import com.atruedev.kmpble.gatt.internal.PersistedObservation
 import com.atruedev.kmpble.gatt.internal.PendingOperations
+import com.atruedev.kmpble.gatt.internal.PersistedObservation
 import com.atruedev.kmpble.gatt.internal.applyBackpressure
 import com.atruedev.kmpble.internal.CentralManagerProvider
 import com.atruedev.kmpble.internal.StateRestorationHandler
@@ -53,9 +53,8 @@ import platform.CoreBluetooth.CBDescriptor
 import platform.CoreBluetooth.CBL2CAPChannel
 import platform.CoreBluetooth.CBPeripheral
 import platform.CoreBluetooth.CBService
-import com.atruedev.kmpble.bleDataFromNSData
-import kotlin.concurrent.Volatile
 import platform.Foundation.NSData
+import kotlin.concurrent.Volatile
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
@@ -63,7 +62,6 @@ import kotlin.uuid.Uuid
 public class IosPeripheral(
     private val cbPeripheral: CBPeripheral,
 ) : Peripheral {
-
     override val identifier: Identifier = Identifier(cbPeripheral.identifier.UUIDString)
     private val peripheralContext = PeripheralContext(identifier)
     private val bridge = ApplePeripheralBridge(cbPeripheral)
@@ -90,14 +88,19 @@ public class IosPeripheral(
 
     @Volatile
     private var closed = false
+
     // Safe: all callbacks dispatched to peripheralContext.scope (limitedParallelism(1))
     private var pendingCharacteristicDiscovery = 0
-    private val reconnectionHandler = com.atruedev.kmpble.connection.internal.ReconnectionHandler(
-        scope = peripheralContext.scope,
-        stateFlow = peripheralContext.state,
-        connectAction = { opts -> connect(opts.copy(reconnectionStrategy = com.atruedev.kmpble.connection.ReconnectionStrategy.None)) },
-        onMaxAttemptsExhausted = { observationManager.onPermanentDisconnect() },
-    )
+    private val reconnectionHandler =
+        com.atruedev.kmpble.connection.internal.ReconnectionHandler(
+            scope = peripheralContext.scope,
+            stateFlow = peripheralContext.state,
+            connectAction = {
+                    opts ->
+                connect(opts.copy(reconnectionStrategy = com.atruedev.kmpble.connection.ReconnectionStrategy.None))
+            },
+            onMaxAttemptsExhausted = { observationManager.onPermanentDisconnect() },
+        )
 
     init {
         bridge.onEvent = { event -> handleBridgeEvent(event) }
@@ -125,23 +128,24 @@ public class IosPeripheral(
             // K/N limitation: didFailToConnectPeripheral shares signature with
             // didDisconnectPeripheral — only one override possible. Poll CBPeripheral.state
             // to detect connection failure early instead of waiting for the full timeout.
-            val failureDetector = peripheralContext.scope.launch {
-                while (connectionComplete?.isCompleted == false) {
-                    kotlinx.coroutines.delay(CONNECT_POLL_INTERVAL_MS)
-                    if (cbPeripheral.state == platform.CoreBluetooth.CBPeripheralStateDisconnected) {
-                        val deferred = connectionComplete ?: break
-                        if (!deferred.isCompleted) {
-                            peripheralContext.processEvent(
-                                ConnectionEvent.ConnectionLost(
-                                    ConnectionFailed("Connection failed (peripheral disconnected)")
+            val failureDetector =
+                peripheralContext.scope.launch {
+                    while (connectionComplete?.isCompleted == false) {
+                        kotlinx.coroutines.delay(CONNECT_POLL_INTERVAL_MS)
+                        if (cbPeripheral.state == platform.CoreBluetooth.CBPeripheralStateDisconnected) {
+                            val deferred = connectionComplete ?: break
+                            if (!deferred.isCompleted) {
+                                peripheralContext.processEvent(
+                                    ConnectionEvent.ConnectionLost(
+                                        ConnectionFailed("Connection failed (peripheral disconnected)"),
+                                    ),
                                 )
-                            )
-                            deferred.complete(Unit)
+                                deferred.complete(Unit)
+                            }
+                            break
                         }
-                        break
                     }
                 }
-            }
 
             try {
                 withTimeout(options.timeout) {
@@ -150,7 +154,7 @@ public class IosPeripheral(
             } catch (_: kotlinx.coroutines.TimeoutCancellationException) {
                 bridge.disconnect()
                 peripheralContext.processEvent(
-                    ConnectionEvent.ConnectionLost(ConnectionFailed("Connection timeout"))
+                    ConnectionEvent.ConnectionLost(ConnectionFailed("Connection timeout")),
                 )
             } finally {
                 failureDetector.cancel()
@@ -172,7 +176,7 @@ public class IosPeripheral(
                 withTimeout(DISCONNECT_TIMEOUT_MS) { disconnectComplete!!.await() }
             } catch (_: kotlinx.coroutines.TimeoutCancellationException) {
                 peripheralContext.processEvent(
-                    ConnectionEvent.ConnectionLost(OperationFailed("Disconnect timeout"))
+                    ConnectionEvent.ConnectionLost(OperationFailed("Disconnect timeout")),
                 )
             } finally {
                 disconnectComplete = null
@@ -183,7 +187,7 @@ public class IosPeripheral(
     @com.atruedev.kmpble.ExperimentalBleApi
     override fun removeBond(): com.atruedev.kmpble.bonding.BondRemovalResult {
         return com.atruedev.kmpble.bonding.BondRemovalResult.NotSupported(
-            "iOS does not support programmatic bond removal. Remove from Settings > Bluetooth."
+            "iOS does not support programmatic bond removal. Remove from Settings > Bluetooth.",
         )
     }
 
@@ -214,7 +218,10 @@ public class IosPeripheral(
         }
     }
 
-    override fun findCharacteristic(serviceUuid: Uuid, characteristicUuid: Uuid): Characteristic? {
+    override fun findCharacteristic(
+        serviceUuid: Uuid,
+        characteristicUuid: Uuid,
+    ): Characteristic? {
         return services.value
             ?.firstOrNull { it.uuid == serviceUuid }
             ?.characteristics
@@ -232,17 +239,21 @@ public class IosPeripheral(
 
     // --- Central manager connection callbacks ---
 
-    private fun handleConnectionCallback(connected: Boolean, error: platform.Foundation.NSError?) {
+    private fun handleConnectionCallback(
+        connected: Boolean,
+        error: platform.Foundation.NSError?,
+    ) {
         peripheralContext.scope.launch {
             if (connected) {
                 peripheralContext.processEvent(ConnectionEvent.LinkEstablished)
                 bridge.discoverServices()
             } else {
-                val bleError = if (error != null) {
-                    ConnectionFailed(error.localizedDescription, error.code.toInt())
-                } else {
-                    ConnectionLost("Disconnected")
-                }
+                val bleError =
+                    if (error != null) {
+                        ConnectionFailed(error.localizedDescription, error.code.toInt())
+                    } else {
+                        ConnectionLost("Disconnected")
+                    }
 
                 if (peripheralContext.state.value is State.Disconnecting.Requested) {
                     peripheralContext.processEvent(ConnectionEvent.ConnectionLost(bleError))
@@ -308,7 +319,7 @@ public class IosPeripheral(
                         pendingOps.rssiRead?.complete(event.rssi.intValue)
                     } else {
                         pendingOps.rssiRead?.completeExceptionally(
-                            Exception("readRSSI failed: ${event.error.localizedDescription}")
+                            Exception("readRSSI failed: ${event.error.localizedDescription}"),
                         )
                     }
                     pendingOps.rssiRead = null
@@ -324,12 +335,12 @@ public class IosPeripheral(
         if (event.error != null) {
             peripheralContext.processEvent(
                 ConnectionEvent.DiscoveryFailed(
-                    GattError("discoverServices", event.error.toGattStatus())
-                )
+                    GattError("discoverServices", event.error.toGattStatus()),
+                ),
             )
             connectionComplete?.complete(Unit)
             discoveryComplete?.completeExceptionally(
-                IllegalStateException("Service discovery failed: ${event.error.localizedDescription}")
+                IllegalStateException("Service discovery failed: ${event.error.localizedDescription}"),
             )
             return
         }
@@ -384,31 +395,37 @@ public class IosPeripheral(
 
     private fun CBService.toDiscoveredService(): DiscoveredService {
         val serviceUuid = uuidFrom(UUID.UUIDString)
-        val chars = characteristics?.filterIsInstance<CBCharacteristic>()?.map { cbChar ->
-            val charUuid = uuidFrom(cbChar.UUID.UUIDString)
-            val props = cbChar.properties.toInt()
-            val descs = mutableListOf<Descriptor>()
-            val char = Characteristic(
-                serviceUuid = serviceUuid,
-                uuid = charUuid,
-                properties = Characteristic.Properties(
-                    read = (props and CBCharacteristicPropertyRead.toInt()) != 0,
-                    write = (props and CBCharacteristicPropertyWrite.toInt()) != 0,
-                    writeWithoutResponse = (props and CBCharacteristicPropertyWriteWithoutResponse.toInt()) != 0,
-                    signedWrite = (props and CBCharacteristicPropertyAuthenticatedSignedWrites.toInt()) != 0,
-                    notify = (props and CBCharacteristicPropertyNotify.toInt()) != 0,
-                    indicate = (props and CBCharacteristicPropertyIndicate.toInt()) != 0,
-                ),
-                descriptors = descs,
-            )
-            nativeCharMap[char] = cbChar
-            cbChar.descriptors?.filterIsInstance<CBDescriptor>()?.forEach { cbDesc ->
-                val desc = Descriptor(char, uuidFrom(cbDesc.UUID.UUIDString))
-                descs.add(desc)
-                nativeDescMap[desc] = cbDesc
-            }
-            char
-        } ?: emptyList()
+        val chars =
+            characteristics?.filterIsInstance<CBCharacteristic>()?.map { cbChar ->
+                val charUuid = uuidFrom(cbChar.UUID.UUIDString)
+                val props = cbChar.properties.toInt()
+                val descs = mutableListOf<Descriptor>()
+                val char =
+                    Characteristic(
+                        serviceUuid = serviceUuid,
+                        uuid = charUuid,
+                        properties =
+                            Characteristic.Properties(
+                                read = (props and CBCharacteristicPropertyRead.toInt()) != 0,
+                                write =
+                                    (props and CBCharacteristicPropertyWrite.toInt()) != 0,
+                                writeWithoutResponse =
+                                    (props and CBCharacteristicPropertyWriteWithoutResponse.toInt()) != 0,
+                                signedWrite =
+                                    (props and CBCharacteristicPropertyAuthenticatedSignedWrites.toInt()) != 0,
+                                notify = (props and CBCharacteristicPropertyNotify.toInt()) != 0,
+                                indicate = (props and CBCharacteristicPropertyIndicate.toInt()) != 0,
+                            ),
+                        descriptors = descs,
+                    )
+                nativeCharMap[char] = cbChar
+                cbChar.descriptors?.filterIsInstance<CBDescriptor>()?.forEach { cbDesc ->
+                    val desc = Descriptor(char, uuidFrom(cbDesc.UUID.UUIDString))
+                    descs.add(desc)
+                    nativeDescMap[desc] = cbDesc
+                }
+                char
+            } ?: emptyList()
 
         return DiscoveredService(uuid = serviceUuid, characteristics = chars)
     }
@@ -446,7 +463,11 @@ public class IosPeripheral(
         }
     }
 
-    override suspend fun write(characteristic: Characteristic, data: ByteArray, writeType: WriteType) {
+    override suspend fun write(
+        characteristic: Characteristic,
+        data: ByteArray,
+        writeType: WriteType,
+    ) {
         checkNotClosed()
         LargeWriteHandler.validateForWriteType(data, maximumWriteValueLength.value, writeType)
 
@@ -560,7 +581,10 @@ public class IosPeripheral(
         }
     }
 
-    override suspend fun writeDescriptor(descriptor: Descriptor, data: ByteArray) {
+    override suspend fun writeDescriptor(
+        descriptor: Descriptor,
+        data: ByteArray,
+    ) {
         checkNotClosed()
         peripheralContext.gattQueue.enqueue {
             val native = requireNativeCbDesc(descriptor)
@@ -586,16 +610,20 @@ public class IosPeripheral(
         checkNotClosed()
         // iOS negotiates MTU automatically — no explicit request API.
         // Read the actual negotiated value from CoreBluetooth.
-        val actualMtu = cbPeripheral.maximumWriteValueLengthForType(
-            platform.CoreBluetooth.CBCharacteristicWriteWithResponse
-        ).toInt() + ATT_HEADER_SIZE
+        val actualMtu =
+            cbPeripheral.maximumWriteValueLengthForType(
+                platform.CoreBluetooth.CBCharacteristicWriteWithResponse,
+            ).toInt() + ATT_HEADER_SIZE
         peripheralContext.updateMtu(actualMtu)
         return actualMtu
     }
 
     // --- L2CAP ---
 
-    override suspend fun openL2capChannel(psm: Int, secure: Boolean): L2capChannel {
+    override suspend fun openL2capChannel(
+        psm: Int,
+        secure: Boolean,
+    ): L2capChannel {
         checkNotClosed()
         if (peripheralContext.state.value !is State.Connected) {
             throw L2capException.NotConnected("Peripheral is not connected (state: ${peripheralContext.state.value})")
@@ -611,9 +639,10 @@ public class IosPeripheral(
             bridge.openL2CAPChannel(psm.toUShort())
 
             try {
-                val cbChannel = withTimeout(L2CAP_OPEN_TIMEOUT_MS) {
-                    deferred.await()
-                }
+                val cbChannel =
+                    withTimeout(L2CAP_OPEN_TIMEOUT_MS) {
+                        deferred.await()
+                    }
                 val channel = IosL2capChannel(cbChannel, peripheralContext.scope)
                 activeL2capChannels.update { it + channel }
                 channel
@@ -639,13 +668,13 @@ public class IosPeripheral(
                 L2capException.OpenFailed(
                     psm = event.channel?.PSM?.toInt() ?: -1,
                     message = event.error.localizedDescription,
-                )
+                ),
             )
         } else if (event.channel != null) {
             deferred.complete(event.channel)
         } else {
             deferred.completeExceptionally(
-                L2capException.OpenFailed(psm = -1, message = "Channel is null with no error")
+                L2capException.OpenFailed(psm = -1, message = "Channel is null with no error"),
             )
         }
     }

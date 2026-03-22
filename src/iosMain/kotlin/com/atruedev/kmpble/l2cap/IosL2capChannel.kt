@@ -11,30 +11,29 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
-import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlin.coroutines.coroutineContext
 import platform.CoreBluetooth.CBL2CAPChannel
 import platform.Foundation.NSStreamStatusAtEnd
 import platform.Foundation.NSStreamStatusClosed
 import platform.Foundation.NSStreamStatusError
 import platform.Foundation.NSStreamStatusOpen
+import kotlin.coroutines.coroutineContext
 
 internal class IosL2capChannel(
     private val cbChannel: CBL2CAPChannel,
     private val scope: CoroutineScope,
 ) : L2capChannel {
-
     override val psm: Int = cbChannel.PSM.toInt()
 
     override val mtu: Int = DEFAULT_MTU
 
-    private val _isOpen = MutableStateFlow(true)
-    override val isOpen: Boolean get() = _isOpen.value
+    private val mutableIsOpen = MutableStateFlow(true)
+    override val isOpen: Boolean get() = mutableIsOpen.value
 
     private val dataChannel = Channel<ByteArray>(Channel.BUFFERED)
     override val incoming: Flow<ByteArray> = dataChannel.receiveAsFlow()
@@ -45,30 +44,32 @@ internal class IosL2capChannel(
         val inputOk = cbChannel.inputStream?.streamStatus == NSStreamStatusOpen
         val outputOk = cbChannel.outputStream?.streamStatus == NSStreamStatusOpen
         if (!inputOk || !outputOk) {
-            _isOpen.value = false
+            mutableIsOpen.value = false
             dataChannel.close()
         }
 
-        readJob = scope.launch(Dispatchers.Default) {
-            readLoop()
-        }
+        readJob =
+            scope.launch(Dispatchers.Default) {
+                readLoop()
+            }
     }
 
     private suspend fun readLoop() {
-        if (!_isOpen.value) return
+        if (!mutableIsOpen.value) return
 
-        val inputStream = cbChannel.inputStream ?: run {
-            _isOpen.value = false
-            dataChannel.close()
-            return
-        }
+        val inputStream =
+            cbChannel.inputStream ?: run {
+                mutableIsOpen.value = false
+                dataChannel.close()
+                return
+            }
 
         val bufferSize = READ_BUFFER_SIZE
         val buffer = ByteArray(bufferSize)
         var consecutiveIdlePolls = 0
 
         try {
-            while (_isOpen.value) {
+            while (mutableIsOpen.value) {
                 coroutineContext.ensureActive()
                 val status = inputStream.streamStatus
                 if (status == NSStreamStatusAtEnd || status == NSStreamStatusClosed || status == NSStreamStatusError) {
@@ -77,10 +78,11 @@ internal class IosL2capChannel(
 
                 if (inputStream.hasBytesAvailable) {
                     buffer.usePinned { pinned ->
-                        val bytesRead = inputStream.read(
-                            pinned.addressOf(0).reinterpret<UByteVar>(),
-                            bufferSize.toULong(),
-                        ).toInt()
+                        val bytesRead =
+                            inputStream.read(
+                                pinned.addressOf(0).reinterpret<UByteVar>(),
+                                bufferSize.toULong(),
+                            ).toInt()
 
                         when {
                             bytesRead > 0 -> dataChannel.send(buffer.copyOf(bytesRead))
@@ -94,7 +96,7 @@ internal class IosL2capChannel(
                 }
             }
         } finally {
-            if (_isOpen.compareAndSet(expect = true, update = false)) {
+            if (mutableIsOpen.compareAndSet(expect = true, update = false)) {
                 closeStreams()
                 dataChannel.close()
             }
@@ -102,25 +104,27 @@ internal class IosL2capChannel(
     }
 
     override suspend fun write(data: ByteArray) {
-        if (!_isOpen.value) {
+        if (!mutableIsOpen.value) {
             throw L2capException.ChannelClosed()
         }
 
-        val outputStream = cbChannel.outputStream
-            ?: throw L2capException.WriteFailed("Output stream not available")
+        val outputStream =
+            cbChannel.outputStream
+                ?: throw L2capException.WriteFailed("Output stream not available")
 
         withContext(Dispatchers.Default) {
             data.usePinned { pinned ->
                 var totalWritten = 0
                 while (totalWritten < data.size) {
-                    if (!_isOpen.value) {
+                    if (!mutableIsOpen.value) {
                         throw L2capException.ChannelClosed("Channel closed during write")
                     }
 
-                    val written = outputStream.write(
-                        pinned.addressOf(totalWritten).reinterpret<UByteVar>(),
-                        (data.size - totalWritten).toULong(),
-                    ).toInt()
+                    val written =
+                        outputStream.write(
+                            pinned.addressOf(totalWritten).reinterpret<UByteVar>(),
+                            (data.size - totalWritten).toULong(),
+                        ).toInt()
 
                     if (written < 0) {
                         throw L2capException.WriteFailed(
@@ -138,16 +142,16 @@ internal class IosL2capChannel(
     }
 
     override fun close() {
-        if (!_isOpen.compareAndSet(expect = true, update = false)) return
+        if (!mutableIsOpen.compareAndSet(expect = true, update = false)) return
         readJob.cancel()
         closeStreams()
         dataChannel.close()
     }
 
-    private val _streamsClosed = MutableStateFlow(false)
+    private val streamsClosed = MutableStateFlow(false)
 
     private fun closeStreams() {
-        if (!_streamsClosed.compareAndSet(expect = false, update = true)) return
+        if (!streamsClosed.compareAndSet(expect = false, update = true)) return
         cbChannel.inputStream?.close()
         cbChannel.outputStream?.close()
     }

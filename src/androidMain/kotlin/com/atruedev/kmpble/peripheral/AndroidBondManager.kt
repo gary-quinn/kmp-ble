@@ -69,11 +69,14 @@ internal class AndroidBondManager(
         return try {
             val method = device.javaClass.getMethod("removeBond")
             val result = method.invoke(device) as? Boolean ?: false
-            if (result) BondRemovalResult.Success
-            else BondRemovalResult.Failed("removeBond() returned false")
+            if (result) {
+                BondRemovalResult.Success
+            } else {
+                BondRemovalResult.Failed("removeBond() returned false")
+            }
         } catch (e: NoSuchMethodException) {
             BondRemovalResult.NotSupported(
-                "removeBond() not available on this device. Remove bond from system Bluetooth settings."
+                "removeBond() not available on this device. Remove bond from system Bluetooth settings.",
             )
         } catch (e: Exception) {
             BondRemovalResult.Failed(e.message ?: "Unknown error")
@@ -81,12 +84,13 @@ internal class AndroidBondManager(
     }
 
     private fun updateFromDevice() {
-        val state = when (device.bondState) {
-            BluetoothDevice.BOND_BONDED -> BondState.Bonded
-            BluetoothDevice.BOND_BONDING -> BondState.Bonding
-            BluetoothDevice.BOND_NONE -> BondState.NotBonded
-            else -> BondState.Unknown
-        }
+        val state =
+            when (device.bondState) {
+                BluetoothDevice.BOND_BONDED -> BondState.Bonded
+                BluetoothDevice.BOND_BONDING -> BondState.Bonding
+                BluetoothDevice.BOND_NONE -> BondState.NotBonded
+                else -> BondState.Unknown
+            }
         peripheralContext.scope.launch {
             peripheralContext.updateBondState(state)
         }
@@ -95,48 +99,63 @@ internal class AndroidBondManager(
     private fun registerReceiver() {
         if (receiver != null) return
 
-        val bondReceiver = object : BroadcastReceiver() {
-            override fun onReceive(ctx: Context, intent: Intent) {
-                if (intent.action != BluetoothDevice.ACTION_BOND_STATE_CHANGED) return
+        val bondReceiver =
+            object : BroadcastReceiver() {
+                override fun onReceive(
+                    ctx: Context,
+                    intent: Intent,
+                ) {
+                    if (intent.action != BluetoothDevice.ACTION_BOND_STATE_CHANGED) return
 
-                val bondDevice = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE, BluetoothDevice::class.java)
-                if (bondDevice?.address != device.address) return
+                    val bondDevice =
+                        intent.getParcelableExtra(
+                            BluetoothDevice.EXTRA_DEVICE,
+                            BluetoothDevice::class.java,
+                        )
+                    if (bondDevice?.address != device.address) return
 
-                val state = intent.getIntExtra(BluetoothDevice.EXTRA_BOND_STATE, BluetoothDevice.BOND_NONE)
-                val previousState = intent.getIntExtra(BluetoothDevice.EXTRA_PREVIOUS_BOND_STATE, BluetoothDevice.BOND_NONE)
+                    val state = intent.getIntExtra(BluetoothDevice.EXTRA_BOND_STATE, BluetoothDevice.BOND_NONE)
+                    val previousState =
+                        intent.getIntExtra(
+                            BluetoothDevice.EXTRA_PREVIOUS_BOND_STATE,
+                            BluetoothDevice.BOND_NONE,
+                        )
 
-                peripheralContext.scope.launch {
-                    when (state) {
-                        BluetoothDevice.BOND_BONDED -> {
-                            peripheralContext.updateBondState(BondState.Bonded)
-                            peripheralContext.processEvent(ConnectionEvent.BondSucceeded)
-                            bondComplete?.complete(true)
-                        }
-                        BluetoothDevice.BOND_BONDING -> {
-                            peripheralContext.updateBondState(BondState.Bonding)
-                        }
-                        BluetoothDevice.BOND_NONE -> {
-                            peripheralContext.updateBondState(BondState.NotBonded)
-                            if (previousState == BluetoothDevice.BOND_BONDING) {
-                                peripheralContext.processEvent(
-                                    ConnectionEvent.BondFailed(
-                                        com.atruedev.kmpble.error.ConnectionFailed(reason = "Bonding failed")
+                    peripheralContext.scope.launch {
+                        when (state) {
+                            BluetoothDevice.BOND_BONDED -> {
+                                peripheralContext.updateBondState(BondState.Bonded)
+                                peripheralContext.processEvent(ConnectionEvent.BondSucceeded)
+                                bondComplete?.complete(true)
+                            }
+                            BluetoothDevice.BOND_BONDING -> {
+                                peripheralContext.updateBondState(BondState.Bonding)
+                            }
+                            BluetoothDevice.BOND_NONE -> {
+                                peripheralContext.updateBondState(BondState.NotBonded)
+                                if (previousState == BluetoothDevice.BOND_BONDING) {
+                                    peripheralContext.processEvent(
+                                        ConnectionEvent.BondFailed(
+                                            com.atruedev.kmpble.error.ConnectionFailed(reason = "Bonding failed"),
+                                        ),
                                     )
-                                )
-                                bondComplete?.complete(false)
-                            } else {
-                                peripheralContext.processEvent(ConnectionEvent.BondStateChanged)
+                                    bondComplete?.complete(false)
+                                } else {
+                                    peripheralContext.processEvent(ConnectionEvent.BondStateChanged)
+                                }
                             }
                         }
                     }
                 }
             }
-        }
 
         receiver = bondReceiver
         val filter = IntentFilter(BluetoothDevice.ACTION_BOND_STATE_CHANGED)
         androidx.core.content.ContextCompat.registerReceiver(
-            context, bondReceiver, filter, androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED
+            context,
+            bondReceiver,
+            filter,
+            androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED,
         )
     }
 

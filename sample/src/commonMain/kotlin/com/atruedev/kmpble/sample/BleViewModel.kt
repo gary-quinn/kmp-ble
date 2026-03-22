@@ -15,8 +15,8 @@ import com.atruedev.kmpble.gatt.Observation
 import com.atruedev.kmpble.gatt.WriteType
 import com.atruedev.kmpble.peripheral.Peripheral
 import com.atruedev.kmpble.peripheral.dump
-import com.atruedev.kmpble.scanner.Advertisement
 import com.atruedev.kmpble.peripheral.toPeripheral
+import com.atruedev.kmpble.scanner.Advertisement
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -31,7 +31,6 @@ import kotlinx.coroutines.launch
  * cancels coroutines and disconnects — without this, GATT connections leak.
  */
 class BleViewModel(advertisement: Advertisement) : ViewModel() {
-
     private val peripheral: Peripheral = advertisement.toPeripheral()
 
     val connectionState: StateFlow<State> = peripheral.state
@@ -67,9 +66,10 @@ class BleViewModel(advertisement: Advertisement) : ViewModel() {
             try {
                 _benchmarkResult.value = "Benchmarking connect..."
                 peripheral.disconnect()
-                val result = bleStopwatch("connect") {
-                    peripheral.connect(options.copy(pairingHandler = pairing.handler))
-                }
+                val result =
+                    bleStopwatch("connect") {
+                        peripheral.connect(options.copy(pairingHandler = pairing.handler))
+                    }
                 _benchmarkResult.value = "Connect: ${result.duration}"
             } catch (e: Exception) {
                 _benchmarkResult.value = "Error: ${formatError(e)}"
@@ -78,7 +78,10 @@ class BleViewModel(advertisement: Advertisement) : ViewModel() {
     }
 
     @OptIn(ExperimentalBleApi::class)
-    fun benchmarkReads(characteristic: Characteristic, count: Int = 10) {
+    fun benchmarkReads(
+        characteristic: Characteristic,
+        count: Int = 10,
+    ) {
         viewModelScope.launch {
             try {
                 _benchmarkResult.value = "Reading $count times..."
@@ -111,7 +114,10 @@ class BleViewModel(advertisement: Advertisement) : ViewModel() {
         launchWithErrorHandling { peripheral.disconnect() }
     }
 
-    fun readCharacteristic(characteristic: Characteristic, onResult: (Result<ByteArray>) -> Unit) {
+    fun readCharacteristic(
+        characteristic: Characteristic,
+        onResult: (Result<ByteArray>) -> Unit,
+    ) {
         viewModelScope.launch {
             onResult(runCatching { peripheral.read(characteristic) })
         }
@@ -139,11 +145,12 @@ class BleViewModel(advertisement: Advertisement) : ViewModel() {
     @OptIn(ExperimentalBleApi::class)
     fun removeBond() {
         val result = peripheral.removeBond()
-        _error.value = when (result) {
-            is BondRemovalResult.Success -> null
-            is BondRemovalResult.NotSupported -> result.message
-            is BondRemovalResult.Failed -> result.reason
-        }
+        _error.value =
+            when (result) {
+                is BondRemovalResult.Success -> null
+                is BondRemovalResult.NotSupported -> result.message
+                is BondRemovalResult.Failed -> result.reason
+            }
     }
 
     fun clearError() {

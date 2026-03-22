@@ -19,11 +19,13 @@ import kotlin.concurrent.Volatile
  *    expect/actual declarations or making this function suspend
  */
 internal object PeripheralRegistry {
-
     @Volatile
     private var registry = mapOf<Identifier, Peripheral>()
 
-    internal fun getOrCreate(identifier: Identifier, factory: () -> Peripheral): Peripheral {
+    internal fun getOrCreate(
+        identifier: Identifier,
+        factory: () -> Peripheral,
+    ): Peripheral {
         registry[identifier]?.let { return it }
         val peripheral = factory()
         registry = registry + (identifier to peripheral)

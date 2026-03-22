@@ -25,11 +25,17 @@ import kotlin.uuid.Uuid
  */
 @OptIn(ExperimentalUuidApi::class)
 public object ServiceUuid {
-
     private val _all = mutableListOf<Uuid>()
     private var frozen = false
-    private fun register(uuid: Uuid): Uuid { check(!frozen) { "Add new UUIDs above ALL" }; _all += uuid; return uuid }
+
+    private fun register(uuid: Uuid): Uuid {
+        check(!frozen) { "Add new UUIDs above ALL" }
+        _all += uuid
+        return uuid
+    }
+
     private fun sig(shortCode: String): Uuid = register(uuidFrom(shortCode))
+
     private fun vendor(fullUuid: String): Uuid = register(uuidFrom(fullUuid))
 
     public val GENERIC_ACCESS: Uuid = sig("1800")

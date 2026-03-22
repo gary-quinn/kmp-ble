@@ -1,15 +1,15 @@
 package com.atruedev.kmpble.peripheral
 
 import com.atruedev.kmpble.error.GattStatus
-import platform.CoreBluetooth.CBATTErrorSuccess
 import platform.CoreBluetooth.CBATTErrorInsufficientAuthentication
-import platform.CoreBluetooth.CBATTErrorInsufficientEncryption
 import platform.CoreBluetooth.CBATTErrorInsufficientAuthorization
-import platform.CoreBluetooth.CBATTErrorInvalidOffset
+import platform.CoreBluetooth.CBATTErrorInsufficientEncryption
 import platform.CoreBluetooth.CBATTErrorInvalidAttributeValueLength
+import platform.CoreBluetooth.CBATTErrorInvalidOffset
 import platform.CoreBluetooth.CBATTErrorReadNotPermitted
-import platform.CoreBluetooth.CBATTErrorWriteNotPermitted
 import platform.CoreBluetooth.CBATTErrorRequestNotSupported
+import platform.CoreBluetooth.CBATTErrorSuccess
+import platform.CoreBluetooth.CBATTErrorWriteNotPermitted
 import platform.Foundation.NSError
 
 internal fun NSError?.toGattStatus(): GattStatus {

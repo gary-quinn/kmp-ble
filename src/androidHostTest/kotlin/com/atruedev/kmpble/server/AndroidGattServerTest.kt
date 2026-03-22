@@ -9,7 +9,6 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class AndroidGattServerTest {
-
     // =========================================================================
     // Properties mapping
     // =========================================================================
@@ -46,14 +45,16 @@ class AndroidGattServerTest {
 
     @Test
     fun `properties combine multiple flags correctly`() {
-        val props = ServerCharacteristic.Properties(
-            read = true,
-            write = true,
-            notify = true,
-        )
-        val expected = BluetoothGattCharacteristic.PROPERTY_READ or
-            BluetoothGattCharacteristic.PROPERTY_WRITE or
-            BluetoothGattCharacteristic.PROPERTY_NOTIFY
+        val props =
+            ServerCharacteristic.Properties(
+                read = true,
+                write = true,
+                notify = true,
+            )
+        val expected =
+            BluetoothGattCharacteristic.PROPERTY_READ or
+                BluetoothGattCharacteristic.PROPERTY_WRITE or
+                BluetoothGattCharacteristic.PROPERTY_NOTIFY
         assertEquals(expected, props.toAndroidProperties())
     }
 
@@ -93,12 +94,14 @@ class AndroidGattServerTest {
 
     @Test
     fun `permissions combine multiple flags correctly`() {
-        val perms = ServerCharacteristic.Permissions(
-            read = true,
-            write = true,
-        )
-        val expected = BluetoothGattCharacteristic.PERMISSION_READ or
-            BluetoothGattCharacteristic.PERMISSION_WRITE
+        val perms =
+            ServerCharacteristic.Permissions(
+                read = true,
+                write = true,
+            )
+        val expected =
+            BluetoothGattCharacteristic.PERMISSION_READ or
+                BluetoothGattCharacteristic.PERMISSION_WRITE
         assertEquals(expected, perms.toAndroidPermissions())
     }
 
@@ -159,13 +162,14 @@ class AndroidGattServerTest {
 
     @Test
     fun `all properties set produces correct combined flags`() {
-        val props = ServerCharacteristic.Properties(
-            read = true,
-            write = true,
-            writeWithoutResponse = true,
-            notify = true,
-            indicate = true,
-        )
+        val props =
+            ServerCharacteristic.Properties(
+                read = true,
+                write = true,
+                writeWithoutResponse = true,
+                notify = true,
+                indicate = true,
+            )
         val flags = props.toAndroidProperties()
         assertTrue(flags and BluetoothGattCharacteristic.PROPERTY_READ != 0)
         assertTrue(flags and BluetoothGattCharacteristic.PROPERTY_WRITE != 0)

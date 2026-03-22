@@ -11,7 +11,6 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
 internal class GattOperationQueue(private val scope: CoroutineScope) {
-
     private class QueueEntry(
         val action: suspend () -> Unit,
         val cancel: (Throwable) -> Unit,
@@ -26,15 +25,16 @@ internal class GattOperationQueue(private val scope: CoroutineScope) {
     fun start() {
         drainJob?.cancel()
         accepting = true
-        drainJob = scope.launch {
-            for (entry in channel) {
-                if (!accepting) {
-                    entry.cancel(NotConnectedException())
-                    continue
+        drainJob =
+            scope.launch {
+                for (entry in channel) {
+                    if (!accepting) {
+                        entry.cancel(NotConnectedException())
+                        continue
+                    }
+                    entry.action()
                 }
-                entry.action()
             }
-        }
     }
 
     suspend fun <T> enqueue(
@@ -44,16 +44,17 @@ internal class GattOperationQueue(private val scope: CoroutineScope) {
         if (!accepting) throw NotConnectedException()
 
         val deferred = CompletableDeferred<T>()
-        val entry = QueueEntry(
-            action = {
-                try {
-                    deferred.complete(block())
-                } catch (e: Throwable) {
-                    deferred.completeExceptionally(e)
-                }
-            },
-            cancel = { deferred.completeExceptionally(it) },
-        )
+        val entry =
+            QueueEntry(
+                action = {
+                    try {
+                        deferred.complete(block())
+                    } catch (e: Throwable) {
+                        deferred.completeExceptionally(e)
+                    }
+                },
+                cancel = { deferred.completeExceptionally(it) },
+            )
         channel.send(entry)
 
         return withTimeout(timeout) {
