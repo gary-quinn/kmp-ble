@@ -15,6 +15,14 @@ _Changes on `main` that have not yet been tagged for release._
 
 ---
 
+## [0.2.2] - 2026-03-22
+
+### Fixed
+- fix: use project.exec in assembleXCFramework task
+
+
+---
+
 ## [0.1.10] - 2026-03-21
 
 ### Changed
@@ -178,7 +186,8 @@ _Changes on `main` that have not yet been tagged for release._
 
 ---
 
-[Unreleased]: https://github.com/atruedeveloper/kmp-ble/compare/v0.1.10...HEAD
+[Unreleased]: https://github.com/atruedeveloper/kmp-ble/compare/v0.2.2...HEAD
+[0.2.2]: https://github.com/atruedeveloper/kmp-ble/compare/v0.2.1...v0.2.2
 [0.1.10]: https://github.com/atruedeveloper/kmp-ble/compare/v0.1.9...v0.1.10
 [0.1.9]: https://github.com/atruedeveloper/kmp-ble/compare/v0.1.8-alpha2...v0.1.9
 [0.1.8]: https://github.com/atruedeveloper/kmp-ble/compare/v0.1.8-alpha2...v0.1.8
