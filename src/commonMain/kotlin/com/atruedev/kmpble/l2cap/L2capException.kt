@@ -4,7 +4,6 @@ package com.atruedev.kmpble.l2cap
  * Exception thrown when L2CAP operations fail.
  */
 public sealed class L2capException(message: String, cause: Throwable? = null) : Exception(message, cause) {
-
     /**
      * Failed to open L2CAP channel.
      */

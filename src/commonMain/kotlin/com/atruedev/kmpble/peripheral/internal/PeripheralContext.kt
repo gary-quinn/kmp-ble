@@ -24,11 +24,11 @@ import kotlin.time.Duration
 import kotlin.time.TimeSource
 
 internal class PeripheralContext(val identifier: Identifier) {
-
     val dispatcher: CoroutineDispatcher = Dispatchers.Default.limitedParallelism(1)
-    val scope = CoroutineScope(
-        SupervisorJob() + dispatcher + CoroutineName("Peripheral/${identifier.value}")
-    )
+    val scope =
+        CoroutineScope(
+            SupervisorJob() + dispatcher + CoroutineName("Peripheral/${identifier.value}"),
+        )
 
     private val _state = MutableStateFlow(State.Disconnected.ByRequest as State)
     val state: StateFlow<State> = _state.asStateFlow()
@@ -60,48 +60,52 @@ internal class PeripheralContext(val identifier: Identifier) {
      * Logs [BleLogEvent.StateTransition] with the duration spent in the previous state,
      * enabling connection timeline analysis.
      */
-    suspend fun processEvent(event: ConnectionEvent): State = withContext(dispatcher) {
-        check(!closed) { "PeripheralContext is closed" }
+    suspend fun processEvent(event: ConnectionEvent): State =
+        withContext(dispatcher) {
+            check(!closed) { "PeripheralContext is closed" }
 
-        val previousState = _state.value
-        val result = StateMachine.transition(previousState, event)
-        if (!result.valid) {
-            return@withContext previousState
-        }
+            val previousState = _state.value
+            val result = StateMachine.transition(previousState, event)
+            if (!result.valid) {
+                return@withContext previousState
+            }
 
-        val now = TimeSource.Monotonic.markNow()
-        val durationInPrevious = stateEnteredAt?.let { now - it } ?: Duration.ZERO
-        stateEnteredAt = now
+            val now = TimeSource.Monotonic.markNow()
+            val durationInPrevious = stateEnteredAt?.let { now - it } ?: Duration.ZERO
+            stateEnteredAt = now
 
-        _state.value = result.newState
-        logEvent(
-            BleLogEvent.StateTransition(
-                identifier = identifier,
-                from = previousState,
-                to = result.newState,
-                durationInPreviousState = durationInPrevious,
+            _state.value = result.newState
+            logEvent(
+                BleLogEvent.StateTransition(
+                    identifier = identifier,
+                    from = previousState,
+                    to = result.newState,
+                    durationInPreviousState = durationInPrevious,
+                ),
             )
-        )
 
-        if (result.newState is State.Disconnected) {
-            gattQueue.drain()
-            _services.value = null
+            if (result.newState is State.Disconnected) {
+                gattQueue.drain()
+                _services.value = null
+            }
+
+            result.newState
         }
 
-        result.newState
-    }
+    suspend fun updateServices(discovered: List<DiscoveredService>) =
+        withContext(dispatcher) {
+            _services.value = discovered
+        }
 
-    suspend fun updateServices(discovered: List<DiscoveredService>) = withContext(dispatcher) {
-        _services.value = discovered
-    }
+    suspend fun updateBondState(state: BondState) =
+        withContext(dispatcher) {
+            _bondState.value = state
+        }
 
-    suspend fun updateBondState(state: BondState) = withContext(dispatcher) {
-        _bondState.value = state
-    }
-
-    suspend fun updateMtu(mtu: Int) = withContext(dispatcher) {
-        _maximumWriteValueLength.value = (mtu - ATT_HEADER_SIZE).coerceAtLeast(DEFAULT_ATT_MTU - ATT_HEADER_SIZE)
-    }
+    suspend fun updateMtu(mtu: Int) =
+        withContext(dispatcher) {
+            _maximumWriteValueLength.value = (mtu - ATT_HEADER_SIZE).coerceAtLeast(DEFAULT_ATT_MTU - ATT_HEADER_SIZE)
+        }
 
     /** Terminal — non-suspend for ViewModel.onCleared() / deinit. Idempotent. */
     fun close() {

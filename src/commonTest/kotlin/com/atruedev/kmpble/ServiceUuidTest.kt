@@ -8,7 +8,6 @@ import kotlin.uuid.ExperimentalUuidApi
 
 @OptIn(ExperimentalUuidApi::class)
 class ServiceUuidTest {
-
     @Test
     fun heartRateUuidMatchesSigSpec() {
         assertEquals("0000180d-0000-1000-8000-00805f9b34fb", ServiceUuid.HEART_RATE.toString())

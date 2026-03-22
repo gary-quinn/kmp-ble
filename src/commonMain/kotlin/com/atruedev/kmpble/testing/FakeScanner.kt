@@ -2,7 +2,6 @@ package com.atruedev.kmpble.testing
 
 import com.atruedev.kmpble.BleData
 import com.atruedev.kmpble.Identifier
-import com.atruedev.kmpble.emptyBleData
 import com.atruedev.kmpble.connection.Phy
 import com.atruedev.kmpble.scanner.Advertisement
 import com.atruedev.kmpble.scanner.DataStatus
@@ -10,7 +9,6 @@ import com.atruedev.kmpble.scanner.Scanner
 import com.atruedev.kmpble.scanner.uuidFrom
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.flow
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
@@ -39,19 +37,19 @@ import kotlin.uuid.Uuid
 public class FakeScanner internal constructor(
     private val fakeAdvertisements: List<Advertisement>,
 ) : Scanner {
+    private val dynamicAdvertisements = MutableSharedFlow<Advertisement>(extraBufferCapacity = 64)
 
-    private val _dynamicAdvertisements = MutableSharedFlow<Advertisement>(extraBufferCapacity = 64)
-
-    override val advertisements: Flow<Advertisement> = flow {
-        for (ad in fakeAdvertisements) {
-            emit(ad)
+    override val advertisements: Flow<Advertisement> =
+        flow {
+            for (ad in fakeAdvertisements) {
+                emit(ad)
+            }
+            dynamicAdvertisements.collect { emit(it) }
         }
-        _dynamicAdvertisements.collect { emit(it) }
-    }
 
     /** Emit an advertisement dynamically after construction. */
     public fun emit(advertisement: Advertisement) {
-        _dynamicAdvertisements.tryEmit(advertisement)
+        dynamicAdvertisements.tryEmit(advertisement)
     }
 
     override fun close() {
@@ -72,7 +70,7 @@ public class FakeScannerBuilder {
 
 @OptIn(ExperimentalUuidApi::class)
 public class FakeAdvertisementBuilder {
-    private var identifier: String = "fake-${_counter++}"
+    private var identifier: String = "fake-${counter++}"
     private var name: String? = null
     private var rssi: Int = -60
     private var txPower: Int? = null
@@ -87,17 +85,49 @@ public class FakeAdvertisementBuilder {
     private var periodicAdvertisingInterval: Int? = null
     private var dataStatus: DataStatus = DataStatus.Complete
 
-    public fun identifier(value: String) { identifier = value }
-    public fun name(value: String) { name = value }
-    public fun rssi(value: Int) { rssi = value }
-    public fun txPower(value: Int) { txPower = value }
-    public fun isConnectable(value: Boolean) { isConnectable = value }
-    public fun isLegacy(value: Boolean) { isLegacy = value }
-    public fun primaryPhy(value: Phy) { primaryPhy = value }
-    public fun secondaryPhy(value: Phy) { secondaryPhy = value }
-    public fun advertisingSid(value: Int) { advertisingSid = value }
-    public fun periodicAdvertisingInterval(value: Int) { periodicAdvertisingInterval = value }
-    public fun dataStatus(value: DataStatus) { dataStatus = value }
+    public fun identifier(value: String) {
+        identifier = value
+    }
+
+    public fun name(value: String) {
+        name = value
+    }
+
+    public fun rssi(value: Int) {
+        rssi = value
+    }
+
+    public fun txPower(value: Int) {
+        txPower = value
+    }
+
+    public fun isConnectable(value: Boolean) {
+        isConnectable = value
+    }
+
+    public fun isLegacy(value: Boolean) {
+        isLegacy = value
+    }
+
+    public fun primaryPhy(value: Phy) {
+        primaryPhy = value
+    }
+
+    public fun secondaryPhy(value: Phy) {
+        secondaryPhy = value
+    }
+
+    public fun advertisingSid(value: Int) {
+        advertisingSid = value
+    }
+
+    public fun periodicAdvertisingInterval(value: Int) {
+        periodicAdvertisingInterval = value
+    }
+
+    public fun dataStatus(value: DataStatus) {
+        dataStatus = value
+    }
 
     public fun serviceUuids(vararg uuids: String) {
         serviceUuids = uuids.map { uuidFrom(it) }
@@ -107,34 +137,41 @@ public class FakeAdvertisementBuilder {
         serviceUuids = uuids.toList()
     }
 
-    public fun manufacturerData(companyId: Int, data: BleData) {
+    public fun manufacturerData(
+        companyId: Int,
+        data: BleData,
+    ) {
         manufacturerData = manufacturerData + (companyId to data)
     }
 
-    public fun serviceData(uuid: String, data: BleData) {
+    public fun serviceData(
+        uuid: String,
+        data: BleData,
+    ) {
         serviceData = serviceData + (uuidFrom(uuid) to data)
     }
 
-    internal fun build(): Advertisement = Advertisement(
-        identifier = Identifier(identifier),
-        name = name,
-        rssi = rssi,
-        txPower = txPower,
-        isConnectable = isConnectable,
-        serviceUuids = serviceUuids,
-        manufacturerData = manufacturerData,
-        serviceData = serviceData,
-        timestampNanos = 0L,
-        isLegacy = isLegacy,
-        primaryPhy = primaryPhy,
-        secondaryPhy = secondaryPhy,
-        advertisingSid = advertisingSid,
-        periodicAdvertisingInterval = periodicAdvertisingInterval,
-        dataStatus = dataStatus,
-    )
+    internal fun build(): Advertisement =
+        Advertisement(
+            identifier = Identifier(identifier),
+            name = name,
+            rssi = rssi,
+            txPower = txPower,
+            isConnectable = isConnectable,
+            serviceUuids = serviceUuids,
+            manufacturerData = manufacturerData,
+            serviceData = serviceData,
+            timestampNanos = 0L,
+            isLegacy = isLegacy,
+            primaryPhy = primaryPhy,
+            secondaryPhy = secondaryPhy,
+            advertisingSid = advertisingSid,
+            periodicAdvertisingInterval = periodicAdvertisingInterval,
+            dataStatus = dataStatus,
+        )
 
     private companion object {
-        private var _counter = 0
+        private var counter = 0
     }
 }
 

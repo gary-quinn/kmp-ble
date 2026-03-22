@@ -18,7 +18,6 @@ import java.util.concurrent.atomic.AtomicBoolean
 internal class FakeL2capSocket(
     override val maxTransmitPacketSize: Int = 672,
 ) : L2capSocket {
-
     private val _isConnected = AtomicBoolean(true)
     override val isConnected: Boolean get() = _isConnected.get()
 
@@ -45,7 +44,10 @@ internal class FakeL2capSocket(
      */
     fun simulateRemoteClose() {
         _isConnected.set(false)
-        try { remoteToLocal.close() } catch (_: IOException) { }
+        try {
+            remoteToLocal.close()
+        } catch (_: IOException) {
+        }
     }
 
     fun simulateDisconnect() {
@@ -55,9 +57,21 @@ internal class FakeL2capSocket(
     override fun close() {
         if (!closed.compareAndSet(false, true)) return
         _isConnected.set(false)
-        try { localInput.close() } catch (_: IOException) { }
-        try { localToRemote.close() } catch (_: IOException) { }
-        try { remoteToLocal.close() } catch (_: IOException) { }
-        try { remoteCapture.close() } catch (_: IOException) { }
+        try {
+            localInput.close()
+        } catch (_: IOException) {
+        }
+        try {
+            localToRemote.close()
+        } catch (_: IOException) {
+        }
+        try {
+            remoteToLocal.close()
+        } catch (_: IOException) {
+        }
+        try {
+            remoteCapture.close()
+        } catch (_: IOException) {
+        }
     }
 }

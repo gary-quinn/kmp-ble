@@ -1,7 +1,6 @@
 package com.atruedev.kmpble.testing
 
 import com.atruedev.kmpble.ExperimentalBleApi
-import com.atruedev.kmpble.server.AdvertiserException
 import com.atruedev.kmpble.server.ExtendedAdvertiseConfig
 import com.atruedev.kmpble.server.ExtendedAdvertiser
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,7 +21,6 @@ import kotlinx.coroutines.flow.update
  */
 @ExperimentalBleApi
 public class FakeExtendedAdvertiser : ExtendedAdvertiser {
-
     private val _activeSets = MutableStateFlow<Set<Int>>(emptySet())
     override val activeSets: StateFlow<Set<Int>> = _activeSets.asStateFlow()
 

@@ -4,8 +4,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import platform.CoreBluetooth.CBATTRequest
-import platform.CoreBluetooth.CBCharacteristic
 import platform.CoreBluetooth.CBCentral
+import platform.CoreBluetooth.CBCharacteristic
 import platform.CoreBluetooth.CBPeripheralManager
 import platform.CoreBluetooth.CBPeripheralManagerDelegateProtocol
 import platform.CoreBluetooth.CBPeripheralManagerStateUnknown
@@ -26,7 +26,6 @@ import kotlin.concurrent.Volatile
  * Server and advertiser register their callbacks as needed.
  */
 internal class IosPeripheralManagerDelegate : NSObject(), CBPeripheralManagerDelegateProtocol {
-
     private val _managerState = MutableStateFlow<Long>(CBPeripheralManagerStateUnknown)
     internal val managerState: StateFlow<Long> = _managerState.asStateFlow()
 

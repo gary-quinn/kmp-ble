@@ -1,7 +1,6 @@
 package com.atruedev.kmpble
 
 import com.atruedev.kmpble.adapter.BluetoothAdapter
-import com.atruedev.kmpble.peripheral.toPeripheral
 import com.atruedev.kmpble.permissions.PermissionResult
 import com.atruedev.kmpble.permissions.checkBlePermissions
 import com.atruedev.kmpble.scanner.Scanner
@@ -12,7 +11,6 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 
 class JvmStubTest {
-
     @Test
     fun scannerThrowsOnJvm() {
         assertFailsWith<UnsupportedOperationException> { Scanner {} }

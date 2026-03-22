@@ -35,7 +35,6 @@ import kotlinx.coroutines.flow.Flow
  * - [incoming] flow completes when channel closes
  */
 public interface L2capChannel : AutoCloseable {
-
     /**
      * The MTU (Maximum Transmission Unit) for this channel.
      *

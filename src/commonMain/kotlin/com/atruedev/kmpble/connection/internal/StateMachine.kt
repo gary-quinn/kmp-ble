@@ -1,23 +1,26 @@
 package com.atruedev.kmpble.connection.internal
 
 import com.atruedev.kmpble.connection.State
-import com.atruedev.kmpble.connection.State.*
+import com.atruedev.kmpble.connection.State.Connected
+import com.atruedev.kmpble.connection.State.Connecting
+import com.atruedev.kmpble.connection.State.Disconnected
+import com.atruedev.kmpble.connection.State.Disconnecting
 import com.atruedev.kmpble.error.BleError
 import com.atruedev.kmpble.error.OperationFailed
 import kotlin.reflect.KClass
 
 internal object StateMachine {
-
     private val errorFallback = OperationFailed("Unknown error")
 
-    private fun ConnectionEvent.extractError(): BleError = when (this) {
-        is ConnectionEvent.BondFailed -> error ?: errorFallback
-        is ConnectionEvent.DiscoveryFailed -> error ?: errorFallback
-        is ConnectionEvent.ConfigurationFailed -> error ?: errorFallback
-        is ConnectionEvent.ConnectionLost -> error ?: errorFallback
-        is ConnectionEvent.RediscoveryFailed -> error ?: errorFallback
-        else -> errorFallback
-    }
+    private fun ConnectionEvent.extractError(): BleError =
+        when (this) {
+            is ConnectionEvent.BondFailed -> error ?: errorFallback
+            is ConnectionEvent.DiscoveryFailed -> error ?: errorFallback
+            is ConnectionEvent.ConfigurationFailed -> error ?: errorFallback
+            is ConnectionEvent.ConnectionLost -> error ?: errorFallback
+            is ConnectionEvent.RediscoveryFailed -> error ?: errorFallback
+            else -> errorFallback
+        }
 
     /**
      * Declarative transition table. Each entry maps (StateType, EventType) → resolver.
@@ -37,20 +40,45 @@ internal object StateMachine {
             // --- Connecting.Authenticating ---
             on<Connecting.Authenticating, ConnectionEvent.BondSucceeded> { _, _ -> Connecting.Discovering }
             on<Connecting.Authenticating, ConnectionEvent.BondFailed> { _, e -> Disconnected.ByError(e.extractError()) }
-            on<Connecting.Authenticating, ConnectionEvent.ConnectionLost> { _, e -> Disconnected.ByError(e.extractError()) }
+            on<Connecting.Authenticating, ConnectionEvent.ConnectionLost> {
+                    _,
+                    e,
+                ->
+                Disconnected.ByError(e.extractError())
+            }
             on<Connecting.Authenticating, ConnectionEvent.DisconnectRequested> { _, _ -> Disconnected.ByRequest }
 
             // --- Connecting.Discovering ---
             on<Connecting.Discovering, ConnectionEvent.ServicesDiscovered> { _, _ -> Connecting.Configuring }
-            on<Connecting.Discovering, ConnectionEvent.DiscoveryFailed> { _, e -> Disconnected.ByError(e.extractError()) }
-            on<Connecting.Discovering, ConnectionEvent.ConnectionLost> { _, e -> Disconnected.ByError(e.extractError()) }
+            on<Connecting.Discovering, ConnectionEvent.DiscoveryFailed> {
+                    _,
+                    e,
+                ->
+                Disconnected.ByError(e.extractError())
+            }
+            on<Connecting.Discovering, ConnectionEvent.ConnectionLost> {
+                    _,
+                    e,
+                ->
+                Disconnected.ByError(e.extractError())
+            }
             on<Connecting.Discovering, ConnectionEvent.DisconnectRequested> { _, _ -> Disconnected.ByRequest }
 
             // --- Connecting.Configuring ---
             on<Connecting.Configuring, ConnectionEvent.ConfigurationComplete> { _, _ -> Connected.Ready }
-            on<Connecting.Configuring, ConnectionEvent.ConfigurationFailed> { _, e -> Disconnected.ByError(e.extractError()) }
+            on<Connecting.Configuring, ConnectionEvent.ConfigurationFailed> {
+                    _,
+                    e,
+                ->
+                Disconnected.ByError(e.extractError())
+            }
             on<Connecting.Configuring, ConnectionEvent.InsufficientAuthentication> { _, _ -> Connecting.Authenticating }
-            on<Connecting.Configuring, ConnectionEvent.ConnectionLost> { _, e -> Disconnected.ByError(e.extractError()) }
+            on<Connecting.Configuring, ConnectionEvent.ConnectionLost> {
+                    _,
+                    e,
+                ->
+                Disconnected.ByError(e.extractError())
+            }
             on<Connecting.Configuring, ConnectionEvent.DisconnectRequested> { _, _ -> Disconnected.ByRequest }
 
             // --- Connected.Ready ---
@@ -84,21 +112,25 @@ internal object StateMachine {
      * Checked before the table. Order matters: AdapterOff and RemoteDisconnected
      * take precedence over state-specific transitions.
      */
-    private val wildcards: List<Pair<KClass<out ConnectionEvent>, (State, ConnectionEvent) -> State?>> = listOf(
-        ConnectionEvent.AdapterOff::class to { s, _ ->
-            if (s !is Disconnected) Disconnected.BySystemEvent else null
-        },
-        ConnectionEvent.RemoteDisconnected::class to { s, _ ->
-            if (s !is Disconnected) Disconnected.ByRemote else null
-        },
-    )
+    private val wildcards: List<Pair<KClass<out ConnectionEvent>, (State, ConnectionEvent) -> State?>> =
+        listOf(
+            ConnectionEvent.AdapterOff::class to { s, _ ->
+                if (s !is Disconnected) Disconnected.BySystemEvent else null
+            },
+            ConnectionEvent.RemoteDisconnected::class to { s, _ ->
+                if (s !is Disconnected) Disconnected.ByRemote else null
+            },
+        )
 
     data class TransitionResult(
         val newState: State,
         val valid: Boolean,
     )
 
-    fun transition(current: State, event: ConnectionEvent): TransitionResult {
+    fun transition(
+        current: State,
+        event: ConnectionEvent,
+    ): TransitionResult {
         // Check wildcards first
         for ((eventClass, resolver) in wildcards) {
             if (eventClass.isInstance(event)) {
@@ -137,23 +169,29 @@ internal object StateMachine {
     }
 
     private val KClass<*>.superclasses: List<KClass<*>>
-        get() = when (this) {
-            Disconnected.ByRequest::class,
-            Disconnected.ByRemote::class,
-            Disconnected.ByError::class,
-            Disconnected.ByTimeout::class,
-            Disconnected.BySystemEvent::class -> listOf(Disconnected::class)
-            else -> emptyList()
-        }
+        get() =
+            when (this) {
+                Disconnected.ByRequest::class,
+                Disconnected.ByRemote::class,
+                Disconnected.ByError::class,
+                Disconnected.ByTimeout::class,
+                Disconnected.BySystemEvent::class,
+                -> listOf(Disconnected::class)
+                else -> emptyList()
+            }
 
     /** All registered transitions, for test verification. */
     val allTransitions: Set<Pair<KClass<*>, KClass<*>>>
         get() = table.keys
 
-    private inline fun <reified S : State, reified E : ConnectionEvent>
-        MutableMap<Pair<KClass<*>, KClass<*>>, (State, ConnectionEvent) -> State>.on(
+    private inline fun <
+        reified S : State,
+        reified E : ConnectionEvent,
+        > MutableMap<Pair<KClass<*>, KClass<*>>, (State, ConnectionEvent) -> State>.on(
         noinline resolver: (S, E) -> State,
     ) {
-        put(Pair(S::class, E::class)) { state, event -> resolver(state as S, event as E) }
+        put(Pair(S::class, E::class)) { state, event ->
+            resolver(state as S, event as E)
+        }
     }
 }

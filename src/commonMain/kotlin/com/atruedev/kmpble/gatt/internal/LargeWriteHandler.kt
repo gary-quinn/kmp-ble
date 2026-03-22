@@ -3,10 +3,15 @@ package com.atruedev.kmpble.gatt.internal
 import com.atruedev.kmpble.gatt.WriteType
 
 internal object LargeWriteHandler {
+    fun shouldChunk(
+        data: ByteArray,
+        maxLength: Int,
+    ): Boolean = data.size > maxLength
 
-    fun shouldChunk(data: ByteArray, maxLength: Int): Boolean = data.size > maxLength
-
-    fun chunk(data: ByteArray, maxLength: Int): List<ByteArray> {
+    fun chunk(
+        data: ByteArray,
+        maxLength: Int,
+    ): List<ByteArray> {
         if (data.size <= maxLength) return listOf(data)
         val chunks = mutableListOf<ByteArray>()
         var offset = 0
@@ -18,7 +23,11 @@ internal object LargeWriteHandler {
         return chunks
     }
 
-    fun validateForWriteType(data: ByteArray, maxLength: Int, writeType: WriteType) {
+    fun validateForWriteType(
+        data: ByteArray,
+        maxLength: Int,
+        writeType: WriteType,
+    ) {
         if (writeType == WriteType.Signed && data.size > maxLength) {
             throw MtuExceededException(attempted = data.size, maximum = maxLength)
         }

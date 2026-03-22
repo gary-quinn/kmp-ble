@@ -2,6 +2,7 @@ plugins {
     id("com.android.application")
     alias(libs.plugins.compose.multiplatform)
     alias(libs.plugins.compose.compiler)
+    alias(libs.plugins.ktlint)
 }
 
 android {

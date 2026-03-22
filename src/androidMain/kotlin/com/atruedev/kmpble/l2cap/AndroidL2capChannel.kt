@@ -38,7 +38,6 @@ internal class AndroidL2capChannel(
     override val psm: Int,
     private val scope: CoroutineScope,
 ) : L2capChannel {
-
     private val closed = AtomicBoolean(false)
 
     private val inputStream: InputStream = socket.inputStream
@@ -47,11 +46,12 @@ internal class AndroidL2capChannel(
     private val closedDeferred = CompletableDeferred<Unit>()
 
     override val mtu: Int
-        get() = try {
-            maxOf(socket.maxTransmitPacketSize, DEFAULT_MTU)
-        } catch (_: Exception) {
-            DEFAULT_MTU
-        }
+        get() =
+            try {
+                maxOf(socket.maxTransmitPacketSize, DEFAULT_MTU)
+            } catch (_: Exception) {
+                DEFAULT_MTU
+            }
 
     override val isOpen: Boolean
         get() = !closed.get() && socket.isConnected
@@ -75,37 +75,38 @@ internal class AndroidL2capChannel(
         closedDeferred.await()
     }
 
-    private fun startReadLoop(): Job = scope.launch(Dispatchers.IO) {
-        val buffer = ByteArray(mtu.coerceAtLeast(READ_BUFFER_SIZE))
+    private fun startReadLoop(): Job =
+        scope.launch(Dispatchers.IO) {
+            val buffer = ByteArray(mtu.coerceAtLeast(READ_BUFFER_SIZE))
 
-        try {
-            while (isActive && !closed.get()) {
-                try {
-                    val bytesRead = inputStream.read(buffer)
+            try {
+                while (isActive && !closed.get()) {
+                    try {
+                        val bytesRead = inputStream.read(buffer)
 
-                    if (bytesRead == -1) {
+                        if (bytesRead == -1) {
+                            break
+                        }
+
+                        if (bytesRead > 0) {
+                            val data = buffer.copyOf(bytesRead)
+                            incomingChannel.send(data)
+                        }
+                    } catch (_: IOException) {
+                        if (!closed.get()) {
+                            break
+                        }
                         break
                     }
-
-                    if (bytesRead > 0) {
-                        val data = buffer.copyOf(bytesRead)
-                        incomingChannel.send(data)
-                    }
-                } catch (_: IOException) {
-                    if (!closed.get()) {
-                        break
-                    }
-                    break
                 }
+            } finally {
+                incomingChannel.close()
+                if (closed.compareAndSet(false, true)) {
+                    closeSocket()
+                }
+                closedDeferred.complete(Unit)
             }
-        } finally {
-            incomingChannel.close()
-            if (closed.compareAndSet(false, true)) {
-                closeSocket()
-            }
-            closedDeferred.complete(Unit)
         }
-    }
 
     override suspend fun write(data: ByteArray) {
         if (closed.get()) {
@@ -140,15 +141,18 @@ internal class AndroidL2capChannel(
     private fun closeSocket() {
         try {
             inputStream.close()
-        } catch (_: IOException) { }
+        } catch (_: IOException) {
+        }
 
         try {
             outputStream.close()
-        } catch (_: IOException) { }
+        } catch (_: IOException) {
+        }
 
         try {
             socket.close()
-        } catch (_: IOException) { }
+        } catch (_: IOException) {
+        }
     }
 
     internal companion object {

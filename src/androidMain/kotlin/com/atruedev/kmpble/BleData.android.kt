@@ -12,7 +12,10 @@ public actual class BleData internal constructor(
 
     public actual fun toByteArray(): ByteArray = bytes.copyOfRange(offset, offset + size)
 
-    public actual fun slice(fromIndex: Int, toIndex: Int): BleData {
+    public actual fun slice(
+        fromIndex: Int,
+        toIndex: Int,
+    ): BleData {
         require(fromIndex in 0..toIndex && toIndex <= size) {
             "Invalid slice: fromIndex=$fromIndex, toIndex=$toIndex, size=$size"
         }
@@ -43,4 +46,5 @@ public actual class BleData internal constructor(
 public actual fun BleData(bytes: ByteArray): BleData = BleData(bytes.copyOf(), 0, bytes.size)
 
 private val EMPTY: BleData = BleData(byteArrayOf())
+
 public actual fun emptyBleData(): BleData = EMPTY

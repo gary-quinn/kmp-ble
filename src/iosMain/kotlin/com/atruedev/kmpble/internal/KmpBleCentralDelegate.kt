@@ -44,9 +44,8 @@ internal data class RawScanResult(
  * 6. kmp-ble reconstructs Peripheral wrappers and re-subscribes observations
  */
 internal class KmpBleCentralDelegate : NSObject(), CBCentralManagerDelegateProtocol {
-
-    private val _adapterState = MutableStateFlow<BluetoothAdapterState>(BluetoothAdapterState.Unavailable)
-    internal val adapterStateFlow: StateFlow<BluetoothAdapterState> = _adapterState.asStateFlow()
+    private val _adapterStateFlow = MutableStateFlow<BluetoothAdapterState>(BluetoothAdapterState.Unavailable)
+    internal val adapterStateFlow: StateFlow<BluetoothAdapterState> = _adapterStateFlow.asStateFlow()
 
     private val _scanResults = MutableSharedFlow<RawScanResult>(extraBufferCapacity = 64)
     internal val scanResults: SharedFlow<RawScanResult> = _scanResults.asSharedFlow()
@@ -76,15 +75,17 @@ internal class KmpBleCentralDelegate : NSObject(), CBCentralManagerDelegateProto
     }
 
     override fun centralManagerDidUpdateState(central: CBCentralManager) {
-        _adapterState.value = when (central.state) {
-            CBCentralManagerStatePoweredOn -> BluetoothAdapterState.On
-            CBCentralManagerStatePoweredOff -> BluetoothAdapterState.Off
-            CBCentralManagerStateResetting,
-            CBCentralManagerStateUnknown -> BluetoothAdapterState.Unavailable
-            CBCentralManagerStateUnauthorized -> BluetoothAdapterState.Unauthorized
-            CBCentralManagerStateUnsupported -> BluetoothAdapterState.Unsupported
-            else -> BluetoothAdapterState.Unavailable
-        }
+        _adapterStateFlow.value =
+            when (central.state) {
+                CBCentralManagerStatePoweredOn -> BluetoothAdapterState.On
+                CBCentralManagerStatePoweredOff -> BluetoothAdapterState.Off
+                CBCentralManagerStateResetting,
+                CBCentralManagerStateUnknown,
+                -> BluetoothAdapterState.Unavailable
+                CBCentralManagerStateUnauthorized -> BluetoothAdapterState.Unauthorized
+                CBCentralManagerStateUnsupported -> BluetoothAdapterState.Unsupported
+                else -> BluetoothAdapterState.Unavailable
+            }
     }
 
     /**
@@ -92,9 +93,13 @@ internal class KmpBleCentralDelegate : NSObject(), CBCentralManagerDelegateProto
      * Provides the list of CBPeripherals that were connected or pending connection
      * at the time the app was terminated.
      */
-    override fun centralManager(central: CBCentralManager, willRestoreState: Map<Any?, *>) {
-        val peripherals = (willRestoreState[CBCentralManagerRestoredStatePeripheralsKey] as? List<*>)
-            ?.filterIsInstance<CBPeripheral>()
+    override fun centralManager(
+        central: CBCentralManager,
+        willRestoreState: Map<Any?, *>,
+    ) {
+        val peripherals =
+            (willRestoreState[CBCentralManagerRestoredStatePeripheralsKey] as? List<*>)
+                ?.filterIsInstance<CBPeripheral>()
         if (!peripherals.isNullOrEmpty()) {
             _restoredPeripherals.tryEmit(peripherals)
         }
@@ -111,11 +116,14 @@ internal class KmpBleCentralDelegate : NSObject(), CBCentralManagerDelegateProto
                 peripheral = didDiscoverPeripheral,
                 advertisementData = advertisementData,
                 rssi = RSSI,
-            )
+            ),
         )
     }
 
-    override fun centralManager(central: CBCentralManager, didConnectPeripheral: CBPeripheral) {
+    override fun centralManager(
+        central: CBCentralManager,
+        didConnectPeripheral: CBPeripheral,
+    ) {
         val id = didConnectPeripheral.identifier.UUIDString
         connectionCallbacks[id]?.invoke(true, null)
     }

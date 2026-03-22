@@ -4,7 +4,6 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 
 class StateRestorationConfigTest {
-
     @OptIn(com.atruedev.kmpble.ExperimentalBleApi::class)
     @Test
     fun `config stores identifier`() {

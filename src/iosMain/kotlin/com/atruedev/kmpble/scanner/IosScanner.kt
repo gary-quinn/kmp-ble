@@ -25,63 +25,69 @@ import kotlin.uuid.ExperimentalUuidApi
 public class IosScanner(
     configure: ScannerConfig.() -> Unit = {},
 ) : Scanner {
-
     private val config: ScannerConfig = ScannerConfig().apply(configure)
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
-    private val sharedScanFlow: Flow<Advertisement> = createRawScanFlow()
-        .shareIn(scope, SharingStarted.WhileSubscribed(), replay = 0)
+    private val sharedScanFlow: Flow<Advertisement> =
+        createRawScanFlow()
+            .shareIn(scope, SharingStarted.WhileSubscribed(), replay = 0)
 
-    override val advertisements: Flow<Advertisement> = run {
-        var flow: Flow<Advertisement> = sharedScanFlow
-            .filter { it.matchesFilters(config.filterGroups) }
-            .applyEmissionPolicy(config.emission)
+    override val advertisements: Flow<Advertisement> =
+        run {
+            var flow: Flow<Advertisement> =
+                sharedScanFlow
+                    .filter { it.matchesFilters(config.filterGroups) }
+                    .applyEmissionPolicy(config.emission)
 
-        val timeout = config.timeout
-        if (timeout != null) {
-            val mark = TimeSource.Monotonic.markNow()
-            flow = flow.takeWhile { mark.elapsedNow() < timeout }
+            val timeout = config.timeout
+            if (timeout != null) {
+                val mark = TimeSource.Monotonic.markNow()
+                flow = flow.takeWhile { mark.elapsedNow() < timeout }
+            }
+
+            flow
         }
-
-        flow
-    }
 
     override fun close() {
         scope.cancel()
     }
 
     @OptIn(ExperimentalUuidApi::class)
-    private fun createRawScanFlow(): Flow<Advertisement> = callbackFlow {
-        val manager = CentralManagerProvider.manager
-        val delegate = CentralManagerProvider.scanDelegate
+    private fun createRawScanFlow(): Flow<Advertisement> =
+        callbackFlow {
+            val manager = CentralManagerProvider.manager
+            val delegate = CentralManagerProvider.scanDelegate
 
-        // Wait for CBCentralManager to reach poweredOn before scanning.
-        // Without this, scanForPeripheralsWithServices is silently ignored
-        // and CoreBluetooth logs "API MISUSE: can only accept this command
-        // while in the powered on state".
-        CentralManagerProvider.adapterStateFlow.first { it == BluetoothAdapterState.On }
+            // Wait for CBCentralManager to reach poweredOn before scanning.
+            // Without this, scanForPeripheralsWithServices is silently ignored
+            // and CoreBluetooth logs "API MISUSE: can only accept this command
+            // while in the powered on state".
+            CentralManagerProvider.adapterStateFlow.first { it == BluetoothAdapterState.On }
 
-        val serviceUuids = config.filterGroups.flatMap { andGroup ->
-            andGroup.filterIsInstance<ScanPredicate.ServiceUuid>()
-                .map { CBUUID.UUIDWithString(it.uuid.toString()) }
-        }.distinct().ifEmpty { null }
+            val serviceUuids =
+                config.filterGroups.flatMap { andGroup ->
+                    andGroup.filterIsInstance<ScanPredicate.ServiceUuid>()
+                        .map { CBUUID.UUIDWithString(it.uuid.toString()) }
+                }.distinct().ifEmpty { null }
 
-        val collectJob = this@callbackFlow.launch {
-            delegate.scanResults.collect { rawResult ->
-                trySend(rawResult.toAdvertisement())
+            val collectJob =
+                this@callbackFlow.launch {
+                    delegate.scanResults.collect { rawResult ->
+                        trySend(rawResult.toAdvertisement())
+                    }
+                }
+
+            manager.scanForPeripheralsWithServices(
+                serviceUUIDs = serviceUuids,
+                options =
+                    mapOf<Any?, Any?>(
+                        CBCentralManagerScanOptionAllowDuplicatesKey to true,
+                    ),
+            )
+
+            awaitClose {
+                manager.stopScan()
+                collectJob.cancel()
             }
         }
-
-        manager.scanForPeripheralsWithServices(
-            serviceUUIDs = serviceUuids,
-            options = mapOf<Any?, Any?>(
-                CBCentralManagerScanOptionAllowDuplicatesKey to true,
-            ),
-        )
-
-        awaitClose {
-            manager.stopScan()
-            collectJob.cancel()
-        }
-    }
 }

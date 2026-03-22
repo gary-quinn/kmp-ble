@@ -20,15 +20,16 @@ internal fun Advertisement.matchesFilters(filterGroups: List<List<ScanPredicate>
 }
 
 @OptIn(ExperimentalUuidApi::class)
-private fun Advertisement.matchesPredicate(predicate: ScanPredicate): Boolean = when (predicate) {
-    is ScanPredicate.Name -> name == predicate.exact
-    is ScanPredicate.NamePrefix -> name?.startsWith(predicate.prefix) == true
-    is ScanPredicate.ServiceUuid -> predicate.uuid in serviceUuids
-    is ScanPredicate.MinRssi -> rssi >= predicate.minRssi
-    is ScanPredicate.Address -> identifier.value.equals(predicate.mac, ignoreCase = true)
-    is ScanPredicate.ManufacturerData -> matchesManufacturerData(predicate)
-    is ScanPredicate.ServiceData -> matchesServiceData(predicate)
-}
+private fun Advertisement.matchesPredicate(predicate: ScanPredicate): Boolean =
+    when (predicate) {
+        is ScanPredicate.Name -> name == predicate.exact
+        is ScanPredicate.NamePrefix -> name?.startsWith(predicate.prefix) == true
+        is ScanPredicate.ServiceUuid -> predicate.uuid in serviceUuids
+        is ScanPredicate.MinRssi -> rssi >= predicate.minRssi
+        is ScanPredicate.Address -> identifier.value.equals(predicate.mac, ignoreCase = true)
+        is ScanPredicate.ManufacturerData -> matchesManufacturerData(predicate)
+        is ScanPredicate.ServiceData -> matchesServiceData(predicate)
+    }
 
 @OptIn(ExperimentalUuidApi::class)
 private fun Advertisement.matchesManufacturerData(predicate: ScanPredicate.ManufacturerData): Boolean {
@@ -46,7 +47,11 @@ private fun Advertisement.matchesServiceData(predicate: ScanPredicate.ServiceDat
     return matchesWithMask(actual, expected, mask)
 }
 
-private fun matchesWithMask(actual: BleData, expected: ByteArray, mask: ByteArray?): Boolean {
+private fun matchesWithMask(
+    actual: BleData,
+    expected: ByteArray,
+    mask: ByteArray?,
+): Boolean {
     if (actual.size < expected.size) return false
     if (mask != null) {
         for (i in expected.indices) {

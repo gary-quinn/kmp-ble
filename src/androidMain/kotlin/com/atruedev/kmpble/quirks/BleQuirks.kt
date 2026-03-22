@@ -6,7 +6,6 @@ import kotlin.time.Duration.Companion.seconds
 
 /** Well-known quirk keys used by the BLE connection logic. */
 public object BleQuirks {
-
     /** Samsung: some Galaxy devices fail to connect unless already bonded. */
     public val BondBeforeConnect: QuirkKey<Boolean> =
         QuirkKey("bondBeforeConnect", false) { v, _ -> if (v) "bond-before-connect" else null }

@@ -11,24 +11,23 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
-import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlin.coroutines.coroutineContext
 import platform.CoreBluetooth.CBL2CAPChannel
 import platform.Foundation.NSStreamStatusAtEnd
 import platform.Foundation.NSStreamStatusClosed
 import platform.Foundation.NSStreamStatusError
 import platform.Foundation.NSStreamStatusOpen
+import kotlin.coroutines.coroutineContext
 
 internal class IosL2capChannel(
     private val cbChannel: CBL2CAPChannel,
     private val scope: CoroutineScope,
 ) : L2capChannel {
-
     override val psm: Int = cbChannel.PSM.toInt()
 
     override val mtu: Int = DEFAULT_MTU
@@ -49,19 +48,21 @@ internal class IosL2capChannel(
             dataChannel.close()
         }
 
-        readJob = scope.launch(Dispatchers.Default) {
-            readLoop()
-        }
+        readJob =
+            scope.launch(Dispatchers.Default) {
+                readLoop()
+            }
     }
 
     private suspend fun readLoop() {
         if (!_isOpen.value) return
 
-        val inputStream = cbChannel.inputStream ?: run {
-            _isOpen.value = false
-            dataChannel.close()
-            return
-        }
+        val inputStream =
+            cbChannel.inputStream ?: run {
+                _isOpen.value = false
+                dataChannel.close()
+                return
+            }
 
         val bufferSize = READ_BUFFER_SIZE
         val buffer = ByteArray(bufferSize)
@@ -77,10 +78,11 @@ internal class IosL2capChannel(
 
                 if (inputStream.hasBytesAvailable) {
                     buffer.usePinned { pinned ->
-                        val bytesRead = inputStream.read(
-                            pinned.addressOf(0).reinterpret<UByteVar>(),
-                            bufferSize.toULong(),
-                        ).toInt()
+                        val bytesRead =
+                            inputStream.read(
+                                pinned.addressOf(0).reinterpret<UByteVar>(),
+                                bufferSize.toULong(),
+                            ).toInt()
 
                         when {
                             bytesRead > 0 -> dataChannel.send(buffer.copyOf(bytesRead))
@@ -106,8 +108,9 @@ internal class IosL2capChannel(
             throw L2capException.ChannelClosed()
         }
 
-        val outputStream = cbChannel.outputStream
-            ?: throw L2capException.WriteFailed("Output stream not available")
+        val outputStream =
+            cbChannel.outputStream
+                ?: throw L2capException.WriteFailed("Output stream not available")
 
         withContext(Dispatchers.Default) {
             data.usePinned { pinned ->
@@ -117,10 +120,11 @@ internal class IosL2capChannel(
                         throw L2capException.ChannelClosed("Channel closed during write")
                     }
 
-                    val written = outputStream.write(
-                        pinned.addressOf(totalWritten).reinterpret<UByteVar>(),
-                        (data.size - totalWritten).toULong(),
-                    ).toInt()
+                    val written =
+                        outputStream.write(
+                            pinned.addressOf(totalWritten).reinterpret<UByteVar>(),
+                            (data.size - totalWritten).toULong(),
+                        ).toInt()
 
                     if (written < 0) {
                         throw L2capException.WriteFailed(
@@ -144,10 +148,10 @@ internal class IosL2capChannel(
         dataChannel.close()
     }
 
-    private val _streamsClosed = MutableStateFlow(false)
+    private val streamsClosed = MutableStateFlow(false)
 
     private fun closeStreams() {
-        if (!_streamsClosed.compareAndSet(expect = false, update = true)) return
+        if (!streamsClosed.compareAndSet(expect = false, update = true)) return
         cbChannel.inputStream?.close()
         cbChannel.outputStream?.close()
     }

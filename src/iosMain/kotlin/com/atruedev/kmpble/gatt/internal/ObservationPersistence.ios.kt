@@ -26,22 +26,25 @@ private const val INDEX_KEY = "com.atruedev.kmpble.observation-index"
  */
 @OptIn(ExperimentalUuidApi::class)
 internal actual class ObservationPersistence actual constructor() {
-
     private fun keyFor(peripheralId: String) = "$DEFAULTS_KEY_PREFIX.$peripheralId"
 
-    actual fun save(peripheralId: String, observations: Set<PersistedObservation>) {
+    actual fun save(
+        peripheralId: String,
+        observations: Set<PersistedObservation>,
+    ) {
         if (observations.isEmpty()) {
             clear(peripheralId)
             return
         }
 
-        val entries = observations.map { obs ->
-            mapOf(
-                "s" to obs.key.serviceUuid.toString(),
-                "c" to obs.key.charUuid.toString(),
-                "bp" to serializeBackpressure(obs.backpressure),
-            )
-        }
+        val entries =
+            observations.map { obs ->
+                mapOf(
+                    "s" to obs.key.serviceUuid.toString(),
+                    "c" to obs.key.charUuid.toString(),
+                    "bp" to serializeBackpressure(obs.backpressure),
+                )
+            }
 
         val defaults = NSUserDefaults.standardUserDefaults
         defaults.setObject(entries, forKey = keyFor(peripheralId))
@@ -49,8 +52,9 @@ internal actual class ObservationPersistence actual constructor() {
     }
 
     actual fun restore(peripheralId: String): Set<PersistedObservation> {
-        val array = NSUserDefaults.standardUserDefaults.arrayForKey(keyFor(peripheralId))
-            ?: return emptySet()
+        val array =
+            NSUserDefaults.standardUserDefaults.arrayForKey(keyFor(peripheralId))
+                ?: return emptySet()
 
         val result = mutableSetOf<PersistedObservation>()
         for (item in array) {
@@ -61,12 +65,13 @@ internal actual class ObservationPersistence actual constructor() {
             try {
                 result.add(
                     PersistedObservation(
-                        key = ObservationKey(
-                            serviceUuid = Uuid.parse(serviceStr),
-                            charUuid = Uuid.parse(charStr),
-                        ),
+                        key =
+                            ObservationKey(
+                                serviceUuid = Uuid.parse(serviceStr),
+                                charUuid = Uuid.parse(charStr),
+                            ),
                         backpressure = deserializeBackpressure(bpStr),
-                    )
+                    ),
                 )
             } catch (_: Exception) {
                 // Skip malformed entries — lenient restore
@@ -104,8 +109,9 @@ internal actual class ObservationPersistence actual constructor() {
     // --- Index management ---
 
     private fun getIndex(): Set<String> {
-        val array = NSUserDefaults.standardUserDefaults.arrayForKey(INDEX_KEY)
-            ?: return emptySet()
+        val array =
+            NSUserDefaults.standardUserDefaults.arrayForKey(INDEX_KEY)
+                ?: return emptySet()
         return array.filterIsInstance<String>().toSet()
     }
 
@@ -133,20 +139,22 @@ internal actual class ObservationPersistence actual constructor() {
 
     // --- BackpressureStrategy serialization ---
 
-    private fun serializeBackpressure(strategy: BackpressureStrategy): String = when (strategy) {
-        is BackpressureStrategy.Latest -> "latest"
-        is BackpressureStrategy.Buffer -> "buffer:${strategy.capacity}"
-        is BackpressureStrategy.Unbounded -> "unbounded"
-    }
-
-    private fun deserializeBackpressure(value: String?): BackpressureStrategy = when {
-        value == null -> BackpressureStrategy.Latest // fallback for pre-strategy data
-        value == "latest" -> BackpressureStrategy.Latest
-        value.startsWith("buffer:") -> {
-            val capacity = value.removePrefix("buffer:").toIntOrNull() ?: 64
-            BackpressureStrategy.Buffer(capacity)
+    private fun serializeBackpressure(strategy: BackpressureStrategy): String =
+        when (strategy) {
+            is BackpressureStrategy.Latest -> "latest"
+            is BackpressureStrategy.Buffer -> "buffer:${strategy.capacity}"
+            is BackpressureStrategy.Unbounded -> "unbounded"
         }
-        value == "unbounded" -> BackpressureStrategy.Unbounded
-        else -> BackpressureStrategy.Latest
-    }
+
+    private fun deserializeBackpressure(value: String?): BackpressureStrategy =
+        when {
+            value == null -> BackpressureStrategy.Latest // fallback for pre-strategy data
+            value == "latest" -> BackpressureStrategy.Latest
+            value.startsWith("buffer:") -> {
+                val capacity = value.removePrefix("buffer:").toIntOrNull() ?: 64
+                BackpressureStrategy.Buffer(capacity)
+            }
+            value == "unbounded" -> BackpressureStrategy.Unbounded
+            else -> BackpressureStrategy.Latest
+        }
 }

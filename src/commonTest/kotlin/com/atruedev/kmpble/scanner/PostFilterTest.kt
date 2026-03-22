@@ -12,7 +12,6 @@ import kotlin.uuid.Uuid
 
 @OptIn(ExperimentalUuidApi::class)
 class PostFilterTest {
-
     private fun ad(
         name: String? = null,
         rssi: Int = -60,
@@ -79,42 +78,46 @@ class PostFilterTest {
     fun manufacturerDataMatchByCompanyIdOnly() {
         val filters = listOf(listOf(ScanPredicate.ManufacturerData(CompanyId.APPLE, null, null)))
         assertTrue(ad(manufacturerData = mapOf(CompanyId.APPLE to bleData(1, 2, 3))).matchesFilters(filters))
-        assertFalse(ad(manufacturerData = mapOf(CompanyId.NORDIC_SEMICONDUCTOR to bleData(1, 2, 3))).matchesFilters(filters))
+        assertFalse(
+            ad(manufacturerData = mapOf(CompanyId.NORDIC_SEMICONDUCTOR to bleData(1, 2, 3))).matchesFilters(filters),
+        )
         assertFalse(ad(manufacturerData = emptyMap()).matchesFilters(filters))
     }
 
     @Test
     fun manufacturerDataMatchWithMask() {
-        val filters = listOf(
+        val filters =
             listOf(
-                ScanPredicate.ManufacturerData(
-                    companyId = CompanyId.APPLE,
-                    data = byteArrayOf(0x02, 0x15),
-                    mask = byteArrayOf(0xFF.toByte(), 0xFF.toByte()),
-                )
+                listOf(
+                    ScanPredicate.ManufacturerData(
+                        companyId = CompanyId.APPLE,
+                        data = byteArrayOf(0x02, 0x15),
+                        mask = byteArrayOf(0xFF.toByte(), 0xFF.toByte()),
+                    ),
+                ),
             )
-        )
         // Matches: first 2 bytes are 02 15
         assertTrue(
             ad(manufacturerData = mapOf(CompanyId.APPLE to bleData(0x02, 0x15, 0x01, 0x02)))
-                .matchesFilters(filters)
+                .matchesFilters(filters),
         )
         // Doesn't match: different data
         assertFalse(
             ad(manufacturerData = mapOf(CompanyId.APPLE to bleData(0x02, 0x16, 0x01, 0x02)))
-                .matchesFilters(filters)
+                .matchesFilters(filters),
         )
     }
 
     @Test
     fun andGroupAllMustMatch() {
         val uuid = uuidFrom("180d")
-        val filters = listOf(
+        val filters =
             listOf(
-                ScanPredicate.Name("HeartSensor"),
-                ScanPredicate.ServiceUuid(uuid),
+                listOf(
+                    ScanPredicate.Name("HeartSensor"),
+                    ScanPredicate.ServiceUuid(uuid),
+                ),
             )
-        )
         // Both match
         assertTrue(ad(name = "HeartSensor", serviceUuids = listOf(uuid)).matchesFilters(filters))
         // Name matches but UUID doesn't
@@ -126,10 +129,11 @@ class PostFilterTest {
     @Test
     fun orGroupsAnyCanMatch() {
         val uuid = uuidFrom("180d")
-        val filters = listOf(
-            listOf(ScanPredicate.Name("HeartSensor")),
-            listOf(ScanPredicate.ServiceUuid(uuid)),
-        )
+        val filters =
+            listOf(
+                listOf(ScanPredicate.Name("HeartSensor")),
+                listOf(ScanPredicate.ServiceUuid(uuid)),
+            )
         // First group matches
         assertTrue(ad(name = "HeartSensor").matchesFilters(filters))
         // Second group matches

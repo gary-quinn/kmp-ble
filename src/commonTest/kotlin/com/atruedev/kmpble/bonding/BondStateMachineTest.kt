@@ -3,18 +3,17 @@ package com.atruedev.kmpble.bonding
 import com.atruedev.kmpble.connection.State
 import com.atruedev.kmpble.connection.internal.ConnectionEvent
 import com.atruedev.kmpble.connection.internal.StateMachine
-import com.atruedev.kmpble.error.BleError
 import com.atruedev.kmpble.error.ConnectionFailed
 import com.atruedev.kmpble.error.ConnectionLost
-import com.atruedev.kmpble.error.GattError
-import com.atruedev.kmpble.error.OperationFailed
 import kotlin.test.Test
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
 class BondStateMachineTest {
-
-    private fun transition(from: State, event: ConnectionEvent): State {
+    private fun transition(
+        from: State,
+        event: ConnectionEvent,
+    ): State {
         val result = StateMachine.transition(from, event)
         assertTrue(result.valid)
         return result.newState
@@ -75,10 +74,11 @@ class BondStateMachineTest {
 
     @Test
     fun connectionLostDuringBondChange() {
-        val s = transition(
-            State.Connected.BondingChange,
-            ConnectionEvent.ConnectionLost(ConnectionLost("Lost"))
-        )
+        val s =
+            transition(
+                State.Connected.BondingChange,
+                ConnectionEvent.ConnectionLost(ConnectionLost("Lost")),
+            )
         assertIs<State.Disconnecting.Error>(s)
     }
 }

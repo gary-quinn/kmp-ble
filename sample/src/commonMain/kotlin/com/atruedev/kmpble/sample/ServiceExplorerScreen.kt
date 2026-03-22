@@ -147,7 +147,10 @@ private fun GattDumpSection(vm: BleViewModel) {
 }
 
 @Composable
-private fun ServiceCard(service: DiscoveredService, vm: BleViewModel) {
+private fun ServiceCard(
+    service: DiscoveredService,
+    vm: BleViewModel,
+) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
@@ -164,7 +167,10 @@ private fun ServiceCard(service: DiscoveredService, vm: BleViewModel) {
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun CharacteristicRow(characteristic: Characteristic, vm: BleViewModel) {
+private fun CharacteristicRow(
+    characteristic: Characteristic,
+    vm: BleViewModel,
+) {
     val props = characteristic.properties
     var readValue by remember { mutableStateOf<String?>(null) }
     var writeInput by remember { mutableStateOf("") }
@@ -175,10 +181,11 @@ private fun CharacteristicRow(characteristic: Characteristic, vm: BleViewModel) 
     if (isObserving) {
         LaunchedEffect(characteristic) {
             vm.observe(characteristic).collect { observation ->
-                observedValue = when (observation) {
-                    is Observation.Value -> observation.data.toHexString()
-                    is Observation.Disconnected -> "Disconnected"
-                }
+                observedValue =
+                    when (observation) {
+                        is Observation.Value -> observation.data.toHexString()
+                        is Observation.Disconnected -> "Disconnected"
+                    }
             }
         }
     }
@@ -207,10 +214,11 @@ private fun CharacteristicRow(characteristic: Characteristic, vm: BleViewModel) 
                 OutlinedButton(
                     onClick = {
                         vm.readCharacteristic(characteristic) { result ->
-                            readValue = result.fold(
-                                onSuccess = { it.toHexString() },
-                                onFailure = { "Error: ${it.message}" },
-                            )
+                            readValue =
+                                result.fold(
+                                    onSuccess = { it.toHexString() },
+                                    onFailure = { "Error: ${it.message}" },
+                                )
                         }
                     },
                 ) { Text("Read") }
@@ -227,7 +235,10 @@ private fun CharacteristicRow(characteristic: Characteristic, vm: BleViewModel) 
             ) {
                 OutlinedTextField(
                     value = writeInput,
-                    onValueChange = { writeInput = it; writeError = false },
+                    onValueChange = {
+                        writeInput = it
+                        writeError = false
+                    },
                     label = { Text("Hex") },
                     modifier = Modifier.width(120.dp),
                     singleLine = true,
@@ -291,9 +302,10 @@ private fun BenchmarkSection(
 
             Spacer(Modifier.height(8.dp))
 
-            val readableChar = remember(services) {
-                services?.flatMap { it.characteristics }?.firstOrNull { it.properties.read }
-            }
+            val readableChar =
+                remember(services) {
+                    services?.flatMap { it.characteristics }?.firstOrNull { it.properties.read }
+                }
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(
@@ -379,7 +391,10 @@ private fun L2capSection(
                 ) {
                     OutlinedTextField(
                         value = sendInput,
-                        onValueChange = { sendInput = it; sendError = false },
+                        onValueChange = {
+                            sendInput = it
+                            sendError = false
+                        },
                         label = { Text("Hex") },
                         modifier = Modifier.width(120.dp),
                         singleLine = true,

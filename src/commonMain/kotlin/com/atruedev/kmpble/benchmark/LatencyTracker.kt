@@ -41,8 +41,12 @@ public class LatencyTracker(
             count = sorted.size,
             min = sorted.firstOrNull() ?: Duration.ZERO,
             max = sorted.lastOrNull() ?: Duration.ZERO,
-            mean = if (sorted.isEmpty()) Duration.ZERO
-                   else sorted.fold(Duration.ZERO) { acc, d -> acc + d } / sorted.size,
+            mean =
+                if (sorted.isEmpty()) {
+                    Duration.ZERO
+                } else {
+                    sorted.fold(Duration.ZERO) { acc, d -> acc + d } / sorted.size
+                },
             p50 = sorted.percentile(50),
             p95 = sorted.percentile(95),
             p99 = sorted.percentile(99),
@@ -75,6 +79,5 @@ public data class LatencyStats(
     val p95: Duration,
     val p99: Duration,
 ) {
-    override fun toString(): String =
-        "$label ($count samples): min=$min, p50=$p50, p95=$p95, p99=$p99, max=$max"
+    override fun toString(): String = "$label ($count samples): min=$min, p50=$p50, p95=$p95, p99=$p99, max=$max"
 }

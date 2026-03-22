@@ -24,7 +24,6 @@ private val HEART_RATE_MEASUREMENT = uuidFrom("2A37")
 
 @OptIn(ExperimentalBleApi::class)
 class ServerViewModel : ViewModel() {
-
     private val _heartRate = MutableStateFlow(72)
     val heartRate: StateFlow<Int> = _heartRate.asStateFlow()
 
@@ -37,15 +36,19 @@ class ServerViewModel : ViewModel() {
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
-    private val server = GattServer {
-        service(HEART_RATE_SERVICE) {
-            characteristic(HEART_RATE_MEASUREMENT) {
-                properties { read = true; notify = true }
-                permissions { read = true }
-                onRead { _ -> BleData(byteArrayOf(0x00, _heartRate.value.toByte())) }
+    private val server =
+        GattServer {
+            service(HEART_RATE_SERVICE) {
+                characteristic(HEART_RATE_MEASUREMENT) {
+                    properties {
+                        read = true
+                        notify = true
+                    }
+                    permissions { read = true }
+                    onRead { _ -> BleData(byteArrayOf(0x00, _heartRate.value.toByte())) }
+                }
             }
         }
-    }
 
     private val advertiser = Advertiser()
     private val extAdvertiser = ExtendedAdvertiser()
@@ -96,7 +99,12 @@ class ServerViewModel : ViewModel() {
         }
     }
 
-    fun startExtendedSet(primary: Phy, secondary: Phy, name: String, interval: AdvertiseInterval) {
+    fun startExtendedSet(
+        primary: Phy,
+        secondary: Phy,
+        name: String,
+        interval: AdvertiseInterval,
+    ) {
         launchWithErrorHandling {
             extAdvertiser.startAdvertisingSet(
                 ExtendedAdvertiseConfig(
@@ -132,15 +140,17 @@ class ServerViewModel : ViewModel() {
     // Called from openServer() which runs on Main via viewModelScope.launch.
     private fun collectConnectionEvents() {
         connectionEventJob?.cancel()
-        connectionEventJob = viewModelScope.launch {
-            server.connectionEvents.collect { event ->
-                val msg = when (event) {
-                    is ServerConnectionEvent.Connected -> "Connected: ${event.device.value.take(8)}"
-                    is ServerConnectionEvent.Disconnected -> "Disconnected: ${event.device.value.take(8)}"
+        connectionEventJob =
+            viewModelScope.launch {
+                server.connectionEvents.collect { event ->
+                    val msg =
+                        when (event) {
+                            is ServerConnectionEvent.Connected -> "Connected: ${event.device.value.take(8)}"
+                            is ServerConnectionEvent.Disconnected -> "Disconnected: ${event.device.value.take(8)}"
+                        }
+                    _connectionLog.value = (listOf(msg) + _connectionLog.value).take(20)
                 }
-                _connectionLog.value = (listOf(msg) + _connectionLog.value).take(20)
             }
-        }
     }
 
     override fun onCleared() {

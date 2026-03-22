@@ -11,7 +11,6 @@ import platform.darwin.dispatch_queue_create
  * queue and delegate.
  */
 internal object PeripheralManagerProvider {
-
     private val queue = dispatch_queue_create("com.atruedev.kmpble.server", null)
 
     internal val delegate = IosPeripheralManagerDelegate()

@@ -36,7 +36,6 @@ import kotlin.uuid.Uuid
  * ```
  */
 public class FakeGattServer : GattServer {
-
     private val _connections = MutableStateFlow<List<ServerConnection>>(emptyList())
     override val connections: StateFlow<List<ServerConnection>> = _connections.asStateFlow()
 
@@ -44,17 +43,21 @@ public class FakeGattServer : GattServer {
     override val connectionEvents: Flow<ServerConnectionEvent> = _connectionEvents.asSharedFlow()
 
     private var _isOpen = false
-    private var _isClosed = false
+    private var closed = false
 
     private val notifications = mutableListOf<NotificationRecord>()
     private val indications = mutableListOf<NotificationRecord>()
 
     override suspend fun open() {
-        if (_isClosed) throw ServerException.OpenFailed("Server has been closed")
+        if (closed) throw ServerException.OpenFailed("Server has been closed")
         _isOpen = true
     }
 
-    override suspend fun notify(characteristicUuid: Uuid, device: Identifier?, data: BleData) {
+    override suspend fun notify(
+        characteristicUuid: Uuid,
+        device: Identifier?,
+        data: BleData,
+    ) {
         checkOpen()
         if (device != null) {
             checkConnected(device)
@@ -62,14 +65,18 @@ public class FakeGattServer : GattServer {
         notifications.add(NotificationRecord(characteristicUuid, device, data))
     }
 
-    override suspend fun indicate(characteristicUuid: Uuid, device: Identifier, data: BleData) {
+    override suspend fun indicate(
+        characteristicUuid: Uuid,
+        device: Identifier,
+        data: BleData,
+    ) {
         checkOpen()
         checkConnected(device)
         indications.add(NotificationRecord(characteristicUuid, device, data))
     }
 
     override fun close() {
-        _isClosed = true
+        closed = true
         _isOpen = false
         _connections.value = emptyList()
     }
@@ -80,7 +87,10 @@ public class FakeGattServer : GattServer {
     public val isOpen: Boolean get() = _isOpen
 
     /** Simulate a client device connecting. */
-    public suspend fun simulateConnection(device: Identifier, name: String? = null) {
+    public suspend fun simulateConnection(
+        device: Identifier,
+        name: String? = null,
+    ) {
         _connections.update { it + ServerConnection(device, name) }
         _connectionEvents.emit(ServerConnectionEvent.Connected(device))
     }

@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.android.library)
     alias(libs.plugins.vanniktech.publish)
+    alias(libs.plugins.ktlint)
 }
 
 group = "com.atruedev"
@@ -88,7 +89,10 @@ tasks.register("assembleXCFramework") {
     val fatSim = layout.buildDirectory.dir("bin/iosSimulatorFat/releaseFramework/KmpBle.framework")
 
     doLast {
-        outputDir.get().asFile.let { dir -> dir.deleteRecursively(); dir.mkdirs() }
+        outputDir.get().asFile.let { dir ->
+            dir.deleteRecursively()
+            dir.mkdirs()
+        }
 
         val fatDir = fatSim.get().asFile
         fatDir.deleteRecursively()
@@ -100,17 +104,23 @@ tasks.register("assembleXCFramework") {
         }
 
         run(
-            "lipo", "-create",
+            "lipo",
+            "-create",
             File(simArm64.get().asFile, "KmpBle").absolutePath,
             File(simX64.get().asFile, "KmpBle").absolutePath,
-            "-output", File(fatDir, "KmpBle").absolutePath,
+            "-output",
+            File(fatDir, "KmpBle").absolutePath,
         )
 
         run(
-            "xcodebuild", "-create-xcframework",
-            "-framework", arm64.get().asFile.absolutePath,
-            "-framework", fatDir.absolutePath,
-            "-output", File(outputDir.get().asFile, "KmpBle.xcframework").absolutePath,
+            "xcodebuild",
+            "-create-xcframework",
+            "-framework",
+            arm64.get().asFile.absolutePath,
+            "-framework",
+            fatDir.absolutePath,
+            "-output",
+            File(outputDir.get().asFile, "KmpBle.xcframework").absolutePath,
         )
     }
 }

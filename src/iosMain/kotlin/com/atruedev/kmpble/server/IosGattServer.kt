@@ -10,10 +10,6 @@ import com.atruedev.kmpble.internal.PeripheralManagerProvider
 import com.atruedev.kmpble.logging.BleLogEvent
 import com.atruedev.kmpble.logging.logEvent
 import com.atruedev.kmpble.scanner.uuidFrom
-import kotlin.concurrent.AtomicInt
-import kotlin.concurrent.Volatile
-import kotlin.time.Duration.Companion.seconds
-import kotlin.uuid.Uuid
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineName
@@ -60,6 +56,10 @@ import platform.CoreBluetooth.CBPeripheralManagerStatePoweredOn
 import platform.CoreBluetooth.CBUUID
 import platform.Foundation.NSData
 import platform.Foundation.NSError
+import kotlin.concurrent.AtomicInt
+import kotlin.concurrent.Volatile
+import kotlin.time.Duration.Companion.seconds
+import kotlin.uuid.Uuid
 
 /**
  * iOS implementation of [GattServer] using [CBPeripheralManager].
@@ -116,7 +116,6 @@ internal class IosGattServer(
     private val manager: CBPeripheralManager = PeripheralManagerProvider.manager,
     private val delegate: IosPeripheralManagerDelegate = PeripheralManagerProvider.delegate,
 ) : GattServer {
-
     private val dispatcher: CoroutineDispatcher = Dispatchers.Default.limitedParallelism(1)
     private val scope = CoroutineScope(SupervisorJob() + dispatcher + CoroutineName("IosGattServer"))
 
@@ -230,23 +229,30 @@ internal class IosGattServer(
         )
     }
 
-    override suspend fun notify(characteristicUuid: Uuid, device: Identifier?, data: BleData) {
+    override suspend fun notify(
+        characteristicUuid: Uuid,
+        device: Identifier?,
+        data: BleData,
+    ) {
         withContext(dispatcher) {
             checkOpen()
-            val nativeChar = characteristicCache[characteristicUuid]
-                ?: throw ServerException.NotifyFailed(
-                    "Characteristic $characteristicUuid not found",
-                )
-
-            val targets: List<CBCentral>? = if (device != null) {
-                val central = connectedCentrals[device.value]
-                    ?: throw ServerException.DeviceNotConnected(
-                        "Device $device not connected",
+            val nativeChar =
+                characteristicCache[characteristicUuid]
+                    ?: throw ServerException.NotifyFailed(
+                        "Characteristic $characteristicUuid not found",
                     )
-                listOf(central)
-            } else {
-                null
-            }
+
+            val targets: List<CBCentral>? =
+                if (device != null) {
+                    val central =
+                        connectedCentrals[device.value]
+                            ?: throw ServerException.DeviceNotConnected(
+                                "Device $device not connected",
+                            )
+                    listOf(central)
+                } else {
+                    null
+                }
 
             sendUpdate(nativeChar, data.nsData, targets)
 
@@ -270,7 +276,11 @@ internal class IosGattServer(
      * This method delegates to [notify] with the same underlying
      * `updateValue` call.
      */
-    override suspend fun indicate(characteristicUuid: Uuid, device: Identifier, data: BleData) {
+    override suspend fun indicate(
+        characteristicUuid: Uuid,
+        device: Identifier,
+        data: BleData,
+    ) {
         notify(characteristicUuid, device, data)
     }
 
@@ -307,7 +317,10 @@ internal class IosGattServer(
         pendingServiceAdd?.complete(error)
     }
 
-    private fun handleReadRequest(peripheral: CBPeripheralManager, request: CBATTRequest) {
+    private fun handleReadRequest(
+        peripheral: CBPeripheralManager,
+        request: CBATTRequest,
+    ) {
         scope.launch {
             trackCentral(request.central)
 
@@ -315,7 +328,9 @@ internal class IosGattServer(
             if (handler == null) {
                 logEvent(
                     BleLogEvent.ServerRequest(
-                        request.centralId, "read-rejected (no handler)", request.charUuid,
+                        request.centralId,
+                        "read-rejected (no handler)",
+                        request.charUuid,
                         GattStatus.ReadNotPermitted,
                     ),
                 )
@@ -327,11 +342,12 @@ internal class IosGattServer(
                 val bleData = handler(request.centralId)
                 val offset = request.offset.toInt()
 
-                val responseNsData = when {
-                    offset >= bleData.size && offset > 0 -> emptyBleData().nsData
-                    offset > 0 -> bleData.slice(offset, bleData.size).nsData
-                    else -> bleData.nsData
-                }
+                val responseNsData =
+                    when {
+                        offset >= bleData.size && offset > 0 -> emptyBleData().nsData
+                        offset > 0 -> bleData.slice(offset, bleData.size).nsData
+                        else -> bleData.nsData
+                    }
                 request.value = responseNsData
                 peripheral.respondToRequest(request, withResult = CBATTErrorSuccess)
 
@@ -347,7 +363,9 @@ internal class IosGattServer(
                 if (e is kotlinx.coroutines.CancellationException) throw e
                 logEvent(
                     BleLogEvent.ServerRequest(
-                        request.centralId, "read-failed (handler threw)", request.charUuid,
+                        request.centralId,
+                        "read-failed (handler threw)",
+                        request.charUuid,
                         GattStatus.Failure,
                     ),
                 )
@@ -356,7 +374,10 @@ internal class IosGattServer(
         }
     }
 
-    private fun handleWriteRequests(peripheral: CBPeripheralManager, rawRequests: List<*>) {
+    private fun handleWriteRequests(
+        peripheral: CBPeripheralManager,
+        rawRequests: List<*>,
+    ) {
         val requests = rawRequests.filterIsInstance<CBATTRequest>()
         if (requests.isEmpty()) return
 
@@ -375,7 +396,9 @@ internal class IosGattServer(
                 if (handler == null) {
                     logEvent(
                         BleLogEvent.ServerRequest(
-                            request.centralId, "write-rejected (no handler)", request.charUuid,
+                            request.centralId,
+                            "write-rejected (no handler)",
+                            request.charUuid,
                             GattStatus.WriteNotPermitted,
                         ),
                     )
@@ -393,14 +416,19 @@ internal class IosGattServer(
                     }
                     logEvent(
                         BleLogEvent.ServerRequest(
-                            request.centralId, "write (${data.size}B)", request.charUuid, status,
+                            request.centralId,
+                            "write (${data.size}B)",
+                            request.charUuid,
+                            status,
                         ),
                     )
                 } catch (e: Exception) {
                     if (e is kotlinx.coroutines.CancellationException) throw e
                     logEvent(
                         BleLogEvent.ServerRequest(
-                            request.centralId, "write-failed (handler threw)", request.charUuid,
+                            request.centralId,
+                            "write-failed (handler threw)",
+                            request.charUuid,
                             GattStatus.Failure,
                         ),
                     )
@@ -417,7 +445,10 @@ internal class IosGattServer(
         }
     }
 
-    private fun handleSubscribe(central: CBCentral, characteristic: CBCharacteristic) {
+    private fun handleSubscribe(
+        central: CBCentral,
+        characteristic: CBCharacteristic,
+    ) {
         scope.launch {
             val charUuid = characteristic.UUID.UUIDString
             val centralId = Identifier(central.id)
@@ -433,7 +464,9 @@ internal class IosGattServer(
                 if (!_connectionEvents.tryEmit(ServerConnectionEvent.Connected(centralId))) {
                     logEvent(
                         BleLogEvent.Error(
-                            centralId, "Connection event buffer full, event dropped", null,
+                            centralId,
+                            "Connection event buffer full, event dropped",
+                            null,
                         ),
                     )
                 }
@@ -473,7 +506,8 @@ internal class IosGattServer(
         }
         logEvent(
             BleLogEvent.ServerClientEvent(
-                Identifier(id), "connected (${connectedCentrals.size} total)",
+                Identifier(id),
+                "connected (${connectedCentrals.size} total)",
             ),
         )
         return true
@@ -511,22 +545,25 @@ internal class IosGattServer(
     }
 
     private fun buildNativeService(definition: ServiceDefinition): CBMutableService {
-        val service = CBMutableService(
-            type = CBUUID.UUIDWithString(definition.uuid.toString()),
-            primary = true,
-        )
-        val nativeChars: List<Any> = definition.characteristics.map { charDef ->
-            val properties = buildCBProperties(charDef.properties)
-            val permissions = buildCBPermissions(charDef.permissions)
-            val char = CBMutableCharacteristic(
-                type = CBUUID.UUIDWithString(charDef.uuid.toString()),
-                properties = properties,
-                value = null,
-                permissions = permissions,
+        val service =
+            CBMutableService(
+                type = CBUUID.UUIDWithString(definition.uuid.toString()),
+                primary = true,
             )
-            characteristicCache[charDef.uuid] = char
-            char
-        }
+        val nativeChars: List<Any> =
+            definition.characteristics.map { charDef ->
+                val properties = buildCBProperties(charDef.properties)
+                val permissions = buildCBPermissions(charDef.permissions)
+                val char =
+                    CBMutableCharacteristic(
+                        type = CBUUID.UUIDWithString(charDef.uuid.toString()),
+                        properties = properties,
+                        value = null,
+                        permissions = permissions,
+                    )
+                characteristicCache[charDef.uuid] = char
+                char
+            }
         service.setCharacteristics(nativeChars)
         return service
     }
@@ -572,17 +609,18 @@ private fun buildCBPermissions(perms: ServerCharacteristic.Permissions): ULong {
     return flags
 }
 
-private fun GattStatus.toCBATTError(): Long = when (this) {
-    GattStatus.Success -> CBATTErrorSuccess
-    GattStatus.ReadNotPermitted -> CBATTErrorReadNotPermitted
-    GattStatus.WriteNotPermitted -> CBATTErrorWriteNotPermitted
-    GattStatus.InvalidOffset -> CBATTErrorInvalidOffset
-    GattStatus.InvalidAttributeLength -> CBATTErrorInvalidAttributeValueLength
-    GattStatus.InsufficientAuthentication -> CBATTErrorInsufficientAuthentication
-    GattStatus.InsufficientEncryption -> CBATTErrorInsufficientEncryption
-    GattStatus.InsufficientAuthorization -> CBATTErrorInsufficientAuthorization
-    GattStatus.RequestNotSupported -> CBATTErrorRequestNotSupported
-    GattStatus.ConnectionCongested -> CB_ATT_ERROR_UNLIKELY
-    GattStatus.Failure -> CB_ATT_ERROR_UNLIKELY
-    is GattStatus.Unknown -> CB_ATT_ERROR_UNLIKELY
-}
+private fun GattStatus.toCBATTError(): Long =
+    when (this) {
+        GattStatus.Success -> CBATTErrorSuccess
+        GattStatus.ReadNotPermitted -> CBATTErrorReadNotPermitted
+        GattStatus.WriteNotPermitted -> CBATTErrorWriteNotPermitted
+        GattStatus.InvalidOffset -> CBATTErrorInvalidOffset
+        GattStatus.InvalidAttributeLength -> CBATTErrorInvalidAttributeValueLength
+        GattStatus.InsufficientAuthentication -> CBATTErrorInsufficientAuthentication
+        GattStatus.InsufficientEncryption -> CBATTErrorInsufficientEncryption
+        GattStatus.InsufficientAuthorization -> CBATTErrorInsufficientAuthorization
+        GattStatus.RequestNotSupported -> CBATTErrorRequestNotSupported
+        GattStatus.ConnectionCongested -> CB_ATT_ERROR_UNLIKELY
+        GattStatus.Failure -> CB_ATT_ERROR_UNLIKELY
+        is GattStatus.Unknown -> CB_ATT_ERROR_UNLIKELY
+    }

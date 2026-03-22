@@ -19,14 +19,15 @@ public class Characteristic(
         val indicate: Boolean = false,
     ) {
         /** Human-readable property list, e.g. "read, notify". */
-        public val displayName: String get() = buildList {
-            if (read) add("read")
-            if (write) add("write")
-            if (writeWithoutResponse) add("writeNoResp")
-            if (signedWrite) add("signedWrite")
-            if (notify) add("notify")
-            if (indicate) add("indicate")
-        }.joinToString(", ")
+        public val displayName: String get() =
+            buildList {
+                if (read) add("read")
+                if (write) add("write")
+                if (writeWithoutResponse) add("writeNoResp")
+                if (signedWrite) add("signedWrite")
+                if (notify) add("notify")
+                if (indicate) add("indicate")
+            }.joinToString(", ")
     }
 
     override fun toString(): String = "Characteristic(service=$serviceUuid, uuid=$uuid)"

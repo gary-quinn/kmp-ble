@@ -10,7 +10,6 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class LargeWriteTest {
-
     @Test
     fun dataWithinMtuNotChunked() {
         val data = ByteArray(20) { it.toByte() }

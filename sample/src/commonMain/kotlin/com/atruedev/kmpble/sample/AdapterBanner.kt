@@ -21,20 +21,22 @@ import com.atruedev.kmpble.adapter.BluetoothAdapterState
 fun AdapterBanner(adapter: BluetoothAdapter) {
     val state by adapter.state.collectAsState()
 
-    val (message, color) = when (state) {
-        BluetoothAdapterState.On -> null to Color.Transparent
-        BluetoothAdapterState.Off -> "Bluetooth is off" to MaterialTheme.colorScheme.error
-        BluetoothAdapterState.Unavailable -> "Bluetooth unavailable" to MaterialTheme.colorScheme.error
-        BluetoothAdapterState.Unauthorized -> "Bluetooth unauthorized" to Color(0xFFFF9800)
-        BluetoothAdapterState.Unsupported -> "BLE not supported" to MaterialTheme.colorScheme.error
-    }
+    val (message, color) =
+        when (state) {
+            BluetoothAdapterState.On -> null to Color.Transparent
+            BluetoothAdapterState.Off -> "Bluetooth is off" to MaterialTheme.colorScheme.error
+            BluetoothAdapterState.Unavailable -> "Bluetooth unavailable" to MaterialTheme.colorScheme.error
+            BluetoothAdapterState.Unauthorized -> "Bluetooth unauthorized" to Color(0xFFFF9800)
+            BluetoothAdapterState.Unsupported -> "BLE not supported" to MaterialTheme.colorScheme.error
+        }
 
     AnimatedVisibility(visible = message != null) {
         Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(color)
-                .padding(12.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .background(color)
+                    .padding(12.dp),
             contentAlignment = Alignment.Center,
         ) {
             Text(

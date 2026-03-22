@@ -13,7 +13,6 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class AndroidL2capChannelTest {
-
     private fun createChannel(
         socket: FakeL2capSocket = FakeL2capSocket(),
         psm: Int = 0x25,
@@ -90,192 +89,210 @@ class AndroidL2capChannelTest {
     // =========================================================================
 
     @Test
-    fun `write sends data through output stream`() = runTest {
-        val (channel, socket) = createChannel()
-        val data = byteArrayOf(0x01, 0x02, 0x03)
+    fun `write sends data through output stream`() =
+        runTest {
+            val (channel, socket) = createChannel()
+            val data = byteArrayOf(0x01, 0x02, 0x03)
 
-        channel.write(data)
+            channel.write(data)
 
-        val captured = ByteArray(3)
-        val bytesRead = socket.localCapture.read(captured)
-        assertEquals(3, bytesRead)
-        assertContentEquals(data, captured)
-        channel.close()
-    }
+            val captured = ByteArray(3)
+            val bytesRead = socket.localCapture.read(captured)
+            assertEquals(3, bytesRead)
+            assertContentEquals(data, captured)
+            channel.close()
+        }
 
     @Test
-    fun `write throws ChannelClosed after close`() = runTest {
-        val (channel, _) = createChannel()
-        channel.close()
+    fun `write throws ChannelClosed after close`() =
+        runTest {
+            val (channel, _) = createChannel()
+            channel.close()
 
-        assertFailsWith<L2capException.ChannelClosed> {
-            channel.write(byteArrayOf(0x01, 0x02))
+            assertFailsWith<L2capException.ChannelClosed> {
+                channel.write(byteArrayOf(0x01, 0x02))
+            }
         }
-    }
 
     @Test
-    fun `write throws ChannelClosed when socket is disconnected`() = runTest {
-        val (channel, socket) = createChannel()
-        socket.simulateDisconnect()
+    fun `write throws ChannelClosed when socket is disconnected`() =
+        runTest {
+            val (channel, socket) = createChannel()
+            socket.simulateDisconnect()
 
-        assertFailsWith<L2capException.ChannelClosed> {
-            channel.write(byteArrayOf(0x01))
+            assertFailsWith<L2capException.ChannelClosed> {
+                channel.write(byteArrayOf(0x01))
+            }
+            channel.close()
         }
-        channel.close()
-    }
 
     @Test
-    fun `write throws WriteFailed when output stream is closed`() = runTest {
-        val (channel, socket) = createChannel()
-        socket.localCapture.close()
+    fun `write throws WriteFailed when output stream is closed`() =
+        runTest {
+            val (channel, socket) = createChannel()
+            socket.localCapture.close()
 
-        assertFailsWith<L2capException.WriteFailed> {
-            channel.write(byteArrayOf(0x01))
+            assertFailsWith<L2capException.WriteFailed> {
+                channel.write(byteArrayOf(0x01))
+            }
+            channel.close()
         }
-        channel.close()
-    }
 
     // =========================================================================
     // Read loop (incoming flow)
     // =========================================================================
 
     @Test
-    fun `incoming flow receives data from remote`() = runTest {
-        val (channel, socket) = createChannel()
-        val received = mutableListOf<ByteArray>()
+    fun `incoming flow receives data from remote`() =
+        runTest {
+            val (channel, socket) = createChannel()
+            val received = mutableListOf<ByteArray>()
 
-        val collectJob = launch(UnconfinedTestDispatcher(testScheduler)) {
-            channel.incoming.collect { received.add(it) }
+            val collectJob =
+                launch(UnconfinedTestDispatcher(testScheduler)) {
+                    channel.incoming.collect { received.add(it) }
+                }
+
+            socket.remoteOutput.write(byteArrayOf(0x0A, 0x0B))
+            socket.remoteOutput.flush()
+
+            awaitCondition { received.isNotEmpty() }
+
+            assertContentEquals(byteArrayOf(0x0A, 0x0B), received[0])
+
+            channel.close()
+            collectJob.join()
         }
-
-        socket.remoteOutput.write(byteArrayOf(0x0A, 0x0B))
-        socket.remoteOutput.flush()
-
-        awaitCondition { received.isNotEmpty() }
-
-        assertContentEquals(byteArrayOf(0x0A, 0x0B), received[0])
-
-        channel.close()
-        collectJob.join()
-    }
 
     @Test
-    fun `incoming flow receives multiple packets`() = runTest {
-        val (channel, socket) = createChannel()
-        val received = mutableListOf<ByteArray>()
+    fun `incoming flow receives multiple packets`() =
+        runTest {
+            val (channel, socket) = createChannel()
+            val received = mutableListOf<ByteArray>()
 
-        val collectJob = launch(UnconfinedTestDispatcher(testScheduler)) {
-            channel.incoming.collect { received.add(it) }
+            val collectJob =
+                launch(UnconfinedTestDispatcher(testScheduler)) {
+                    channel.incoming.collect { received.add(it) }
+                }
+
+            socket.remoteOutput.write(byteArrayOf(0x01))
+            socket.remoteOutput.flush()
+            awaitCondition { received.size >= 1 }
+
+            socket.remoteOutput.write(byteArrayOf(0x02))
+            socket.remoteOutput.flush()
+            awaitCondition { received.size >= 2 }
+
+            assertContentEquals(byteArrayOf(0x01), received[0])
+            assertContentEquals(byteArrayOf(0x02), received[1])
+
+            channel.close()
+            collectJob.join()
         }
-
-        socket.remoteOutput.write(byteArrayOf(0x01))
-        socket.remoteOutput.flush()
-        awaitCondition { received.size >= 1 }
-
-        socket.remoteOutput.write(byteArrayOf(0x02))
-        socket.remoteOutput.flush()
-        awaitCondition { received.size >= 2 }
-
-        assertContentEquals(byteArrayOf(0x01), received[0])
-        assertContentEquals(byteArrayOf(0x02), received[1])
-
-        channel.close()
-        collectJob.join()
-    }
 
     @Test
-    fun `incoming flow completes when channel is closed`() = runTest {
-        val (channel, _) = createChannel()
-        var flowCompleted = false
+    fun `incoming flow completes when channel is closed`() =
+        runTest {
+            val (channel, _) = createChannel()
+            var flowCompleted = false
 
-        val collectJob = launch(UnconfinedTestDispatcher(testScheduler)) {
-            channel.incoming.collect { }
-            flowCompleted = true
+            val collectJob =
+                launch(UnconfinedTestDispatcher(testScheduler)) {
+                    channel.incoming.collect { }
+                    flowCompleted = true
+                }
+
+            channel.close()
+            collectJob.join()
+
+            assertTrue(flowCompleted, "Flow should complete after close")
         }
-
-        channel.close()
-        collectJob.join()
-
-        assertTrue(flowCompleted, "Flow should complete after close")
-    }
 
     @Test
-    fun `incoming flow completes on remote EOF`() = runTest {
-        val (channel, socket) = createChannel()
-        var flowCompleted = false
+    fun `incoming flow completes on remote EOF`() =
+        runTest {
+            val (channel, socket) = createChannel()
+            var flowCompleted = false
 
-        val collectJob = launch(UnconfinedTestDispatcher(testScheduler)) {
-            channel.incoming.collect { }
-            flowCompleted = true
+            val collectJob =
+                launch(UnconfinedTestDispatcher(testScheduler)) {
+                    channel.incoming.collect { }
+                    flowCompleted = true
+                }
+
+            socket.simulateRemoteClose()
+            collectJob.join()
+
+            assertTrue(flowCompleted, "Flow should complete on remote EOF")
         }
-
-        socket.simulateRemoteClose()
-        collectJob.join()
-
-        assertTrue(flowCompleted, "Flow should complete on remote EOF")
-    }
 
     // =========================================================================
     // awaitClosed
     // =========================================================================
 
     @Test
-    fun `awaitClosed completes when channel is closed`() = runTest {
-        val (channel, _) = createChannel()
-        var awaited = false
+    fun `awaitClosed completes when channel is closed`() =
+        runTest {
+            val (channel, _) = createChannel()
+            var awaited = false
 
-        val awaitJob = launch(UnconfinedTestDispatcher(testScheduler)) {
-            channel.awaitClosed()
-            awaited = true
+            val awaitJob =
+                launch(UnconfinedTestDispatcher(testScheduler)) {
+                    channel.awaitClosed()
+                    awaited = true
+                }
+
+            assertFalse(awaited, "Should not have completed yet")
+            channel.close()
+            awaitJob.join()
+            assertTrue(awaited, "awaitClosed should complete after close")
         }
-
-        assertFalse(awaited, "Should not have completed yet")
-        channel.close()
-        awaitJob.join()
-        assertTrue(awaited, "awaitClosed should complete after close")
-    }
 
     @Test
-    fun `awaitClosed completes on remote disconnect`() = runTest {
-        val (channel, socket) = createChannel()
-        var awaited = false
+    fun `awaitClosed completes on remote disconnect`() =
+        runTest {
+            val (channel, socket) = createChannel()
+            var awaited = false
 
-        val awaitJob = launch(UnconfinedTestDispatcher(testScheduler)) {
-            channel.awaitClosed()
-            awaited = true
+            val awaitJob =
+                launch(UnconfinedTestDispatcher(testScheduler)) {
+                    channel.awaitClosed()
+                    awaited = true
+                }
+
+            socket.simulateRemoteClose()
+            awaitJob.join()
+            assertTrue(awaited, "awaitClosed should complete on remote close")
         }
-
-        socket.simulateRemoteClose()
-        awaitJob.join()
-        assertTrue(awaited, "awaitClosed should complete on remote close")
-    }
 
     // =========================================================================
     // Socket disconnect mid-read
     // =========================================================================
 
     @Test
-    fun `channel becomes not open after remote disconnect`() = runTest {
-        val (channel, socket) = createChannel()
-        assertTrue(channel.isOpen)
+    fun `channel becomes not open after remote disconnect`() =
+        runTest {
+            val (channel, socket) = createChannel()
+            assertTrue(channel.isOpen)
 
-        socket.simulateRemoteClose()
-        // Wait for read loop to detect EOF
-        channel.awaitClosed()
+            socket.simulateRemoteClose()
+            // Wait for read loop to detect EOF
+            channel.awaitClosed()
 
-        assertFalse(channel.isOpen)
-    }
+            assertFalse(channel.isOpen)
+        }
 
     @Test
-    fun `write fails after remote disconnect closes channel`() = runTest {
-        val (channel, socket) = createChannel()
-        socket.simulateRemoteClose()
-        channel.awaitClosed()
+    fun `write fails after remote disconnect closes channel`() =
+        runTest {
+            val (channel, socket) = createChannel()
+            socket.simulateRemoteClose()
+            channel.awaitClosed()
 
-        assertFailsWith<L2capException.ChannelClosed> {
-            channel.write(byteArrayOf(0x01))
+            assertFailsWith<L2capException.ChannelClosed> {
+                channel.write(byteArrayOf(0x01))
+            }
         }
-    }
 
     private suspend fun awaitCondition(
         timeoutMs: Long = 2_000,

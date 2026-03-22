@@ -22,23 +22,28 @@ class L2capController(
     private var openJob: Job? = null
     private var incomingJob: Job? = null
 
-    fun open(psm: Int, secure: Boolean = true) {
+    fun open(
+        psm: Int,
+        secure: Boolean = true,
+    ) {
         openJob?.cancel()
-        openJob = scope.launch {
-            try {
-                val ch = peripheral.openL2capChannel(psm, secure)
-                _channel.value = ch
-                appendLog("Opened (PSM=$psm, MTU=${ch.mtu})")
-                incomingJob?.cancel()
-                incomingJob = scope.launch {
-                    ch.incoming.collect { data ->
-                        appendLog("IN: ${data.toHexString()}")
-                    }
+        openJob =
+            scope.launch {
+                try {
+                    val ch = peripheral.openL2capChannel(psm, secure)
+                    _channel.value = ch
+                    appendLog("Opened (PSM=$psm, MTU=${ch.mtu})")
+                    incomingJob?.cancel()
+                    incomingJob =
+                        scope.launch {
+                            ch.incoming.collect { data ->
+                                appendLog("IN: ${data.toHexString()}")
+                            }
+                        }
+                } catch (e: Exception) {
+                    appendLog("Open failed: ${e.message}")
                 }
-            } catch (e: Exception) {
-                appendLog("Open failed: ${e.message}")
             }
-        }
     }
 
     fun write(data: ByteArray) {

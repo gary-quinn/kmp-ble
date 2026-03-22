@@ -4,7 +4,6 @@ import com.atruedev.kmpble.internal.IosPeripheralManagerDelegate
 import com.atruedev.kmpble.internal.PeripheralManagerProvider
 import com.atruedev.kmpble.logging.BleLogEvent
 import com.atruedev.kmpble.logging.logEvent
-import kotlin.concurrent.AtomicInt
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -14,6 +13,7 @@ import platform.CoreBluetooth.CBPeripheralManager
 import platform.CoreBluetooth.CBPeripheralManagerStatePoweredOn
 import platform.CoreBluetooth.CBUUID
 import platform.Foundation.NSError
+import kotlin.concurrent.AtomicInt
 
 /**
  * iOS implementation of [Advertiser] using [CBPeripheralManager].
@@ -39,7 +39,6 @@ internal class IosAdvertiser(
     private val manager: CBPeripheralManager = PeripheralManagerProvider.manager,
     private val delegate: IosPeripheralManagerDelegate = PeripheralManagerProvider.delegate,
 ) : Advertiser {
-
     private val _isAdvertising = MutableStateFlow(false)
     override val isAdvertising: StateFlow<Boolean> = _isAdvertising.asStateFlow()
 
@@ -69,9 +68,10 @@ internal class IosAdvertiser(
         }
 
         if (config.serviceUuids.isNotEmpty()) {
-            advertisementData[CBAdvertisementDataServiceUUIDsKey] = config.serviceUuids.map {
-                CBUUID.UUIDWithString(it.toString())
-            }
+            advertisementData[CBAdvertisementDataServiceUUIDsKey] =
+                config.serviceUuids.map {
+                    CBUUID.UUIDWithString(it.toString())
+                }
         }
 
         delegate.onStartAdvertising = { error -> handleDidStartAdvertising(error) }
@@ -95,7 +95,10 @@ internal class IosAdvertiser(
         delegate.onStartAdvertising = null
     }
 
-    private fun warnUnsupported(field: String, reason: String = "ignored") {
+    private fun warnUnsupported(
+        field: String,
+        reason: String = "ignored",
+    ) {
         logEvent(
             BleLogEvent.Error(
                 identifier = null,

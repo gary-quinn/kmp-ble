@@ -10,15 +10,23 @@ internal data class GattResult(val value: ByteArray, val status: GattStatus) {
         if (other !is GattResult) return false
         return value.contentEquals(other.value) && status == other.status
     }
+
     override fun hashCode(): Int = 31 * value.contentHashCode() + status.hashCode()
 }
 
 internal class PendingSlot<T>(private val name: String) {
     private var deferred: CompletableDeferred<T>? = null
 
-    operator fun getValue(thisRef: Any?, property: KProperty<*>): CompletableDeferred<T>? = deferred
+    operator fun getValue(
+        thisRef: Any?,
+        property: KProperty<*>,
+    ): CompletableDeferred<T>? = deferred
 
-    operator fun setValue(thisRef: Any?, property: KProperty<*>, value: CompletableDeferred<T>?) {
+    operator fun setValue(
+        thisRef: Any?,
+        property: KProperty<*>,
+        value: CompletableDeferred<T>?,
+    ) {
         check(deferred == null || value == null) { "$name overwritten while pending" }
         deferred = value
     }

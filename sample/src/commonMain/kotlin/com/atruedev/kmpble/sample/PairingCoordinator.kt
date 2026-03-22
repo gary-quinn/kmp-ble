@@ -11,21 +11,20 @@ import kotlinx.coroutines.flow.asStateFlow
 
 @OptIn(ExperimentalBleApi::class)
 class PairingCoordinator {
-
     private val _event = MutableStateFlow<PairingEvent?>(null)
     val event: StateFlow<PairingEvent?> = _event.asStateFlow()
 
     private val responseChannel = Channel<PairingResponse>(Channel.RENDEZVOUS)
 
-    val handler = PairingHandler { event ->
-        _event.value = event
-        try {
-            responseChannel.receive()
-        } finally {
-            _event.value = null
+    val handler =
+        PairingHandler { event ->
+            _event.value = event
+            try {
+                responseChannel.receive()
+            } finally {
+                _event.value = null
+            }
         }
-    }
 
-    fun respond(response: PairingResponse): Boolean =
-        responseChannel.trySend(response).isSuccess
+    fun respond(response: PairingResponse): Boolean = responseChannel.trySend(response).isSuccess
 }

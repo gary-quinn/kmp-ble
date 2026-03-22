@@ -10,7 +10,6 @@ import kotlinx.coroutines.flow.StateFlow
  * triggers the iOS Bluetooth permission prompt on first access.
  */
 public class IosBluetoothAdapter : BluetoothAdapter {
-
     override val state: StateFlow<BluetoothAdapterState>
         get() {
             CentralManagerProvider.manager

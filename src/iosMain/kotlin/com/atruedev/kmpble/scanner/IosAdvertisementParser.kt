@@ -1,8 +1,8 @@
 package com.atruedev.kmpble.scanner
 
 import com.atruedev.kmpble.BleData
-import com.atruedev.kmpble.bleDataFromNSData
 import com.atruedev.kmpble.Identifier
+import com.atruedev.kmpble.bleDataFromNSData
 import com.atruedev.kmpble.internal.RawScanResult
 import platform.CoreBluetooth.CBAdvertisementDataIsConnectable
 import platform.CoreBluetooth.CBAdvertisementDataLocalNameKey

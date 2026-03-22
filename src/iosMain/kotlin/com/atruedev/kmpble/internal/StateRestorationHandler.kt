@@ -34,7 +34,6 @@ internal class StateRestorationHandler(
     private val centralManagerProvider: CentralManagerProvider = CentralManagerProvider,
     private val peripheralRegistry: PeripheralRegistry = PeripheralRegistry,
 ) {
-
     private var scope: CoroutineScope? = null
     private val started = AtomicInt(0)
 
@@ -78,17 +77,24 @@ internal class StateRestorationHandler(
         for (cbPeripheral in cbPeripherals) {
             val identifier = Identifier(cbPeripheral.identifier.UUIDString)
 
-            val savedObservations = try {
-                persistence.restore(identifier.value)
-            } catch (e: Exception) {
-                logEvent(BleLogEvent.Error(identifier, "StateRestoration: failed to restore observations, clearing", e))
-                try { persistence.clear(identifier.value) } catch (_: Exception) {}
-                emptySet()
-            }
+            val savedObservations =
+                try {
+                    persistence.restore(identifier.value)
+                } catch (e: Exception) {
+                    logEvent(
+                        BleLogEvent.Error(identifier, "StateRestoration: failed to restore observations, clearing", e),
+                    )
+                    try {
+                        persistence.clear(identifier.value)
+                    } catch (_: Exception) {
+                    }
+                    emptySet()
+                }
 
-            val peripheral = peripheralRegistry.getOrCreate(identifier) {
-                IosPeripheral(cbPeripheral)
-            }
+            val peripheral =
+                peripheralRegistry.getOrCreate(identifier) {
+                    IosPeripheral(cbPeripheral)
+                }
 
             if (peripheral is IosPeripheral) {
                 scope?.launch {
@@ -107,7 +113,10 @@ internal class StateRestorationHandler(
      * Persist current observations for a specific peripheral.
      * Called by ObservationManager when observations change.
      */
-    fun persistObservations(peripheralId: String, observations: Set<PersistedObservation>) {
+    fun persistObservations(
+        peripheralId: String,
+        observations: Set<PersistedObservation>,
+    ) {
         if (!centralManagerProvider.isStateRestorationEnabled) return
         safeLog("persist observations") { persistence.save(peripheralId, observations) }
     }
@@ -119,7 +128,10 @@ internal class StateRestorationHandler(
         safeLog("clear observations") { persistence.clear(peripheralId) }
     }
 
-    private inline fun safeLog(operation: String, block: () -> Unit) {
+    private inline fun safeLog(
+        operation: String,
+        block: () -> Unit,
+    ) {
         try {
             block()
         } catch (e: Exception) {

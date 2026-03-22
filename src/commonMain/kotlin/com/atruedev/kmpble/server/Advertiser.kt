@@ -30,7 +30,6 @@ import kotlin.uuid.Uuid
  * - Both together = standard peripheral role
  */
 public interface Advertiser : AutoCloseable {
-
     /**
      * Whether advertising is currently active.
      */
@@ -126,9 +125,10 @@ public class AdvertiseConfig(
     public override fun hashCode(): Int {
         var result = name?.hashCode() ?: 0
         result = 31 * result + serviceUuids.hashCode()
-        result = 31 * result + manufacturerData.entries.fold(0) { acc, (key, value) ->
-            acc + key.hashCode() + value.contentHashCode()
-        }
+        result = 31 * result +
+            manufacturerData.entries.fold(0) { acc, (key, value) ->
+                acc + key.hashCode() + value.contentHashCode()
+            }
         result = 31 * result + connectable.hashCode()
         result = 31 * result + includeTxPower.hashCode()
         result = 31 * result + mode.hashCode()
@@ -137,7 +137,9 @@ public class AdvertiseConfig(
     }
 
     public override fun toString(): String =
-        "AdvertiseConfig(name=$name, serviceUuids=$serviceUuids, connectable=$connectable, includeTxPower=$includeTxPower, mode=$mode, txPower=$txPower)"
+        "AdvertiseConfig(name=$name, serviceUuids=$serviceUuids, " +
+            "connectable=$connectable, includeTxPower=$includeTxPower, " +
+            "mode=$mode, txPower=$txPower)"
 }
 
 public expect fun Advertiser(): Advertiser

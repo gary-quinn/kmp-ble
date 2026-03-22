@@ -26,7 +26,6 @@ import kotlin.uuid.Uuid
  */
 @ExperimentalBleApi
 public interface ExtendedAdvertiser : AutoCloseable {
-
     /** Active advertising set IDs. */
     public val activeSets: StateFlow<Set<Int>>
 
@@ -89,12 +88,14 @@ public class ExtendedAdvertiseConfig(
     override fun hashCode(): Int {
         var result = name?.hashCode() ?: 0
         result = 31 * result + serviceUuids.hashCode()
-        result = 31 * result + manufacturerData.entries.fold(0) { acc, (k, v) ->
-            acc + k.hashCode() + v.contentHashCode()
-        }
-        result = 31 * result + serviceData.entries.fold(0) { acc, (k, v) ->
-            acc + k.hashCode() + v.contentHashCode()
-        }
+        result = 31 * result +
+            manufacturerData.entries.fold(0) { acc, (k, v) ->
+                acc + k.hashCode() + v.contentHashCode()
+            }
+        result = 31 * result +
+            serviceData.entries.fold(0) { acc, (k, v) ->
+                acc + k.hashCode() + v.contentHashCode()
+            }
         result = 31 * result + connectable.hashCode()
         result = 31 * result + scannable.hashCode()
         result = 31 * result + includeTxPower.hashCode()
@@ -120,8 +121,10 @@ public class ExtendedAdvertiseConfig(
 public enum class AdvertiseInterval {
     /** ~1000ms interval. Lowest power, slowest discovery. */
     LowPower,
+
     /** ~250ms interval. Good default. */
     Balanced,
+
     /** ~100ms interval. Fastest discovery, highest power. */
     LowLatency,
 }
