@@ -72,7 +72,7 @@ tasks.withType<Zip>().matching { it.name == "bundleAndroidMainAar" }.configureEa
     }
 }
 
-tasks.register<Exec>("assembleXCFramework") {
+tasks.register("assembleXCFramework") {
     dependsOn(
         "linkReleaseFrameworkIosArm64",
         "linkReleaseFrameworkIosSimulatorArm64",
@@ -83,23 +83,35 @@ tasks.register<Exec>("assembleXCFramework") {
 
     val outputDir = layout.buildDirectory.dir("XCFrameworks/release")
     val arm64 = layout.buildDirectory.dir("bin/iosArm64/releaseFramework/KmpBle.framework")
-    val sim = layout.buildDirectory.dir("bin/iosSimulatorArm64/releaseFramework/KmpBle.framework")
-    val x64 = layout.buildDirectory.dir("bin/iosX64/releaseFramework/KmpBle.framework")
+    val simArm64 = layout.buildDirectory.dir("bin/iosSimulatorArm64/releaseFramework/KmpBle.framework")
+    val simX64 = layout.buildDirectory.dir("bin/iosX64/releaseFramework/KmpBle.framework")
+    val fatSim = layout.buildDirectory.dir("bin/iosSimulatorFat/releaseFramework/KmpBle.framework")
 
-    doFirst {
-        outputDir.get().asFile.let { dir ->
-            dir.deleteRecursively()
-            dir.mkdirs()
+    doLast {
+        outputDir.get().asFile.let { dir -> dir.deleteRecursively(); dir.mkdirs() }
+
+        // Merge simulator architectures into a universal binary
+        val fatDir = fatSim.get().asFile
+        fatDir.deleteRecursively()
+        simArm64.get().asFile.copyRecursively(fatDir, overwrite = true)
+        exec {
+            commandLine(
+                "lipo", "-create",
+                File(simArm64.get().asFile, "KmpBle").absolutePath,
+                File(simX64.get().asFile, "KmpBle").absolutePath,
+                "-output", File(fatDir, "KmpBle").absolutePath,
+            )
+        }
+
+        exec {
+            commandLine(
+                "xcodebuild", "-create-xcframework",
+                "-framework", arm64.get().asFile.absolutePath,
+                "-framework", fatDir.absolutePath,
+                "-output", File(outputDir.get().asFile, "KmpBle.xcframework").absolutePath,
+            )
         }
     }
-
-    commandLine(
-        "xcodebuild", "-create-xcframework",
-        "-framework", arm64.map { it.asFile.absolutePath }.get(),
-        "-framework", sim.map { it.asFile.absolutePath }.get(),
-        "-framework", x64.map { it.asFile.absolutePath }.get(),
-        "-output", outputDir.map { File(it.asFile, "KmpBle.xcframework").absolutePath }.get(),
-    )
 }
 
 mavenPublishing {
