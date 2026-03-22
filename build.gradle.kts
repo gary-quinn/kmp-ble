@@ -90,27 +90,28 @@ tasks.register("assembleXCFramework") {
     doLast {
         outputDir.get().asFile.let { dir -> dir.deleteRecursively(); dir.mkdirs() }
 
-        // Merge simulator architectures into a universal binary
         val fatDir = fatSim.get().asFile
         fatDir.deleteRecursively()
         simArm64.get().asFile.copyRecursively(fatDir, overwrite = true)
-        exec {
-            commandLine(
-                "lipo", "-create",
-                File(simArm64.get().asFile, "KmpBle").absolutePath,
-                File(simX64.get().asFile, "KmpBle").absolutePath,
-                "-output", File(fatDir, "KmpBle").absolutePath,
-            )
+
+        fun run(vararg args: String) {
+            val result = ProcessBuilder(*args).inheritIO().start().waitFor()
+            require(result == 0) { "${args.first()} failed with exit code $result" }
         }
 
-        exec {
-            commandLine(
-                "xcodebuild", "-create-xcframework",
-                "-framework", arm64.get().asFile.absolutePath,
-                "-framework", fatDir.absolutePath,
-                "-output", File(outputDir.get().asFile, "KmpBle.xcframework").absolutePath,
-            )
-        }
+        run(
+            "lipo", "-create",
+            File(simArm64.get().asFile, "KmpBle").absolutePath,
+            File(simX64.get().asFile, "KmpBle").absolutePath,
+            "-output", File(fatDir, "KmpBle").absolutePath,
+        )
+
+        run(
+            "xcodebuild", "-create-xcframework",
+            "-framework", arm64.get().asFile.absolutePath,
+            "-framework", fatDir.absolutePath,
+            "-output", File(outputDir.get().asFile, "KmpBle.xcframework").absolutePath,
+        )
     }
 }
 
