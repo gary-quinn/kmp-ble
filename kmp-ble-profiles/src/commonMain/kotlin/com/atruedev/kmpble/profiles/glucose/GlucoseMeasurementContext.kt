@@ -21,8 +21,12 @@ public enum class CarbohydrateId {
     Reserved, Breakfast, Lunch, Dinner, Snack, Drink, Supper, Brunch;
 
     public companion object {
-        private val values = entries.toTypedArray()
-        public fun fromByte(value: Int): CarbohydrateId? = values.getOrNull(value)
+        private val mapping = mapOf(
+            0 to Reserved, 1 to Breakfast, 2 to Lunch, 3 to Dinner,
+            4 to Snack, 5 to Drink, 6 to Supper, 7 to Brunch,
+        )
+
+        public fun fromByte(value: Int): CarbohydrateId? = mapping[value]
     }
 }
 
@@ -30,8 +34,12 @@ public enum class Meal {
     Reserved, Preprandial, Postprandial, Fasting, Casual, Bedtime;
 
     public companion object {
-        private val values = entries.toTypedArray()
-        public fun fromByte(value: Int): Meal? = values.getOrNull(value)
+        private val mapping = mapOf(
+            0 to Reserved, 1 to Preprandial, 2 to Postprandial,
+            3 to Fasting, 4 to Casual, 5 to Bedtime,
+        )
+
+        public fun fromByte(value: Int): Meal? = mapping[value]
     }
 }
 
@@ -75,8 +83,12 @@ public enum class MedicationId {
     LongActingInsulin, PreMixedInsulin;
 
     public companion object {
-        private val values = entries.toTypedArray()
-        public fun fromByte(value: Int): MedicationId? = values.getOrNull(value)
+        private val mapping = mapOf(
+            0 to Reserved, 1 to RapidActingInsulin, 2 to ShortActingInsulin,
+            3 to IntermediateActingInsulin, 4 to LongActingInsulin, 5 to PreMixedInsulin,
+        )
+
+        public fun fromByte(value: Int): MedicationId? = mapping[value]
     }
 }
 

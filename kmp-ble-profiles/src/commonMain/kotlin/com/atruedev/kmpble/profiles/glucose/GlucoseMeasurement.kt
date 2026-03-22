@@ -30,8 +30,16 @@ public enum class GlucoseType {
     ControlSolution;
 
     public companion object {
-        private val values = entries.toTypedArray()
-        public fun fromNibble(value: Int): GlucoseType? = values.getOrNull(value)
+        private val mapping = mapOf(
+            0 to Reserved,
+            1 to CapillaryWholeBlood, 2 to CapillaryPlasma,
+            3 to VenousWholeBlood, 4 to VenousPlasma,
+            5 to ArterialWholeBlood, 6 to ArterialPlasma,
+            7 to UndeterminedWholeBlood, 8 to UndeterminedPlasma,
+            9 to InterstitialFluid, 10 to ControlSolution,
+        )
+
+        public fun fromNibble(value: Int): GlucoseType? = mapping[value]
     }
 }
 

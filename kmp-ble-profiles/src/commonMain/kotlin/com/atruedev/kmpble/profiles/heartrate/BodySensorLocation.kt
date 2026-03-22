@@ -10,10 +10,12 @@ public enum class BodySensorLocation {
     Foot;
 
     public companion object {
-        private val values = entries.toTypedArray()
+        private val mapping = mapOf(
+            0 to Other, 1 to Chest, 2 to Wrist, 3 to Finger,
+            4 to Hand, 5 to EarLobe, 6 to Foot,
+        )
 
-        public fun fromByte(value: Int): BodySensorLocation? =
-            values.getOrNull(value)
+        public fun fromByte(value: Int): BodySensorLocation? = mapping[value]
     }
 }
 

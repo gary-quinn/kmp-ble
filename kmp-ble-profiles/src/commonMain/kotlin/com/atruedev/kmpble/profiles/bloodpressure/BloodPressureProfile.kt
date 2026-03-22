@@ -7,15 +7,10 @@ import com.atruedev.kmpble.scanner.uuidFrom
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.mapNotNull
-import kotlin.uuid.ExperimentalUuidApi
 
-@OptIn(ExperimentalUuidApi::class)
 private val BP_MEASUREMENT_UUID = uuidFrom("2A35")
-
-@OptIn(ExperimentalUuidApi::class)
 private val BP_FEATURE_UUID = uuidFrom("2A49")
 
-@OptIn(ExperimentalUuidApi::class)
 public fun Peripheral.bloodPressureMeasurements(
     backpressure: BackpressureStrategy = BackpressureStrategy.Latest,
 ): Flow<BloodPressureMeasurement> {
@@ -24,7 +19,6 @@ public fun Peripheral.bloodPressureMeasurements(
     return observeValues(char, backpressure).mapNotNull { parseBloodPressureMeasurement(it) }
 }
 
-@OptIn(ExperimentalUuidApi::class)
 public suspend fun Peripheral.readBloodPressureFeature(): BloodPressureFeature? {
     val char = findCharacteristic(ServiceUuid.BLOOD_PRESSURE, BP_FEATURE_UUID) ?: return null
     return parseBloodPressureFeature(read(char))

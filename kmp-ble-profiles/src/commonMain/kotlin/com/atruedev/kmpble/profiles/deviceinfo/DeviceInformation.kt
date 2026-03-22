@@ -28,15 +28,16 @@ public data class PnpId(
 public fun parseSystemId(data: ByteArray): SystemId? {
     if (data.size < 8) return null
     val reader = BleByteReader(data)
-    val oui = (reader.readUInt8()) or
-        (reader.readUInt8() shl 8) or
-        (reader.readUInt8() shl 16)
-    val mfgLow = reader.readUInt8().toLong()
-    val mfgMid = reader.readUInt8().toLong()
-    val mfgHigh = reader.readUInt8().toLong()
+    // Bluetooth Core Spec Vol 3, Part C, Section 12.3:
+    // bytes 0-4: Manufacturer Identifier (40-bit LE)
+    // bytes 5-7: OUI (24-bit LE)
+    val mfg0 = reader.readUInt8().toLong()
+    val mfg1 = reader.readUInt8().toLong()
+    val mfg2 = reader.readUInt8().toLong()
     val mfg3 = reader.readUInt8().toLong()
     val mfg4 = reader.readUInt8().toLong()
-    val manufacturerIdentifier = mfgLow or (mfgMid shl 8) or (mfgHigh shl 16) or (mfg3 shl 24) or (mfg4 shl 32)
+    val manufacturerIdentifier = mfg0 or (mfg1 shl 8) or (mfg2 shl 16) or (mfg3 shl 24) or (mfg4 shl 32)
+    val oui = reader.readUInt8() or (reader.readUInt8() shl 8) or (reader.readUInt8() shl 16)
     return SystemId(
         manufacturerIdentifier = manufacturerIdentifier,
         organizationallyUniqueIdentifier = oui,

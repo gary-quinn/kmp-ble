@@ -1,5 +1,11 @@
 package com.atruedev.kmpble.profiles.parsing
 
+/**
+ * Little-endian byte cursor for parsing BLE characteristic payloads.
+ *
+ * Designed to be created, consumed linearly, and discarded within a single
+ * pure parse function. Not thread-safe — not intended to be shared.
+ */
 public class BleByteReader(private val data: ByteArray) {
 
     public var offset: Int = 0
