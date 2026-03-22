@@ -71,7 +71,7 @@ class BleCodecTest {
         assertContentEquals(byteArrayOf(0x03, 0xE9.toByte()), encoder.encode(501))
     }
 
-@Test
+    @Test
     fun bleDataDecoderReadsFromBleData() {
         assertEquals(0x0148, TestIntBleDataDecoder.decode(BleData(byteArrayOf(0x01, 0x48))))
     }
@@ -94,7 +94,7 @@ class BleCodecTest {
         assertEquals(2001, decoder.decode(BleData(byteArrayOf(0x03, 0xE8.toByte()))))
     }
 
-@Test
+    @Test
     fun bleDataEncoderProducesBleData() {
         val result = TestIntBleDataEncoder.encode(0x0148)
         assertEquals(0x01, result[0])
@@ -116,7 +116,7 @@ class BleCodecTest {
         assertEquals(0xE8.toByte(), result[1])
     }
 
-@Test
+    @Test
     fun bleDecoderAsBleDataDecoder() {
         val bridged = TestIntDecoder.asBleDataDecoder()
         assertEquals(0x0148, bridged.decode(BleData(byteArrayOf(0x01, 0x48))))
@@ -157,7 +157,7 @@ class BleCodecTest {
         assertEquals(original.toByteArray().toList(), bridged.toByteArray().toList())
     }
 
-@Test
+    @Test
     fun foldOnValueReturnsTransformedValue() {
         val obs: DecodedObservation<Int> = DecodedObservation.Value(42)
         val result = obs.fold(
