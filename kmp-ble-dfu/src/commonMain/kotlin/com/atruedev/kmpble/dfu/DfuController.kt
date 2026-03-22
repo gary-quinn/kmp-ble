@@ -56,8 +56,8 @@ public class DfuController(
             val psm = options.l2capPsm
                 ?: throw DfuError.TransferFailed("L2CAP PSM must be specified when useL2cap is true")
             val channel = peripheral.openL2capChannel(psm)
-            L2capDfuTransport(peripheral, channel)
+            L2capDfuTransport(peripheral, channel, options.commandTimeout)
         } else {
-            GattDfuTransport(peripheral)
+            GattDfuTransport(peripheral, options.commandTimeout)
         }
 }

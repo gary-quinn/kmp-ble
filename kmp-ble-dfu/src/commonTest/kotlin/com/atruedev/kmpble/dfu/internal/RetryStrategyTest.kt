@@ -1,6 +1,7 @@
 package com.atruedev.kmpble.dfu.internal
 
 import com.atruedev.kmpble.dfu.DfuError
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -34,6 +35,18 @@ class RetryStrategyTest {
                 throw RuntimeException("always fails")
             }
         }
+    }
+
+    @Test
+    fun cancellationExceptionNotRetried() = runTest {
+        var attempts = 0
+        assertFailsWith<CancellationException> {
+            retryOnFailure(3, 10.milliseconds) {
+                attempts++
+                throw CancellationException("cancelled")
+            }
+        }
+        assertEquals(1, attempts)
     }
 
     @Test

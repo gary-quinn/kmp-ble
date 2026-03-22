@@ -96,9 +96,6 @@ public object ServiceUuid {
     /** Nordic UART Service — defacto standard for serial-over-BLE. */
     public val NORDIC_UART: Uuid = vendor("6e400001-b5a3-f393-e0a9-e50e24dcca9e")
 
-    /** Nordic Secure DFU Service — firmware update over BLE. */
-    public val NORDIC_DFU: Uuid = sig("fe59")
-
     /** All UUIDs defined in this object, auto-populated via [sig] and [vendor]. */
     public val ALL: List<Uuid> = _all.toList().also { frozen = true }
 }

@@ -1,6 +1,7 @@
 package com.atruedev.kmpble.dfu.internal
 
 import com.atruedev.kmpble.dfu.DfuError
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlin.time.Duration
 
@@ -13,6 +14,8 @@ internal suspend fun <T> retryOnFailure(
     repeat(maxAttempts) { attempt ->
         try {
             return block(attempt)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: DfuError.Aborted) {
             throw e
         } catch (e: Throwable) {

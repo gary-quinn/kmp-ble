@@ -1,6 +1,8 @@
 package com.atruedev.kmpble.dfu.firmware
 
 import com.atruedev.kmpble.dfu.DfuError
+import com.atruedev.kmpble.dfu.internal.readIntLE
+import com.atruedev.kmpble.dfu.internal.readShortLE
 
 internal data class ZipEntry(
     val name: String,
@@ -18,7 +20,6 @@ internal data class ZipEntry(
 internal object ZipReader {
 
     private const val LOCAL_FILE_HEADER_SIG = 0x04034b50
-    private const val CENTRAL_DIR_SIG = 0x02014b50
 
     fun readEntries(zipData: ByteArray): List<ZipEntry> {
         val entries = mutableListOf<ZipEntry>()
@@ -34,7 +35,6 @@ internal object ZipReader {
 
             val compressionMethod = zipData.readShortLE(offset + 8)
             val compressedSize = zipData.readIntLE(offset + 18)
-            val uncompressedSize = zipData.readIntLE(offset + 22)
             val nameLength = zipData.readShortLE(offset + 26)
             val extraLength = zipData.readShortLE(offset + 28)
 
@@ -48,7 +48,7 @@ internal object ZipReader {
             if (nameStart + nameLength > zipData.size) {
                 throw DfuError.FirmwareParseError("Truncated filename at offset $offset")
             }
-            val name = zipData.decodeToString(nameStart, nameStart + nameLength)
+            val name = zipData.copyOfRange(nameStart, nameStart + nameLength).decodeToString()
 
             val dataStart = nameStart + nameLength + extraLength
             val dataEnd = dataStart + compressedSize
@@ -69,17 +69,4 @@ internal object ZipReader {
 
         return entries
     }
-
-    private fun ByteArray.readIntLE(offset: Int): Int =
-        (this[offset].toInt() and 0xFF) or
-            ((this[offset + 1].toInt() and 0xFF) shl 8) or
-            ((this[offset + 2].toInt() and 0xFF) shl 16) or
-            ((this[offset + 3].toInt() and 0xFF) shl 24)
-
-    private fun ByteArray.readShortLE(offset: Int): Int =
-        (this[offset].toInt() and 0xFF) or
-            ((this[offset + 1].toInt() and 0xFF) shl 8)
-
-    private fun ByteArray.decodeToString(start: Int, end: Int): String =
-        this.copyOfRange(start, end).decodeToString()
 }

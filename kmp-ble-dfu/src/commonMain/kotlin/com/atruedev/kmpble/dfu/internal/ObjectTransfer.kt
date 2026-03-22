@@ -20,9 +20,9 @@ internal class ObjectTransfer(
 
         require(response.size >= 15) { "Select response too short: ${response.size} bytes" }
         return DfuObjectInfo(
-            maxSize = response.readLittleEndianInt(3),
-            offset = response.readLittleEndianInt(7),
-            crc32 = response.readLittleEndianUInt(11),
+            maxSize = response.readIntLE(3),
+            offset = response.readIntLE(7),
+            crc32 = response.readUIntLE(11),
         )
     }
 

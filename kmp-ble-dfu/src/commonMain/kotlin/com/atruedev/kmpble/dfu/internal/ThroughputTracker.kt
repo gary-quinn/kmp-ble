@@ -6,24 +6,30 @@ internal class ThroughputTracker(
     private val windowSize: Int = 10,
     private val timeSource: TimeSource = TimeSource.Monotonic,
 ) {
-    private val samples = ArrayDeque<Sample>(windowSize)
+    private val timestamps = LongArray(windowSize)
+    private val byteCounts = LongArray(windowSize)
+    private var head = 0
+    private var size = 0
     private val startMark = timeSource.markNow()
-
-    private data class Sample(val timestamp: Long, val bytes: Long)
 
     fun record(bytesSent: Long) {
         val elapsed = startMark.elapsedNow().inWholeMilliseconds
-        samples.addLast(Sample(elapsed, bytesSent))
-        if (samples.size > windowSize) samples.removeFirst()
+        timestamps[head] = elapsed
+        byteCounts[head] = bytesSent
+        head = (head + 1) % windowSize
+        if (size < windowSize) size++
     }
 
     fun bytesPerSecond(): Long {
-        if (samples.size < 2) return 0
-        val oldest = samples.first()
-        val newest = samples.last()
-        val durationMs = newest.timestamp - oldest.timestamp
+        if (size < 2) return 0
+
+        val oldestIdx = if (size < windowSize) 0 else head
+        val newestIdx = (head - 1 + windowSize) % windowSize
+
+        val durationMs = timestamps[newestIdx] - timestamps[oldestIdx]
         if (durationMs <= 0) return 0
-        val deltaBytes = newest.bytes - oldest.bytes
+
+        val deltaBytes = byteCounts[newestIdx] - byteCounts[oldestIdx]
         return (deltaBytes * 1000) / durationMs
     }
 }

@@ -1,6 +1,5 @@
 package com.atruedev.kmpble.dfu.internal
 
-import com.atruedev.kmpble.dfu.protocol.Crc32
 import com.atruedev.kmpble.dfu.protocol.DfuChecksum
 import com.atruedev.kmpble.dfu.protocol.DfuOpcode
 import com.atruedev.kmpble.dfu.transport.DfuTransport
@@ -41,28 +40,7 @@ internal fun parseChecksumResponse(response: ByteArray): DfuChecksum {
     require(response[0].toInt() == DfuOpcode.RESPONSE) { "Not a response opcode" }
     require(response[1].toInt() == DfuOpcode.CALCULATE_CHECKSUM) { "Not a checksum response" }
 
-    val offset = response.readLittleEndianInt(3)
-    val crc32 = response.readLittleEndianUInt(7)
+    val offset = response.readIntLE(3)
+    val crc32 = response.readUIntLE(7)
     return DfuChecksum(offset, crc32)
 }
-
-internal fun ByteArray.readLittleEndianInt(index: Int): Int =
-    (this[index].toInt() and 0xFF) or
-        ((this[index + 1].toInt() and 0xFF) shl 8) or
-        ((this[index + 2].toInt() and 0xFF) shl 16) or
-        ((this[index + 3].toInt() and 0xFF) shl 24)
-
-internal fun ByteArray.readLittleEndianUInt(index: Int): UInt =
-    readLittleEndianInt(index).toUInt()
-
-internal fun Int.toLittleEndianBytes(): ByteArray = byteArrayOf(
-    (this and 0xFF).toByte(),
-    ((this shr 8) and 0xFF).toByte(),
-    ((this shr 16) and 0xFF).toByte(),
-    ((this shr 24) and 0xFF).toByte(),
-)
-
-internal fun Short.toLittleEndianBytes(): ByteArray = byteArrayOf(
-    (this.toInt() and 0xFF).toByte(),
-    ((this.toInt() shr 8) and 0xFF).toByte(),
-)
