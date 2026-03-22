@@ -16,6 +16,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -124,9 +125,11 @@ internal class AndroidAdvertiser(private val context: Context) : Advertiser {
     }
 
     override fun close() {
+        runBlocking(serialDispatcher) {
+            stopInternal()
+            advertiser = null
+        }
         scope.cancel()
-        stopInternal()
-        advertiser = null
     }
 
     private fun stopInternal() {

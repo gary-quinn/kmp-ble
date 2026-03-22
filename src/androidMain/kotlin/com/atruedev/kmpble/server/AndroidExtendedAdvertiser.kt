@@ -20,6 +20,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -111,15 +112,17 @@ internal class AndroidExtendedAdvertiser(private val context: Context) : Extende
     }
 
     override fun close() {
-        scope.cancel()
-        val advertiser = try { getLeAdvertiser() } catch (_: Exception) { null }
-        for ((_, handle) in advertisingSets) {
-            try {
-                advertiser?.stopAdvertisingSet(handle.callback)
-            } catch (_: SecurityException) { }
+        runBlocking(serialDispatcher) {
+            val advertiser = try { getLeAdvertiser() } catch (_: Exception) { null }
+            for ((_, handle) in advertisingSets) {
+                try {
+                    advertiser?.stopAdvertisingSet(handle.callback)
+                } catch (_: SecurityException) { }
+            }
+            advertisingSets.clear()
+            _activeSets.value = emptySet()
         }
-        advertisingSets.clear()
-        _activeSets.value = emptySet()
+        scope.cancel()
     }
 
     private fun getLeAdvertiser(): BluetoothLeAdvertiser {
