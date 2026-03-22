@@ -12,9 +12,7 @@ import kotlin.uuid.Uuid
 @OptIn(ExperimentalUuidApi::class)
 class AdvertisementCodecTest {
 
-    private val intDecoder = BleDataDecoder<Int> { data ->
-        (data[0].toInt() and 0xFF shl 8) or (data[1].toInt() and 0xFF)
-    }
+    private val hrUuid = Uuid.parse("0000180d-0000-1000-8000-00805f9b34fb")
 
     private fun advertisement(
         manufacturerData: Map<Int, BleData> = emptyMap(),
@@ -31,20 +29,17 @@ class AdvertisementCodecTest {
         timestampNanos = 0L,
     )
 
-    // ── Manufacturer data ───────────────────────────────────────────────────
-
     @Test
     fun decodeManufacturerDataPresent() {
         val ad = advertisement(
             manufacturerData = mapOf(0x004C to BleData(byteArrayOf(0x01, 0x48))),
         )
-        assertEquals(0x0148, ad.decodeManufacturerData(0x004C, intDecoder))
+        assertEquals(0x0148, ad.decodeManufacturerData(0x004C, TestIntBleDataDecoder))
     }
 
     @Test
     fun decodeManufacturerDataAbsentReturnsNull() {
-        val ad = advertisement()
-        assertNull(ad.decodeManufacturerData(0x004C, intDecoder))
+        assertNull(advertisement().decodeManufacturerData(0x004C, TestIntBleDataDecoder))
     }
 
     @Test
@@ -52,34 +47,29 @@ class AdvertisementCodecTest {
         val ad = advertisement(
             manufacturerData = mapOf(0x004C to BleData(byteArrayOf(0x01, 0x48))),
         )
-        assertNull(ad.decodeManufacturerData(0x0059, intDecoder))
+        assertNull(ad.decodeManufacturerData(0x0059, TestIntBleDataDecoder))
     }
 
     @Test
     fun decodeManufacturerDataWithMapTransform() {
-        val stringDecoder = intDecoder.map { it.toString() }
+        val stringDecoder = TestIntBleDataDecoder.map { it.toString() }
         val ad = advertisement(
             manufacturerData = mapOf(0x004C to BleData(byteArrayOf(0x03, 0xE8.toByte()))),
         )
         assertEquals("1000", ad.decodeManufacturerData(0x004C, stringDecoder))
     }
 
-    // ── Service data ────────────────────────────────────────────────────────
-
-    private val hrUuid = Uuid.parse("0000180d-0000-1000-8000-00805f9b34fb")
-
     @Test
     fun decodeServiceDataPresent() {
         val ad = advertisement(
             serviceData = mapOf(hrUuid to BleData(byteArrayOf(0x01, 0x48))),
         )
-        assertEquals(0x0148, ad.decodeServiceData(hrUuid, intDecoder))
+        assertEquals(0x0148, ad.decodeServiceData(hrUuid, TestIntBleDataDecoder))
     }
 
     @Test
     fun decodeServiceDataAbsentReturnsNull() {
-        val ad = advertisement()
-        assertNull(ad.decodeServiceData(hrUuid, intDecoder))
+        assertNull(advertisement().decodeServiceData(hrUuid, TestIntBleDataDecoder))
     }
 
     @Test
@@ -88,17 +78,12 @@ class AdvertisementCodecTest {
         val ad = advertisement(
             serviceData = mapOf(hrUuid to BleData(byteArrayOf(0x01, 0x48))),
         )
-        assertNull(ad.decodeServiceData(otherUuid, intDecoder))
+        assertNull(ad.decodeServiceData(otherUuid, TestIntBleDataDecoder))
     }
-
-    // ── Bridged decoder ─────────────────────────────────────────────────────
 
     @Test
     fun bridgedByteArrayDecoderWorksOnAdvertisement() {
-        val byteArrayDecoder = BleDecoder<Int> { data ->
-            (data[0].toInt() and 0xFF shl 8) or (data[1].toInt() and 0xFF)
-        }
-        val bridged = byteArrayDecoder.asBleDataDecoder()
+        val bridged = TestIntDecoder.asBleDataDecoder()
         val ad = advertisement(
             manufacturerData = mapOf(0x004C to BleData(byteArrayOf(0x01, 0x48))),
         )

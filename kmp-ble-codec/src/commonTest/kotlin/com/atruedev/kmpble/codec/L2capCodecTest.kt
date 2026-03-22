@@ -12,16 +12,13 @@ import kotlin.test.assertEquals
 
 class L2capCodecTest {
 
-    private val stringEncoder = BleEncoder<String> { it.encodeToByteArray() }
-    private val stringDecoder = BleDecoder<String> { it.decodeToString() }
-
     @Test
     fun incomingDecodesPackets() = runTest {
         val channel = FakeL2capChannel(psm = 0x25)
         val received = mutableListOf<String>()
 
         val job = launch(UnconfinedTestDispatcher(testScheduler)) {
-            channel.incoming(stringDecoder).collect { received.add(it) }
+            channel.incoming(TestStringDecoder).collect { received.add(it) }
         }
 
         channel.emitIncoming("alpha".encodeToByteArray())
@@ -35,7 +32,7 @@ class L2capCodecTest {
     fun writeEncodesBeforeSending() = runTest {
         val channel = FakeL2capChannel(psm = 0x25)
 
-        channel.write("hello", stringEncoder)
+        channel.write("hello", TestStringEncoder)
 
         val written = channel.getWrittenData()
         assertEquals(1, written.size)
@@ -46,9 +43,9 @@ class L2capCodecTest {
     fun writeMultipleEncodedValues() = runTest {
         val channel = FakeL2capChannel(psm = 0x25)
 
-        channel.write("one", stringEncoder)
-        channel.write("two", stringEncoder)
-        channel.write("three", stringEncoder)
+        channel.write("one", TestStringEncoder)
+        channel.write("two", TestStringEncoder)
+        channel.write("three", TestStringEncoder)
 
         val written = channel.getWrittenData()
         assertEquals(3, written.size)

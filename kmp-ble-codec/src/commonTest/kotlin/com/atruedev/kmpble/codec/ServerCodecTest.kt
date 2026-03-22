@@ -14,7 +14,6 @@ class ServerCodecTest {
 
     private val device = Identifier("AA:BB:CC:DD:EE:01")
     private val charUuid = Uuid.parse("00002a37-0000-1000-8000-00805f9b34fb")
-    private val stringEncoder = BleEncoder<String> { it.encodeToByteArray() }
 
     @Test
     fun notifyEncodesValue() = runTest {
@@ -22,7 +21,7 @@ class ServerCodecTest {
         server.open()
         server.simulateConnection(device)
 
-        server.notify(charUuid, device, "hello", stringEncoder)
+        server.notify(charUuid, device, "hello", TestStringEncoder)
 
         val records = server.getNotifications()
         assertEquals(1, records.size)
@@ -37,7 +36,7 @@ class ServerCodecTest {
         server.open()
         server.simulateConnection(device)
 
-        server.notify(charUuid, null, "broadcast", stringEncoder)
+        server.notify(charUuid, null, "broadcast", TestStringEncoder)
 
         val records = server.getNotifications()
         assertEquals(1, records.size)
@@ -50,7 +49,7 @@ class ServerCodecTest {
         server.open()
         server.simulateConnection(device)
 
-        server.indicate(charUuid, device, "ack-me", stringEncoder)
+        server.indicate(charUuid, device, "ack-me", TestStringEncoder)
 
         val records = server.getIndications()
         assertEquals(1, records.size)
