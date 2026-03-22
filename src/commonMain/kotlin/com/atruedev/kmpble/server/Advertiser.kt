@@ -44,14 +44,14 @@ public interface Advertiser : AutoCloseable {
      * @throws AdvertiserException.NotSupported if advertising not available
      * @throws AdvertiserException.AlreadyAdvertising if already advertising
      */
-    public fun startAdvertising(config: AdvertiseConfig)
+    public suspend fun startAdvertising(config: AdvertiseConfig)
 
     /**
      * Stop BLE advertising.
      *
      * Safe to call when not advertising.
      */
-    public fun stopAdvertising()
+    public suspend fun stopAdvertising()
 
     /**
      * Stop advertising and release resources.

@@ -61,71 +61,67 @@ internal class AndroidAdvertiser(private val context: Context) : Advertiser {
         }
     }
 
-    override fun startAdvertising(config: AdvertiseConfig) {
-        runBlocking(serialDispatcher) {
-            if (_isAdvertising.value || isStarting) {
-                throw AdvertiserException.AlreadyAdvertising()
-            }
+    override suspend fun startAdvertising(config: AdvertiseConfig): Unit = withContext(serialDispatcher) {
+        if (_isAdvertising.value || isStarting) {
+            throw AdvertiserException.AlreadyAdvertising()
+        }
 
-            val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
-                ?: throw AdvertiserException.NotSupported("BluetoothManager not available")
+        val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
+            ?: throw AdvertiserException.NotSupported("BluetoothManager not available")
 
-            val adapter = bluetoothManager.adapter
-                ?: throw AdvertiserException.NotSupported("Bluetooth not available")
+        val adapter = bluetoothManager.adapter
+            ?: throw AdvertiserException.NotSupported("Bluetooth not available")
 
-            if (!adapter.isEnabled) {
-                throw AdvertiserException.StartFailed("Bluetooth is not enabled")
-            }
+        if (!adapter.isEnabled) {
+            throw AdvertiserException.StartFailed("Bluetooth is not enabled")
+        }
 
-            val bleAdvertiser = adapter.bluetoothLeAdvertiser
-                ?: throw AdvertiserException.NotSupported("BLE advertising not supported on this device")
+        val bleAdvertiser = adapter.bluetoothLeAdvertiser
+            ?: throw AdvertiserException.NotSupported("BLE advertising not supported on this device")
 
-            advertiser = bleAdvertiser
+        advertiser = bleAdvertiser
 
-            val settings = AdvertiseSettings.Builder()
-                .setAdvertiseMode(config.mode.toAndroidMode())
-                .setConnectable(config.connectable)
-                .setTxPowerLevel(config.txPower.toAndroidTxPower())
-                .setTimeout(0)
-                .build()
+        val settings = AdvertiseSettings.Builder()
+            .setAdvertiseMode(config.mode.toAndroidMode())
+            .setConnectable(config.connectable)
+            .setTxPowerLevel(config.txPower.toAndroidTxPower())
+            .setTimeout(0)
+            .build()
 
-            val dataBuilder = AdvertiseData.Builder()
-                .setIncludeDeviceName(config.name != null)
-                .setIncludeTxPowerLevel(config.includeTxPower)
+        val dataBuilder = AdvertiseData.Builder()
+            .setIncludeDeviceName(config.name != null)
+            .setIncludeTxPowerLevel(config.includeTxPower)
 
-            for (uuid in config.serviceUuids) {
-                dataBuilder.addServiceUuid(ParcelUuid(uuid.toJavaUuid()))
-            }
+        for (uuid in config.serviceUuids) {
+            dataBuilder.addServiceUuid(ParcelUuid(uuid.toJavaUuid()))
+        }
 
-            for ((companyId, data) in config.manufacturerData) {
-                dataBuilder.addManufacturerData(companyId, data)
-            }
+        for ((companyId, data) in config.manufacturerData) {
+            dataBuilder.addManufacturerData(companyId, data)
+        }
 
-            if (config.name != null) {
-                try {
-                    originalAdapterName = adapter.name
-                    adapter.name = config.name
-                } catch (_: SecurityException) {
-                    // Non-critical: device name may not be settable
-                }
-            }
-
-            isStarting = true
+        if (config.name != null) {
             try {
-                bleAdvertiser.startAdvertising(settings, dataBuilder.build(), advertiseCallback)
-            } catch (e: SecurityException) {
-                isStarting = false
-                restoreAdapterName()
-                throw AdvertiserException.StartFailed("Missing BLUETOOTH_ADVERTISE permission", e)
+                originalAdapterName = adapter.name
+                adapter.name = config.name
+            } catch (_: SecurityException) {
+                // Non-critical: device name may not be settable
             }
+        }
+
+        isStarting = true
+        try {
+            bleAdvertiser.startAdvertising(settings, dataBuilder.build(), advertiseCallback)
+        } catch (e: SecurityException) {
+            isStarting = false
+            restoreAdapterName()
+            throw AdvertiserException.StartFailed("Missing BLUETOOTH_ADVERTISE permission", e)
         }
     }
 
-    override fun stopAdvertising() {
-        runBlocking(serialDispatcher) {
-            stopInternal()
-            logEvent(BleLogEvent.ServerLifecycle("advertising stopped"))
-        }
+    override suspend fun stopAdvertising(): Unit = withContext(serialDispatcher) {
+        stopInternal()
+        logEvent(BleLogEvent.ServerLifecycle("advertising stopped"))
     }
 
     override fun close() {

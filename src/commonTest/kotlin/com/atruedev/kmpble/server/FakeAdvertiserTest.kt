@@ -1,6 +1,7 @@
 package com.atruedev.kmpble.server
 
 import com.atruedev.kmpble.testing.FakeAdvertiser
+import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -14,7 +15,7 @@ class FakeAdvertiserTest {
     private val serviceUuid = Uuid.parse("0000180d-0000-1000-8000-00805f9b34fb")
 
     @Test
-    fun startAdvertising_sets_isAdvertising_true() {
+    fun startAdvertising_sets_isAdvertising_true() = runTest {
         val advertiser = FakeAdvertiser()
         assertFalse(advertiser.isAdvertising.value)
 
@@ -23,7 +24,7 @@ class FakeAdvertiserTest {
     }
 
     @Test
-    fun stopAdvertising_sets_isAdvertising_false() {
+    fun stopAdvertising_sets_isAdvertising_false() = runTest {
         val advertiser = FakeAdvertiser()
 
         advertiser.startAdvertising(AdvertiseConfig(name = "Test"))
@@ -34,7 +35,7 @@ class FakeAdvertiserTest {
     }
 
     @Test
-    fun double_start_throws_AlreadyAdvertising() {
+    fun double_start_throws_AlreadyAdvertising() = runTest {
         val advertiser = FakeAdvertiser()
 
         advertiser.startAdvertising(AdvertiseConfig(name = "Test"))
@@ -44,7 +45,7 @@ class FakeAdvertiserTest {
     }
 
     @Test
-    fun getLastConfig_returns_config() {
+    fun getLastConfig_returns_config() = runTest {
         val advertiser = FakeAdvertiser()
         val config = AdvertiseConfig(
             name = "MyDevice",
@@ -69,7 +70,7 @@ class FakeAdvertiserTest {
     }
 
     @Test
-    fun close_stops_advertising() {
+    fun close_stops_advertising() = runTest {
         val advertiser = FakeAdvertiser()
 
         advertiser.startAdvertising(AdvertiseConfig(name = "Test"))
@@ -80,15 +81,14 @@ class FakeAdvertiserTest {
     }
 
     @Test
-    fun stopAdvertising_when_not_advertising_is_safe() {
+    fun stopAdvertising_when_not_advertising_is_safe() = runTest {
         val advertiser = FakeAdvertiser()
-        // Should not throw
         advertiser.stopAdvertising()
         assertFalse(advertiser.isAdvertising.value)
     }
 
     @Test
-    fun close_multiple_times_is_safe() {
+    fun close_multiple_times_is_safe() = runTest {
         val advertiser = FakeAdvertiser()
         advertiser.startAdvertising(AdvertiseConfig(name = "Test"))
 
@@ -98,7 +98,7 @@ class FakeAdvertiserTest {
     }
 
     @Test
-    fun can_restart_after_stop() {
+    fun can_restart_after_stop() = runTest {
         val advertiser = FakeAdvertiser()
 
         advertiser.startAdvertising(AdvertiseConfig(name = "First"))

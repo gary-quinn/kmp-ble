@@ -45,7 +45,7 @@ internal class IosAdvertiser(
 
     private val isClosed = AtomicInt(0)
 
-    override fun startAdvertising(config: AdvertiseConfig) {
+    override suspend fun startAdvertising(config: AdvertiseConfig) {
         if (isClosed.value != 0) {
             throw AdvertiserException.StartFailed("Advertiser has been closed")
         }
@@ -79,7 +79,7 @@ internal class IosAdvertiser(
         manager.startAdvertising(advertisementData)
     }
 
-    override fun stopAdvertising() {
+    override suspend fun stopAdvertising() {
         if (!_isAdvertising.value) return
         manager.stopAdvertising()
         _isAdvertising.value = false
