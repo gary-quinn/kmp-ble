@@ -11,10 +11,10 @@ import platform.UIKit.UIViewController
  *
  * struct ContentView: UIViewControllerRepresentable {
  *     func makeUIViewController(context: Context) -> UIViewController {
- *         MainViewControllerKt.mainViewController()
+ *         MainViewControllerKt.MainViewController()
  *     }
  *     func updateUIViewController(_ uiViewController: UIViewController, context: Context) {}
  * }
  * ```
  */
-fun mainViewController(): UIViewController = ComposeUIViewController { App() }
+fun MainViewController(): UIViewController = ComposeUIViewController { App() }

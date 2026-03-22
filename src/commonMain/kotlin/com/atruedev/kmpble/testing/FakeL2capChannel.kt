@@ -31,19 +31,19 @@ public class FakeL2capChannel(
     private val incomingChannel = Channel<ByteArray>(Channel.BUFFERED)
     override val incoming: Flow<ByteArray> = incomingChannel.consumeAsFlow()
 
-    private var opened = true
-    override val isOpen: Boolean get() = opened
+    private var _isOpen = true
+    override val isOpen: Boolean get() = _isOpen
 
     private val writtenData = mutableListOf<ByteArray>()
 
     override suspend fun write(data: ByteArray) {
-        if (!opened) throw L2capException.ChannelClosed()
+        if (!_isOpen) throw L2capException.ChannelClosed()
         writtenData.add(data.copyOf())
     }
 
     override fun close() {
-        if (!opened) return
-        opened = false
+        if (!_isOpen) return
+        _isOpen = false
         incomingChannel.close()
     }
 

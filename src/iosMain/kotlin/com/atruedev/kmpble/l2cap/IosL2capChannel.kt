@@ -32,8 +32,8 @@ internal class IosL2capChannel(
 
     override val mtu: Int = DEFAULT_MTU
 
-    private val mutableIsOpen = MutableStateFlow(true)
-    override val isOpen: Boolean get() = mutableIsOpen.value
+    private val _isOpen = MutableStateFlow(true)
+    override val isOpen: Boolean get() = _isOpen.value
 
     private val dataChannel = Channel<ByteArray>(Channel.BUFFERED)
     override val incoming: Flow<ByteArray> = dataChannel.receiveAsFlow()
@@ -44,7 +44,7 @@ internal class IosL2capChannel(
         val inputOk = cbChannel.inputStream?.streamStatus == NSStreamStatusOpen
         val outputOk = cbChannel.outputStream?.streamStatus == NSStreamStatusOpen
         if (!inputOk || !outputOk) {
-            mutableIsOpen.value = false
+            _isOpen.value = false
             dataChannel.close()
         }
 
@@ -55,11 +55,11 @@ internal class IosL2capChannel(
     }
 
     private suspend fun readLoop() {
-        if (!mutableIsOpen.value) return
+        if (!_isOpen.value) return
 
         val inputStream =
             cbChannel.inputStream ?: run {
-                mutableIsOpen.value = false
+                _isOpen.value = false
                 dataChannel.close()
                 return
             }
@@ -69,7 +69,7 @@ internal class IosL2capChannel(
         var consecutiveIdlePolls = 0
 
         try {
-            while (mutableIsOpen.value) {
+            while (_isOpen.value) {
                 coroutineContext.ensureActive()
                 val status = inputStream.streamStatus
                 if (status == NSStreamStatusAtEnd || status == NSStreamStatusClosed || status == NSStreamStatusError) {
@@ -96,7 +96,7 @@ internal class IosL2capChannel(
                 }
             }
         } finally {
-            if (mutableIsOpen.compareAndSet(expect = true, update = false)) {
+            if (_isOpen.compareAndSet(expect = true, update = false)) {
                 closeStreams()
                 dataChannel.close()
             }
@@ -104,7 +104,7 @@ internal class IosL2capChannel(
     }
 
     override suspend fun write(data: ByteArray) {
-        if (!mutableIsOpen.value) {
+        if (!_isOpen.value) {
             throw L2capException.ChannelClosed()
         }
 
@@ -116,7 +116,7 @@ internal class IosL2capChannel(
             data.usePinned { pinned ->
                 var totalWritten = 0
                 while (totalWritten < data.size) {
-                    if (!mutableIsOpen.value) {
+                    if (!_isOpen.value) {
                         throw L2capException.ChannelClosed("Channel closed during write")
                     }
 
@@ -142,7 +142,7 @@ internal class IosL2capChannel(
     }
 
     override fun close() {
-        if (!mutableIsOpen.compareAndSet(expect = true, update = false)) return
+        if (!_isOpen.compareAndSet(expect = true, update = false)) return
         readJob.cancel()
         closeStreams()
         dataChannel.close()

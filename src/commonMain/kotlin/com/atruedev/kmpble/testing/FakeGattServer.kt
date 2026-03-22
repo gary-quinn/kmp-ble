@@ -36,13 +36,13 @@ import kotlin.uuid.Uuid
  * ```
  */
 public class FakeGattServer : GattServer {
-    private val mutableConnections = MutableStateFlow<List<ServerConnection>>(emptyList())
-    override val connections: StateFlow<List<ServerConnection>> = mutableConnections.asStateFlow()
+    private val _connections = MutableStateFlow<List<ServerConnection>>(emptyList())
+    override val connections: StateFlow<List<ServerConnection>> = _connections.asStateFlow()
 
-    private val mutableConnectionEvents = MutableSharedFlow<ServerConnectionEvent>(extraBufferCapacity = 16)
-    override val connectionEvents: Flow<ServerConnectionEvent> = mutableConnectionEvents.asSharedFlow()
+    private val _connectionEvents = MutableSharedFlow<ServerConnectionEvent>(extraBufferCapacity = 16)
+    override val connectionEvents: Flow<ServerConnectionEvent> = _connectionEvents.asSharedFlow()
 
-    private var opened = false
+    private var _isOpen = false
     private var closed = false
 
     private val notifications = mutableListOf<NotificationRecord>()
@@ -50,7 +50,7 @@ public class FakeGattServer : GattServer {
 
     override suspend fun open() {
         if (closed) throw ServerException.OpenFailed("Server has been closed")
-        opened = true
+        _isOpen = true
     }
 
     override suspend fun notify(
@@ -77,28 +77,28 @@ public class FakeGattServer : GattServer {
 
     override fun close() {
         closed = true
-        opened = false
-        mutableConnections.value = emptyList()
+        _isOpen = false
+        _connections.value = emptyList()
     }
 
     // --- Test helpers ---
 
     /** Whether the server is currently open. */
-    public val isOpen: Boolean get() = opened
+    public val isOpen: Boolean get() = _isOpen
 
     /** Simulate a client device connecting. */
     public suspend fun simulateConnection(
         device: Identifier,
         name: String? = null,
     ) {
-        mutableConnections.update { it + ServerConnection(device, name) }
-        mutableConnectionEvents.emit(ServerConnectionEvent.Connected(device))
+        _connections.update { it + ServerConnection(device, name) }
+        _connectionEvents.emit(ServerConnectionEvent.Connected(device))
     }
 
     /** Simulate a client device disconnecting. */
     public suspend fun simulateDisconnection(device: Identifier) {
-        mutableConnections.update { list -> list.filter { it.device != device } }
-        mutableConnectionEvents.emit(ServerConnectionEvent.Disconnected(device))
+        _connections.update { list -> list.filter { it.device != device } }
+        _connectionEvents.emit(ServerConnectionEvent.Disconnected(device))
     }
 
     /** Get all captured notification records. */
@@ -124,11 +124,11 @@ public class FakeGattServer : GattServer {
     )
 
     private fun checkOpen() {
-        if (!opened) throw ServerException.NotOpen()
+        if (!_isOpen) throw ServerException.NotOpen()
     }
 
     private fun checkConnected(device: Identifier) {
-        if (mutableConnections.value.none { it.device == device }) {
+        if (_connections.value.none { it.device == device }) {
             throw ServerException.DeviceNotConnected("Device $device not connected")
         }
     }
