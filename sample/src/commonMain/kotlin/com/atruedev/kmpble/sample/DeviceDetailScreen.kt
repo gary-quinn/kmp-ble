@@ -325,12 +325,15 @@ private fun ConnectionSection(
                             }
                         vm.connect(baseOptions)
                     },
-                    enabled = state is State.Disconnected,
+                    enabled = state is State.Disconnected || state is State.Disconnecting.Error,
                 ) { Text("Connect") }
 
                 OutlinedButton(
                     onClick = { vm.disconnect() },
-                    enabled = state is State.Connected || state is State.Connecting,
+                    enabled =
+                        state is State.Connected ||
+                            state is State.Connecting ||
+                            state is State.Disconnecting.Error,
                 ) { Text("Disconnect") }
             }
 
