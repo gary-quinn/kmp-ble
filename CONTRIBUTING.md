@@ -17,7 +17,7 @@ Thanks for your interest in contributing! This guide covers everything you need 
 
 ```bash
 # Clone
-git clone https://github.com/atruedeveloper/kmp-ble.git
+git clone https://github.com/gary-quinn/kmp-ble.git
 cd kmp-ble
 
 # Build all targets
@@ -68,7 +68,7 @@ The device quirk registry (`src/androidMain/.../internal/DeviceQuirks.kt`) conta
 
 ### 2. Bug Reports
 
-File an [issue](https://github.com/atruedeveloper/kmp-ble/issues) with:
+File an [issue](https://github.com/gary-quinn/kmp-ble/issues) with:
 
 - **Platform**: Android (API level, device model) or iOS (version, device)
 - **kmp-ble version**
@@ -78,7 +78,7 @@ File an [issue](https://github.com/atruedeveloper/kmp-ble/issues) with:
 
 ### 3. Feature Requests
 
-Open an [issue](https://github.com/atruedeveloper/kmp-ble/issues) describing:
+Open an [issue](https://github.com/gary-quinn/kmp-ble/issues) describing:
 
 - Your use case (what are you building?)
 - What you need from kmp-ble that's missing
@@ -94,7 +94,7 @@ For anything beyond quirk entries, please **open an issue first** to discuss the
 
 ### Before You Start
 
-1. Check [existing issues](https://github.com/atruedeveloper/kmp-ble/issues) to avoid duplicate work
+1. Check [existing issues](https://github.com/gary-quinn/kmp-ble/issues) to avoid duplicate work
 2. For non-trivial changes, open an issue to discuss the approach
 3. Fork the repository and create a branch from `main`
 
@@ -205,4 +205,4 @@ All BLE logic should be testable without hardware. If your change can't be teste
 
 ## Questions?
 
-Open an [issue](https://github.com/atruedeveloper/kmp-ble/issues) or start a [discussion](https://github.com/atruedeveloper/kmp-ble/discussions). No question is too basic.
+Open an [issue](https://github.com/gary-quinn/kmp-ble/issues) or start a [discussion](https://github.com/gary-quinn/kmp-ble/discussions). No question is too basic.

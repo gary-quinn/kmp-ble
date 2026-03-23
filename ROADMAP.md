@@ -123,7 +123,7 @@ Features we're tracking but not actively working on. Community interest and use 
 
 ## How to Influence This Roadmap
 
-- **Feature requests:** [Open an issue](https://github.com/atruedeveloper/kmp-ble/issues) describing your use case
+- **Feature requests:** [Open an issue](https://github.com/gary-quinn/kmp-ble/issues) describing your use case
 - **Bug reports:** Include platform, device model, and minimal reproduction
 - **Contributions:** Device quirk entries and profile modules are great first contributions — PRs welcome
 

@@ -86,7 +86,7 @@ jobs:
               targets: [
                   .binaryTarget(
                       name: "KmpBle",
-                      url: "https://github.com/atruedeveloper/kmp-ble/releases/download/${VERSION}/KmpBle.xcframework.zip",
+                      url: "https://github.com/gary-quinn/kmp-ble/releases/download/${VERSION}/KmpBle.xcframework.zip",
                       checksum: "${CHECKSUM}"
                   ),
               ]
@@ -187,7 +187,7 @@ jobs:
 
           # Add the new version's compare link after the [Unreleased] link
           if [ -n "$PREV_TAG" ]; then
-            sed -i "/^\[Unreleased\]:.*$/a [$VERSION]: https://github.com/atruedeveloper/kmp-ble/compare/$PREV_TAG...$TAG" CHANGELOG.md
+            sed -i "/^\[Unreleased\]:.*$/a [$VERSION]: https://github.com/gary-quinn/kmp-ble/compare/$PREV_TAG...$TAG" CHANGELOG.md
           fi
 
       - name: Update ROADMAP.md

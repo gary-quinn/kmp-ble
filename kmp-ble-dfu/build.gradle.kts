@@ -64,7 +64,7 @@ mavenPublishing {
     pom {
         name.set("kmp-ble-dfu")
         description.set("DFU/OTA firmware update support for kmp-ble — Nordic DFU, L2CAP OTA, observable progress, resume")
-        url.set("https://github.com/atruedeveloper/kmp-ble")
+        url.set("https://github.com/gary-quinn/kmp-ble")
         licenses {
             license {
                 name.set("Apache-2.0")
@@ -79,9 +79,9 @@ mavenPublishing {
             }
         }
         scm {
-            url.set("https://github.com/atruedeveloper/kmp-ble")
-            connection.set("scm:git:git://github.com/atruedeveloper/kmp-ble.git")
-            developerConnection.set("scm:git:ssh://github.com/atruedeveloper/kmp-ble.git")
+            url.set("https://github.com/gary-quinn/kmp-ble")
+            connection.set("scm:git:git://github.com/gary-quinn/kmp-ble.git")
+            developerConnection.set("scm:git:ssh://github.com/gary-quinn/kmp-ble.git")
         }
     }
 }

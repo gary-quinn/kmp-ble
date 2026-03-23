@@ -256,25 +256,25 @@ _Changes on `main` that have not yet been tagged for release._
 
 ---
 
-[Unreleased]: https://github.com/atruedeveloper/kmp-ble/compare/v0.3.4...HEAD
-[0.3.4]: https://github.com/atruedeveloper/kmp-ble/compare/v0.3.3-alpha1...v0.3.4
-[0.3.3]: https://github.com/atruedeveloper/kmp-ble/compare/v0.3.3-alpha1...v0.3.3
-[0.3.3-alpha1]: https://github.com/atruedeveloper/kmp-ble/compare/v0.3.2...v0.3.3-alpha1
-[0.3.2]: https://github.com/atruedeveloper/kmp-ble/compare/v0.3.1...v0.3.2
-[0.3.1]: https://github.com/atruedeveloper/kmp-ble/compare/v0.3.0...v0.3.1
-[0.3.0]: https://github.com/atruedeveloper/kmp-ble/compare/v0.2.2...v0.3.0
-[0.2.2]: https://github.com/atruedeveloper/kmp-ble/compare/v0.2.1...v0.2.2
-[0.1.10]: https://github.com/atruedeveloper/kmp-ble/compare/v0.1.9...v0.1.10
-[0.1.9]: https://github.com/atruedeveloper/kmp-ble/compare/v0.1.8-alpha2...v0.1.9
-[0.1.8]: https://github.com/atruedeveloper/kmp-ble/compare/v0.1.8-alpha2...v0.1.8
-[0.1.7]: https://github.com/atruedeveloper/kmp-ble/compare/v0.1.6...v0.1.7
-[0.1.6]: https://github.com/atruedeveloper/kmp-ble/compare/v0.1.5...v0.1.6
-[0.1.5]: https://github.com/atruedeveloper/kmp-ble/compare/v0.1.4...v0.1.5
-[0.1.4]: https://github.com/atruedeveloper/kmp-ble/compare/v0.1.3...v0.1.4
-[0.1.3]: https://github.com/atruedeveloper/kmp-ble/compare/v0.1.2...v0.1.3
-[0.1.2]: https://github.com/atruedeveloper/kmp-ble/compare/v0.1.1...v0.1.2
-[0.1.1]: https://github.com/atruedeveloper/kmp-ble/compare/v0.1.0...v0.1.1
-[0.1.0]: https://github.com/atruedeveloper/kmp-ble/compare/v0.1.0-alpha09...v0.1.0
-[0.1.0-alpha09]: https://github.com/atruedeveloper/kmp-ble/compare/v0.1.0-alpha06...v0.1.0-alpha09
-[0.1.0-alpha06]: https://github.com/atruedeveloper/kmp-ble/compare/v0.1.0-alpha01...v0.1.0-alpha06
-[0.1.0-alpha01]: https://github.com/atruedeveloper/kmp-ble/releases/tag/v0.1.0-alpha01
+[Unreleased]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.4...HEAD
+[0.3.4]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.3-alpha1...v0.3.4
+[0.3.3]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.3-alpha1...v0.3.3
+[0.3.3-alpha1]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.2...v0.3.3-alpha1
+[0.3.2]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.1...v0.3.2
+[0.3.1]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.0...v0.3.1
+[0.3.0]: https://github.com/gary-quinn/kmp-ble/compare/v0.2.2...v0.3.0
+[0.2.2]: https://github.com/gary-quinn/kmp-ble/compare/v0.2.1...v0.2.2
+[0.1.10]: https://github.com/gary-quinn/kmp-ble/compare/v0.1.9...v0.1.10
+[0.1.9]: https://github.com/gary-quinn/kmp-ble/compare/v0.1.8-alpha2...v0.1.9
+[0.1.8]: https://github.com/gary-quinn/kmp-ble/compare/v0.1.8-alpha2...v0.1.8
+[0.1.7]: https://github.com/gary-quinn/kmp-ble/compare/v0.1.6...v0.1.7
+[0.1.6]: https://github.com/gary-quinn/kmp-ble/compare/v0.1.5...v0.1.6
+[0.1.5]: https://github.com/gary-quinn/kmp-ble/compare/v0.1.4...v0.1.5
+[0.1.4]: https://github.com/gary-quinn/kmp-ble/compare/v0.1.3...v0.1.4
+[0.1.3]: https://github.com/gary-quinn/kmp-ble/compare/v0.1.2...v0.1.3
+[0.1.2]: https://github.com/gary-quinn/kmp-ble/compare/v0.1.1...v0.1.2
+[0.1.1]: https://github.com/gary-quinn/kmp-ble/compare/v0.1.0...v0.1.1
+[0.1.0]: https://github.com/gary-quinn/kmp-ble/compare/v0.1.0-alpha09...v0.1.0
+[0.1.0-alpha09]: https://github.com/gary-quinn/kmp-ble/compare/v0.1.0-alpha06...v0.1.0-alpha09
+[0.1.0-alpha06]: https://github.com/gary-quinn/kmp-ble/compare/v0.1.0-alpha01...v0.1.0-alpha06
+[0.1.0-alpha01]: https://github.com/gary-quinn/kmp-ble/releases/tag/v0.1.0-alpha01
