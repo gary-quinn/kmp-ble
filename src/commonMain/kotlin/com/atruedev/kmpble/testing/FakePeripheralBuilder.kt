@@ -1,12 +1,14 @@
 package com.atruedev.kmpble.testing
 
 import com.atruedev.kmpble.Identifier
+import com.atruedev.kmpble.error.BleError
 import com.atruedev.kmpble.gatt.Characteristic
 import com.atruedev.kmpble.gatt.DiscoveredService
 import com.atruedev.kmpble.gatt.WriteType
 import com.atruedev.kmpble.l2cap.L2capChannel
 import com.atruedev.kmpble.scanner.uuidFrom
 import kotlinx.coroutines.flow.Flow
+import kotlin.time.Duration
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
@@ -21,6 +23,8 @@ internal data class FakeCharacteristicConfig(
     val readHandler: ReadHandler?,
     val writeHandler: WriteHandler?,
     val observeHandler: ObserveHandler?,
+    val respondAfterDuration: Duration?,
+    val failWithError: BleError?,
 )
 
 @OptIn(ExperimentalUuidApi::class)
@@ -113,6 +117,8 @@ public class FakeCharacteristicBuilder(
     private var readHandler: ReadHandler? = null
     private var writeHandler: WriteHandler? = null
     private var observeHandler: ObserveHandler? = null
+    private var respondAfterDuration: Duration? = null
+    private var failWithError: BleError? = null
 
     public fun properties(
         read: Boolean = false,
@@ -141,9 +147,32 @@ public class FakeCharacteristicBuilder(
         observeHandler = handler
     }
 
+    /**
+     * Add a delay before executing read/write handlers on this characteristic.
+     * The delay is cancellable — if the coroutine is cancelled during the delay,
+     * the operation cancels cleanly without invoking the handler.
+     * Does not affect [onObserve] (notifications have their own timing via Flow).
+     */
+    public fun respondAfter(duration: Duration) {
+        respondAfterDuration = duration
+    }
+
+    /**
+     * Cause all operations (read, write, observe) on this characteristic to throw
+     * the specified [BleError]. Takes precedence over [onRead]/[onWrite]/[onObserve] —
+     * if both are set, the error is thrown and handlers are never invoked.
+     * Can be combined with [respondAfter] to delay before failing.
+     */
+    public fun failWith(error: BleError) {
+        failWithError = error
+    }
+
     internal fun build(): Pair<Characteristic, FakeCharacteristicConfig> {
         val char = Characteristic(serviceUuid, uuid, props)
-        val config = FakeCharacteristicConfig(char, readHandler, writeHandler, observeHandler)
+        val config = FakeCharacteristicConfig(
+            char, readHandler, writeHandler, observeHandler,
+            respondAfterDuration, failWithError,
+        )
         return char to config
     }
 }
