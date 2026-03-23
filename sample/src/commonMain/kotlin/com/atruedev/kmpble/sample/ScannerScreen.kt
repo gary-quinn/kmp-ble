@@ -18,6 +18,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -93,6 +94,7 @@ fun ScannerScreen(
     val scope = rememberCoroutineScope()
 
     var legacyOnly by remember { mutableStateOf(true) }
+    var filterQuery by remember { mutableStateOf("") }
     val scanContext = remember { Dispatchers.Default.limitedParallelism(1) }
 
     DisposableEffect(legacyOnly) {
@@ -142,6 +144,14 @@ fun ScannerScreen(
         Column(
             modifier = Modifier.fillMaxSize().padding(padding),
         ) {
+            OutlinedTextField(
+                value = filterQuery,
+                onValueChange = { filterQuery = it },
+                placeholder = { Text("Filter by name or ID") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+            )
+
             Row(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -154,13 +164,27 @@ fun ScannerScreen(
                 )
             }
 
-            if (devices.isEmpty()) {
+            val filteredDevices =
+                if (filterQuery.isBlank()) {
+                    devices
+                } else {
+                    val query = filterQuery.lowercase()
+                    devices.filter { device ->
+                        device.name?.lowercase()?.contains(query) == true ||
+                            device.identifier.lowercase().contains(query)
+                    }
+                }
+
+            if (filteredDevices.isEmpty()) {
                 Column(
                     modifier = Modifier.fillMaxSize(),
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    Text("Scanning for BLE devices...", style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        if (filterQuery.isBlank()) "Scanning for BLE devices..." else "No devices match filter",
+                        style = MaterialTheme.typography.bodyLarge,
+                    )
                 }
             } else {
                 LazyColumn(
@@ -168,7 +192,7 @@ fun ScannerScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     items(
-                        items = devices,
+                        items = filteredDevices,
                         key = { it.identifier },
                     ) { device ->
                         DeviceCard(
