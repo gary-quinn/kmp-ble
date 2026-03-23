@@ -34,3 +34,13 @@ public sealed interface OperationConstraintError : BleError
 public data class MtuExceeded(val attempted: Int, val maximum: Int) : OperationConstraintError
 
 public data class OperationFailed(val message: String) : BleError
+
+/**
+ * Exception wrapper for [BleError] values, allowing them to be thrown as exceptions.
+ * Used by [com.atruedev.kmpble.testing.FakePeripheral] error injection
+ * and catchable in test assertions.
+ */
+public data class BleException(
+    public val error: BleError,
+    val errorMessage: String = error.toString(),
+) : Exception(errorMessage)

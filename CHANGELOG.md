@@ -15,6 +15,19 @@ _Changes on `main` that have not yet been tagged for release._
 
 ---
 
+## [0.3.4] - 2026-03-23
+
+### Other
+- update Package.swift for v0.3.4
+- feat(testing): enhance FakePeripheral with write handling, delay/error injection, and concurrency tests (#61)
+- update Package.swift for v0.3.3
+- docs: add Dokka 2.x API reference and DFU module KDoc (#59)
+- docs: update ROADMAP.md to reflect v0.3 shipped state (#58)
+- update Package.swift for v0.3.3-alpha1
+
+
+---
+
 ## [0.3.3] - 2026-03-23
 
 ### Other
@@ -243,7 +256,8 @@ _Changes on `main` that have not yet been tagged for release._
 
 ---
 
-[Unreleased]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.3...HEAD
+[Unreleased]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.4...HEAD
+[0.3.4]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.3-alpha1...v0.3.4
 [0.3.3]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.3-alpha1...v0.3.3
 [0.3.3-alpha1]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.2...v0.3.3-alpha1
 [0.3.2]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.1...v0.3.2
