@@ -15,6 +15,16 @@ _Changes on `main` that have not yet been tagged for release._
 
 ---
 
+## [0.3.3-alpha1] - 2026-03-23
+
+### Other
+- update Package.swift for v0.3.3-alpha1
+- ci: fix GitHub Pages deployment on tag push (#56)
+- update Package.swift for v0.3.2
+
+
+---
+
 ## [0.3.2] - 2026-03-23
 
 ### Other
@@ -222,7 +232,8 @@ _Changes on `main` that have not yet been tagged for release._
 
 ---
 
-[Unreleased]: https://github.com/atruedeveloper/kmp-ble/compare/v0.3.2...HEAD
+[Unreleased]: https://github.com/atruedeveloper/kmp-ble/compare/v0.3.3-alpha1...HEAD
+[0.3.3-alpha1]: https://github.com/atruedeveloper/kmp-ble/compare/v0.3.2...v0.3.3-alpha1
 [0.3.2]: https://github.com/atruedeveloper/kmp-ble/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/atruedeveloper/kmp-ble/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/atruedeveloper/kmp-ble/compare/v0.2.2...v0.3.0
