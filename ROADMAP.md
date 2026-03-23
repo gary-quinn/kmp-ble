@@ -37,7 +37,7 @@ Everything needed to build production BLE apps on Android and iOS from shared Ko
 | **Server Testing** | v0.1.5–v0.1.6 | FakeGattServer, FakeAdvertiser, FakeL2capChannel for testing server and L2CAP code |
 | **Device Quirks Module** | v0.1.10 | Extracted OEM quirks into `kmp-ble-quirks` module with public SPI (`QuirkKey`, `QuirkProvider`, `QuirkRegistry`) |
 
-### v0.2 — Production Hardening & Platform Expansion (Current)
+### v0.2 — Production Hardening & Platform Expansion
 
 Hardened for production with background support, BLE 5.0 coverage, performance tooling, and complete pairing.
 
@@ -51,6 +51,18 @@ Hardened for production with background support, BLE 5.0 coverage, performance t
 
 **Test coverage:** 260+ test methods across 24 test files, CI on every push
 
+### v0.3 — Productivity Layer
+
+Parse data, not bytes. Type-safe BLE profiles, firmware update support, and codec infrastructure for developer productivity.
+
+| Feature | Version | Details |
+|---------|---------|---------|
+| **BLE Profile Modules** | v0.3.0 | Type-safe parsers for standard profiles — Heart Rate (0x180D), Battery (0x180F), Device Information (0x180A), Cycling Speed & Cadence (0x1816), Blood Pressure (0x1810), Glucose (0x1808). Published as `com.atruedev:kmp-ble-profiles` |
+| **DFU/OTA Module** | v0.3.0 | Nordic Secure DFU v2 with GATT and L2CAP transport. Observable progress, resume from failure. Published as `com.atruedev:kmp-ble-dfu` |
+| **Codec Module** | v0.3.0 | Format-agnostic typed serialization/deserialization for characteristics, advertisements, L2CAP, and GATT server payloads. Published as `com.atruedev:kmp-ble-codec` |
+| **API Documentation Site** | v0.3.0 | Dokka-generated API docs on [GitHub Pages](https://gary-quinn.github.io/kmp-ble/) |
+| **Community Infrastructure** | v0.3.0 | CONTRIBUTING.md, ARCHITECTURE.md, "good first issue" labels, public device quirk documentation |
+
 ### Known Limitations
 
 - Desktop (JVM), Web, and other platforms are not yet supported
@@ -61,26 +73,30 @@ Hardened for production with background support, BLE 5.0 coverage, performance t
 
 ## Planned
 
-### v0.3 — Productivity Layer
-
-**Theme:** Parse data, not bytes. Make developers productive with type-safe BLE profiles and firmware update support.
-
-| Feature | Description |
-|---------|-------------|
-| **BLE Profile Modules** | Type-safe parsers for standard profiles — Heart Rate (0x180D), Battery (0x180F), Device Information (0x180A), Cycling (0x1816/0x1818), Blood Pressure (0x1810), Glucose (0x1808). Published as a separate opt-in artifact (`com.atruedev:kmp-ble-profiles`) |
-| **DFU/OTA Module** | Firmware update support starting with Nordic DFU protocol. Observable progress, resume from failure. Published as `com.atruedev:kmp-ble-dfu` |
-| **Community Infrastructure** | CONTRIBUTING.md, ARCHITECTURE.md, "good first issue" labels, public device quirk documentation |
-
 ### v1.0 — Stability Guarantee
 
 **Theme:** API stability commitment backed by production usage.
 
 **Criteria:**
-- Core API stable across 3+ minor releases
-- Validated in production by multiple teams
-- No critical bugs in last 3 releases
-- Comprehensive documentation
-- Semantic versioning strictly followed — no breaking changes in 1.x
+
+API stability:
+- Core module API (Scanner, Peripheral, GattServer, Advertiser, L2capChannel) unchanged for 2+ minor releases
+- Deprecation cycle enforced: deprecated APIs survive at least 1 minor release before removal
+- All public APIs have KDoc documentation
+
+Quality:
+- Zero known critical bugs at release time
+- Test coverage for all public API entry points
+- CI green on both Android and iOS targets
+
+Community:
+- Validated in production by at least 3 external teams (currently 31 companies on Maven Central — track which are production)
+- Migration guide published
+- API docs site live with full coverage
+
+Distribution:
+- Semantic versioning strictly followed from v1.0 onward
+- CHANGELOG.md covers every release
 
 ---
 
@@ -98,6 +114,10 @@ Features we're tracking but not actively working on. Community interest and use 
 | BLE Mesh | Large scope, niche use case |
 | Direction Finding (AoA/AoD) | Requires specific hardware support |
 | Periodic Advertising with Responses (PAwR) | BLE 5.4 feature, limited platform support today |
+| BLE Integration Test Framework | Enhanced FakePeripheral/FakeScanner with behavior scripting (delay injection, error injection, conditional responses). Exploring whether this becomes a separate tool or stays in-library. Community interest will determine scope |
+| Record-Replay Testing | Record real device GATT interactions and replay on phone for offline testing. Early exploration phase |
+| Additional DFU Protocols | MCUboot, STM32 OTA, Espressif OTA. Depends on community demand and protocol documentation access |
+| Additional GATT Profiles | Running Speed & Cadence, Environmental Sensing, Weight Scale, Continuous Glucose. PRs welcome — profile modules are good first contributions |
 
 ---
 
@@ -109,4 +129,4 @@ Features we're tracking but not actively working on. Community interest and use 
 
 ---
 
-*Current as of v0.3.3-alpha1*
+*Current as of v0.3*
