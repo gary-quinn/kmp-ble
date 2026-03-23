@@ -33,6 +33,7 @@ import com.atruedev.kmpble.connection.State
 import com.atruedev.kmpble.profiles.heartrate.BodySensorLocation
 import com.atruedev.kmpble.profiles.heartrate.HeartRateMeasurement
 import com.atruedev.kmpble.scanner.Advertisement
+import kotlin.coroutines.cancellation.CancellationException
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -53,18 +54,24 @@ fun HeartRateDemoScreen(
         latestMeasurement = null
         sensorLocation = null
         recentValues = emptyList()
-        sensorLocation = vm.readBodySensorLocation()
-        vm.heartRateMeasurements().collect { measurement ->
-            latestMeasurement = measurement
-            val detail =
-                buildString {
-                    append("${measurement.heartRate} bpm")
-                    if (measurement.rrIntervals.isNotEmpty()) {
-                        append(" | RR: ${measurement.rrIntervals.joinToString()}ms")
+        try {
+            sensorLocation = vm.readBodySensorLocation()
+            vm.heartRateMeasurements().collect { measurement ->
+                latestMeasurement = measurement
+                val detail =
+                    buildString {
+                        append("${measurement.heartRate} bpm")
+                        if (measurement.rrIntervals.isNotEmpty()) {
+                            append(" | RR: ${measurement.rrIntervals.joinToString()}ms")
+                        }
+                        measurement.energyExpended?.let { append(" | ${it}kJ") }
                     }
-                    measurement.energyExpended?.let { append(" | ${it}kJ") }
-                }
-            recentValues = (listOf(detail) + recentValues).take(20)
+                recentValues = (listOf(detail) + recentValues).take(20)
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            // GATT read failure — screen shows "No Heart Rate service" fallback
         }
     }
 

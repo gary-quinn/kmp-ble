@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.atruedev.kmpble.connection.State
 import com.atruedev.kmpble.scanner.Advertisement
+import kotlin.coroutines.cancellation.CancellationException
 
 private enum class ServicePresence { Unknown, Found, Absent }
 
@@ -51,12 +52,18 @@ fun BatteryDemoScreen(
         batteryLevel = null
         subscribedLevel = null
         servicePresence = ServicePresence.Unknown
-        val level = vm.readBatteryLevel()
-        if (level != null) {
-            batteryLevel = level
-            servicePresence = ServicePresence.Found
-            vm.batteryLevelNotifications().collect { subscribedLevel = it }
-        } else {
+        try {
+            val level = vm.readBatteryLevel()
+            if (level != null) {
+                batteryLevel = level
+                servicePresence = ServicePresence.Found
+                vm.batteryLevelNotifications().collect { subscribedLevel = it }
+            } else {
+                servicePresence = ServicePresence.Absent
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
             servicePresence = ServicePresence.Absent
         }
     }
