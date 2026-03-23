@@ -66,7 +66,7 @@ fun DeviceDetailScreen(
     onDfuDemo: () -> Unit,
     onCodecDemo: () -> Unit,
 ) {
-    val vm = viewModel { BleViewModel(advertisement) }
+    val vm = viewModel(key = advertisement.identifier.value) { BleViewModel(advertisement) }
 
     val state by vm.connectionState.collectAsState()
     val bond by vm.bondState.collectAsState()

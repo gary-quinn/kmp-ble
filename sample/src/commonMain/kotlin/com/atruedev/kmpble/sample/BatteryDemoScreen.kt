@@ -38,7 +38,7 @@ fun BatteryDemoScreen(
     advertisement: Advertisement,
     onBack: () -> Unit,
 ) {
-    val vm = viewModel { BleViewModel(advertisement) }
+    val vm = viewModel(key = advertisement.identifier.value) { BleViewModel(advertisement) }
     val state by vm.connectionState.collectAsState()
     val isConnected = state is State.Connected
 

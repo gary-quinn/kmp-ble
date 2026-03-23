@@ -56,7 +56,7 @@ fun ServiceExplorerScreen(
     advertisement: Advertisement,
     onBack: () -> Unit,
 ) {
-    val vm = viewModel { BleViewModel(advertisement) }
+    val vm = viewModel(key = advertisement.identifier.value) { BleViewModel(advertisement) }
     val state by vm.connectionState.collectAsState()
     val services by vm.services.collectAsState()
     val benchmarkResult by vm.benchmarkResult.collectAsState()
