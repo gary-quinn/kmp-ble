@@ -3,9 +3,9 @@ package com.atruedev.kmpble.lincheck
 import com.atruedev.kmpble.Identifier
 import com.atruedev.kmpble.peripheral.internal.PeripheralRegistry
 import org.jetbrains.lincheck.LincheckAssertionError
+import org.jetbrains.lincheck.datastructures.ModelCheckingOptions
 import org.jetbrains.lincheck.datastructures.Operation
 import org.jetbrains.lincheck.datastructures.StressOptions
-import org.jetbrains.lincheck.datastructures.ModelCheckingOptions
 import org.junit.Test
 
 /**
@@ -21,11 +21,12 @@ import org.junit.Test
  * intended atomic get-or-put behavior.
  */
 class PeripheralRegistryLincheckTest {
-    private val ids = arrayOf(
-        Identifier("device-0"),
-        Identifier("device-1"),
-        Identifier("device-2"),
-    )
+    private val ids =
+        arrayOf(
+            Identifier("device-0"),
+            Identifier("device-1"),
+            Identifier("device-2"),
+        )
 
     init {
         PeripheralRegistry.clear()
@@ -49,20 +50,22 @@ class PeripheralRegistryLincheckTest {
     fun clear() = PeripheralRegistry.clear()
 
     @Test(expected = LincheckAssertionError::class)
-    fun stressTest() = StressOptions()
-        .iterations(50)
-        .threads(3)
-        .actorsPerThread(3)
-        .sequentialSpecification(PeripheralRegistrySequential::class.java)
-        .check(this::class)
+    fun stressTest() =
+        StressOptions()
+            .iterations(50)
+            .threads(3)
+            .actorsPerThread(3)
+            .sequentialSpecification(PeripheralRegistrySequential::class.java)
+            .check(this::class)
 
     @Test(expected = LincheckAssertionError::class)
-    fun modelCheckingTest() = ModelCheckingOptions()
-        .iterations(50)
-        .threads(3)
-        .actorsPerThread(3)
-        .sequentialSpecification(PeripheralRegistrySequential::class.java)
-        .check(this::class)
+    fun modelCheckingTest() =
+        ModelCheckingOptions()
+            .iterations(50)
+            .threads(3)
+            .actorsPerThread(3)
+            .sequentialSpecification(PeripheralRegistrySequential::class.java)
+            .check(this::class)
 }
 
 /**

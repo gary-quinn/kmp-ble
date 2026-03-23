@@ -27,6 +27,7 @@ import com.atruedev.kmpble.peripheral.internal.PeripheralContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onStart
@@ -137,6 +138,7 @@ public class FakePeripheral internal constructor(
     override suspend fun read(characteristic: Characteristic): ByteArray {
         checkNotClosed()
         checkConnected()
+        // config null → no delay/error injection, fall through to handler requirement
         val config = findConfig(characteristic)
         applyDelay(config)
         checkFailWith(config)
@@ -160,9 +162,10 @@ public class FakePeripheral internal constructor(
         if (handler != null) {
             handler(data, writeType)
         } else {
-            val hasWriteProperty = characteristic.properties.write ||
-                characteristic.properties.writeWithoutResponse ||
-                characteristic.properties.signedWrite
+            val hasWriteProperty =
+                characteristic.properties.write ||
+                    characteristic.properties.writeWithoutResponse ||
+                    characteristic.properties.signedWrite
             if (!hasWriteProperty) {
                 throw BleException(
                     GattError("write", GattStatus.WriteNotPermitted),
@@ -181,25 +184,16 @@ public class FakePeripheral internal constructor(
         val charUuid = characteristic.uuid
 
         val config = findConfig(characteristic)
-
-        // If failWith is configured, return a flow that immediately throws
-        val error = config?.failWithError
-        if (error != null) {
-            return kotlinx.coroutines.flow.flow {
-                throw BleException(error)
-            }
-        }
+        failWithFlow<Observation>(config)?.let { return it }
 
         val handler = config?.observeHandler
 
         return if (handler != null) {
-            // Legacy mode: use the handler flow directly (for backward-compatible tests)
             handler()
                 .map<ByteArray, Observation> { Observation.Value(it) }
                 .applyBackpressure(backpressure)
         } else {
-            // New mode: use ObservationManager for reconnection resilience testing
-            kotlinx.coroutines.flow.flow {
+            flow {
                 val eventFlow = observationManager.subscribe(serviceUuid, charUuid, backpressure)
                 eventFlow.collect { event ->
                     when (event) {
@@ -233,23 +227,14 @@ public class FakePeripheral internal constructor(
         val charUuid = characteristic.uuid
 
         val config = findConfig(characteristic)
-
-        // If failWith is configured, return a flow that immediately throws
-        val error = config?.failWithError
-        if (error != null) {
-            return kotlinx.coroutines.flow.flow {
-                throw BleException(error)
-            }
-        }
+        failWithFlow<ByteArray>(config)?.let { return it }
 
         val handler = config?.observeHandler
 
         return if (handler != null) {
-            // Legacy mode: use the handler flow directly (for backward-compatible tests)
             handler().applyBackpressure(backpressure)
         } else {
-            // New mode: use ObservationManager for reconnection resilience testing
-            kotlinx.coroutines.flow.flow {
+            flow {
                 val eventFlow = observationManager.subscribe(serviceUuid, charUuid, backpressure)
                 eventFlow.collect { event ->
                     when (event) {
@@ -331,6 +316,11 @@ public class FakePeripheral internal constructor(
     private fun checkFailWith(config: FakeCharacteristicConfig?) {
         val error = config?.failWithError ?: return
         throw BleException(error)
+    }
+
+    private fun <T> failWithFlow(config: FakeCharacteristicConfig?): Flow<T>? {
+        val error = config?.failWithError ?: return null
+        return flow { throw BleException(error) }
     }
 
     private fun findConfig(characteristic: Characteristic): FakeCharacteristicConfig? {

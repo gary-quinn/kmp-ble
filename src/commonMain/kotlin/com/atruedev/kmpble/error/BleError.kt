@@ -40,7 +40,7 @@ public data class OperationFailed(val message: String) : BleError
  * Used by [com.atruedev.kmpble.testing.FakePeripheral] error injection
  * and catchable in test assertions.
  */
-public class BleException(
+public data class BleException(
     public val error: BleError,
-    message: String = error.toString(),
-) : Exception(message)
+    val errorMessage: String = error.toString(),
+) : Exception(errorMessage)

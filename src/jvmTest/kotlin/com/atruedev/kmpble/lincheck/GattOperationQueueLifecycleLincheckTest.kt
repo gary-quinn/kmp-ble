@@ -29,9 +29,10 @@ class GattOperationQueueLifecycleLincheckTest {
     fun drain() = queue.drain()
 
     @Test
-    fun stressTest() = StressOptions()
-        .iterations(50)
-        .threads(2)
-        .actorsPerThread(3)
-        .check(this::class)
+    fun stressTest() =
+        StressOptions()
+            .iterations(50)
+            .threads(2)
+            .actorsPerThread(3)
+            .check(this::class)
 }

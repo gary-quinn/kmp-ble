@@ -169,10 +169,15 @@ public class FakeCharacteristicBuilder(
 
     internal fun build(): Pair<Characteristic, FakeCharacteristicConfig> {
         val char = Characteristic(serviceUuid, uuid, props)
-        val config = FakeCharacteristicConfig(
-            char, readHandler, writeHandler, observeHandler,
-            respondAfterDuration, failWithError,
-        )
+        val config =
+            FakeCharacteristicConfig(
+                char,
+                readHandler,
+                writeHandler,
+                observeHandler,
+                respondAfterDuration,
+                failWithError,
+            )
         return char to config
     }
 }

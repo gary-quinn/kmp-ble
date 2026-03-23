@@ -32,24 +32,60 @@ internal class StubPeripheral(override val identifier: Identifier) : Peripheral 
     override val maximumWriteValueLength: StateFlow<Int> = MutableStateFlow(20)
 
     override suspend fun connect(options: ConnectionOptions) = unsupported()
+
     override suspend fun disconnect() = unsupported()
+
     override fun close() {}
 
     @com.atruedev.kmpble.ExperimentalBleApi
     override fun removeBond(): BondRemovalResult = unsupported()
 
     override suspend fun refreshServices(): List<DiscoveredService> = unsupported()
-    override fun findCharacteristic(serviceUuid: Uuid, characteristicUuid: Uuid): Characteristic? = unsupported()
-    override fun findDescriptor(serviceUuid: Uuid, characteristicUuid: Uuid, descriptorUuid: Uuid): Descriptor? = unsupported()
+
+    override fun findCharacteristic(
+        serviceUuid: Uuid,
+        characteristicUuid: Uuid,
+    ): Characteristic? = unsupported()
+
+    override fun findDescriptor(
+        serviceUuid: Uuid,
+        characteristicUuid: Uuid,
+        descriptorUuid: Uuid,
+    ): Descriptor? = unsupported()
+
     override suspend fun read(characteristic: Characteristic): ByteArray = unsupported()
-    override suspend fun write(characteristic: Characteristic, data: ByteArray, writeType: WriteType) = unsupported()
-    override fun observe(characteristic: Characteristic, backpressure: BackpressureStrategy): Flow<Observation> = unsupported()
-    override fun observeValues(characteristic: Characteristic, backpressure: BackpressureStrategy): Flow<ByteArray> = unsupported()
+
+    override suspend fun write(
+        characteristic: Characteristic,
+        data: ByteArray,
+        writeType: WriteType,
+    ) = unsupported()
+
+    override fun observe(
+        characteristic: Characteristic,
+        backpressure: BackpressureStrategy,
+    ): Flow<Observation> = unsupported()
+
+    override fun observeValues(
+        characteristic: Characteristic,
+        backpressure: BackpressureStrategy,
+    ): Flow<ByteArray> = unsupported()
+
     override suspend fun readDescriptor(descriptor: Descriptor): ByteArray = unsupported()
-    override suspend fun writeDescriptor(descriptor: Descriptor, data: ByteArray) = unsupported()
+
+    override suspend fun writeDescriptor(
+        descriptor: Descriptor,
+        data: ByteArray,
+    ) = unsupported()
+
     override suspend fun readRssi(): Int = unsupported()
+
     override suspend fun requestMtu(mtu: Int): Int = unsupported()
-    override suspend fun openL2capChannel(psm: Int, secure: Boolean): L2capChannel = unsupported()
+
+    override suspend fun openL2capChannel(
+        psm: Int,
+        secure: Boolean,
+    ): L2capChannel = unsupported()
 
     private fun unsupported(): Nothing = throw UnsupportedOperationException("StubPeripheral")
 }
