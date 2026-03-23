@@ -1,5 +1,6 @@
 package com.atruedev.kmpble.observation
 
+import app.cash.turbine.test
 import com.atruedev.kmpble.gatt.BackpressureStrategy
 import com.atruedev.kmpble.gatt.Characteristic
 import com.atruedev.kmpble.gatt.DiscoveredService
@@ -13,7 +14,6 @@ import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import kotlin.uuid.ExperimentalUuidApi
@@ -38,57 +38,31 @@ class ObservationReconnectionTest {
             peripheral.connect()
 
             val char = peripheral.findCharacteristic(testServiceUuid, testCharUuid)!!
-            val observations = mutableListOf<Observation>()
-            var flowCompleted = false
 
-            val job =
-                launch {
-                    peripheral.observe(char, BackpressureStrategy.Unbounded).collect { obs ->
-                        observations.add(obs)
-                    }
-                    flowCompleted = true
-                }
+            peripheral.observe(char, BackpressureStrategy.Unbounded).test {
+                peripheral.emitObservationValue(testServiceUuid, testCharUuid, byteArrayOf(0x01))
+                peripheral.emitObservationValue(testServiceUuid, testCharUuid, byteArrayOf(0x02))
 
-            // Give the collector time to start
-            delay(50)
+                val v1 = awaitItem()
+                assertIs<Observation.Value>(v1)
+                assertContentEquals(byteArrayOf(0x01), v1.data)
 
-            // Emit some values
-            peripheral.emitObservationValue(testServiceUuid, testCharUuid, byteArrayOf(0x01))
-            peripheral.emitObservationValue(testServiceUuid, testCharUuid, byteArrayOf(0x02))
-            delay(50)
+                val v2 = awaitItem()
+                assertIs<Observation.Value>(v2)
+                assertContentEquals(byteArrayOf(0x02), v2.data)
 
-            assertEquals(2, observations.size)
-            assertIs<Observation.Value>(observations[0])
-            assertContentEquals(byteArrayOf(0x01), (observations[0] as Observation.Value).data)
+                peripheral.simulateDisconnect()
+                assertIs<Observation.Disconnected>(awaitItem())
 
-            // Simulate disconnect
-            peripheral.simulateDisconnect()
-            delay(50)
+                peripheral.simulateReconnect()
+                peripheral.emitObservationValue(testServiceUuid, testCharUuid, byteArrayOf(0x03))
 
-            // Should have received Observation.Disconnected
-            assertEquals(3, observations.size)
-            assertIs<Observation.Disconnected>(observations[2])
+                val v3 = awaitItem()
+                assertIs<Observation.Value>(v3)
+                assertContentEquals(byteArrayOf(0x03), v3.data)
 
-            // Flow should NOT be completed
-            assertFalse(flowCompleted)
-
-            // Simulate reconnect
-            peripheral.simulateReconnect()
-            delay(50)
-
-            // Emit more values after reconnect
-            peripheral.emitObservationValue(testServiceUuid, testCharUuid, byteArrayOf(0x03))
-            delay(50)
-
-            // New value should be received
-            assertEquals(4, observations.size)
-            assertIs<Observation.Value>(observations[3])
-            assertContentEquals(byteArrayOf(0x03), (observations[3] as Observation.Value).data)
-
-            // Flow should still NOT be completed
-            assertFalse(flowCompleted)
-
-            job.cancelAndJoin()
+                cancelAndIgnoreRemainingEvents()
+            }
         }
 
     @Test
@@ -98,51 +72,20 @@ class ObservationReconnectionTest {
             peripheral.connect()
 
             val char = peripheral.findCharacteristic(testServiceUuid, testCharUuid)!!
-            val values = mutableListOf<ByteArray>()
-            var flowCompleted = false
 
-            val job =
-                launch {
-                    peripheral.observeValues(char, BackpressureStrategy.Unbounded).collect { value ->
-                        values.add(value)
-                    }
-                    flowCompleted = true
-                }
+            peripheral.observeValues(char, BackpressureStrategy.Unbounded).test {
+                peripheral.emitObservationValue(testServiceUuid, testCharUuid, byteArrayOf(0x01))
+                assertContentEquals(byteArrayOf(0x01), awaitItem())
 
-            delay(50)
+                peripheral.simulateDisconnect()
+                // observeValues does not emit during disconnect — no awaitItem here
 
-            // Emit value before disconnect
-            peripheral.emitObservationValue(testServiceUuid, testCharUuid, byteArrayOf(0x01))
-            delay(50)
+                peripheral.simulateReconnect()
+                peripheral.emitObservationValue(testServiceUuid, testCharUuid, byteArrayOf(0x02))
+                assertContentEquals(byteArrayOf(0x02), awaitItem())
 
-            assertEquals(1, values.size)
-
-            // Simulate disconnect
-            peripheral.simulateDisconnect()
-            delay(50)
-
-            // observeValues should NOT emit anything during disconnect
-            assertEquals(1, values.size)
-
-            // Flow should NOT be completed
-            assertFalse(flowCompleted)
-
-            // Simulate reconnect
-            peripheral.simulateReconnect()
-            delay(50)
-
-            // Emit value after reconnect
-            peripheral.emitObservationValue(testServiceUuid, testCharUuid, byteArrayOf(0x02))
-            delay(50)
-
-            // New value should be received
-            assertEquals(2, values.size)
-            assertContentEquals(byteArrayOf(0x02), values[1])
-
-            // Flow should still NOT be completed
-            assertFalse(flowCompleted)
-
-            job.cancelAndJoin()
+                cancelAndIgnoreRemainingEvents()
+            }
         }
 
     @Test
@@ -152,38 +95,17 @@ class ObservationReconnectionTest {
             peripheral.connect()
 
             val char = peripheral.findCharacteristic(testServiceUuid, testCharUuid)!!
-            val observations = mutableListOf<Observation>()
-            var flowCompleted = false
-            var completionCause: Throwable? = null
 
-            val job =
-                launch {
-                    try {
-                        peripheral.observe(char, BackpressureStrategy.Unbounded).collect { obs ->
-                            observations.add(obs)
-                        }
-                    } finally {
-                        flowCompleted = true
-                    }
-                }
+            peripheral.observe(char, BackpressureStrategy.Unbounded).test {
+                peripheral.emitObservationValue(testServiceUuid, testCharUuid, byteArrayOf(0x01))
 
-            delay(50)
+                val v1 = awaitItem()
+                assertIs<Observation.Value>(v1)
 
-            // Emit a value
-            peripheral.emitObservationValue(testServiceUuid, testCharUuid, byteArrayOf(0x01))
-            delay(50)
-
-            // Simulate permanent disconnect
-            peripheral.simulatePermanentDisconnect()
-            delay(100)
-
-            // Should have received value and final Disconnected
-            assertEquals(2, observations.size)
-            assertIs<Observation.Value>(observations[0])
-            assertIs<Observation.Disconnected>(observations[1])
-
-            // Flow should be completed normally
-            assertTrue(flowCompleted)
+                peripheral.simulatePermanentDisconnect()
+                assertIs<Observation.Disconnected>(awaitItem())
+                awaitComplete()
+            }
         }
 
     @Test
@@ -193,32 +115,14 @@ class ObservationReconnectionTest {
             peripheral.connect()
 
             val char = peripheral.findCharacteristic(testServiceUuid, testCharUuid)!!
-            val values = mutableListOf<ByteArray>()
-            var flowCompleted = false
 
-            val job =
-                launch {
-                    peripheral.observeValues(char, BackpressureStrategy.Unbounded).collect { value ->
-                        values.add(value)
-                    }
-                    flowCompleted = true
-                }
+            peripheral.observeValues(char, BackpressureStrategy.Unbounded).test {
+                peripheral.emitObservationValue(testServiceUuid, testCharUuid, byteArrayOf(0x01))
+                assertContentEquals(byteArrayOf(0x01), awaitItem())
 
-            delay(50)
-
-            // Emit a value
-            peripheral.emitObservationValue(testServiceUuid, testCharUuid, byteArrayOf(0x01))
-            delay(50)
-
-            // Simulate permanent disconnect
-            peripheral.simulatePermanentDisconnect()
-            delay(100)
-
-            // Should have only the value (no Disconnected for observeValues)
-            assertEquals(1, values.size)
-
-            // Flow should be completed normally
-            assertTrue(flowCompleted)
+                peripheral.simulatePermanentDisconnect()
+                awaitComplete()
+            }
         }
 
     @Test
@@ -236,23 +140,19 @@ class ObservationReconnectionTest {
 
             delay(50)
 
-            // CCCD should be enabled on initial subscription
             var cccdWrites = peripheral.getCccdWrites()
             assertEquals(1, cccdWrites.size)
             assertTrue(cccdWrites[0].enabled)
             assertEquals(testServiceUuid, cccdWrites[0].serviceUuid)
             assertEquals(testCharUuid, cccdWrites[0].charUuid)
 
-            // Clear CCCD writes
             peripheral.clearCccdWrites()
 
-            // Simulate disconnect and reconnect
             peripheral.simulateDisconnect()
             delay(50)
             peripheral.simulateReconnect()
             delay(50)
 
-            // CCCD should be re-enabled on reconnect
             cccdWrites = peripheral.getCccdWrites()
             assertEquals(1, cccdWrites.size)
             assertTrue(cccdWrites[0].enabled)
@@ -267,53 +167,36 @@ class ObservationReconnectionTest {
             peripheral.connect()
 
             val char = peripheral.findCharacteristic(testServiceUuid, testCharUuid)!!
-            val observations = mutableListOf<Observation>()
-            var flowCompleted = false
 
-            val job =
-                launch {
-                    peripheral.observe(char, BackpressureStrategy.Unbounded).collect { obs ->
-                        observations.add(obs)
-                    }
-                    flowCompleted = true
-                }
+            peripheral.observe(char, BackpressureStrategy.Unbounded).test {
+                peripheral.emitObservationValue(testServiceUuid, testCharUuid, byteArrayOf(0x01))
 
-            delay(50)
+                val v1 = awaitItem()
+                assertIs<Observation.Value>(v1)
 
-            // Emit a value
-            peripheral.emitObservationValue(testServiceUuid, testCharUuid, byteArrayOf(0x01))
-            delay(50)
+                peripheral.simulateDisconnect()
+                assertIs<Observation.Disconnected>(awaitItem())
 
-            // Simulate disconnect
-            peripheral.simulateDisconnect()
-            delay(50)
-
-            // Simulate reconnect with different services (characteristic removed)
-            val newServices =
-                listOf(
-                    DiscoveredService(
-                        uuid = testServiceUuid,
-                        characteristics =
-                            listOf(
-                                // Only 2a38, not 2a37
-                                Characteristic(
-                                    testServiceUuid,
-                                    uuidFrom("2a38"),
-                                    Characteristic.Properties(read = true),
+                val newServices =
+                    listOf(
+                        DiscoveredService(
+                            uuid = testServiceUuid,
+                            characteristics =
+                                listOf(
+                                    Characteristic(
+                                        testServiceUuid,
+                                        uuidFrom("2a38"),
+                                        Characteristic.Properties(read = true),
+                                    ),
                                 ),
-                            ),
-                    ),
-                )
-            peripheral.simulateReconnect(newServices)
-            delay(100)
+                        ),
+                    )
+                peripheral.simulateReconnect(newServices)
 
-            // Should have received: Value, Disconnected, and flow should complete
-            assertTrue(observations.size >= 2)
-            assertIs<Observation.Value>(observations[0])
-            assertIs<Observation.Disconnected>(observations[1])
-
-            // Flow should be completed
-            assertTrue(flowCompleted)
+                // Characteristic removed — emits final Disconnected then completes
+                assertIs<Observation.Disconnected>(awaitItem())
+                awaitComplete()
+            }
         }
 
     @Test
@@ -342,28 +225,24 @@ class ObservationReconnectionTest {
 
             delay(50)
 
-            // Emit a value — both should receive it
             peripheral.emitObservationValue(testServiceUuid, testCharUuid, byteArrayOf(0x01))
             delay(50)
 
             assertEquals(1, observations1.size)
             assertEquals(1, observations2.size)
 
-            // Cancel first collector
             job1.cancelAndJoin()
             delay(50)
 
-            // CCCD should NOT be disabled (still has collector)
             val cccdWrites = peripheral.getCccdWrites()
             val disableWrites = cccdWrites.filter { !it.enabled }
             assertTrue(disableWrites.isEmpty())
 
-            // Second collector should still receive values
             peripheral.emitObservationValue(testServiceUuid, testCharUuid, byteArrayOf(0x02))
             delay(50)
 
-            assertEquals(1, observations1.size) // First didn't get it (cancelled)
-            assertEquals(2, observations2.size) // Second got it
+            assertEquals(1, observations1.size)
+            assertEquals(2, observations2.size)
 
             job2.cancelAndJoin()
         }
@@ -383,16 +262,13 @@ class ObservationReconnectionTest {
 
             delay(50)
 
-            // CCCD should be enabled
             var cccdWrites = peripheral.getCccdWrites()
             assertEquals(1, cccdWrites.size)
             assertTrue(cccdWrites[0].enabled)
 
-            // Cancel the collector
             job.cancelAndJoin()
             delay(100)
 
-            // CCCD should be disabled
             cccdWrites = peripheral.getCccdWrites()
             val disableWrites = cccdWrites.filter { !it.enabled }
             assertEquals(1, disableWrites.size)
@@ -405,41 +281,25 @@ class ObservationReconnectionTest {
             peripheral.connect()
 
             val char = peripheral.findCharacteristic(testServiceUuid, testCharUuid)!!
-            val observations = mutableListOf<Observation>()
 
-            val job =
-                launch {
-                    peripheral.observe(char, BackpressureStrategy.Unbounded).collect { obs ->
-                        observations.add(obs)
-                    }
-                }
+            peripheral.observe(char, BackpressureStrategy.Unbounded).test {
+                peripheral.emitObservationValue(testServiceUuid, testCharUuid, byteArrayOf(0x01))
 
-            delay(50)
+                val v1 = awaitItem()
+                assertIs<Observation.Value>(v1)
+                assertContentEquals(byteArrayOf(0x01), v1.data)
 
-            // Emit initial value
-            peripheral.emitObservationValue(testServiceUuid, testCharUuid, byteArrayOf(0x01))
-            delay(50)
+                peripheral.simulateDisconnect()
+                assertIs<Observation.Disconnected>(awaitItem())
 
-            // Disconnect
-            peripheral.simulateDisconnect()
-            delay(50)
+                peripheral.simulateReconnect()
+                peripheral.emitObservationValue(testServiceUuid, testCharUuid, byteArrayOf(0x02))
 
-            // Reconnect
-            peripheral.simulateReconnect()
-            delay(50)
+                val v2 = awaitItem()
+                assertIs<Observation.Value>(v2)
+                assertContentEquals(byteArrayOf(0x02), v2.data)
 
-            // Emit after reconnect
-            peripheral.emitObservationValue(testServiceUuid, testCharUuid, byteArrayOf(0x02))
-            delay(50)
-
-            // Verify sequence: Value(1), Disconnected, Value(2)
-            assertEquals(3, observations.size)
-            assertIs<Observation.Value>(observations[0])
-            assertContentEquals(byteArrayOf(0x01), (observations[0] as Observation.Value).data)
-            assertIs<Observation.Disconnected>(observations[1])
-            assertIs<Observation.Value>(observations[2])
-            assertContentEquals(byteArrayOf(0x02), (observations[2] as Observation.Value).data)
-
-            job.cancelAndJoin()
+                cancelAndIgnoreRemainingEvents()
+            }
         }
 }
