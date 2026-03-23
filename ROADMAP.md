@@ -109,4 +109,4 @@ Features we're tracking but not actively working on. Community interest and use 
 
 ---
 
-*Current as of v0.3.0*
+*Current as of v0.3.1*

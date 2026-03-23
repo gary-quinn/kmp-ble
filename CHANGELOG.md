@@ -15,6 +15,17 @@ _Changes on `main` that have not yet been tagged for release._
 
 ---
 
+## [0.3.1] - 2026-03-23
+
+### Other
+- update Package.swift for v0.3.1
+- feat(sample): integrate profiles, DFU, and codec modules (#52)
+- build: integrate ktlint for static formatting checks (#51)
+- update Package.swift for v0.3.0
+
+
+---
+
 ## [0.3.0] - 2026-03-22
 
 ### Added
@@ -201,7 +212,8 @@ _Changes on `main` that have not yet been tagged for release._
 
 ---
 
-[Unreleased]: https://github.com/atruedeveloper/kmp-ble/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/atruedeveloper/kmp-ble/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/atruedeveloper/kmp-ble/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/atruedeveloper/kmp-ble/compare/v0.2.2...v0.3.0
 [0.2.2]: https://github.com/atruedeveloper/kmp-ble/compare/v0.2.1...v0.2.2
 [0.1.10]: https://github.com/atruedeveloper/kmp-ble/compare/v0.1.9...v0.1.10
