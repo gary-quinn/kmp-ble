@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.android.library)
     alias(libs.plugins.vanniktech.publish)
+    alias(libs.plugins.dokka)
 }
 
 group = "com.atruedev"
@@ -35,6 +36,13 @@ kotlin {
             implementation(libs.kotlin.test)
             implementation(libs.kotlinx.coroutines.test)
         }
+    }
+}
+
+dokka {
+    dokkaPublications.html {
+        moduleName.set("kmp-ble-profiles")
+        includes.from("MODULE.md")
     }
 }
 
