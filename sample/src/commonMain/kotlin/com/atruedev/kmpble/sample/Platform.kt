@@ -14,3 +14,10 @@ expect fun rememberPermissionRequester(onResult: (PermissionResult) -> Unit): ()
  * Opens the OS app settings screen so the user can manually grant permissions.
  */
 expect fun openAppSettings(context: Any?)
+
+/**
+ * Returns a launcher that opens a file picker for selecting a single file.
+ * [onResult] is called with the file name and contents, or (null, null) if cancelled.
+ */
+@Composable
+expect fun rememberFilePickerLauncher(onResult: (name: String?, bytes: ByteArray?) -> Unit): () -> Unit
