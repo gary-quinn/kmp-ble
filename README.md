@@ -8,6 +8,15 @@
 
 Kotlin Multiplatform BLE library for Android and iOS.
 
+## Modules
+
+| Module | Artifact | Description |
+|--------|----------|-------------|
+| **kmp-ble** | `com.atruedev:kmp-ble` | Core BLE — scanning, connecting, GATT read/write/observe, server, advertising |
+| **kmp-ble-profiles** | `com.atruedev:kmp-ble-profiles` | Type-safe GATT profile parsing (Heart Rate, Battery, Device Info, Blood Pressure, Glucose, CSC) |
+| **kmp-ble-dfu** | `com.atruedev:kmp-ble-dfu` | Nordic Secure DFU v2 firmware updates with progress tracking |
+| **kmp-ble-codec** | `com.atruedev:kmp-ble-codec` | Format-agnostic typed read/write via composable `BleEncoder`/`BleDecoder` |
+
 ## Setup
 
 ### Android / KMP (Gradle)
@@ -17,6 +26,11 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             implementation("com.atruedev:kmp-ble:0.3.0")
+
+            // Optional modules
+            implementation("com.atruedev:kmp-ble-profiles:0.3.0")
+            implementation("com.atruedev:kmp-ble-dfu:0.3.0")
+            implementation("com.atruedev:kmp-ble-codec:0.3.0")
         }
     }
 }
@@ -115,6 +129,108 @@ peripheral.disconnect()
 peripheral.close() // or use peripheral.use { ... }
 ```
 
+### Profiles (kmp-ble-profiles)
+
+Type-safe GATT profile parsing via Peripheral extension functions:
+
+```kotlin
+// Heart Rate
+peripheral.heartRateMeasurements().collect { measurement ->
+    println("BPM: ${measurement.heartRate}")
+    println("RR intervals: ${measurement.rrIntervals}")
+    println("Contact: ${measurement.sensorContactDetected}")
+}
+val location = peripheral.readBodySensorLocation() // Chest, Wrist, etc.
+
+// Battery
+val level = peripheral.readBatteryLevel() // 0..100 or null
+peripheral.batteryLevelNotifications().collect { println("Battery: $it%") }
+
+// Device Information
+val info = peripheral.readDeviceInformation()
+println("${info.manufacturerName} ${info.modelNumber} fw:${info.firmwareRevision}")
+```
+
+Supported profiles: Heart Rate, Battery, Device Information, Blood Pressure, Glucose, Cycling Speed and Cadence.
+
+### Codec (kmp-ble-codec)
+
+Typed read/write with composable decoders:
+
+```kotlin
+val TemperatureDecoder = BleDecoder<Float> { data ->
+    // IEEE 11073 FLOAT parsing
+    val mantissa = (data[1].toInt() and 0xFF) or ((data[2].toInt() and 0xFF) shl 8)
+    val exponent = data[3].toInt()
+    mantissa * 10f.pow(exponent)
+}
+
+// Typed read
+val temp: Float = peripheral.read(characteristic, TemperatureDecoder)
+
+// Typed observe
+peripheral.observeValues(characteristic, TemperatureDecoder).collect { celsius ->
+    println("Temperature: $celsius°C")
+}
+
+// Decoder composition
+val FormattedTemp = TemperatureDecoder.map { "%.1f°C".format(it) }
+```
+
+### DFU (kmp-ble-dfu)
+
+Nordic Secure DFU v2 firmware updates:
+
+```kotlin
+val controller = DfuController(peripheral)
+val firmware = FirmwarePackage.fromZipBytes(zipData)
+
+controller.performDfu(firmware).collect { progress ->
+    when (progress) {
+        is DfuProgress.Transferring -> println("${(progress.fraction * 100).toInt()}%")
+        is DfuProgress.Completed -> println("Done")
+        is DfuProgress.Failed -> println("Error: ${progress.error}")
+        else -> {}
+    }
+}
+
+// Abort mid-transfer
+controller.abort()
+```
+
+### GATT Server and Advertising
+
+```kotlin
+val server = GattServer {
+    service(uuidFrom("180D")) {
+        characteristic(uuidFrom("2A37")) {
+            properties { read = true; notify = true }
+            permissions { read = true }
+            onRead { device -> BleData(byteArrayOf(0x00, 72)) }
+        }
+    }
+}
+server.open()
+
+// Legacy advertising
+val advertiser = Advertiser()
+advertiser.startAdvertising(AdvertiseConfig(
+    serviceUuids = listOf(uuidFrom("180D")),
+    connectable = true,
+))
+
+// Notify connected clients
+server.notify(uuidFrom("2A37"), device = null, BleData(byteArrayOf(0x00, 80)))
+
+// Extended advertising (BLE 5.0)
+val extAdvertiser = ExtendedAdvertiser()
+extAdvertiser.startAdvertisingSet(ExtendedAdvertiseConfig(
+    serviceUuids = listOf(uuidFrom("180D")),
+    primaryPhy = Phy.Le1M,
+    secondaryPhy = Phy.Le2M,
+))
+```
+
 ### Bonding
 
 ```kotlin
@@ -141,6 +257,16 @@ peripheral.connect(ConnectionOptions(
         maxAttempts = 10,
     )
 ))
+```
+
+### Connection Recipes
+
+```kotlin
+// Pre-configured connection options for common use cases
+peripheral.connect(ConnectionRecipe.MEDICAL)  // strict bonding, no auto-connect
+peripheral.connect(ConnectionRecipe.FITNESS)  // reconnection, if-required bonding
+peripheral.connect(ConnectionRecipe.IOT)      // auto-connect, no bonding
+peripheral.connect(ConnectionRecipe.CONSUMER) // balanced defaults
 ```
 
 ### Permissions
@@ -188,6 +314,20 @@ val peripheral = FakePeripheral {
     }
 }
 ```
+
+## Sample App
+
+The `sample` module is a Compose Multiplatform app (Android + iOS) demonstrating all library features:
+
+- **Scanner** with real-time device filter
+- **Device Detail** with connection recipes, bonding, pairing dialogs
+- **Service Explorer** with GATT tree browsing, read/write, benchmarks, L2CAP
+- **Heart Rate Monitor** using `HeartRateProfile` with sensor location and RR intervals
+- **Battery Level** using `BatteryProfile` with read and notifications
+- **Device Information** using `DeviceInformationProfile`
+- **Firmware Update (DFU)** with platform file picker and progress tracking
+- **Codec Examples** demonstrating typed reads and decoder composition
+- **GATT Server** hosting a Heart Rate service with legacy and extended advertising
 
 ## Architecture
 

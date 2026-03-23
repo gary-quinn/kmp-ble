@@ -15,6 +15,7 @@ private val BLE_PERMISSIONS =
     arrayOf(
         Manifest.permission.BLUETOOTH_SCAN,
         Manifest.permission.BLUETOOTH_CONNECT,
+        Manifest.permission.BLUETOOTH_ADVERTISE,
         Manifest.permission.ACCESS_FINE_LOCATION,
     )
 
@@ -37,4 +38,20 @@ actual fun openAppSettings(context: Any?) {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
     ctx.startActivity(intent)
+}
+
+@Composable
+actual fun rememberFilePickerLauncher(onResult: (name: String?, bytes: ByteArray?) -> Unit): () -> Unit {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val launcher =
+        rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            if (uri == null) {
+                onResult(null, null)
+                return@rememberLauncherForActivityResult
+            }
+            val name = uri.lastPathSegment ?: "firmware.zip"
+            val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+            onResult(name, bytes)
+        }
+    return { launcher.launch(arrayOf("application/zip", "application/octet-stream")) }
 }

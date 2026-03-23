@@ -18,6 +18,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -93,6 +94,8 @@ fun ScannerScreen(
     val scope = rememberCoroutineScope()
 
     var legacyOnly by remember { mutableStateOf(true) }
+    var filterQuery by remember { mutableStateOf("") }
+    var serviceFilter by remember { mutableStateOf<String?>(null) }
     val scanContext = remember { Dispatchers.Default.limitedParallelism(1) }
 
     DisposableEffect(legacyOnly) {
@@ -142,6 +145,14 @@ fun ScannerScreen(
         Column(
             modifier = Modifier.fillMaxSize().padding(padding),
         ) {
+            OutlinedTextField(
+                value = filterQuery,
+                onValueChange = { filterQuery = it },
+                placeholder = { Text("Filter by name or ID") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+            )
+
             Row(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -154,13 +165,46 @@ fun ScannerScreen(
                 )
             }
 
-            if (devices.isEmpty()) {
+            FlowRow(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                FilterChip(
+                    selected = serviceFilter == null,
+                    onClick = { serviceFilter = null },
+                    label = { Text("All", style = MaterialTheme.typography.labelSmall) },
+                )
+                for (name in WELL_KNOWN_SERVICES.values) {
+                    FilterChip(
+                        selected = serviceFilter == name,
+                        onClick = { serviceFilter = if (serviceFilter == name) null else name },
+                        label = { Text(name, style = MaterialTheme.typography.labelSmall) },
+                    )
+                }
+            }
+
+            val filteredDevices =
+                devices.filter { device ->
+                    val matchesQuery =
+                        filterQuery.isBlank() ||
+                            device.name?.lowercase()?.contains(filterQuery.lowercase()) == true ||
+                            device.identifier.lowercase().contains(filterQuery.lowercase())
+                    val matchesService =
+                        serviceFilter == null ||
+                            device.serviceUuids.contains(serviceFilter)
+                    matchesQuery && matchesService
+                }
+
+            if (filteredDevices.isEmpty()) {
                 Column(
                     modifier = Modifier.fillMaxSize(),
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    Text("Scanning for BLE devices...", style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        if (filterQuery.isBlank()) "Scanning for BLE devices..." else "No devices match filter",
+                        style = MaterialTheme.typography.bodyLarge,
+                    )
                 }
             } else {
                 LazyColumn(
@@ -168,7 +212,7 @@ fun ScannerScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     items(
-                        items = devices,
+                        items = filteredDevices,
                         key = { it.identifier },
                     ) { device ->
                         DeviceCard(

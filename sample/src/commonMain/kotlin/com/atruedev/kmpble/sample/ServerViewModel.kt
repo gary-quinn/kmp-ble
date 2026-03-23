@@ -58,6 +58,9 @@ class ServerViewModel : ViewModel() {
 
     fun openServer() {
         launchWithErrorHandling {
+            // Close first in case a prior instance is still open at the stack level
+            // (ViewModel may survive across navigations without onCleared)
+            server.close()
             server.open()
             _serverOpen.value = true
             collectConnectionEvents()
@@ -91,7 +94,6 @@ class ServerViewModel : ViewModel() {
         launchWithErrorHandling {
             advertiser.startAdvertising(
                 AdvertiseConfig(
-                    name = "kmp-ble Sample",
                     serviceUuids = listOf(HEART_RATE_SERVICE),
                     connectable = true,
                 ),
