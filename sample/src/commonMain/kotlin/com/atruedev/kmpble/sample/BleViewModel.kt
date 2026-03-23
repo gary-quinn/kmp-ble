@@ -236,11 +236,15 @@ class BleViewModel(advertisement: Advertisement) : ViewModel() {
         _error.value = null
     }
 
-    override fun onCleared() {
+    fun releaseConnection() {
         dfuJob?.cancel()
         dfuController = null
         l2cap.close()
         peripheral.close()
+    }
+
+    override fun onCleared() {
+        releaseConnection()
     }
 
     fun launchWithErrorHandling(block: suspend () -> Unit) {

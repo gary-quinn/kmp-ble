@@ -99,7 +99,10 @@ fun DeviceDetailScreen(
             TopAppBar(
                 title = { Text(advertisement.name ?: "Device") },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(onClick = {
+                        vm.releaseConnection()
+                        onBack()
+                    }) {
                         Text("<", style = MaterialTheme.typography.titleLarge)
                     }
                 },
