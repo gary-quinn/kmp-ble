@@ -189,6 +189,9 @@ class BleViewModel(advertisement: Advertisement) : ViewModel() {
     fun connect(options: ConnectionOptions = ConnectionOptions()) {
         launchWithErrorHandling {
             _error.value = null
+            if (peripheral.state.value is State.Disconnecting) {
+                peripheral.disconnect()
+            }
             peripheral.connect(options.copy(pairingHandler = pairing.handler))
         }
     }
