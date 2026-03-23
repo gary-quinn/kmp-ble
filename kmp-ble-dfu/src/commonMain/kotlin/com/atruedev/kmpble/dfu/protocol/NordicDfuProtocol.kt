@@ -14,6 +14,19 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlin.math.min
 
+/**
+ * Nordic Semiconductor Secure DFU v2 protocol implementation.
+ *
+ * Transfers firmware in two phases: first the init packet (command object),
+ * then the firmware binary split into data objects whose size is negotiated
+ * with the peripheral. Each object is CRC32-verified before execution.
+ * Supports partial resume — if the peripheral already has a valid prefix of
+ * an object, only the remaining bytes are sent.
+ *
+ * This is the default [DfuProtocol] used by [DfuController][com.atruedev.kmpble.dfu.DfuController].
+ *
+ * @see DfuProtocol
+ */
 public class NordicDfuProtocol : DfuProtocol {
 
     override fun performDfu(

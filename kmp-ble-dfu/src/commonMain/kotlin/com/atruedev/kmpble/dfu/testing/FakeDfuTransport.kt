@@ -7,6 +7,24 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
+/**
+ * In-memory [DfuTransport] for testing DFU flows without BLE hardware.
+ *
+ * Queue responses with [enqueueResponse] before the code-under-test calls
+ * [sendCommand]. After the DFU completes, inspect [getCommandLog] and
+ * [getDataLog] to verify the commands and data packets that were sent.
+ *
+ * ## Usage
+ * ```
+ * val transport = FakeDfuTransport(mtu = 64)
+ * // Queue the expected DFU responses...
+ * transport.enqueueResponse(selectResponse)
+ * transport.enqueueResponse(createResponse)
+ * // ...then run the protocol under test
+ * ```
+ *
+ * @param mtu simulated maximum write payload size
+ */
 public class FakeDfuTransport(
     override val mtu: Int = 20,
 ) : DfuTransport {
@@ -36,20 +54,25 @@ public class FakeDfuTransport(
         responseQueue.close()
     }
 
+    /** Queue a response that will be returned by the next [sendCommand] call. */
     public suspend fun enqueueResponse(response: ByteArray) {
         responseQueue.send(response)
     }
 
+    /** Emit a notification as if it came from the DFU Control Point characteristic. */
     public suspend fun emitNotification(data: ByteArray) {
         _notifications.send(data)
     }
 
+    /** Snapshot of all commands sent via [sendCommand], in order. */
     public suspend fun getCommandLog(): List<ByteArray> =
         mutex.withLock { commandLog.toList() }
 
+    /** Snapshot of all data packets sent via [sendData], in order. */
     public suspend fun getDataLog(): List<ByteArray> =
         mutex.withLock { dataLog.toList() }
 
+    /** Clear both command and data logs. */
     public suspend fun clearLogs() {
         mutex.withLock {
             commandLog.clear()
