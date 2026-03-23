@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.android.library)
     alias(libs.plugins.vanniktech.publish)
+    alias(libs.plugins.dokka)
     alias(libs.plugins.ktlint)
 }
 
@@ -123,6 +124,24 @@ tasks.register("assembleXCFramework") {
             File(outputDir.get().asFile, "KmpBle.xcframework").absolutePath,
         )
     }
+}
+
+dokka {
+    dokkaPublications.html {
+        moduleName.set("kmp-ble")
+        includes.from("MODULE.md")
+    }
+
+    pluginsConfiguration.html {
+        footerMessage.set("Copyright &copy; 2025 Gary Quinn. Licensed under Apache 2.0.")
+    }
+}
+
+dependencies {
+    dokka(project(":kmp-ble-codec"))
+    dokka(project(":kmp-ble-dfu"))
+    dokka(project(":kmp-ble-profiles"))
+    dokka(project(":kmp-ble-quirks"))
 }
 
 mavenPublishing {
