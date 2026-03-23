@@ -91,7 +91,6 @@ class ServerViewModel : ViewModel() {
         launchWithErrorHandling {
             advertiser.startAdvertising(
                 AdvertiseConfig(
-                    name = "kmp-ble Sample",
                     serviceUuids = listOf(HEART_RATE_SERVICE),
                     connectable = true,
                 ),
