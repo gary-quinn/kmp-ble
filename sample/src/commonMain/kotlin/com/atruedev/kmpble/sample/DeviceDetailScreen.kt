@@ -61,6 +61,10 @@ fun DeviceDetailScreen(
     onBack: () -> Unit,
     onExploreServices: () -> Unit,
     onHeartRateDemo: () -> Unit,
+    onBatteryDemo: () -> Unit,
+    onDeviceInfoDemo: () -> Unit,
+    onDfuDemo: () -> Unit,
+    onCodecDemo: () -> Unit,
 ) {
     val vm = viewModel { BleViewModel(advertisement) }
 
@@ -76,6 +80,8 @@ fun DeviceDetailScreen(
     val snackbar = remember { SnackbarHostState() }
     val isConnected = state is State.Connected
     val hasHeartRate = services?.any { it.uuid == ServiceUuid.HEART_RATE } == true
+    val hasBattery = services?.any { it.uuid == ServiceUuid.BATTERY } == true
+    val hasDeviceInfo = services?.any { it.uuid == ServiceUuid.DEVICE_INFORMATION } == true
 
     LaunchedEffect(error) {
         error?.let {
@@ -123,11 +129,39 @@ fun DeviceDetailScreen(
                         if (hasHeartRate) {
                             NavigationCard(
                                 title = "Heart Rate Monitor",
-                                description = "Live BPM with transparent reconnection",
+                                description = "Live BPM with transparent reconnection via HeartRateProfile",
                                 onClick = onHeartRateDemo,
                                 highlight = true,
                             )
                         }
+
+                        if (hasBattery) {
+                            NavigationCard(
+                                title = "Battery Level",
+                                description = "Read and subscribe to battery level via BatteryProfile",
+                                onClick = onBatteryDemo,
+                            )
+                        }
+
+                        if (hasDeviceInfo) {
+                            NavigationCard(
+                                title = "Device Information",
+                                description = "Read DIS characteristics via DeviceInformationProfile",
+                                onClick = onDeviceInfoDemo,
+                            )
+                        }
+
+                        NavigationCard(
+                            title = "Firmware Update (DFU)",
+                            description = "Nordic Secure DFU v2 with progress tracking",
+                            onClick = onDfuDemo,
+                        )
+
+                        NavigationCard(
+                            title = "Codec Examples",
+                            description = "Typed read/write with BleCodec instead of raw bytes",
+                            onClick = onCodecDemo,
+                        )
                     }
                 }
             }

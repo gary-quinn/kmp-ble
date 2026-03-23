@@ -24,6 +24,14 @@ sealed interface Screen {
 
     data class HeartRateDemo(val advertisement: Advertisement) : Screen
 
+    data class BatteryDemo(val advertisement: Advertisement) : Screen
+
+    data class DeviceInfoDemo(val advertisement: Advertisement) : Screen
+
+    data class DfuDemo(val advertisement: Advertisement) : Screen
+
+    data class CodecDemo(val advertisement: Advertisement) : Screen
+
     data object Server : Screen
 }
 
@@ -58,6 +66,10 @@ fun App() {
                                 onBack = { currentScreen = Screen.Scanner },
                                 onExploreServices = { currentScreen = Screen.ServiceExplorer(screen.advertisement) },
                                 onHeartRateDemo = { currentScreen = Screen.HeartRateDemo(screen.advertisement) },
+                                onBatteryDemo = { currentScreen = Screen.BatteryDemo(screen.advertisement) },
+                                onDeviceInfoDemo = { currentScreen = Screen.DeviceInfoDemo(screen.advertisement) },
+                                onDfuDemo = { currentScreen = Screen.DfuDemo(screen.advertisement) },
+                                onCodecDemo = { currentScreen = Screen.CodecDemo(screen.advertisement) },
                             )
                         is Screen.ServiceExplorer ->
                             ServiceExplorerScreen(
@@ -66,6 +78,26 @@ fun App() {
                             )
                         is Screen.HeartRateDemo ->
                             HeartRateDemoScreen(
+                                advertisement = screen.advertisement,
+                                onBack = { currentScreen = Screen.DeviceDetail(screen.advertisement) },
+                            )
+                        is Screen.BatteryDemo ->
+                            BatteryDemoScreen(
+                                advertisement = screen.advertisement,
+                                onBack = { currentScreen = Screen.DeviceDetail(screen.advertisement) },
+                            )
+                        is Screen.DeviceInfoDemo ->
+                            DeviceInfoDemoScreen(
+                                advertisement = screen.advertisement,
+                                onBack = { currentScreen = Screen.DeviceDetail(screen.advertisement) },
+                            )
+                        is Screen.DfuDemo ->
+                            DfuDemoScreen(
+                                advertisement = screen.advertisement,
+                                onBack = { currentScreen = Screen.DeviceDetail(screen.advertisement) },
+                            )
+                        is Screen.CodecDemo ->
+                            CodecDemoScreen(
                                 advertisement = screen.advertisement,
                                 onBack = { currentScreen = Screen.DeviceDetail(screen.advertisement) },
                             )
