@@ -6,7 +6,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -48,6 +51,9 @@ fun BatteryDemoScreen(
 
     LaunchedEffect(isConnected) {
         if (!isConnected) return@LaunchedEffect
+        batteryLevel = null
+        subscribedLevel = null
+        servicePresence = ServicePresence.Unknown
         val level = vm.readBatteryLevel()
         if (level != null) {
             batteryLevel = level
@@ -66,7 +72,7 @@ fun BatteryDemoScreen(
                 title = { Text("Battery Level") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Text("<", style = MaterialTheme.typography.titleLarge)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
             )

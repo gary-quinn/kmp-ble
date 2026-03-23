@@ -1,6 +1,8 @@
 package com.atruedev.kmpble.sample
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import com.atruedev.kmpble.permissions.PermissionResult
 import com.atruedev.kmpble.permissions.checkBlePermissions
 import kotlinx.cinterop.ExperimentalForeignApi
@@ -20,6 +22,7 @@ import platform.UIKit.UIApplication
 import platform.UIKit.UIApplicationOpenSettingsURLString
 import platform.UIKit.UIDocumentPickerDelegateProtocol
 import platform.UIKit.UIDocumentPickerViewController
+import platform.UIKit.UIWindowScene
 import platform.UniformTypeIdentifiers.UTType
 import platform.darwin.NSObject
 import platform.posix.memcpy
@@ -32,7 +35,6 @@ actual fun rememberPermissionRequester(onResult: (PermissionResult) -> Unit): ()
         val delegate =
             object : NSObject(), CBCentralManagerDelegateProtocol {
                 override fun centralManagerDidUpdateState(central: CBCentralManager) {
-                    // State updated after user responds to permission dialog.
                     // Small delay to let the authorization status propagate.
                     MainScope().launch {
                         delay(500)
@@ -52,6 +54,9 @@ actual fun openAppSettings(context: Any?) {
 @OptIn(ExperimentalForeignApi::class)
 @Composable
 actual fun rememberFilePickerLauncher(onResult: (name: String?, bytes: ByteArray?) -> Unit): () -> Unit {
+    // Hold a strong reference to the delegate so it survives until the picker is dismissed.
+    val delegateRef = remember { mutableStateOf<NSObject?>(null) }
+
     return {
         val zipType = UTType.typeWithFilenameExtension("zip")
         if (zipType != null) {
@@ -60,12 +65,13 @@ actual fun rememberFilePickerLauncher(onResult: (name: String?, bytes: ByteArray
                     forOpeningContentTypes = listOf(zipType),
                 )
             controller.allowsMultipleSelection = false
-            controller.delegate =
+            val delegate =
                 object : NSObject(), UIDocumentPickerDelegateProtocol {
                     override fun documentPicker(
                         controller: UIDocumentPickerViewController,
                         didPickDocumentsAtURLs: List<*>,
                     ) {
+                        delegateRef.value = null
                         val picked = didPickDocumentsAtURLs.firstOrNull() as? NSURL
                         if (picked == null) {
                             onResult(null, null)
@@ -88,10 +94,19 @@ actual fun rememberFilePickerLauncher(onResult: (name: String?, bytes: ByteArray
                     }
 
                     override fun documentPickerWasCancelled(controller: UIDocumentPickerViewController) {
+                        delegateRef.value = null
                         onResult(null, null)
                     }
                 }
-            val rootVc = UIApplication.sharedApplication.keyWindow?.rootViewController
+            delegateRef.value = delegate
+            controller.delegate = delegate
+
+            val rootVc =
+                UIApplication.sharedApplication.connectedScenes
+                    .filterIsInstance<UIWindowScene>()
+                    .firstOrNull()
+                    ?.keyWindow
+                    ?.rootViewController
             rootVc?.presentViewController(controller, animated = true, completion = null)
         }
     }

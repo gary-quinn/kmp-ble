@@ -8,8 +8,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -64,7 +67,7 @@ fun DfuDemoScreen(
                 title = { Text("Firmware Update (DFU)") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Text("<", style = MaterialTheme.typography.titleLarge)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
             )
@@ -222,7 +225,7 @@ private fun dfuErrorMessage(error: DfuError): String =
 
 private fun formatBytes(bytes: Long): String =
     when {
-        bytes >= 1_048_576 -> "${bytes / 1_048_576} MB"
-        bytes >= 1_024 -> "${bytes / 1_024} KB"
+        bytes >= 1_048_576 -> "${bytes * 10 / 1_048_576 / 10.0} MB"
+        bytes >= 1_024 -> "${bytes * 10 / 1_024 / 10.0} KB"
         else -> "$bytes B"
     }
