@@ -2,6 +2,7 @@ package com.atruedev.kmpble.sample
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -28,27 +29,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.atruedev.kmpble.ServiceUuid
 import com.atruedev.kmpble.connection.State
-import com.atruedev.kmpble.gatt.BackpressureStrategy
+import com.atruedev.kmpble.profiles.heartrate.BodySensorLocation
+import com.atruedev.kmpble.profiles.heartrate.HeartRateMeasurement
 import com.atruedev.kmpble.scanner.Advertisement
-import com.atruedev.kmpble.scanner.uuidFrom
-import kotlin.uuid.ExperimentalUuidApi
 
-@OptIn(ExperimentalUuidApi::class)
-private val HR_MEASUREMENT = uuidFrom("2A37")
-
-private fun parseHeartRate(data: ByteArray): Int? {
-    if (data.isEmpty()) return null
-    val flags = data[0].toInt() and 0xFF
-    return if (flags and 0x01 == 0) {
-        if (data.size > 1) data[1].toInt() and 0xFF else null
-    } else {
-        if (data.size > 2) ((data[2].toInt() and 0xFF) shl 8) or (data[1].toInt() and 0xFF) else null
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalUuidApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HeartRateDemoScreen(
     advertisement: Advertisement,
@@ -56,26 +42,26 @@ fun HeartRateDemoScreen(
 ) {
     val vm = viewModel { BleViewModel(advertisement) }
     val state by vm.connectionState.collectAsState()
-    val services by vm.services.collectAsState()
+    val isConnected = state is State.Connected
 
-    var bpm by remember { mutableStateOf<Int?>(null) }
+    var latestMeasurement by remember { mutableStateOf<HeartRateMeasurement?>(null) }
+    var sensorLocation by remember { mutableStateOf<BodySensorLocation?>(null) }
     var recentValues by remember { mutableStateOf(emptyList<String>()) }
 
-    val hrChar =
-        remember(services) {
-            services?.firstOrNull { it.uuid == ServiceUuid.HEART_RATE }
-                ?.characteristics
-                ?.firstOrNull { it.uuid == HR_MEASUREMENT }
-        }
-
-    if (hrChar != null) {
-        LaunchedEffect(hrChar) {
-            vm.observeValues(hrChar, BackpressureStrategy.Latest).collect { data ->
-                parseHeartRate(data)?.let {
-                    bpm = it
-                    recentValues = (listOf("$it bpm") + recentValues).take(20)
+    LaunchedEffect(isConnected) {
+        if (!isConnected) return@LaunchedEffect
+        sensorLocation = vm.readBodySensorLocation()
+        vm.heartRateMeasurements().collect { measurement ->
+            latestMeasurement = measurement
+            val detail =
+                buildString {
+                    append("${measurement.heartRate} bpm")
+                    if (measurement.rrIntervals.isNotEmpty()) {
+                        append(" | RR: ${measurement.rrIntervals.joinToString()}ms")
+                    }
+                    measurement.energyExpended?.let { append(" | ${it}kJ") }
                 }
-            }
+            recentValues = (listOf(detail) + recentValues).take(20)
         }
     }
 
@@ -102,7 +88,7 @@ fun HeartRateDemoScreen(
             Spacer(Modifier.height(32.dp))
 
             Text(
-                text = bpm?.toString() ?: "—",
+                text = latestMeasurement?.heartRate?.toString() ?: "—",
                 fontSize = 96.sp,
                 fontWeight = FontWeight.Thin,
                 color = MaterialTheme.colorScheme.primary,
@@ -115,8 +101,35 @@ fun HeartRateDemoScreen(
 
             Spacer(Modifier.height(8.dp))
 
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                sensorLocation?.let {
+                    Text(
+                        text = "Sensor: ${it.name}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                latestMeasurement?.sensorContactDetected?.let { detected ->
+                    Text(
+                        text = if (detected) "Contact: Yes" else "Contact: No",
+                        style = MaterialTheme.typography.labelSmall,
+                        color =
+                            if (detected) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.error
+                            },
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(4.dp))
+
             Text(
-                text = "Uses observeValues() for transparent reconnection",
+                text = "Uses HeartRateProfile with transparent reconnection",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -137,7 +150,7 @@ fun HeartRateDemoScreen(
                 }
             }
 
-            if (hrChar == null && state is State.Connected) {
+            if (latestMeasurement == null && isConnected) {
                 Spacer(Modifier.height(16.dp))
                 Text(
                     "No Heart Rate service found on this device.",
