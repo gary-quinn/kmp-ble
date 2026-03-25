@@ -15,6 +15,23 @@ _Changes on `main` that have not yet been tagged for release._
 
 ---
 
+## [0.3.5] - 2026-03-25
+
+### Fixed
+- fix: resolve all 21 Dependabot security alerts (#68)
+- fix: update outdated GitHub repository URL (#65)
+
+### Other
+- update Package.swift for v0.3.5
+- docs: add llms.txt for LLM-friendly project documentation (#67)
+- ci: add dependabot.yml (#66)
+- Update GitHub Sponsors username in FUNDING.yml (#64)
+- ci: skip docs job on pull requests (#63)
+- update Package.swift for v0.3.4
+
+
+---
+
 ## [0.3.4] - 2026-03-23
 
 ### Other
@@ -256,7 +273,8 @@ _Changes on `main` that have not yet been tagged for release._
 
 ---
 
-[Unreleased]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.4...HEAD
+[Unreleased]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.5...HEAD
+[0.3.5]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.4...v0.3.5
 [0.3.4]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.3-alpha1...v0.3.4
 [0.3.3]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.3-alpha1...v0.3.3
 [0.3.3-alpha1]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.2...v0.3.3-alpha1
