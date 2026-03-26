@@ -329,6 +329,10 @@ The `sample` module is a Compose Multiplatform app (Android + iOS) demonstrating
 - **Codec Examples** demonstrating typed reads and decoder composition
 - **GATT Server** hosting a Heart Rate service with legacy and extended advertising
 
+## Showcase
+
+**[BLE Toolkit](https://github.com/gary-quinn/ble-toolkit)** — A full-featured BLE utility app for Android & iOS, built entirely with kmp-ble. It provides a production-grade scanner, GATT explorer, and device manager using Compose Multiplatform, and serves as a real-world reference implementation for the library.
+
 ## Architecture
 
 - **State machine:** 14 states with declarative transition table — no invalid states in production
