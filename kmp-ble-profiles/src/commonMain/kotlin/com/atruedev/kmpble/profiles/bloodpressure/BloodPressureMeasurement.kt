@@ -3,6 +3,18 @@ package com.atruedev.kmpble.profiles.bloodpressure
 import com.atruedev.kmpble.profiles.parsing.BleByteReader
 import com.atruedev.kmpble.profiles.parsing.BleDateTime
 
+/**
+ * Parsed Blood Pressure Measurement (0x2A35) notification payload.
+ *
+ * @property systolic Systolic pressure in [unit].
+ * @property diastolic Diastolic pressure in [unit].
+ * @property meanArterialPressure Mean arterial pressure in [unit].
+ * @property unit Measurement unit (mmHg or kPa).
+ * @property timestamp When the measurement was taken, if present.
+ * @property pulseRate Pulse rate in bpm, if present.
+ * @property userId User index for multi-user devices, if present.
+ * @property measurementStatus Flags indicating measurement quality issues, if present.
+ */
 public data class BloodPressureMeasurement(
     val systolic: Float,
     val diastolic: Float,
@@ -14,8 +26,10 @@ public data class BloodPressureMeasurement(
     val measurementStatus: BloodPressureMeasurementStatus?,
 )
 
+/** Unit of blood pressure measurement. */
 public enum class BloodPressureUnit { MmHg, KPa }
 
+/** Flags indicating measurement quality or environmental conditions. */
 public data class BloodPressureMeasurementStatus(
     val bodyMovementDetected: Boolean,
     val cuffTooLoose: Boolean,
@@ -25,6 +39,7 @@ public data class BloodPressureMeasurementStatus(
     val improperMeasurementPosition: Boolean,
 )
 
+/** Parses a Blood Pressure Measurement characteristic value (0x2A35). */
 public fun parseBloodPressureMeasurement(data: ByteArray): BloodPressureMeasurement? {
     val reader = BleByteReader(data)
     if (!reader.hasRemaining(7)) return null

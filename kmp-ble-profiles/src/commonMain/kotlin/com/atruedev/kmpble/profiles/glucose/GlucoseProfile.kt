@@ -12,6 +12,12 @@ private val GLUCOSE_MEASUREMENT_UUID = uuidFrom("2A18")
 private val GLUCOSE_MEASUREMENT_CONTEXT_UUID = uuidFrom("2A34")
 private val GLUCOSE_FEATURE_UUID = uuidFrom("2A51")
 
+/**
+ * Observes Glucose Measurement notifications from the Glucose Service (0x1808).
+ *
+ * @param backpressure Strategy for handling notifications that arrive faster than the collector.
+ * @return Flow of parsed [GlucoseMeasurement] values, or an empty flow if the characteristic is absent.
+ */
 public fun Peripheral.glucoseMeasurements(
     backpressure: BackpressureStrategy = BackpressureStrategy.Latest,
 ): Flow<GlucoseMeasurement> {
@@ -20,6 +26,11 @@ public fun Peripheral.glucoseMeasurements(
     return observeValues(char, backpressure).mapNotNull { parseGlucoseMeasurement(it) }
 }
 
+/**
+ * Observes Glucose Measurement Context notifications from the Glucose Service (0x1808).
+ *
+ * Context records are linked to measurements by sequence number.
+ */
 public fun Peripheral.glucoseMeasurementContexts(
     backpressure: BackpressureStrategy = BackpressureStrategy.Latest,
 ): Flow<GlucoseMeasurementContext> {
@@ -28,6 +39,7 @@ public fun Peripheral.glucoseMeasurementContexts(
     return observeValues(char, backpressure).mapNotNull { parseGlucoseMeasurementContext(it) }
 }
 
+/** Reads the supported features of the Glucose Service (0x1808). */
 public suspend fun Peripheral.readGlucoseFeature(): GlucoseFeature? {
     val char = findCharacteristic(ServiceUuid.GLUCOSE, GLUCOSE_FEATURE_UUID) ?: return null
     return parseGlucoseFeature(read(char))

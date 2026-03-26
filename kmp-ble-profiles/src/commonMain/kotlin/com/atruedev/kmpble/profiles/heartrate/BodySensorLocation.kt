@@ -1,5 +1,6 @@
 package com.atruedev.kmpble.profiles.heartrate
 
+/** Body location where the heart rate sensor is worn (0x2A38). */
 public enum class BodySensorLocation {
     Other,
     Chest,
@@ -19,6 +20,7 @@ public enum class BodySensorLocation {
     }
 }
 
+/** Parses a Body Sensor Location characteristic value (0x2A38). */
 public fun parseBodySensorLocation(data: ByteArray): BodySensorLocation? {
     if (data.isEmpty()) return null
     return BodySensorLocation.fromByte(data[0].toInt() and 0xFF)

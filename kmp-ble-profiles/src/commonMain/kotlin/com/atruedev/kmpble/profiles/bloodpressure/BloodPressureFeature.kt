@@ -2,6 +2,7 @@ package com.atruedev.kmpble.profiles.bloodpressure
 
 import com.atruedev.kmpble.profiles.parsing.BleByteReader
 
+/** Supported features of the Blood Pressure Service (0x2A49). */
 public data class BloodPressureFeature(
     val bodyMovementDetectionSupported: Boolean,
     val cuffFitDetectionSupported: Boolean,
@@ -11,6 +12,7 @@ public data class BloodPressureFeature(
     val multipleBondSupported: Boolean,
 )
 
+/** Parses a Blood Pressure Feature characteristic value (0x2A49). */
 public fun parseBloodPressureFeature(data: ByteArray): BloodPressureFeature? {
     if (data.size < 2) return null
     val reader = BleByteReader(data)

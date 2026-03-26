@@ -2,12 +2,14 @@ package com.atruedev.kmpble.profiles.csc
 
 import com.atruedev.kmpble.profiles.parsing.BleByteReader
 
+/** Supported features of the Cycling Speed and Cadence Service (0x2A5C). */
 public data class CscFeature(
     val wheelRevolutionDataSupported: Boolean,
     val crankRevolutionDataSupported: Boolean,
     val multipleSensorLocationsSupported: Boolean,
 )
 
+/** Parses a CSC Feature characteristic value (0x2A5C). */
 public fun parseCscFeature(data: ByteArray): CscFeature? {
     if (data.size < 2) return null
     val reader = BleByteReader(data)

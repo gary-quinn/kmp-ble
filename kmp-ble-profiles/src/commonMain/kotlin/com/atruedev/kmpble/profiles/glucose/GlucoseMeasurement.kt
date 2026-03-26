@@ -3,6 +3,18 @@ package com.atruedev.kmpble.profiles.glucose
 import com.atruedev.kmpble.profiles.parsing.BleByteReader
 import com.atruedev.kmpble.profiles.parsing.BleDateTime
 
+/**
+ * Parsed Glucose Measurement (0x2A18) notification payload.
+ *
+ * @property sequenceNumber Monotonically increasing measurement counter.
+ * @property baseTime Timestamp of the measurement.
+ * @property timeOffset Offset from [baseTime] in minutes, if present.
+ * @property concentration Glucose concentration in [unit], if present.
+ * @property unit Concentration unit (kg/L or mol/L), if present.
+ * @property type Sample type (capillary, venous, etc.), if present.
+ * @property sampleLocation Where the sample was taken, if present.
+ * @property sensorStatus Sensor status flags, if present.
+ */
 public data class GlucoseMeasurement(
     val sequenceNumber: Int,
     val baseTime: BleDateTime,
@@ -14,8 +26,10 @@ public data class GlucoseMeasurement(
     val sensorStatus: GlucoseSensorStatus?,
 )
 
+/** Unit of glucose concentration measurement. */
 public enum class GlucoseConcentrationUnit { KgPerL, MolPerL }
 
+/** Type of blood or fluid sample used for the glucose measurement. */
 public enum class GlucoseType {
     Reserved,
     CapillaryWholeBlood,
@@ -43,6 +57,7 @@ public enum class GlucoseType {
     }
 }
 
+/** Body location where the glucose sample was taken. */
 public enum class GlucoseSampleLocation {
     Reserved,
     Finger,
@@ -65,6 +80,7 @@ public enum class GlucoseSampleLocation {
     }
 }
 
+/** Sensor status annunciation flags from the glucose meter. */
 public data class GlucoseSensorStatus(
     val batteryLow: Boolean,
     val sensorMalfunction: Boolean,
@@ -80,6 +96,7 @@ public data class GlucoseSensorStatus(
     val timeFault: Boolean,
 )
 
+/** Parses a Glucose Measurement characteristic value (0x2A18). */
 public fun parseGlucoseMeasurement(data: ByteArray): GlucoseMeasurement? {
     val reader = BleByteReader(data)
     if (!reader.hasRemaining(10)) return null

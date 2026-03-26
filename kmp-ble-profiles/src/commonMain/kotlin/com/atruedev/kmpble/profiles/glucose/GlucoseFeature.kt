@@ -2,6 +2,7 @@ package com.atruedev.kmpble.profiles.glucose
 
 import com.atruedev.kmpble.profiles.parsing.BleByteReader
 
+/** Supported features of the Glucose Service (0x2A51). */
 public data class GlucoseFeature(
     val lowBatteryDetectionSupported: Boolean,
     val sensorMalfunctionDetectionSupported: Boolean,
@@ -16,6 +17,7 @@ public data class GlucoseFeature(
     val multipleBondSupported: Boolean,
 )
 
+/** Parses a Glucose Feature characteristic value (0x2A51). */
 public fun parseGlucoseFeature(data: ByteArray): GlucoseFeature? {
     if (data.size < 2) return null
     val reader = BleByteReader(data)
