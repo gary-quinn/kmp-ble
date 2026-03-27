@@ -96,6 +96,6 @@ class FakePeripheralWriteTest {
                     peripheral.write(char, byteArrayOf(0x01), WriteType.WithResponse)
                 }
             assertIs<GattError>(ex.error)
-            assertEquals(GattStatus.WriteNotPermitted, (ex.error as GattError).status)
+            assertEquals(GattStatus.WriteNotPermitted, ex.error.status)
         }
 }
