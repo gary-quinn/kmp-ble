@@ -21,9 +21,9 @@ import kotlinx.coroutines.selects.select
 internal class DfuSession(
     private val transport: DfuTransport,
     private val protocol: DfuProtocol,
+    private val abortSignal: CompletableDeferred<Unit>,
     private val dispatcher: CoroutineDispatcher = Dispatchers.Default.limitedParallelism(1),
 ) {
-    private val abortSignal = CompletableDeferred<Unit>()
 
     fun start(firmware: FirmwarePackage, options: DfuOptions): Flow<DfuProgress> {
         val abortAwareTransport = AbortAwareDfuTransport(transport, abortSignal)
@@ -38,10 +38,6 @@ internal class DfuSession(
             }
             .onCompletion { transport.close() }
             .flowOn(dispatcher)
-    }
-
-    fun abort() {
-        abortSignal.complete(Unit)
     }
 }
 

@@ -165,7 +165,7 @@ public class McuBootDfuProtocol : DfuProtocol {
         private const val CBOR_OVERHEAD = 31
 
         // First chunk includes "len" (4+9=13) and "sha" (4+35=39) fields
-        private const val CBOR_OVERHEAD_FIRST = CBOR_OVERHEAD + 13 + 39
+        internal const val CBOR_OVERHEAD_FIRST = CBOR_OVERHEAD + 13 + 39
 
         internal fun buildUploadPayload(
             imageIndex: Int,

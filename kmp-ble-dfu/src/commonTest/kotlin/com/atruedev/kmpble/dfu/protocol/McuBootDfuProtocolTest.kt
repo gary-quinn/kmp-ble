@@ -52,7 +52,7 @@ class McuBootDfuProtocolTest {
             // Use the worst-case (first chunk) overhead to conservatively simulate
             // chunk boundaries. The protocol uses a smaller overhead for subsequent
             // chunks, but the server's "off" response controls progression either way.
-            val chunkSize = maxOf(transport.mtu - SmpHeader.SIZE - FIRST_CHUNK_OVERHEAD, 1)
+            val chunkSize = maxOf(transport.mtu - SmpHeader.SIZE - McuBootDfuProtocol.CBOR_OVERHEAD_FIRST, 1)
             var offset = 0L
             while (offset < imageData.size) {
                 offset = minOf(offset + chunkSize, imageData.size.toLong())
@@ -76,7 +76,7 @@ class McuBootDfuProtocolTest {
         val firmware = FirmwarePackage.McuBoot(imageData)
 
         launch {
-            val chunkSize = maxOf(transport.mtu - SmpHeader.SIZE - FIRST_CHUNK_OVERHEAD, 1)
+            val chunkSize = maxOf(transport.mtu - SmpHeader.SIZE - McuBootDfuProtocol.CBOR_OVERHEAD_FIRST, 1)
             var offset = 0L
             while (offset < imageData.size) {
                 offset = minOf(offset + chunkSize, imageData.size.toLong())
@@ -117,9 +117,4 @@ class McuBootDfuProtocolTest {
         return header.encode() + payload
     }
 
-    companion object {
-        // Mirrors McuBootDfuProtocol.CBOR_OVERHEAD_FIRST for test chunk simulation.
-        // The first SMP upload chunk includes "len" and "sha" fields.
-        private const val FIRST_CHUNK_OVERHEAD = 83
-    }
 }

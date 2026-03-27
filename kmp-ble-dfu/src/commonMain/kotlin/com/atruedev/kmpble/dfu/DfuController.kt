@@ -13,9 +13,11 @@ import com.atruedev.kmpble.dfu.transport.GattDfuTransport
 import com.atruedev.kmpble.dfu.transport.L2capDfuTransport
 import com.atruedev.kmpble.dfu.transport.SmpTransport
 import com.atruedev.kmpble.peripheral.Peripheral
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
+import kotlin.coroutines.cancellation.CancellationException
 
 /**
  * Orchestrates a firmware update over BLE.
@@ -32,8 +34,10 @@ public class DfuController(
     private val protocol: DfuProtocol = NordicDfuProtocol(),
 ) {
 
-    @kotlin.concurrent.Volatile
-    private var activeSession: DfuSession? = null
+    // Abort signal shared between performDfu and abort(). CompletableDeferred
+    // is a coroutine primitive with thread-safe complete/isCompleted — no
+    // @Volatile or Mutex needed. A fresh signal is created per DFU invocation.
+    private var abortSignal = CompletableDeferred<Unit>()
 
     /**
      * Start a firmware update and observe its progress.
@@ -50,14 +54,12 @@ public class DfuController(
     ): Flow<DfuProgress> = flow {
         try {
             validateConnected()
+            abortSignal = CompletableDeferred()
             val transport = createTransport(options)
-            val session = DfuSession(transport, protocol)
-            activeSession = session
-            try {
-                emitAll(session.start(firmware, options))
-            } finally {
-                activeSession = null
-            }
+            val session = DfuSession(transport, protocol, abortSignal)
+            emitAll(session.start(firmware, options))
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             if (e is DfuError) emit(DfuProgress.Failed(e)) else throw e
         }
@@ -65,7 +67,7 @@ public class DfuController(
 
     /** Cancel a DFU that is currently in progress. Safe to call if no DFU is active. */
     public fun abort() {
-        activeSession?.abort()
+        abortSignal.complete(Unit)
     }
 
     public companion object {

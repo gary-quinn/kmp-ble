@@ -10,21 +10,21 @@ package com.atruedev.kmpble.dfu.internal
 internal object Cbor {
 
     fun encodeMap(entries: Map<Int, Any>): ByteArray {
-        val buffer = mutableListOf<Byte>()
-        encodeHead(buffer, 5, entries.size.toLong())
+        val buffer = CborBuffer()
+        buffer.writeHead(5, entries.size.toLong())
         for ((key, value) in entries) {
-            encodeInt(buffer, key.toLong())
-            encodeValue(buffer, value)
+            buffer.writeInt(key.toLong())
+            buffer.writeValue(value)
         }
         return buffer.toByteArray()
     }
 
     fun encodeStringMap(entries: Map<String, Any>): ByteArray {
-        val buffer = mutableListOf<Byte>()
-        encodeHead(buffer, 5, entries.size.toLong())
+        val buffer = CborBuffer()
+        buffer.writeHead(5, entries.size.toLong())
         for ((key, value) in entries) {
-            encodeValue(buffer, key)
-            encodeValue(buffer, value)
+            buffer.writeValue(key)
+            buffer.writeValue(value)
         }
         return buffer.toByteArray()
     }
@@ -59,62 +59,6 @@ internal object Cbor {
             cursor = valueEnd
         }
         return map to cursor
-    }
-
-    // Supported value types: Int, Long, ByteArray, String, Boolean.
-    // If this codec needs to support additional types, consider replacing
-    // Any with a sealed CborValue hierarchy for compile-time safety.
-    private fun encodeValue(buffer: MutableList<Byte>, value: Any) {
-        when (value) {
-            is Int -> encodeInt(buffer, value.toLong())
-            is Long -> encodeInt(buffer, value)
-            is ByteArray -> {
-                encodeHead(buffer, 2, value.size.toLong())
-                value.forEach { buffer.add(it) }
-            }
-            is String -> {
-                val bytes = value.encodeToByteArray()
-                encodeHead(buffer, 3, bytes.size.toLong())
-                bytes.forEach { buffer.add(it) }
-            }
-            is Boolean -> buffer.add(if (value) 0xF5.toByte() else 0xF4.toByte())
-            else -> throw IllegalArgumentException("Unsupported CBOR value type: ${value::class.simpleName}")
-        }
-    }
-
-    private fun encodeInt(buffer: MutableList<Byte>, value: Long) {
-        if (value >= 0) {
-            encodeHead(buffer, 0, value)
-        } else {
-            encodeHead(buffer, 1, -1 - value)
-        }
-    }
-
-    private fun encodeHead(buffer: MutableList<Byte>, majorType: Int, value: Long) {
-        val mt = majorType shl 5
-        when {
-            value < 24 -> buffer.add((mt or value.toInt()).toByte())
-            value <= 0xFF -> {
-                buffer.add((mt or 24).toByte())
-                buffer.add(value.toByte())
-            }
-            value <= 0xFFFF -> {
-                buffer.add((mt or 25).toByte())
-                buffer.add((value shr 8).toByte())
-                buffer.add(value.toByte())
-            }
-            value <= 0xFFFFFFFFL -> {
-                buffer.add((mt or 26).toByte())
-                buffer.add((value shr 24).toByte())
-                buffer.add((value shr 16).toByte())
-                buffer.add((value shr 8).toByte())
-                buffer.add(value.toByte())
-            }
-            else -> {
-                buffer.add((mt or 27).toByte())
-                for (i in 7 downTo 0) buffer.add((value shr (i * 8)).toByte())
-            }
-        }
     }
 
     private data class DecodedHead(val majorType: Int, val value: Long, val nextOffset: Int)
@@ -180,5 +124,91 @@ internal object Cbor {
             }
             else -> throw IllegalArgumentException("Unsupported CBOR major type: $majorType")
         }
+    }
+}
+
+/**
+ * Growable byte buffer that avoids per-byte boxing overhead of MutableList<Byte>.
+ * Doubles capacity on overflow, similar to ArrayList's growth strategy.
+ */
+private class CborBuffer(initialCapacity: Int = 64) {
+    private var data = ByteArray(initialCapacity)
+    private var position = 0
+
+    fun writeByte(b: Byte) {
+        ensureCapacity(1)
+        data[position++] = b
+    }
+
+    fun writeBytes(src: ByteArray) {
+        ensureCapacity(src.size)
+        src.copyInto(data, position)
+        position += src.size
+    }
+
+    fun toByteArray(): ByteArray = data.copyOfRange(0, position)
+
+    // Supported value types: Int, Long, ByteArray, String, Boolean.
+    // If this codec needs to support additional types, consider replacing
+    // Any with a sealed CborValue hierarchy for compile-time safety.
+    fun writeValue(value: Any) {
+        when (value) {
+            is Int -> writeInt(value.toLong())
+            is Long -> writeInt(value)
+            is ByteArray -> {
+                writeHead(2, value.size.toLong())
+                writeBytes(value)
+            }
+            is String -> {
+                val bytes = value.encodeToByteArray()
+                writeHead(3, bytes.size.toLong())
+                writeBytes(bytes)
+            }
+            is Boolean -> writeByte(if (value) 0xF5.toByte() else 0xF4.toByte())
+            else -> throw IllegalArgumentException("Unsupported CBOR value type: ${value::class.simpleName}")
+        }
+    }
+
+    fun writeInt(value: Long) {
+        if (value >= 0) {
+            writeHead(0, value)
+        } else {
+            writeHead(1, -1 - value)
+        }
+    }
+
+    fun writeHead(majorType: Int, value: Long) {
+        val mt = majorType shl 5
+        when {
+            value < 24 -> writeByte((mt or value.toInt()).toByte())
+            value <= 0xFF -> {
+                writeByte((mt or 24).toByte())
+                writeByte(value.toByte())
+            }
+            value <= 0xFFFF -> {
+                writeByte((mt or 25).toByte())
+                writeByte((value shr 8).toByte())
+                writeByte(value.toByte())
+            }
+            value <= 0xFFFFFFFFL -> {
+                writeByte((mt or 26).toByte())
+                writeByte((value shr 24).toByte())
+                writeByte((value shr 16).toByte())
+                writeByte((value shr 8).toByte())
+                writeByte(value.toByte())
+            }
+            else -> {
+                writeByte((mt or 27).toByte())
+                for (i in 7 downTo 0) writeByte((value shr (i * 8)).toByte())
+            }
+        }
+    }
+
+    private fun ensureCapacity(needed: Int) {
+        val required = position + needed
+        if (required <= data.size) return
+        var newSize = data.size
+        while (newSize < required) newSize *= 2
+        data = data.copyOf(newSize)
     }
 }
