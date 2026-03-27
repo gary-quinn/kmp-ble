@@ -73,7 +73,7 @@ internal object Sha256 {
             chars[i * 2] = HEX_CHARS[b shr 4]
             chars[i * 2 + 1] = HEX_CHARS[b and 0x0F]
         }
-        return String(chars)
+        return chars.concatToString()
     }
 
     private fun processBlock(h: UIntArray, w: UIntArray, data: ByteArray, blockStart: Int) {
