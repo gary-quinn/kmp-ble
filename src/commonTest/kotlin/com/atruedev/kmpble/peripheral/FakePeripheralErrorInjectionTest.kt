@@ -104,7 +104,7 @@ class FakePeripheralErrorInjectionTest {
                 assertFailsWith<BleException> {
                     peripheral.read(char)
                 }
-            assertEquals(GattStatus.InsufficientAuthentication, ex.error.status)
+            assertEquals(GattStatus.InsufficientAuthentication, (ex.error as GattError).status)
         }
 
     @Test
