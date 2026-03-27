@@ -50,9 +50,16 @@ public class EspOtaDfuProtocol : DfuProtocol {
         val firmwareData = firmware.firmware
         val tracker = ThroughputTracker()
         val chunkSize = transport.mtu
+        val sha256 = Sha256.digest(firmwareData)
+
+        // Pre-allocate a single reusable buffer for full-sized chunks.
+        // Only the final (potentially shorter) chunk allocates a fresh array.
+        val chunkBuffer = ByteArray(chunkSize)
 
         // ESP OTA does not support resume — a fresh OTA Begin is required on
         // each attempt because the device resets its OTA state on error.
+        // Hash verification and OTA End are inside retry scope: if the
+        // device drops mid-verify, the entire transfer retries from scratch.
         retryOnFailure(options.retryCount, options.retryDelay) {
             val beginResponse = transport.sendCommand(encodeOtaBegin(firmwareData.size))
             validateResponse(beginResponse, EspOtaOpcode.OTA_BEGIN.toInt(), "OTA Begin")
@@ -63,8 +70,13 @@ public class EspOtaDfuProtocol : DfuProtocol {
                 currentCoroutineContext().ensureActive()
 
                 val end = min(offset + chunkSize, firmwareData.size)
-                val chunk = firmwareData.copyOfRange(offset, end)
-                transport.sendData(chunk)
+                val len = end - offset
+                firmwareData.copyInto(chunkBuffer, 0, offset, end)
+                if (len == chunkSize) {
+                    transport.sendData(chunkBuffer)
+                } else {
+                    transport.sendData(chunkBuffer.copyOfRange(0, len))
+                }
                 offset = end
 
                 tracker.record(offset.toLong())
@@ -78,13 +90,12 @@ public class EspOtaDfuProtocol : DfuProtocol {
                     ),
                 )
             }
+
+            emit(DfuProgress.Verifying(0))
+
+            val endResponse = transport.sendCommand(encodeOtaEnd(sha256))
+            validateResponse(endResponse, EspOtaOpcode.OTA_END.toInt(), "OTA End")
         }
-
-        emit(DfuProgress.Verifying(0))
-
-        val sha256 = Sha256.digest(firmwareData)
-        val endResponse = transport.sendCommand(encodeOtaEnd(sha256))
-        validateResponse(endResponse, EspOtaOpcode.OTA_END.toInt(), "OTA End")
 
         emit(DfuProgress.Completing)
 
