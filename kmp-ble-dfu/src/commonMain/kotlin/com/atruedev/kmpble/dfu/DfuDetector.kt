@@ -14,17 +14,8 @@ import kotlin.uuid.Uuid
  * The peripheral must be connected with services discovered before calling
  * [detect]. Returns `null` if no known DFU service is found.
  *
- * ## Usage
- * ```
- * peripheral.connect(options)
- * val protocolType = DfuDetector.detect(peripheral)
- * val controller = when (protocolType) {
- *     DfuProtocolType.NORDIC -> DfuController(peripheral)
- *     DfuProtocolType.MCUBOOT -> DfuController(peripheral, McuBootDfuProtocol())
- *     DfuProtocolType.ESP_OTA -> DfuController(peripheral, EspOtaDfuProtocol())
- *     null -> error("No DFU service found")
- * }
- * ```
+ * For most use cases, prefer [DfuController.create] which combines detection
+ * and controller construction in a single call.
  */
 public object DfuDetector {
 

@@ -72,7 +72,7 @@ public class McuBootDfuProtocol : DfuProtocol {
         val imageData = firmware.image
         val sha256 = Sha256.digest(imageData)
         val tracker = ThroughputTracker()
-        val chunkSize = maxOf(transport.mtu - SmpHeader.SIZE - CBOR_OVERHEAD, 1)
+        val availableForData = transport.mtu - SmpHeader.SIZE
 
         var offset = 0L
 
@@ -80,6 +80,9 @@ public class McuBootDfuProtocol : DfuProtocol {
             while (offset < imageData.size) {
                 currentCoroutineContext().ensureActive()
 
+                val isFirstChunk = offset == 0L
+                val overhead = if (isFirstChunk) CBOR_OVERHEAD_FIRST else CBOR_OVERHEAD
+                val chunkSize = maxOf(availableForData - overhead, 1)
                 val end = min(offset + chunkSize, imageData.size.toLong()).toInt()
                 val chunk = imageData.copyOfRange(offset.toInt(), end)
 
@@ -87,8 +90,8 @@ public class McuBootDfuProtocol : DfuProtocol {
                     imageIndex = firmware.imageIndex,
                     offset = offset,
                     data = chunk,
-                    totalLen = if (offset == 0L) imageData.size.toLong() else null,
-                    sha256 = if (offset == 0L) sha256 else null,
+                    totalLen = if (isFirstChunk) imageData.size.toLong() else null,
+                    sha256 = if (isFirstChunk) sha256 else null,
                 )
 
                 val response = sendSmpCommand(
@@ -98,7 +101,7 @@ public class McuBootDfuProtocol : DfuProtocol {
                 )
 
                 val responseMap = parseSmpResponsePayload(response)
-                val returnCode = (responseMap["rc"] as? Long) ?: 0L
+                val returnCode = (responseMap[SmpField.RC] as? Long) ?: 0L
                 if (returnCode != 0L) {
                     throw DfuError.ProtocolError(
                         opcode = SmpCommand.IMAGE_UPLOAD,
@@ -107,7 +110,7 @@ public class McuBootDfuProtocol : DfuProtocol {
                     )
                 }
 
-                val nextOffset = (responseMap["off"] as? Long) ?: (offset + chunk.size)
+                val nextOffset = (responseMap[SmpField.OFF] as? Long) ?: (offset + chunk.size)
                 offset = nextOffset
 
                 tracker.record(offset)
@@ -125,9 +128,11 @@ public class McuBootDfuProtocol : DfuProtocol {
 
         emit(DfuProgress.Verifying(0))
 
-        val confirmPayload = Cbor.encodeStringMap(mapOf("hash" to sha256, "confirm" to false))
+        val confirmPayload = Cbor.encodeStringMap(
+            mapOf(SmpField.HASH to sha256, SmpField.CONFIRM to false),
+        )
         val confirmResponse = sendSmpCommand(SmpGroup.IMAGE_MGMT, SmpCommand.IMAGE_STATE, confirmPayload)
-        val confirmRc = (parseSmpResponsePayload(confirmResponse)["rc"] as? Long) ?: 0L
+        val confirmRc = (parseSmpResponsePayload(confirmResponse)[SmpField.RC] as? Long) ?: 0L
         if (confirmRc != 0L) {
             throw DfuError.ImageSlotError("Failed to mark image as test: rc=$confirmRc")
         }
@@ -154,13 +159,13 @@ public class McuBootDfuProtocol : DfuProtocol {
     }
 
     internal companion object {
-        // Worst-case CBOR overhead for the upload map envelope:
-        // map header (1) + "image" key (6) + int value (3) + "off" key (4) + int value (9)
-        // + "data" key (5) + byte-string header (3) + "len" key (4) + int value (9)
-        // + "sha" key (4) + byte-string header (3) = ~51 bytes.
-        // 40 is safe for typical payloads; the first chunk (which includes "len" and "sha")
-        // may slightly overshoot the MTU, but SMP peers handle this via fragmentation.
-        private const val CBOR_OVERHEAD = 40
+        // CBOR overhead for subsequent upload chunks (without "len" and "sha"):
+        // map(3) header (1) + "image" key (6) + int value (3)
+        // + "off" key (4) + int value (9) + "data" key (5) + byte-string header (3) = 31
+        private const val CBOR_OVERHEAD = 31
+
+        // First chunk includes "len" (4+9=13) and "sha" (4+35=39) fields
+        private const val CBOR_OVERHEAD_FIRST = CBOR_OVERHEAD + 13 + 39
 
         internal fun buildUploadPayload(
             imageIndex: Int,
@@ -170,13 +175,25 @@ public class McuBootDfuProtocol : DfuProtocol {
             sha256: ByteArray?,
         ): ByteArray {
             val map = mutableMapOf<String, Any>(
-                "image" to imageIndex,
-                "off" to offset,
-                "data" to data,
+                SmpField.IMAGE to imageIndex,
+                SmpField.OFF to offset,
+                SmpField.DATA to data,
             )
-            if (totalLen != null) map["len"] = totalLen
-            if (sha256 != null) map["sha"] = sha256
+            if (totalLen != null) map[SmpField.LEN] = totalLen
+            if (sha256 != null) map[SmpField.SHA] = sha256
             return Cbor.encodeStringMap(map)
         }
     }
+}
+
+/** SMP CBOR payload field names per the MCUboot SMP spec. */
+private object SmpField {
+    const val RC = "rc"
+    const val OFF = "off"
+    const val IMAGE = "image"
+    const val DATA = "data"
+    const val LEN = "len"
+    const val SHA = "sha"
+    const val HASH = "hash"
+    const val CONFIRM = "confirm"
 }

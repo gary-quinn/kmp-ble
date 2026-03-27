@@ -57,6 +57,7 @@ internal class EspOtaTransport(
         peripheral.write(dataChar, data, WriteType.WithoutResponse)
     }
 
+    // No-op: notification lifecycle is scoped to sendCommand's coroutineScope
     override fun close() {}
 
     private fun resolveCharacteristic(name: String, uuid: kotlin.uuid.Uuid): Characteristic =

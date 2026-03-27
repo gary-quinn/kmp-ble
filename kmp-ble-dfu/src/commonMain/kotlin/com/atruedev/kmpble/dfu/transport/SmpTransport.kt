@@ -53,6 +53,7 @@ internal class SmpTransport(
         peripheral.write(smpChar, data, WriteType.WithoutResponse)
     }
 
+    // No-op: notification lifecycle is scoped to sendCommand's coroutineScope
     override fun close() {}
 
     companion object {

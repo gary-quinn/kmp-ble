@@ -4,6 +4,9 @@ package com.atruedev.kmpble.dfu.internal
  * Pure Kotlin SHA-256 implementation for MCUboot image verification.
  *
  * Follows FIPS 180-4. No platform dependencies — runs identically on all KMP targets.
+ * Trade-off: slower than platform-native crypto (MessageDigest / CC_SHA256) but avoids
+ * an expect/actual boundary. Acceptable because the hash is computed once per DFU
+ * transfer. Consider an expect/actual with platform crypto if profiling shows a bottleneck.
  */
 @OptIn(ExperimentalUnsignedTypes::class)
 internal object Sha256 {

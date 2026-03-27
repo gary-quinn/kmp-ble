@@ -64,19 +64,20 @@ class EspOtaDfuProtocolTest {
     @Test
     fun otaBeginFailure() = runTest {
         val transport = FakeDfuTransport(mtu = 64)
+        val options = DfuOptions(retryCount = 1)
         val firmware = FirmwarePackage.EspOta(buildEspImage(32))
 
         launch {
-            transport.enqueueResponse(byteArrayOf(0x01)) // failure
+            transport.enqueueResponse(byteArrayOf(0x01)) // failure on sole attempt
         }
 
         var caught: Throwable? = null
         try {
-            protocol.performDfu(transport, firmware, DfuOptions()).toList()
-        } catch (e: DfuError.ProtocolError) {
+            protocol.performDfu(transport, firmware, options).toList()
+        } catch (e: DfuError.TransferFailed) {
             caught = e
         }
-        assertIs<DfuError.ProtocolError>(caught)
+        assertIs<DfuError.TransferFailed>(caught)
     }
 
     @Test

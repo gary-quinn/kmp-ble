@@ -7,6 +7,7 @@ import com.atruedev.kmpble.dfu.firmware.FirmwarePackage
 import com.atruedev.kmpble.dfu.internal.Sha256
 import com.atruedev.kmpble.dfu.internal.ThroughputTracker
 import com.atruedev.kmpble.dfu.internal.retryOnFailure
+import com.atruedev.kmpble.dfu.protocol.esp.EspOtaOpcode
 import com.atruedev.kmpble.dfu.protocol.esp.EspOtaResult
 import com.atruedev.kmpble.dfu.protocol.esp.encodeOtaBegin
 import com.atruedev.kmpble.dfu.protocol.esp.encodeOtaEnd
@@ -47,15 +48,15 @@ public class EspOtaDfuProtocol : DfuProtocol {
         emit(DfuProgress.Starting)
 
         val firmwareData = firmware.firmware
-        val beginResponse = transport.sendCommand(encodeOtaBegin(firmwareData.size))
-        validateResponse(beginResponse, "OTA Begin")
-
         val tracker = ThroughputTracker()
         val chunkSize = transport.mtu
 
-        // ESP OTA does not support resume — offset resets on retry so the
-        // entire image is re-sent from the beginning after a failure.
+        // ESP OTA does not support resume — a fresh OTA Begin is required on
+        // each attempt because the device resets its OTA state on error.
         retryOnFailure(options.retryCount, options.retryDelay) {
+            val beginResponse = transport.sendCommand(encodeOtaBegin(firmwareData.size))
+            validateResponse(beginResponse, EspOtaOpcode.OTA_BEGIN.toInt(), "OTA Begin")
+
             var offset = 0
 
             while (offset < firmwareData.size) {
@@ -83,7 +84,7 @@ public class EspOtaDfuProtocol : DfuProtocol {
 
         val sha256 = Sha256.digest(firmwareData)
         val endResponse = transport.sendCommand(encodeOtaEnd(sha256))
-        validateResponse(endResponse, "OTA End")
+        validateResponse(endResponse, EspOtaOpcode.OTA_END.toInt(), "OTA End")
 
         emit(DfuProgress.Completing)
 
@@ -92,17 +93,17 @@ public class EspOtaDfuProtocol : DfuProtocol {
         emit(DfuProgress.Completed)
     }
 
-    private fun validateResponse(response: ByteArray, commandName: String) {
+    private fun validateResponse(response: ByteArray, opcode: Int, commandName: String) {
         if (response.isEmpty()) {
             throw DfuError.ProtocolError(
-                opcode = 0,
+                opcode = opcode,
                 resultCode = -1,
                 message = "$commandName: empty response",
             )
         }
         if (response[0] != EspOtaResult.SUCCESS) {
             throw DfuError.ProtocolError(
-                opcode = response.getOrElse(1) { 0 }.toInt(),
+                opcode = opcode,
                 resultCode = response[0].toInt(),
                 message = "$commandName failed: result=${response[0]}",
             )
