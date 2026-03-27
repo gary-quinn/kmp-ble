@@ -6,6 +6,46 @@ plugins {
     alias(libs.plugins.ktlint)
 }
 
+val securityPatches: Action<DependencyResolveDetails> =
+    Action {
+        when (requested.group) {
+            "io.netty" -> useVersion(libs.versions.netty.get())
+            "ch.qos.logback" -> useVersion(libs.versions.logback.get())
+            "com.fasterxml.jackson.core" -> useVersion(libs.versions.jackson.get())
+        }
+        when ("${requested.group}:${requested.name}") {
+            "org.jdom:jdom2" -> useVersion(libs.versions.jdom2.get())
+            "org.bitbucket.b_c:jose4j" -> useVersion(libs.versions.jose4j.get())
+            "org.apache.commons:commons-lang3" -> useVersion(libs.versions.commonsLang3.get())
+            "org.apache.httpcomponents:httpclient" -> useVersion(libs.versions.httpclient.get())
+        }
+    }
+
+// buildscript can't access the version catalog, so versions are duplicated here
+buildscript {
+    configurations.all {
+        resolutionStrategy.eachDependency {
+            when (requested.group) {
+                "io.netty" -> useVersion("4.1.129.Final")
+                "ch.qos.logback" -> useVersion("1.5.25")
+                "com.fasterxml.jackson.core" -> useVersion("2.18.6")
+            }
+            when ("${requested.group}:${requested.name}") {
+                "org.jdom:jdom2" -> useVersion("2.0.6.1")
+                "org.bitbucket.b_c:jose4j" -> useVersion("0.9.6")
+                "org.apache.commons:commons-lang3" -> useVersion("3.18.0")
+                "org.apache.httpcomponents:httpclient" -> useVersion("4.5.14")
+            }
+        }
+    }
+}
+
+allprojects {
+    configurations.all {
+        resolutionStrategy.eachDependency(securityPatches)
+    }
+}
+
 group = "com.atruedev"
 version = providers.environmentVariable("VERSION").getOrElse("0.0.0-local")
 
@@ -56,6 +96,10 @@ kotlin {
         commonTest.dependencies {
             implementation(libs.kotlin.test)
             implementation(libs.kotlinx.coroutines.test)
+            implementation(libs.turbine)
+        }
+        jvmTest.dependencies {
+            implementation(libs.lincheck)
         }
         androidMain.dependencies {
             implementation(libs.kotlinx.coroutines.android)

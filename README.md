@@ -1,7 +1,7 @@
 # kmp-ble
 
-[![CI](https://github.com/atruedeveloper/kmp-ble/actions/workflows/ci.yml/badge.svg)](https://github.com/atruedeveloper/kmp-ble/actions/workflows/ci.yml)
-[![Publish](https://github.com/atruedeveloper/kmp-ble/actions/workflows/publish.yml/badge.svg)](https://github.com/atruedeveloper/kmp-ble/actions/workflows/publish.yml)
+[![CI](https://github.com/gary-quinn/kmp-ble/actions/workflows/ci.yml/badge.svg)](https://github.com/gary-quinn/kmp-ble/actions/workflows/ci.yml)
+[![Publish](https://github.com/gary-quinn/kmp-ble/actions/workflows/publish.yml/badge.svg)](https://github.com/gary-quinn/kmp-ble/actions/workflows/publish.yml)
 [![Maven Central](https://img.shields.io/maven-central/v/com.atruedev/kmp-ble)](https://central.sonatype.com/artifact/com.atruedev/kmp-ble)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.3.20-purple.svg)](https://kotlinlang.org)
@@ -25,12 +25,12 @@ Kotlin Multiplatform BLE library for Android and iOS.
 kotlin {
     sourceSets {
         commonMain.dependencies {
-            implementation("com.atruedev:kmp-ble:0.3.3")
+            implementation("com.atruedev:kmp-ble:0.3.5")
 
             // Optional modules
-            implementation("com.atruedev:kmp-ble-profiles:0.3.3")
-            implementation("com.atruedev:kmp-ble-dfu:0.3.3")
-            implementation("com.atruedev:kmp-ble-codec:0.3.3")
+            implementation("com.atruedev:kmp-ble-profiles:0.3.5")
+            implementation("com.atruedev:kmp-ble-dfu:0.3.5")
+            implementation("com.atruedev:kmp-ble-codec:0.3.5")
         }
     }
 }
@@ -52,7 +52,7 @@ class MyApp : Application() {
 In Xcode: **File > Add Package Dependencies** and enter:
 
 ```
-https://github.com/atruedeveloper/kmp-ble
+https://github.com/gary-quinn/kmp-ble
 ```
 
 Select the version and add `KmpBle` to your target.
@@ -328,6 +328,10 @@ The `sample` module is a Compose Multiplatform app (Android + iOS) demonstrating
 - **Firmware Update (DFU)** with platform file picker and progress tracking
 - **Codec Examples** demonstrating typed reads and decoder composition
 - **GATT Server** hosting a Heart Rate service with legacy and extended advertising
+
+## Showcase
+
+**[BLE Toolkit](https://github.com/gary-quinn/ble-toolkit)** — A full-featured BLE utility app for Android & iOS, built entirely with kmp-ble. It provides a production-grade scanner, GATT explorer, and device manager using Compose Multiplatform, and serves as a real-world reference implementation for the library.
 
 ## Architecture
 

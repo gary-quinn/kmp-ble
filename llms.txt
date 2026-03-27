@@ -1,0 +1,224 @@
+# kmp-ble
+
+> The complete BLE toolkit for Kotlin Multiplatform — Android & iOS from one codebase.
+
+## What is kmp-ble?
+
+kmp-ble is a Kotlin Multiplatform Bluetooth Low Energy library. It provides a coroutine-based API for BLE communication across Android (API 33+) and iOS (15+) from shared Kotlin code.
+
+Unlike other KMP BLE libraries that only cover scanning and connecting (GATT client), kmp-ble covers the full BLE stack: GATT client, GATT server, advertising, L2CAP channels, firmware updates (DFU), type-safe GATT profile parsing, and a complete testing framework.
+
+## Installation
+
+Maven Central group: `com.atruedev`
+
+```kotlin
+// build.gradle.kts
+kotlin {
+    sourceSets {
+        commonMain.dependencies {
+            // Core — scan, connect, GATT client/server, advertise, L2CAP
+            implementation("com.atruedev:kmp-ble:0.3.5")
+
+            // Optional modules
+            implementation("com.atruedev:kmp-ble-profiles:0.3.5")  // type-safe GATT profiles
+            implementation("com.atruedev:kmp-ble-dfu:0.3.5")       // Nordic DFU firmware updates
+            implementation("com.atruedev:kmp-ble-codec:0.3.5")     // typed read/write codec
+            implementation("com.atruedev:kmp-ble-quirks:0.3.5")    // OEM device workarounds
+        }
+    }
+}
+```
+
+Android initialization:
+
+```kotlin
+class MyApp : Application() {
+    override fun onCreate() {
+        super.onCreate()
+        KmpBle.init(this)
+    }
+}
+```
+
+iOS via Swift Package Manager:
+
+```
+https://github.com/gary-quinn/kmp-ble
+```
+
+## Core Features
+
+### Scanning
+
+```kotlin
+val scanner = Scanner {
+    timeout = 30.seconds
+    filters {
+        match { serviceUuid(ServiceUuid.HEART_RATE) }
+    }
+}
+scanner.advertisements.collect { ad ->
+    println("Found: ${ad.name} rssi=${ad.rssi}")
+}
+```
+
+### Connect and Read/Write
+
+```kotlin
+val peripheral = advertisement.toPeripheral()
+peripheral.connect()
+
+val char = peripheral.findCharacteristic(
+    serviceUuid = uuidFrom("180d"),
+    characteristicUuid = uuidFrom("2a37"),
+)!!
+
+val value = peripheral.read(char)
+peripheral.write(char, byteArrayOf(0x01), WriteType.WithResponse)
+
+peripheral.observeValues(char).collect { data ->
+    println("Heart rate: ${data[1]}")
+}
+```
+
+### GATT Server (Phone as Peripheral)
+
+```kotlin
+val server = GattServer {
+    service(uuidFrom("180d")) {
+        characteristic(uuidFrom("2a37")) {
+            properties(read = true, notify = true)
+            onRead { byteArrayOf(0x00, 72) }
+        }
+    }
+}
+server.open()
+```
+
+### Advertising
+
+```kotlin
+val advertiser = Advertiser {
+    name("MyDevice")
+    serviceUuids(uuidFrom("180d"))
+}
+advertiser.start()
+```
+
+### Nordic DFU (Firmware Updates)
+
+```kotlin
+val controller = DfuController(peripheral)
+controller.performDfu(firmware).collect { progress ->
+    when (progress) {
+        is DfuProgress.Transferring -> println("${progress.fraction * 100}%")
+        is DfuProgress.Complete -> println("DFU done")
+        else -> {}
+    }
+}
+```
+
+### Type-safe Profiles
+
+```kotlin
+// Instead of parsing raw bytes:
+peripheral.heartRateMeasurements().collect { measurement ->
+    println("BPM: ${measurement.heartRate}")
+    println("Contact: ${measurement.contactDetected}")
+}
+
+val battery = peripheral.readBatteryLevel() // returns Int? (0-100)
+val deviceInfo = peripheral.readDeviceInformation() // returns DeviceInformation data class
+```
+
+Available profiles: Heart Rate (0x180D), Battery (0x180F), Device Information (0x180A), Blood Pressure (0x1810), Glucose (0x1808), Cycling Speed & Cadence (0x1816).
+
+### Typed Codec
+
+```kotlin
+// Define a decoder
+val myDecoder = BleDecoder<Int> { bytes -> bytes[1].toInt() }
+
+// Typed read instead of raw ByteArray
+val heartRate: Int = peripheral.read(char, myDecoder)
+
+// Typed observe
+peripheral.observeValues(char, myDecoder).collect { value ->
+    println("Value: $value")
+}
+```
+
+### Testing Without Hardware
+
+```kotlin
+val peripheral = FakePeripheral {
+    service("180d") {
+        characteristic("2a37") {
+            properties(read = true, write = true, notify = true)
+            onRead { byteArrayOf(0x00, 72) }
+            onWrite { data, writeType -> /* verify written data */ }
+            respondAfter(200.milliseconds)  // simulate BLE latency
+        }
+        characteristic("2a39") {
+            failWith(GattError(WriteNotPermitted))  // simulate errors
+        }
+    }
+}
+
+val scanner = FakeScanner {
+    advertisement {
+        name("HeartSensor")
+        rssi(-55)
+        serviceUuids("180d")
+    }
+}
+```
+
+Also available: FakeGattServer, FakeAdvertiser, FakeL2capChannel.
+
+### Bonding and Reconnection
+
+```kotlin
+peripheral.connect(ConnectionOptions(
+    bondingPreference = BondingPreference.Required,
+    reconnectionStrategy = ReconnectionStrategy.ExponentialBackoff(
+        initialDelay = 1.seconds,
+        maxDelay = 30.seconds,
+        maxAttempts = 10,
+    )
+))
+```
+
+### L2CAP Channels
+
+High-throughput streaming bypassing GATT for bulk data transfer and DFU.
+
+### Device Quirks
+
+Built-in workarounds for BLE bugs on Samsung, Pixel, Xiaomi, OnePlus devices via the quirks module.
+
+## Architecture
+
+- 14-state connection state machine with exhaustive transition table
+- Per-peripheral serial execution via limitedParallelism(1) — no locks
+- Flow-based reactive APIs throughout
+- Zero-copy BleData on iOS (wraps NSData)
+- 460+ tests, CI on every push
+
+## Key Differences from Other KMP BLE Libraries
+
+- Full peripheral role: GATT server + advertiser (not just client)
+- Built-in DFU with Nordic Secure DFU v2
+- Type-safe GATT profile parsers (6 standard profiles)
+- Testing framework with delay/error injection
+- OEM device quirks registry
+- L2CAP channel support
+- BLE 5.0 extended advertising
+
+## Links
+
+- GitHub: https://github.com/gary-quinn/kmp-ble
+- API Docs: https://gary-quinn.github.io/kmp-ble/
+- Maven Central: https://central.sonatype.com/artifact/com.atruedev/kmp-ble
+- License: Apache 2.0
