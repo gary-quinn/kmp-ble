@@ -14,7 +14,7 @@ Kotlin Multiplatform BLE library for Android and iOS.
 |--------|----------|-------------|
 | **kmp-ble** | `com.atruedev:kmp-ble` | Core BLE — scanning, connecting, GATT read/write/observe, server, advertising |
 | **kmp-ble-profiles** | `com.atruedev:kmp-ble-profiles` | Type-safe GATT profile parsing (Heart Rate, Battery, Device Info, Blood Pressure, Glucose, CSC) |
-| **kmp-ble-dfu** | `com.atruedev:kmp-ble-dfu` | Nordic Secure DFU v2 firmware updates with progress tracking |
+| **kmp-ble-dfu** | `com.atruedev:kmp-ble-dfu` | Firmware updates — Nordic Secure DFU, MCUboot SMP, Espressif ESP OTA — with auto-detection and progress tracking |
 | **kmp-ble-codec** | `com.atruedev:kmp-ble-codec` | Format-agnostic typed read/write via composable `BleEncoder`/`BleDecoder` |
 
 ## Setup
@@ -25,12 +25,12 @@ Kotlin Multiplatform BLE library for Android and iOS.
 kotlin {
     sourceSets {
         commonMain.dependencies {
-            implementation("com.atruedev:kmp-ble:0.3.5")
+            implementation("com.atruedev:kmp-ble:0.3.6")
 
             // Optional modules
-            implementation("com.atruedev:kmp-ble-profiles:0.3.5")
-            implementation("com.atruedev:kmp-ble-dfu:0.3.5")
-            implementation("com.atruedev:kmp-ble-codec:0.3.5")
+            implementation("com.atruedev:kmp-ble-profiles:0.3.6")
+            implementation("com.atruedev:kmp-ble-dfu:0.3.6")
+            implementation("com.atruedev:kmp-ble-codec:0.3.6")
         }
     }
 }
@@ -179,11 +179,14 @@ val FormattedTemp = TemperatureDecoder.map { "%.1f°C".format(it) }
 
 ### DFU (kmp-ble-dfu)
 
-Nordic Secure DFU v2 firmware updates:
+Firmware updates supporting Nordic Secure DFU, MCUboot SMP (Zephyr/Mynewt), and Espressif ESP OTA:
 
 ```kotlin
-val controller = DfuController(peripheral)
-val firmware = FirmwarePackage.fromZipBytes(zipData)
+// Auto-detect protocol from peripheral's GATT services
+val controller = DfuController.create(peripheral)
+
+// Or specify explicitly
+val controller = DfuController(peripheral, McuBootDfuProtocol())
 
 controller.performDfu(firmware).collect { progress ->
     when (progress) {
@@ -196,6 +199,30 @@ controller.performDfu(firmware).collect { progress ->
 
 // Abort mid-transfer
 controller.abort()
+```
+
+Each protocol has its own firmware parser:
+
+```kotlin
+// Nordic Secure DFU (.zip)
+val nordic = FirmwarePackage.Nordic.fromZipBytes(zipData)
+
+// MCUboot SMP (.bin)
+val mcuboot = FirmwarePackage.McuBoot.fromBinBytes(binData)
+
+// Espressif ESP OTA (.bin)
+val esp = FirmwarePackage.EspOta.fromBinBytes(binData)
+```
+
+ESP OTA supports custom service UUIDs for vendor flexibility:
+
+```kotlin
+val controller = DfuController(peripheral, EspOtaDfuProtocol())
+controller.performDfu(firmware, DfuOptions(
+    transport = DfuTransportConfig.EspOta(
+        serviceUuid = uuidFrom("your-custom-service-uuid"),
+    )
+))
 ```
 
 ### GATT Server and Advertising
@@ -301,8 +328,9 @@ val scanner = FakeScanner {
 val peripheral = FakePeripheral {
     service("180d") {
         characteristic("2a37") {
-            properties(notify = true, read = true)
+            properties(notify = true, read = true, write = true)
             onRead { byteArrayOf(0x00, 72) }
+            onWrite { data, writeType -> println("Wrote ${data.size} bytes") }
             onObserve {
                 flow {
                     emit(byteArrayOf(0x00, 72))
@@ -310,6 +338,13 @@ val peripheral = FakePeripheral {
                     emit(byteArrayOf(0x00, 80))
                 }
             }
+            // Simulate slow BLE responses
+            respondAfter(500.milliseconds)
+        }
+        characteristic("2a39") {
+            properties(write = true)
+            // Simulate GATT errors
+            failWith(GattError("write", GattStatus.WriteNotPermitted))
         }
     }
 }
@@ -328,10 +363,6 @@ The `sample` module is a Compose Multiplatform app (Android + iOS) demonstrating
 - **Firmware Update (DFU)** with platform file picker and progress tracking
 - **Codec Examples** demonstrating typed reads and decoder composition
 - **GATT Server** hosting a Heart Rate service with legacy and extended advertising
-
-## Showcase
-
-**[BLE Toolkit](https://github.com/gary-quinn/ble-toolkit)** — A full-featured BLE utility app for Android & iOS, built entirely with kmp-ble. It provides a production-grade scanner, GATT explorer, and device manager using Compose Multiplatform, and serves as a real-world reference implementation for the library.
 
 ## Architecture
 

@@ -34,6 +34,10 @@ public class NordicDfuProtocol : DfuProtocol {
         firmware: FirmwarePackage,
         options: DfuOptions,
     ): Flow<DfuProgress> = flow {
+        require(firmware is FirmwarePackage.Nordic) {
+            "NordicDfuProtocol requires FirmwarePackage.Nordic, got ${firmware::class.simpleName}"
+        }
+
         emit(DfuProgress.Starting)
 
         val transfer = ObjectTransfer(transport, options.prnInterval)
@@ -92,7 +96,7 @@ public class NordicDfuProtocol : DfuProtocol {
 
     private suspend fun transferInitPacket(
         transfer: ObjectTransfer,
-        firmware: FirmwarePackage,
+        firmware: FirmwarePackage.Nordic,
         options: DfuOptions,
         onProgress: suspend (Int) -> Unit,
     ) {

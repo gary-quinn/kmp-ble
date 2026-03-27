@@ -15,6 +15,18 @@ _Changes on `main` that have not yet been tagged for release._
 
 ---
 
+## [0.3.6] - 2026-03-27
+
+### Other
+- update Package.swift for v0.3.6
+- feat(dfu): add MCUboot and ESP OTA DFU protocols (#72)
+- docs: remove unverified consumer count from roadmap (#71)
+- docs: add BLE Toolkit showcase to README (#70)
+- update Package.swift for v0.3.5
+
+
+---
+
 ## [0.3.5] - 2026-03-25
 
 ### Fixed
@@ -273,7 +285,8 @@ _Changes on `main` that have not yet been tagged for release._
 
 ---
 
-[Unreleased]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.5...HEAD
+[Unreleased]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.6...HEAD
+[0.3.6]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.5...v0.3.6
 [0.3.5]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.4...v0.3.5
 [0.3.4]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.3-alpha1...v0.3.4
 [0.3.3]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.3-alpha1...v0.3.3

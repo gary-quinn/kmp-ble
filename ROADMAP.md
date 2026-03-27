@@ -90,7 +90,7 @@ Quality:
 - CI green on both Android and iOS targets
 
 Community:
-- Validated in production by at least 3 external teams (currently 31 companies on Maven Central — track which are production)
+- Validated in production by at least 3 external teams
 - Migration guide published
 - API docs site live with full coverage
 
@@ -129,4 +129,4 @@ Features we're tracking but not actively working on. Community interest and use 
 
 ---
 
-*Current as of v0.3.5*
+*Current as of v0.3.6*
