@@ -28,8 +28,12 @@ internal class SmpTransport(
 
     override val mtu: Int get() = peripheral.maximumWriteValueLength.value
 
+    // SMP responses may be fragmented across multiple notifications, so we use a
+    // bounded buffer to allow reassembly without risking unbounded memory growth
+    // from a misbehaving peripheral. 8 fragments covers responses up to ~2KB at
+    // typical BLE MTU sizes, well beyond any SMP response payload.
     override val notifications: Flow<ByteArray> =
-        peripheral.observeValues(smpChar, BackpressureStrategy.Unbounded)
+        peripheral.observeValues(smpChar, BackpressureStrategy.Buffer(8))
 
     override suspend fun sendCommand(data: ByteArray): ByteArray = coroutineScope {
         val notificationChannel = notifications.produceIn(this)
@@ -84,6 +88,15 @@ internal class SmpTransport(
 
             while (received < expectedTotal) {
                 val fragment = channel.receive()
+                val remaining = expectedTotal - received
+                if (fragment.size > remaining) {
+                    throw DfuError.ProtocolError(
+                        opcode = 0,
+                        resultCode = -1,
+                        message = "SMP fragment overflows expected response: " +
+                            "received=$received, fragment=${fragment.size}, expected=$expectedTotal",
+                    )
+                }
                 fragment.copyInto(buffer, received)
                 received += fragment.size
             }
