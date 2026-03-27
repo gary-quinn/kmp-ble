@@ -38,7 +38,7 @@ class FakePeripheralErrorInjectionTest {
                     peripheral.read(char)
                 }
             assertIs<GattError>(ex.error)
-            assertEquals(GattStatus.InsufficientAuthentication, (ex.error as GattError).status)
+            assertEquals(GattStatus.InsufficientAuthentication, ex.error.status)
         }
 
     @Test
@@ -61,7 +61,7 @@ class FakePeripheralErrorInjectionTest {
                     peripheral.write(char, byteArrayOf(0x01), WriteType.WithResponse)
                 }
             assertIs<GattError>(ex.error)
-            assertEquals(GattStatus.InsufficientEncryption, (ex.error as GattError).status)
+            assertEquals(GattStatus.InsufficientEncryption, ex.error.status)
         }
 
     @Test
