@@ -65,6 +65,26 @@ public sealed interface DfuError {
         override val message: String = "DFU operation timed out",
     ) : Exception(message), DfuError
 
+    /**
+     * Hash verification failed after transferring firmware.
+     *
+     * @property algorithm hash algorithm name (e.g. "SHA-256", "MD5")
+     * @property expected hex-encoded hash computed locally from source data
+     * @property actual hex-encoded hash reported by the peripheral
+     */
+    public data class HashMismatch(
+        val algorithm: String,
+        val expected: String,
+        val actual: String,
+    ) : Exception("$algorithm mismatch: expected $expected, actual $actual"), DfuError
+
+    /**
+     * MCUboot image slot management error.
+     */
+    public data class ImageSlotError(
+        override val message: String,
+    ) : Exception(message), DfuError
+
     /** The DFU was cancelled by calling [DfuController.abort]. */
     public data class Aborted(
         override val message: String = "DFU was aborted",

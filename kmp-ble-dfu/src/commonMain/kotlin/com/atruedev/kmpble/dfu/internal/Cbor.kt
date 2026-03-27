@@ -1,0 +1,181 @@
+package com.atruedev.kmpble.dfu.internal
+
+/**
+ * Minimal CBOR encoder/decoder covering only the subset needed by MCUboot SMP.
+ *
+ * Supports major types 0 (unsigned int), 1 (negative int), 2 (byte string),
+ * 3 (text string), and 5 (map). This is sufficient for all SMP request/response
+ * payloads. See RFC 8949 for the full CBOR specification.
+ */
+internal object Cbor {
+
+    fun encodeMap(entries: Map<Int, Any>): ByteArray {
+        val buffer = mutableListOf<Byte>()
+        encodeHead(buffer, 5, entries.size.toLong())
+        for ((key, value) in entries) {
+            encodeInt(buffer, key.toLong())
+            encodeValue(buffer, value)
+        }
+        return buffer.toByteArray()
+    }
+
+    fun encodeStringMap(entries: Map<String, Any>): ByteArray {
+        val buffer = mutableListOf<Byte>()
+        encodeHead(buffer, 5, entries.size.toLong())
+        for ((key, value) in entries) {
+            encodeValue(buffer, key)
+            encodeValue(buffer, value)
+        }
+        return buffer.toByteArray()
+    }
+
+    fun decodeMap(data: ByteArray): Map<Int, Any> = decodeIntKeyMap(data, 0).first
+
+    fun decodeStringMap(data: ByteArray): Map<String, Any> = decodeStringKeyMap(data, 0).first
+
+    private fun decodeIntKeyMap(data: ByteArray, offset: Int): Pair<Map<Int, Any>, Int> {
+        val (majorType, count, pos) = decodeHead(data, offset)
+        require(majorType == 5) { "Expected CBOR map (major type 5), got $majorType" }
+        val map = mutableMapOf<Int, Any>()
+        var cursor = pos
+        repeat(count.toInt()) {
+            val (key, keyEnd) = decodeIntValue(data, cursor)
+            val (value, valueEnd) = decodeAnyValue(data, keyEnd)
+            map[key.toInt()] = value
+            cursor = valueEnd
+        }
+        return map to cursor
+    }
+
+    private fun decodeStringKeyMap(data: ByteArray, offset: Int): Pair<Map<String, Any>, Int> {
+        val (majorType, count, pos) = decodeHead(data, offset)
+        require(majorType == 5) { "Expected CBOR map (major type 5), got $majorType" }
+        val map = mutableMapOf<String, Any>()
+        var cursor = pos
+        repeat(count.toInt()) {
+            val (key, keyEnd) = decodeAnyValue(data, cursor)
+            val (value, valueEnd) = decodeAnyValue(data, keyEnd)
+            map[key.toString()] = value
+            cursor = valueEnd
+        }
+        return map to cursor
+    }
+
+    private fun encodeValue(buffer: MutableList<Byte>, value: Any) {
+        when (value) {
+            is Int -> encodeInt(buffer, value.toLong())
+            is Long -> encodeInt(buffer, value)
+            is ByteArray -> {
+                encodeHead(buffer, 2, value.size.toLong())
+                value.forEach { buffer.add(it) }
+            }
+            is String -> {
+                val bytes = value.encodeToByteArray()
+                encodeHead(buffer, 3, bytes.size.toLong())
+                bytes.forEach { buffer.add(it) }
+            }
+            is Boolean -> buffer.add(if (value) 0xF5.toByte() else 0xF4.toByte())
+            else -> throw IllegalArgumentException("Unsupported CBOR value type: ${value::class.simpleName}")
+        }
+    }
+
+    private fun encodeInt(buffer: MutableList<Byte>, value: Long) {
+        if (value >= 0) {
+            encodeHead(buffer, 0, value)
+        } else {
+            encodeHead(buffer, 1, -1 - value)
+        }
+    }
+
+    private fun encodeHead(buffer: MutableList<Byte>, majorType: Int, value: Long) {
+        val mt = majorType shl 5
+        when {
+            value < 24 -> buffer.add((mt or value.toInt()).toByte())
+            value <= 0xFF -> {
+                buffer.add((mt or 24).toByte())
+                buffer.add(value.toByte())
+            }
+            value <= 0xFFFF -> {
+                buffer.add((mt or 25).toByte())
+                buffer.add((value shr 8).toByte())
+                buffer.add(value.toByte())
+            }
+            value <= 0xFFFFFFFFL -> {
+                buffer.add((mt or 26).toByte())
+                buffer.add((value shr 24).toByte())
+                buffer.add((value shr 16).toByte())
+                buffer.add((value shr 8).toByte())
+                buffer.add(value.toByte())
+            }
+            else -> {
+                buffer.add((mt or 27).toByte())
+                for (i in 7 downTo 0) buffer.add((value shr (i * 8)).toByte())
+            }
+        }
+    }
+
+    private data class DecodedHead(val majorType: Int, val value: Long, val nextOffset: Int)
+
+    private fun decodeHead(data: ByteArray, offset: Int): DecodedHead {
+        val initial = data[offset].toInt() and 0xFF
+        val majorType = initial shr 5
+        val additional = initial and 0x1F
+        return when {
+            additional < 24 -> DecodedHead(majorType, additional.toLong(), offset + 1)
+            additional == 24 -> DecodedHead(majorType, (data[offset + 1].toInt() and 0xFF).toLong(), offset + 2)
+            additional == 25 -> {
+                val v = ((data[offset + 1].toInt() and 0xFF).toLong() shl 8) or
+                    (data[offset + 2].toInt() and 0xFF).toLong()
+                DecodedHead(majorType, v, offset + 3)
+            }
+            additional == 26 -> {
+                val v = ((data[offset + 1].toInt() and 0xFF).toLong() shl 24) or
+                    ((data[offset + 2].toInt() and 0xFF).toLong() shl 16) or
+                    ((data[offset + 3].toInt() and 0xFF).toLong() shl 8) or
+                    (data[offset + 4].toInt() and 0xFF).toLong()
+                DecodedHead(majorType, v, offset + 5)
+            }
+            additional == 27 -> {
+                var v = 0L
+                for (i in 1..8) v = (v shl 8) or (data[offset + i].toInt() and 0xFF).toLong()
+                DecodedHead(majorType, v, offset + 9)
+            }
+            else -> throw IllegalArgumentException("Unsupported CBOR additional info: $additional")
+        }
+    }
+
+    private fun decodeIntValue(data: ByteArray, offset: Int): Pair<Long, Int> {
+        val (majorType, value, nextOffset) = decodeHead(data, offset)
+        return when (majorType) {
+            0 -> value to nextOffset
+            1 -> (-1 - value) to nextOffset
+            else -> throw IllegalArgumentException("Expected CBOR integer, got major type $majorType")
+        }
+    }
+
+    private fun decodeAnyValue(data: ByteArray, offset: Int): Pair<Any, Int> {
+        val (majorType, value, nextOffset) = decodeHead(data, offset)
+        return when (majorType) {
+            0 -> value to nextOffset
+            1 -> (-1 - value) to nextOffset
+            2 -> {
+                val bytes = data.copyOfRange(nextOffset, nextOffset + value.toInt())
+                bytes to (nextOffset + value.toInt())
+            }
+            3 -> {
+                val str = data.decodeToString(nextOffset, nextOffset + value.toInt())
+                str to (nextOffset + value.toInt())
+            }
+            5 -> decodeStringKeyMap(data, offset)
+            7 -> {
+                val boolValue = when (value.toInt()) {
+                    20 -> false
+                    21 -> true
+                    else -> throw IllegalArgumentException("Unsupported CBOR simple value: $value")
+                }
+                boolValue to nextOffset
+            }
+            else -> throw IllegalArgumentException("Unsupported CBOR major type: $majorType")
+        }
+    }
+}

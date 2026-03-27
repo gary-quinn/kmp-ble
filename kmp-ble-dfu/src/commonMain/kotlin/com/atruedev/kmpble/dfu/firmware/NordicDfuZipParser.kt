@@ -4,7 +4,7 @@ import com.atruedev.kmpble.dfu.DfuError
 
 internal object NordicDfuZipParser {
 
-    fun parse(zipBytes: ByteArray): FirmwarePackage {
+    fun parse(zipBytes: ByteArray): FirmwarePackage.Nordic {
         val entries = ZipReader.readEntries(zipBytes)
         val entryMap = entries.associateBy { it.name }
 
@@ -23,7 +23,7 @@ internal object NordicDfuZipParser {
         val firmware = entryMap[binFile]?.data
             ?: throw DfuError.FirmwareParseError("Firmware binary '$binFile' not found in DFU package")
 
-        return FirmwarePackage(initPacket = initPacket, firmware = firmware)
+        return FirmwarePackage.Nordic(initPacket = initPacket, firmware = firmware)
     }
 
     /**
