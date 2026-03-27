@@ -15,6 +15,12 @@ private val HR_CONTROL_POINT_UUID = uuidFrom("2A39")
 
 private const val RESET_ENERGY_EXPENDED: Byte = 0x01
 
+/**
+ * Observes Heart Rate Measurement notifications from the Heart Rate Service (0x180D).
+ *
+ * @param backpressure Strategy for handling notifications that arrive faster than the collector.
+ * @return Flow of parsed [HeartRateMeasurement] values, or an empty flow if the characteristic is absent.
+ */
 public fun Peripheral.heartRateMeasurements(
     backpressure: BackpressureStrategy = BackpressureStrategy.Latest,
 ): Flow<HeartRateMeasurement> {
@@ -22,11 +28,13 @@ public fun Peripheral.heartRateMeasurements(
     return observeValues(char, backpressure).mapNotNull { parseHeartRateMeasurement(it) }
 }
 
+/** Reads the body sensor location from the Heart Rate Service (0x180D). */
 public suspend fun Peripheral.readBodySensorLocation(): BodySensorLocation? {
     val char = findCharacteristic(ServiceUuid.HEART_RATE, BODY_SENSOR_LOCATION_UUID) ?: return null
     return parseBodySensorLocation(read(char))
 }
 
+/** Resets the cumulative energy expended counter on the Heart Rate sensor. */
 public suspend fun Peripheral.resetHeartRateEnergyExpended() {
     val char = findCharacteristic(ServiceUuid.HEART_RATE, HR_CONTROL_POINT_UUID) ?: return
     write(char, byteArrayOf(RESET_ENERGY_EXPENDED), WriteType.WithResponse)

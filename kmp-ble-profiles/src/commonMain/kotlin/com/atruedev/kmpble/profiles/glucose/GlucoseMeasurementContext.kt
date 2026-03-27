@@ -2,6 +2,12 @@ package com.atruedev.kmpble.profiles.glucose
 
 import com.atruedev.kmpble.profiles.parsing.BleByteReader
 
+/**
+ * Parsed Glucose Measurement Context (0x2A34) providing additional information about a
+ * glucose measurement (meal, medication, exercise, HbA1c).
+ *
+ * Linked to a [GlucoseMeasurement] by [sequenceNumber].
+ */
 public data class GlucoseMeasurementContext(
     val sequenceNumber: Int,
     val carbohydrateId: CarbohydrateId?,
@@ -17,6 +23,7 @@ public data class GlucoseMeasurementContext(
     val hba1c: Float?,
 )
 
+/** Type of carbohydrate intake associated with a glucose measurement. */
 public enum class CarbohydrateId {
     Reserved, Breakfast, Lunch, Dinner, Snack, Drink, Supper, Brunch;
 
@@ -30,6 +37,7 @@ public enum class CarbohydrateId {
     }
 }
 
+/** Meal context for a glucose measurement. */
 public enum class Meal {
     Reserved, Preprandial, Postprandial, Fasting, Casual, Bedtime;
 
@@ -43,6 +51,7 @@ public enum class Meal {
     }
 }
 
+/** Who performed the glucose test. */
 public enum class Tester {
     Reserved, Self, HealthCareProfessional, LabTest, NotAvailable;
 
@@ -59,6 +68,7 @@ public enum class Tester {
     }
 }
 
+/** Health status of the user at the time of the glucose measurement. */
 public enum class Health {
     Reserved, MinorHealthIssues, MajorHealthIssues, DuringMenses,
     UnderStress, NoHealthIssues, NotAvailable;
@@ -78,6 +88,7 @@ public enum class Health {
     }
 }
 
+/** Type of medication associated with a glucose measurement. */
 public enum class MedicationId {
     Reserved, RapidActingInsulin, ShortActingInsulin, IntermediateActingInsulin,
     LongActingInsulin, PreMixedInsulin;
@@ -92,8 +103,10 @@ public enum class MedicationId {
     }
 }
 
+/** Unit of medication quantity. */
 public enum class MedicationUnit { Kilograms, Liters }
 
+/** Parses a Glucose Measurement Context characteristic value (0x2A34). */
 public fun parseGlucoseMeasurementContext(data: ByteArray): GlucoseMeasurementContext? {
     val reader = BleByteReader(data)
     if (!reader.hasRemaining(3)) return null

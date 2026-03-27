@@ -2,6 +2,11 @@ package com.atruedev.kmpble.profiles.deviceinfo
 
 import com.atruedev.kmpble.profiles.parsing.BleByteReader
 
+/**
+ * Aggregated data from the Device Information Service (0x180A).
+ *
+ * All fields are optional — only characteristics present on the peripheral are populated.
+ */
 public data class DeviceInformation(
     val manufacturerName: String? = null,
     val modelNumber: String? = null,
@@ -13,11 +18,13 @@ public data class DeviceInformation(
     val pnpId: PnpId? = null,
 )
 
+/** IEEE 11073 System ID (0x2A23) — manufacturer identifier and OUI. */
 public data class SystemId(
     val manufacturerIdentifier: Long,
     val organizationallyUniqueIdentifier: Int,
 )
 
+/** PnP ID (0x2A50) — vendor, product, and version identifiers. */
 public data class PnpId(
     val vendorIdSource: Int,
     val vendorId: Int,
@@ -25,6 +32,7 @@ public data class PnpId(
     val productVersion: Int,
 )
 
+/** Parses a System ID characteristic value (0x2A23). */
 public fun parseSystemId(data: ByteArray): SystemId? {
     if (data.size < 8) return null
     val reader = BleByteReader(data)
@@ -44,6 +52,7 @@ public fun parseSystemId(data: ByteArray): SystemId? {
     )
 }
 
+/** Parses a PnP ID characteristic value (0x2A50). */
 public fun parsePnpId(data: ByteArray): PnpId? {
     if (data.size < 7) return null
     val reader = BleByteReader(data)

@@ -2,6 +2,14 @@ package com.atruedev.kmpble.profiles.csc
 
 import com.atruedev.kmpble.profiles.parsing.BleByteReader
 
+/**
+ * Parsed Cycling Speed and Cadence Measurement (0x2A5B) notification payload.
+ *
+ * @property cumulativeWheelRevolutions Total wheel revolutions since reset, if present.
+ * @property lastWheelEventTime Time of last wheel event (1/1024s resolution), if present.
+ * @property cumulativeCrankRevolutions Total crank revolutions since reset, if present.
+ * @property lastCrankEventTime Time of last crank event (1/1024s resolution), if present.
+ */
 public data class CscMeasurement(
     val cumulativeWheelRevolutions: Long?,
     val lastWheelEventTime: Int?,
@@ -9,6 +17,7 @@ public data class CscMeasurement(
     val lastCrankEventTime: Int?,
 )
 
+/** Parses a CSC Measurement characteristic value (0x2A5B). */
 public fun parseCscMeasurement(data: ByteArray): CscMeasurement? {
     val reader = BleByteReader(data)
     if (!reader.hasRemaining(1)) return null

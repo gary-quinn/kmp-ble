@@ -2,6 +2,14 @@ package com.atruedev.kmpble.profiles.heartrate
 
 import com.atruedev.kmpble.profiles.parsing.BleByteReader
 
+/**
+ * Parsed Heart Rate Measurement (0x2A37) notification payload.
+ *
+ * @property heartRate Heart rate in beats per minute.
+ * @property sensorContactDetected `true` if skin contact detected, `false` if not, `null` if unsupported.
+ * @property energyExpended Cumulative energy in kilojoules, or `null` if not present.
+ * @property rrIntervals R-R intervals converted from the raw 1/1024-second resolution to milliseconds.
+ */
 public data class HeartRateMeasurement(
     val heartRate: Int,
     val sensorContactDetected: Boolean?,
@@ -9,6 +17,7 @@ public data class HeartRateMeasurement(
     val rrIntervals: List<Int>,
 )
 
+/** Parses a Heart Rate Measurement characteristic value (0x2A37). */
 public fun parseHeartRateMeasurement(data: ByteArray): HeartRateMeasurement? {
     val reader = BleByteReader(data)
     if (!reader.hasRemaining(2)) return null

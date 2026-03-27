@@ -15,6 +15,7 @@ public data class ServerCharacteristic(
     val permissions: Permissions,
     val descriptors: List<ServerDescriptor> = emptyList(),
 ) {
+    /** GATT operations this server characteristic supports. */
     public data class Properties(
         val read: Boolean = false,
         val write: Boolean = false,
@@ -23,6 +24,7 @@ public data class ServerCharacteristic(
         val indicate: Boolean = false,
     )
 
+    /** Access permissions for this server characteristic, including encryption requirements. */
     public data class Permissions(
         val read: Boolean = false,
         val readEncrypted: Boolean = false,
@@ -31,6 +33,7 @@ public data class ServerCharacteristic(
     )
 }
 
+/** A descriptor hosted by a GATT server characteristic. */
 public data class ServerDescriptor(
     val uuid: Uuid,
 )

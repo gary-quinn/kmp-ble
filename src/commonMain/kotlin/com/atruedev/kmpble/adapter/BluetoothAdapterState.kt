@@ -1,5 +1,11 @@
 package com.atruedev.kmpble.adapter
 
+/**
+ * State of the device's Bluetooth adapter.
+ *
+ * Observe via [BluetoothAdapter.state] to react to Bluetooth being toggled on/off,
+ * permissions being revoked, or hardware availability.
+ */
 public sealed interface BluetoothAdapterState {
     /** Bluetooth is powered off. */
     public data object Off : BluetoothAdapterState

@@ -14,6 +14,11 @@ private val SOFTWARE_REVISION_UUID = uuidFrom("2A28")
 private val SYSTEM_ID_UUID = uuidFrom("2A23")
 private val PNP_ID_UUID = uuidFrom("2A50")
 
+/**
+ * Reads all available characteristics from the Device Information Service (0x180A).
+ *
+ * Fields for characteristics not present on the peripheral will be `null`.
+ */
 public suspend fun Peripheral.readDeviceInformation(): DeviceInformation {
     val svc = ServiceUuid.DEVICE_INFORMATION
     return DeviceInformation(
