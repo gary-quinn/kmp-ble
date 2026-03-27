@@ -7,12 +7,12 @@ import com.atruedev.kmpble.dfu.firmware.FirmwarePackage
 import com.atruedev.kmpble.dfu.internal.Sha256
 import com.atruedev.kmpble.dfu.internal.ThroughputTracker
 import com.atruedev.kmpble.dfu.internal.retryOnFailure
-import com.atruedev.kmpble.dfu.protocol.esp.EspOtaOpcode
 import com.atruedev.kmpble.dfu.protocol.esp.EspOtaResult
 import com.atruedev.kmpble.dfu.protocol.esp.encodeOtaBegin
 import com.atruedev.kmpble.dfu.protocol.esp.encodeOtaEnd
 import com.atruedev.kmpble.dfu.protocol.esp.encodeOtaReboot
 import com.atruedev.kmpble.dfu.transport.DfuTransport
+import com.atruedev.kmpble.dfu.transport.sendCommandExpectingDisconnect
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
@@ -52,9 +52,12 @@ public class EspOtaDfuProtocol : DfuProtocol {
 
         val tracker = ThroughputTracker()
         val chunkSize = transport.mtu
-        var offset = 0
 
+        // ESP OTA does not support resume — offset resets on retry so the
+        // entire image is re-sent from the beginning after a failure.
         retryOnFailure(options.retryCount, options.retryDelay) {
+            var offset = 0
+
             while (offset < firmwareData.size) {
                 currentCoroutineContext().ensureActive()
 
@@ -84,11 +87,7 @@ public class EspOtaDfuProtocol : DfuProtocol {
 
         emit(DfuProgress.Completing)
 
-        try {
-            transport.sendCommand(encodeOtaReboot())
-        } catch (_: DfuError.Timeout) {
-            // Expected: device reboots and disconnects before responding
-        }
+        transport.sendCommandExpectingDisconnect(encodeOtaReboot())
 
         emit(DfuProgress.Completed)
     }
