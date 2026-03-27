@@ -34,8 +34,10 @@ internal class EspOtaTransport(
 
     override val mtu: Int get() = peripheral.maximumWriteValueLength.value
 
+    // OTA commands are request-response: only the latest notification matters.
+    // Latest drops stale values if the consumer is slow, preventing unbounded growth.
     override val notifications: Flow<ByteArray> =
-        peripheral.observeValues(controlChar, BackpressureStrategy.Unbounded)
+        peripheral.observeValues(controlChar, BackpressureStrategy.Latest)
 
     override suspend fun sendCommand(data: ByteArray): ByteArray = coroutineScope {
         val notificationChannel = notifications.produceIn(this)
