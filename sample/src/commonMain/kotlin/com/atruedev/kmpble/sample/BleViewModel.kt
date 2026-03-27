@@ -112,7 +112,7 @@ class BleViewModel(advertisement: Advertisement) : ViewModel() {
                 try {
                     val controller = DfuController(peripheral)
                     dfuController = controller
-                    val firmware = FirmwarePackage.fromZipBytes(firmwareZip)
+                    val firmware = FirmwarePackage.Nordic.fromZipBytes(firmwareZip)
                     controller.performDfu(firmware, DfuOptions()).collect { progress ->
                         _dfuProgress.value = progress
                     }

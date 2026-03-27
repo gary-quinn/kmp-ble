@@ -218,6 +218,8 @@ private fun dfuErrorMessage(error: DfuError): String =
         is DfuError.FirmwareParseError -> error.message ?: "Firmware parse error"
         is DfuError.Timeout -> error.message ?: "Timeout"
         is DfuError.Aborted -> error.message ?: "Aborted"
+        is DfuError.HashMismatch -> error.message ?: "Hash mismatch"
+        is DfuError.ImageSlotError -> error.message ?: "Image slot error"
     }
 
 private fun formatBytes(bytes: Long): String =
