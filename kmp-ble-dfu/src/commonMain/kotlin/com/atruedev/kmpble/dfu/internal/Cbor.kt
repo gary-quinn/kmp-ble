@@ -61,6 +61,9 @@ internal object Cbor {
         return map to cursor
     }
 
+    // Supported value types: Int, Long, ByteArray, String, Boolean.
+    // If this codec needs to support additional types, consider replacing
+    // Any with a sealed CborValue hierarchy for compile-time safety.
     private fun encodeValue(buffer: MutableList<Byte>, value: Any) {
         when (value) {
             is Int -> encodeInt(buffer, value.toLong())
