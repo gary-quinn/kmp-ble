@@ -8,7 +8,7 @@ import com.atruedev.kmpble.profiles.parsing.BleByteReader
  * @property heartRate Heart rate in beats per minute.
  * @property sensorContactDetected `true` if skin contact detected, `false` if not, `null` if unsupported.
  * @property energyExpended Cumulative energy in kilojoules, or `null` if not present.
- * @property rrIntervals R-R intervals in milliseconds (1/1024s resolution converted).
+ * @property rrIntervals R-R intervals converted from the raw 1/1024-second resolution to milliseconds.
  */
 public data class HeartRateMeasurement(
     val heartRate: Int,

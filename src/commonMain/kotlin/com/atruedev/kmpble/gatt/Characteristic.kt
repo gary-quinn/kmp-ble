@@ -10,8 +10,9 @@ import kotlin.uuid.Uuid
  * completes. Use [properties] to determine which operations (read, write, notify, etc.) the
  * characteristic supports before performing GATT operations.
  *
- * **Identity:** Characteristic uses reference equality, matching native platform behavior where
- * each discovered characteristic is a unique handle even if two share the same UUID.
+ * **Identity:** This is a `class`, not a `data class` — it uses reference equality intentionally,
+ * matching native platform behavior where each discovered characteristic is a unique handle even
+ * if two share the same UUID.
  *
  * @property serviceUuid UUID of the parent GATT service.
  * @property uuid UUID of this characteristic.
