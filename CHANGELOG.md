@@ -15,6 +15,19 @@ _Changes on `main` that have not yet been tagged for release._
 
 ---
 
+## [0.3.7] - 2026-03-27
+
+### Fixed
+- fix: bump Netty to 4.1.132.Final for CVE remediation (#78)
+
+### Other
+- update Package.swift for v0.3.7
+- docs: add KDoc to all undocumented public API surface (#77)
+- update Package.swift for v0.3.6
+
+
+---
+
 ## [0.3.6] - 2026-03-27
 
 ### Other
@@ -285,7 +298,8 @@ _Changes on `main` that have not yet been tagged for release._
 
 ---
 
-[Unreleased]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.6...HEAD
+[Unreleased]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.7...HEAD
+[0.3.7]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.6...v0.3.7
 [0.3.6]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.5...v0.3.6
 [0.3.5]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.4...v0.3.5
 [0.3.4]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.3-alpha1...v0.3.4
