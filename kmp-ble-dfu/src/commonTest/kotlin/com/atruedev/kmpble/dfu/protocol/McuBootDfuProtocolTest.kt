@@ -114,7 +114,10 @@ class McuBootDfuProtocolTest {
             sequence = 0,
             commandId = 0,
         )
-        return header.encode() + payload
+        val packet = ByteArray(SmpHeader.SIZE + payload.size)
+        header.encodeInto(packet)
+        payload.copyInto(packet, SmpHeader.SIZE)
+        return packet
     }
 
 }

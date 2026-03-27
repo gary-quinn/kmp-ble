@@ -20,9 +20,19 @@ internal class PacketWriter(
         var pos = offset
         var packetCount = 0
 
+        // Pre-allocate a single reusable buffer for full-sized packets.
+        // Only the final (potentially shorter) packet allocates a fresh array.
+        val packetBuffer = ByteArray(packetSize)
+
         while (pos < data.size) {
             val end = min(pos + packetSize, data.size)
-            transport.sendData(data.copyOfRange(pos, end))
+            val len = end - pos
+            data.copyInto(packetBuffer, 0, pos, end)
+            if (len == packetSize) {
+                transport.sendData(packetBuffer)
+            } else {
+                transport.sendData(packetBuffer.copyOfRange(0, len))
+            }
             pos = end
             packetCount++
 

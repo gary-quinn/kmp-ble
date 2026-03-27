@@ -63,8 +63,18 @@ internal object Sha256 {
         return result
     }
 
-    fun digestHex(data: ByteArray): String =
-        digest(data).joinToString("") { (it.toInt() and 0xFF).toString(16).padStart(2, '0') }
+    private val HEX_CHARS = "0123456789abcdef".toCharArray()
+
+    fun digestHex(data: ByteArray): String {
+        val hash = digest(data)
+        val chars = CharArray(64)
+        for (i in hash.indices) {
+            val b = hash[i].toInt() and 0xFF
+            chars[i * 2] = HEX_CHARS[b shr 4]
+            chars[i * 2 + 1] = HEX_CHARS[b and 0x0F]
+        }
+        return String(chars)
+    }
 
     private fun processBlock(h: UIntArray, w: UIntArray, data: ByteArray, blockStart: Int) {
         for (t in 0 until 16) {

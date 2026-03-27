@@ -79,7 +79,7 @@ internal object Cbor {
     }
 
     /** Compute UTF-8 encoded byte length without allocating a ByteArray. */
-    private fun utf8ByteLength(s: String): Int {
+    internal fun utf8ByteLength(s: String): Int {
         var bytes = 0
         var i = 0
         while (i < s.length) {
@@ -174,8 +174,7 @@ internal object Cbor {
             0 -> value to nextOffset
             1 -> (-1 - value) to nextOffset
             2 -> {
-                val bytes = data.copyOfRange(nextOffset, nextOffset + value.toInt())
-                bytes to (nextOffset + value.toInt())
+                ByteSlice(data, nextOffset, value.toInt()) to (nextOffset + value.toInt())
             }
             3 -> {
                 val str = data.decodeToString(nextOffset, nextOffset + value.toInt())
@@ -217,10 +216,9 @@ private class CborWriter(private val target: ByteArray) {
                 pos += value.length
             }
             is String -> {
-                val bytes = value.encodeToByteArray()
-                writeHead(3, bytes.size.toLong())
-                bytes.copyInto(target, pos)
-                pos += bytes.size
+                val byteLen = Cbor.utf8ByteLength(value)
+                writeHead(3, byteLen.toLong())
+                pos = encodeUtf8Into(value, target, pos)
             }
             is Boolean -> {
                 target[pos++] = if (value) 0xF5.toByte() else 0xF4.toByte()
@@ -231,6 +229,40 @@ private class CborWriter(private val target: ByteArray) {
 
     fun writeInt(value: Long) {
         if (value >= 0) writeHead(0, value) else writeHead(1, -1 - value)
+    }
+
+    /** Encode a String as UTF-8 directly into [dest] at [startPos]. Returns the new position. */
+    private fun encodeUtf8Into(s: String, dest: ByteArray, startPos: Int): Int {
+        var p = startPos
+        var i = 0
+        while (i < s.length) {
+            val c = s[i]
+            when {
+                c.code <= 0x7F -> {
+                    dest[p++] = c.code.toByte()
+                }
+                c.code <= 0x7FF -> {
+                    dest[p++] = (0xC0 or (c.code shr 6)).toByte()
+                    dest[p++] = (0x80 or (c.code and 0x3F)).toByte()
+                }
+                c.isHighSurrogate() -> {
+                    val low = s[i + 1]
+                    val cp = 0x10000 + ((c.code - 0xD800) shl 10) + (low.code - 0xDC00)
+                    dest[p++] = (0xF0 or (cp shr 18)).toByte()
+                    dest[p++] = (0x80 or ((cp shr 12) and 0x3F)).toByte()
+                    dest[p++] = (0x80 or ((cp shr 6) and 0x3F)).toByte()
+                    dest[p++] = (0x80 or (cp and 0x3F)).toByte()
+                    i++ // skip low surrogate
+                }
+                else -> {
+                    dest[p++] = (0xE0 or (c.code shr 12)).toByte()
+                    dest[p++] = (0x80 or ((c.code shr 6) and 0x3F)).toByte()
+                    dest[p++] = (0x80 or (c.code and 0x3F)).toByte()
+                }
+            }
+            i++
+        }
+        return p
     }
 
     fun writeHead(majorType: Int, value: Long) {
@@ -270,4 +302,14 @@ private class CborWriter(private val target: ByteArray) {
  * of a larger array. The encoder copies directly from [source] into the output buffer,
  * so no intermediate allocation is required.
  */
-internal class ByteSlice(val source: ByteArray, val offset: Int, val length: Int)
+internal class ByteSlice(val source: ByteArray, val offset: Int, val length: Int) {
+    fun toByteArray(): ByteArray = source.copyOfRange(offset, offset + length)
+
+    fun contentEquals(other: ByteArray): Boolean {
+        if (length != other.size) return false
+        for (i in 0 until length) {
+            if (source[offset + i] != other[i]) return false
+        }
+        return true
+    }
+}

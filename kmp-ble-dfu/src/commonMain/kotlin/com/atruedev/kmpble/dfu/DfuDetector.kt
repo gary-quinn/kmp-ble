@@ -38,10 +38,9 @@ public object DfuDetector {
     @OptIn(ExperimentalUuidApi::class)
     public fun detect(peripheral: Peripheral): DfuProtocolType? {
         val services = peripheral.services.value ?: return null
-        val serviceUuids = services.map { it.uuid }.toSet()
 
         return serviceToProtocol.firstOrNull { (uuid, _) ->
-            uuid in serviceUuids
+            services.any { it.uuid == uuid }
         }?.second
     }
 }
