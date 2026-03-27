@@ -10,6 +10,9 @@ package com.atruedev.kmpble.dfu.internal
  * Encoding uses a zero-copy two-pass strategy: pass 1 computes the exact output
  * size, a single ByteArray is allocated, pass 2 writes directly into it. No
  * intermediate buffers, no per-byte boxing, no final copy.
+ *
+ * Use [ByteSlice] as a map value to encode a sub-range of an existing ByteArray
+ * as a CBOR byte string without copying the slice into a separate ByteArray first.
  */
 internal object Cbor {
 
@@ -43,6 +46,9 @@ internal object Cbor {
 
     fun decodeStringMap(data: ByteArray): Map<String, Any> = decodeStringKeyMap(data, 0).first
 
+    /** Decode a CBOR string-keyed map starting at [offset], without copying the slice first. */
+    fun decodeStringMap(data: ByteArray, offset: Int): Map<String, Any> = decodeStringKeyMap(data, offset).first
+
     // -- Size computation (pass 1) --
 
     private fun sizeOfHead(value: Long): Int = when {
@@ -56,13 +62,14 @@ internal object Cbor {
     private fun sizeOfInt(value: Long): Int =
         if (value >= 0) sizeOfHead(value) else sizeOfHead(-1 - value)
 
-    // Supported value types: Int, Long, ByteArray, String, Boolean.
+    // Supported value types: Int, Long, ByteArray, ByteSlice, String, Boolean.
     // If this codec needs to support additional types, consider replacing
     // Any with a sealed CborValue hierarchy for compile-time safety.
     private fun sizeOfValue(value: Any): Int = when (value) {
         is Int -> sizeOfInt(value.toLong())
         is Long -> sizeOfInt(value)
         is ByteArray -> sizeOfHead(value.size.toLong()) + value.size
+        is ByteSlice -> sizeOfHead(value.length.toLong()) + value.length
         is String -> {
             val byteLen = utf8ByteLength(value)
             sizeOfHead(byteLen.toLong()) + byteLen
@@ -204,6 +211,11 @@ private class CborWriter(private val target: ByteArray) {
                 value.copyInto(target, pos)
                 pos += value.size
             }
+            is ByteSlice -> {
+                writeHead(2, value.length.toLong())
+                value.source.copyInto(target, pos, value.offset, value.offset + value.length)
+                pos += value.length
+            }
             is String -> {
                 val bytes = value.encodeToByteArray()
                 writeHead(3, bytes.size.toLong())
@@ -250,3 +262,12 @@ private class CborWriter(private val target: ByteArray) {
         }
     }
 }
+
+/**
+ * A window into an existing ByteArray that the CBOR encoder treats as a byte string.
+ *
+ * Use this instead of [ByteArray.copyOfRange] when you need to CBOR-encode a sub-range
+ * of a larger array. The encoder copies directly from [source] into the output buffer,
+ * so no intermediate allocation is required.
+ */
+internal class ByteSlice(val source: ByteArray, val offset: Int, val length: Int)

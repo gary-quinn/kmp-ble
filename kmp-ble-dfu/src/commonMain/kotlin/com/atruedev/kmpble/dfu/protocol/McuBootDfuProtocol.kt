@@ -4,6 +4,7 @@ import com.atruedev.kmpble.dfu.DfuError
 import com.atruedev.kmpble.dfu.DfuOptions
 import com.atruedev.kmpble.dfu.DfuProgress
 import com.atruedev.kmpble.dfu.firmware.FirmwarePackage
+import com.atruedev.kmpble.dfu.internal.ByteSlice
 import com.atruedev.kmpble.dfu.internal.Cbor
 import com.atruedev.kmpble.dfu.internal.Sha256
 import com.atruedev.kmpble.dfu.internal.ThroughputTracker
@@ -63,7 +64,10 @@ public class McuBootDfuProtocol : DfuProtocol {
                 sequence = nextSequence(),
                 commandId = commandId,
             )
-            val packet = header.encode() + cborPayload
+            // Pre-allocate a single buffer: no header ByteArray + no concatenation allocation.
+            val packet = ByteArray(SmpHeader.SIZE + cborPayload.size)
+            header.encodeInto(packet)
+            cborPayload.copyInto(packet, SmpHeader.SIZE)
             return transport.sendCommand(packet)
         }
 
@@ -84,12 +88,13 @@ public class McuBootDfuProtocol : DfuProtocol {
                 val overhead = if (isFirstChunk) CBOR_OVERHEAD_FIRST else CBOR_OVERHEAD
                 val chunkSize = maxOf(availableForData - overhead, 1)
                 val end = min(offset + chunkSize, imageData.size.toLong()).toInt()
-                val chunk = imageData.copyOfRange(offset.toInt(), end)
 
                 val payload = buildUploadPayload(
                     imageIndex = firmware.imageIndex,
                     offset = offset,
-                    data = chunk,
+                    dataSource = imageData,
+                    dataOffset = offset.toInt(),
+                    dataLength = end - offset.toInt(),
                     totalLen = if (isFirstChunk) imageData.size.toLong() else null,
                     sha256 = if (isFirstChunk) sha256 else null,
                 )
@@ -110,7 +115,7 @@ public class McuBootDfuProtocol : DfuProtocol {
                     )
                 }
 
-                val nextOffset = (responseMap[SmpField.OFF] as? Long) ?: (offset + chunk.size)
+                val nextOffset = (responseMap[SmpField.OFF] as? Long) ?: (offset + (end - offset.toInt()))
                 offset = nextOffset
 
                 tracker.record(offset)
@@ -140,14 +145,16 @@ public class McuBootDfuProtocol : DfuProtocol {
         emit(DfuProgress.Completing)
 
         val resetPayload = Cbor.encodeStringMap(emptyMap())
-        val resetPacket = SmpHeader(
+        val resetPacket = ByteArray(SmpHeader.SIZE + resetPayload.size)
+        SmpHeader(
             op = SmpOp.WRITE,
             flags = 0,
             length = resetPayload.size,
             group = SmpGroup.OS_MGMT,
             sequence = nextSequence(),
             commandId = SmpCommand.OS_RESET,
-        ).encode() + resetPayload
+        ).encodeInto(resetPacket)
+        resetPayload.copyInto(resetPacket, SmpHeader.SIZE)
         transport.sendCommandExpectingDisconnect(resetPacket)
 
         emit(DfuProgress.Completed)
@@ -155,7 +162,7 @@ public class McuBootDfuProtocol : DfuProtocol {
 
     private fun parseSmpResponsePayload(response: ByteArray): Map<String, Any> {
         if (response.size <= SmpHeader.SIZE) return emptyMap()
-        return Cbor.decodeStringMap(response.copyOfRange(SmpHeader.SIZE, response.size))
+        return Cbor.decodeStringMap(response, SmpHeader.SIZE)
     }
 
     internal companion object {
@@ -170,14 +177,16 @@ public class McuBootDfuProtocol : DfuProtocol {
         internal fun buildUploadPayload(
             imageIndex: Int,
             offset: Long,
-            data: ByteArray,
+            dataSource: ByteArray,
+            dataOffset: Int,
+            dataLength: Int,
             totalLen: Long?,
             sha256: ByteArray?,
         ): ByteArray {
             val map = mutableMapOf<String, Any>(
                 SmpField.IMAGE to imageIndex,
                 SmpField.OFF to offset,
-                SmpField.DATA to data,
+                SmpField.DATA to ByteSlice(dataSource, dataOffset, dataLength),
             )
             if (totalLen != null) map[SmpField.LEN] = totalLen
             if (sha256 != null) map[SmpField.SHA] = sha256

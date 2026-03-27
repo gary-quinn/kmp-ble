@@ -7,6 +7,10 @@ package com.atruedev.kmpble.dfu.internal
  * Trade-off: slower than platform-native crypto (MessageDigest / CC_SHA256) but avoids
  * an expect/actual boundary. Acceptable because the hash is computed once per DFU
  * transfer. Consider an expect/actual with platform crypto if profiling shows a bottleneck.
+ *
+ * Allocation strategy: complete 64-byte blocks are processed directly from the source
+ * array. Only the 1–2 padding tail blocks (max 128 bytes) are materialized in a
+ * temporary buffer — no full-image copy regardless of firmware size.
  */
 @OptIn(ExperimentalUnsignedTypes::class)
 internal object Sha256 {
@@ -28,34 +32,26 @@ internal object Sha256 {
     )
 
     fun digest(data: ByteArray): ByteArray {
-        val padded = pad(data)
         val h = H0.copyOf()
         val w = UIntArray(64)
 
-        for (blockStart in padded.indices step 64) {
-            for (t in 0 until 16) {
-                w[t] = ((padded[blockStart + t * 4].toInt() and 0xFF).toUInt() shl 24) or
-                    ((padded[blockStart + t * 4 + 1].toInt() and 0xFF).toUInt() shl 16) or
-                    ((padded[blockStart + t * 4 + 2].toInt() and 0xFF).toUInt() shl 8) or
-                    (padded[blockStart + t * 4 + 3].toInt() and 0xFF).toUInt()
-            }
-            for (t in 16 until 64) {
-                w[t] = sigma1(w[t - 2]) + w[t - 7] + sigma0(w[t - 15]) + w[t - 16]
-            }
-
-            var a = h[0]; var b = h[1]; var c = h[2]; var d = h[3]
-            var e = h[4]; var f = h[5]; var g = h[6]; var hh = h[7]
-
-            for (t in 0 until 64) {
-                val t1 = hh + bigSigma1(e) + ch(e, f, g) + K[t] + w[t]
-                val t2 = bigSigma0(a) + maj(a, b, c)
-                hh = g; g = f; f = e; e = d + t1
-                d = c; c = b; b = a; a = t1 + t2
-            }
-
-            h[0] += a; h[1] += b; h[2] += c; h[3] += d
-            h[4] += e; h[5] += f; h[6] += g; h[7] += hh
+        // Process all complete 64-byte blocks directly from the source — no copy.
+        val completeBlocks = data.size / 64
+        for (b in 0 until completeBlocks) {
+            processBlock(h, w, data, b * 64)
         }
+
+        // Build the padding tail: 1 block if the remainder fits (< 56 bytes), else 2.
+        // Max allocation: 128 bytes, regardless of firmware size.
+        val tailStart = completeBlocks * 64
+        val remaining = data.size - tailStart
+        val tailBlocks = if (remaining < 56) 1 else 2
+        val tail = ByteArray(tailBlocks * 64)
+        data.copyInto(tail, 0, tailStart, data.size)
+        tail[remaining] = 0x80.toByte()
+        val bitLen = data.size.toLong() * 8
+        for (i in 0 until 8) tail[tail.size - 1 - i] = (bitLen shr (i * 8)).toByte()
+        for (b in 0 until tailBlocks) processBlock(h, w, tail, b * 64)
 
         val result = ByteArray(32)
         for (i in 0 until 8) {
@@ -70,16 +66,29 @@ internal object Sha256 {
     fun digestHex(data: ByteArray): String =
         digest(data).joinToString("") { (it.toInt() and 0xFF).toString(16).padStart(2, '0') }
 
-    private fun pad(data: ByteArray): ByteArray {
-        val bitLen = data.size.toLong() * 8
-        val paddingLen = (56 - (data.size + 1) % 64 + 64) % 64
-        val padded = ByteArray(data.size + 1 + paddingLen + 8)
-        data.copyInto(padded)
-        padded[data.size] = 0x80.toByte()
-        for (i in 0 until 8) {
-            padded[padded.size - 1 - i] = (bitLen shr (i * 8)).toByte()
+    private fun processBlock(h: UIntArray, w: UIntArray, data: ByteArray, blockStart: Int) {
+        for (t in 0 until 16) {
+            w[t] = ((data[blockStart + t * 4].toInt() and 0xFF).toUInt() shl 24) or
+                ((data[blockStart + t * 4 + 1].toInt() and 0xFF).toUInt() shl 16) or
+                ((data[blockStart + t * 4 + 2].toInt() and 0xFF).toUInt() shl 8) or
+                (data[blockStart + t * 4 + 3].toInt() and 0xFF).toUInt()
         }
-        return padded
+        for (t in 16 until 64) {
+            w[t] = sigma1(w[t - 2]) + w[t - 7] + sigma0(w[t - 15]) + w[t - 16]
+        }
+
+        var a = h[0]; var b = h[1]; var c = h[2]; var d = h[3]
+        var e = h[4]; var f = h[5]; var g = h[6]; var hh = h[7]
+
+        for (t in 0 until 64) {
+            val t1 = hh + bigSigma1(e) + ch(e, f, g) + K[t] + w[t]
+            val t2 = bigSigma0(a) + maj(a, b, c)
+            hh = g; g = f; f = e; e = d + t1
+            d = c; c = b; b = a; a = t1 + t2
+        }
+
+        h[0] += a; h[1] += b; h[2] += c; h[3] += d
+        h[4] += e; h[5] += f; h[6] += g; h[7] += hh
     }
 
     private fun rotr(x: UInt, n: Int): UInt = (x shr n) or (x shl (32 - n))

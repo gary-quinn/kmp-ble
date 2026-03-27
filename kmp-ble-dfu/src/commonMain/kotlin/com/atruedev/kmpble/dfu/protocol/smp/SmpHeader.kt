@@ -32,6 +32,18 @@ internal data class SmpHeader(
         commandId.toByte(),
     )
 
+    /** Write this header directly into [target] at [offset]. No intermediate allocation. */
+    fun encodeInto(target: ByteArray, offset: Int = 0) {
+        target[offset] = op.toByte()
+        target[offset + 1] = flags.toByte()
+        target[offset + 2] = (length shr 8).toByte()
+        target[offset + 3] = (length and 0xFF).toByte()
+        target[offset + 4] = (group shr 8).toByte()
+        target[offset + 5] = (group and 0xFF).toByte()
+        target[offset + 6] = sequence.toByte()
+        target[offset + 7] = commandId.toByte()
+    }
+
     companion object {
         const val SIZE = 8
 

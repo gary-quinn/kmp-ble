@@ -19,7 +19,11 @@ internal fun encodeOtaBegin(firmwareSize: Int): ByteArray = byteArrayOf(
     ((firmwareSize shr 24) and 0xFF).toByte(),
 )
 
-internal fun encodeOtaEnd(hashBytes: ByteArray): ByteArray =
-    byteArrayOf(EspOtaOpcode.OTA_END) + hashBytes
+internal fun encodeOtaEnd(hashBytes: ByteArray): ByteArray {
+    val packet = ByteArray(1 + hashBytes.size)
+    packet[0] = EspOtaOpcode.OTA_END
+    hashBytes.copyInto(packet, 1)
+    return packet
+}
 
 internal fun encodeOtaReboot(): ByteArray = byteArrayOf(EspOtaOpcode.OTA_REBOOT)
