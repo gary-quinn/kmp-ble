@@ -45,8 +45,10 @@ public data class ConnectionOptions(
 public enum class BondingPreference {
     /** Skip bonding entirely. */
     None,
+
     /** Bond only if the peripheral requires it. */
     IfRequired,
+
     /** Always initiate bonding. Fail if bonding is rejected. */
     Required,
 }
@@ -55,8 +57,10 @@ public enum class BondingPreference {
 public enum class TransportType {
     /** Let the system choose the transport. */
     Auto,
+
     /** Bluetooth Low Energy transport. */
     LE,
+
     /** Classic Bluetooth (BR/EDR) transport. */
     BrEdr,
 }
@@ -65,8 +69,10 @@ public enum class TransportType {
 public enum class PhyMask(public val value: Int) {
     /** 1 Mbps PHY — universally supported. */
     LE_1M(1),
+
     /** 2 Mbps PHY — double throughput, shorter range. */
     LE_2M(2),
+
     /** Coded PHY (Long Range) — lower throughput, extended range. */
     LE_CODED(4),
 }
