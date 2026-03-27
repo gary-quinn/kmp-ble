@@ -13,7 +13,7 @@ androidMinSdk = "33"
 androidCompileSdk = "36"
 androidTargetSdk = "36"
 # Minimum safe versions for transitive dependencies (see build.gradle.kts resolutionStrategy)
-netty = "4.1.129.Final"
+netty = "4.1.132.Final"
 logback = "1.5.25"
 jackson = "2.18.6"
 jdom2 = "2.0.6.1"
