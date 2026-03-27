@@ -80,6 +80,10 @@ public class McuBootDfuProtocol : DfuProtocol {
 
         var offset = 0L
 
+        // MCUboot SMP supports offset-based resume: the server's "off" response
+        // controls progression. On retry, offset retains its previous value so
+        // the upload resumes where it left off rather than restarting from zero.
+        // If the server lost state, it responds with off=0 which resets our offset.
         retryOnFailure(options.retryCount, options.retryDelay) {
             while (offset < imageData.size) {
                 currentCoroutineContext().ensureActive()
@@ -115,7 +119,7 @@ public class McuBootDfuProtocol : DfuProtocol {
                     )
                 }
 
-                val nextOffset = (responseMap[SmpField.OFF] as? Long) ?: (offset + (end - offset.toInt()))
+                val nextOffset = (responseMap[SmpField.OFF] as? Long) ?: end.toLong()
                 offset = nextOffset
 
                 tracker.record(offset)

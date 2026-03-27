@@ -10,6 +10,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
@@ -71,13 +72,9 @@ class EspOtaDfuProtocolTest {
             transport.enqueueResponse(byteArrayOf(0x01)) // failure on sole attempt
         }
 
-        var caught: Throwable? = null
-        try {
+        assertFailsWith<DfuError.TransferFailed> {
             protocol.performDfu(transport, firmware, options).toList()
-        } catch (e: DfuError.TransferFailed) {
-            caught = e
         }
-        assertIs<DfuError.TransferFailed>(caught)
     }
 
     @Test

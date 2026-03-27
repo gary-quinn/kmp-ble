@@ -58,8 +58,8 @@ public class EspOtaDfuProtocol : DfuProtocol {
 
         // ESP OTA does not support resume — a fresh OTA Begin is required on
         // each attempt because the device resets its OTA state on error.
-        // Hash verification and OTA End are inside retry scope: if the
-        // device drops mid-verify, the entire transfer retries from scratch.
+        // The OTA End exchange (hash verification) is inside retry scope so
+        // that a disconnect mid-verify retries the entire transfer from scratch.
         retryOnFailure(options.retryCount, options.retryDelay) {
             val beginResponse = transport.sendCommand(encodeOtaBegin(firmwareData.size))
             validateResponse(beginResponse, EspOtaOpcode.OTA_BEGIN.toInt(), "OTA Begin")

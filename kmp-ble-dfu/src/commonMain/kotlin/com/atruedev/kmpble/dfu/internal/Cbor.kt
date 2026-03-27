@@ -168,6 +168,8 @@ internal object Cbor {
         }
     }
 
+    // Note: major type 2 (byte strings) are decoded as ByteSlice rather than
+    // ByteArray, so callers must handle ByteSlice when accessing decoded values.
     private fun decodeAnyValue(data: ByteArray, offset: Int): Pair<Any, Int> {
         val (majorType, value, nextOffset) = decodeHead(data, offset)
         return when (majorType) {

@@ -5,6 +5,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
+import kotlin.test.assertFailsWith
 
 class DfuTransportExtTest {
 
@@ -23,11 +24,8 @@ class DfuTransportExtTest {
     @Test
     fun propagatesUnexpectedErrors() = runTest {
         val transport = ThrowingTransport(DfuError.ProtocolError(0, 1, "unexpected"))
-        try {
+        assertFailsWith<DfuError.ProtocolError> {
             transport.sendCommandExpectingDisconnect(byteArrayOf(0x01))
-            error("Expected exception to propagate")
-        } catch (_: DfuError.ProtocolError) {
-            // Expected: non-disconnect errors must propagate
         }
     }
 }
