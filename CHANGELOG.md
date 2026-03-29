@@ -15,6 +15,23 @@ _Changes on `main` that have not yet been tagged for release._
 
 ---
 
+## [0.3.8] - 2026-03-29
+
+### Fixed
+- fix: remove unnecessary casts in test assertions (#79)
+
+### Other
+- update Package.swift for v0.3.8
+- build: upgrade ktlint to 14.2.0 with formatting fixes (#86)
+- ci(dependabot): bump actions/upload-pages-artifact from 3.0.1 to 4.0.0 (#83)
+- ci(dependabot): bump gradle/actions from 5.0.2 to 6.0.1 (#82)
+- ci(dependabot): bump actions/deploy-pages from 4.0.5 to 5.0.0 (#84)
+- build(dependabot): bump org.jetbrains.dokka from 2.1.0 to 2.2.0 (#85)
+- update Package.swift for v0.3.7
+
+
+---
+
 ## [0.3.7] - 2026-03-27
 
 ### Fixed
@@ -298,7 +315,8 @@ _Changes on `main` that have not yet been tagged for release._
 
 ---
 
-[Unreleased]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.7...HEAD
+[Unreleased]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.8...HEAD
+[0.3.8]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.7...v0.3.8
 [0.3.7]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.6...v0.3.7
 [0.3.6]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.5...v0.3.6
 [0.3.5]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.4...v0.3.5
