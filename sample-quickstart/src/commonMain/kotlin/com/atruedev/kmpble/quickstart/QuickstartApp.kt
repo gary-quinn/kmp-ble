@@ -89,8 +89,8 @@ private fun ScanScreen(onDeviceSelected: (Advertisement) -> Unit) {
                                     devices.add(ad)
                                 }
                             }
-                        } catch (_: CancellationException) {
-                            throw CancellationException()
+                        } catch (e: CancellationException) {
+                            throw e
                         } catch (_: Exception) {
                             // Scan timeout or error
                         } finally {
@@ -198,6 +198,8 @@ private fun DeviceScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
+            // Intentional simplification: string-based state check avoids a sealed class
+            // for a quickstart sample. See sample/ for production-grade state management.
             if (readValue == null && !status.startsWith("Error") && !status.startsWith("No")) {
                 CircularProgressIndicator()
             }

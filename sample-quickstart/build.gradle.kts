@@ -33,16 +33,15 @@ kotlin {
         }
     }
 
+    // compose.runtime etc. trigger a Gradle deprecation warning in Compose Multiplatform
+    // 1.10.x; these accessors will be replaced by the libs catalog in a future version.
+    @Suppress("DEPRECATION")
     sourceSets {
         commonMain.dependencies {
             implementation(project(":"))
-            @Suppress("DEPRECATION")
             implementation(compose.runtime)
-            @Suppress("DEPRECATION")
             implementation(compose.foundation)
-            @Suppress("DEPRECATION")
             implementation(compose.material3)
-            @Suppress("DEPRECATION")
             implementation(compose.ui)
             implementation(libs.kotlinx.coroutines.core)
         }
