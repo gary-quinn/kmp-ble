@@ -52,7 +52,7 @@ Illegal transitions throw `IllegalStateException` — caught in tests, never sil
 
 ### Why 14 States?
 
-Other libraries (including Kable) use ~5 states: Disconnected, Connecting, Connected, Disconnecting, Cancelling. This makes it impossible to distinguish:
+Most BLE libraries use ~5 states: Disconnected, Connecting, Connected, Disconnecting, Cancelling. This makes it impossible to distinguish:
 
 - "Connection failed because bonding was rejected" vs "connection lost during service discovery"
 - "User disconnected" vs "device disconnected" vs "Bluetooth was turned off"
@@ -208,7 +208,7 @@ Android OEMs ship BLE stacks with device-specific bugs. The quirk registry appli
 | Bond state timeout | Xiaomi/Redmi/Poco (15s), Huawei/Honor (10s) | Extended timeout for slow bond callbacks |
 | Connection timeout | Samsung (30s), Huawei/Honor (35s) | Extended timeout for slow connections |
 
-The registry is internal — consumers don't interact with it. Adding entries is the easiest way to contribute (see [CONTRIBUTING.md](CONTRIBUTING.md)).
+The registry is internal — consumers don't interact with it.
 
 ---
 
