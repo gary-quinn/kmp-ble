@@ -11,6 +11,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.atruedev.kmpble.logging.BleLogConfig
+import com.atruedev.kmpble.logging.PrintBleLogger
 import com.atruedev.kmpble.sample.detail.DeviceDetailScreen
 import com.atruedev.kmpble.sample.detail.DeviceDetailViewModel
 import com.atruedev.kmpble.sample.navigation.BottomNavBar
@@ -24,6 +26,7 @@ import kotlin.uuid.ExperimentalUuidApi
 @OptIn(ExperimentalUuidApi::class)
 @Composable
 fun App() {
+    remember { BleLogConfig.logger = PrintBleLogger() }
     MaterialTheme {
         var currentTab by remember { mutableStateOf<Tab>(Tab.Scanner) }
         var currentScreen by remember { mutableStateOf<Screen>(Screen.Scanner) }

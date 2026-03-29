@@ -25,7 +25,9 @@ import kotlin.uuid.ExperimentalUuidApi
 class ScannerViewModel : ViewModel() {
     private val serialScope =
         CoroutineScope(
-            viewModelScope.coroutineContext + Dispatchers.Default.limitedParallelism(1) + SupervisorJob(),
+            viewModelScope.coroutineContext +
+                Dispatchers.Default.limitedParallelism(1) +
+                SupervisorJob(viewModelScope.coroutineContext[Job]),
         )
 
     private var adapter = BluetoothAdapter()
