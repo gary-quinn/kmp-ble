@@ -12,7 +12,7 @@ kotlin {
     }
 
     android {
-        namespace = "com.atruedev.kmpble.sample"
+        namespace = "com.atruedev.kmpble.quickstart"
         compileSdk =
             libs.versions.androidCompileSdk
                 .get()
@@ -28,7 +28,7 @@ kotlin {
         iosSimulatorArm64(),
     ).forEach { target ->
         target.binaries.framework {
-            baseName = "KmpBleSample"
+            baseName = "KmpBleQuickstart"
             isStatic = true
         }
     }
@@ -36,20 +36,14 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             implementation(project(":"))
-            implementation(project(":kmp-ble-profiles"))
-            implementation(project(":kmp-ble-dfu"))
-            implementation(project(":kmp-ble-codec"))
             implementation(compose.runtime)
             implementation(compose.foundation)
             implementation(compose.material3)
             implementation(compose.ui)
-            implementation(libs.lifecycle.viewmodel.compose)
-            implementation(libs.lifecycle.runtime.compose)
             implementation(libs.kotlinx.coroutines.core)
         }
         androidMain.dependencies {
             implementation(libs.kotlinx.coroutines.android)
-            implementation(libs.androidx.activity.compose)
         }
     }
 }

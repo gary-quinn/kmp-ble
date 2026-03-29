@@ -350,19 +350,23 @@ val peripheral = FakePeripheral {
 }
 ```
 
-## Sample App
+## Sample Apps
 
-The `sample` module is a Compose Multiplatform app (Android + iOS) demonstrating all library features:
+### BLE Toolkit (`sample/`)
 
-- **Scanner** with real-time device filter
-- **Device Detail** with connection recipes, bonding, pairing dialogs
-- **Service Explorer** with GATT tree browsing, read/write, benchmarks, L2CAP
-- **Heart Rate Monitor** using `HeartRateProfile` with sensor location and RR intervals
-- **Battery Level** using `BatteryProfile` with read and notifications
-- **Device Information** using `DeviceInformationProfile`
-- **Firmware Update (DFU)** with platform file picker and progress tracking
-- **Codec Examples** demonstrating typed reads and decoder composition
-- **GATT Server** hosting a Heart Rate service with legacy and extended advertising
+Production-grade BLE utility app (Android + iOS) with tab-based navigation, composed operation classes, and polished UX:
+
+- **Scanner** with RSSI/name filtering, sorting, device categorization, manufacturer name resolution
+- **Device Detail** with GATT service browser, value display in HEX/UTF-8/Decimal/Binary, connection recipes, bonding
+- **Multi-protocol DFU** with auto-detection (Nordic Secure DFU, MCUboot SMP, Espressif ESP OTA)
+- **Profile monitoring** — Heart Rate, Battery, Device Information with auto-detection
+- **L2CAP channels** with message history and directional logging
+- **Codec** typed read/write with decoder composition
+- **GATT Server** with service builder presets and advanced advertising controls
+
+### Quickstart (`sample-quickstart/`)
+
+Minimal ~150-line single-screen app: scan, tap, connect, read first characteristic, display value. No ViewModel, no navigation — the "Getting Started in 5 Minutes" reference.
 
 ## Architecture
 
