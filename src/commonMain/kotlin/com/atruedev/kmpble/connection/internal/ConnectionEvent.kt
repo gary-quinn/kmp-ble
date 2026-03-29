@@ -11,15 +11,21 @@ internal sealed interface ConnectionEvent {
 
     data object BondSucceeded : ConnectionEvent
 
-    data class BondFailed(val error: BleError? = null) : ConnectionEvent
+    data class BondFailed(
+        val error: BleError? = null,
+    ) : ConnectionEvent
 
     data object ServicesDiscovered : ConnectionEvent
 
-    data class DiscoveryFailed(val error: BleError? = null) : ConnectionEvent
+    data class DiscoveryFailed(
+        val error: BleError? = null,
+    ) : ConnectionEvent
 
     data object ConfigurationComplete : ConnectionEvent
 
-    data class ConfigurationFailed(val error: BleError? = null) : ConnectionEvent
+    data class ConfigurationFailed(
+        val error: BleError? = null,
+    ) : ConnectionEvent
 
     data object InsufficientAuthentication : ConnectionEvent
 
@@ -29,7 +35,9 @@ internal sealed interface ConnectionEvent {
 
     data object DisconnectRequested : ConnectionEvent
 
-    data class ConnectionLost(val error: BleError? = null) : ConnectionEvent
+    data class ConnectionLost(
+        val error: BleError? = null,
+    ) : ConnectionEvent
 
     data object RemoteDisconnected : ConnectionEvent
 
@@ -39,7 +47,9 @@ internal sealed interface ConnectionEvent {
 
     data object RediscoverySucceeded : ConnectionEvent
 
-    data class RediscoveryFailed(val error: BleError? = null) : ConnectionEvent
+    data class RediscoveryFailed(
+        val error: BleError? = null,
+    ) : ConnectionEvent
 
     data object BondChangeProcessed : ConnectionEvent
 }

@@ -46,5 +46,8 @@ public sealed interface GattStatus {
      * @property platformCode The raw numeric status code from the platform.
      * @property platformName Human-readable name from the platform SDK, if available.
      */
-    public data class Unknown(val platformCode: Int, val platformName: String) : GattStatus
+    public data class Unknown(
+        val platformCode: Int,
+        val platformName: String,
+    ) : GattStatus
 }

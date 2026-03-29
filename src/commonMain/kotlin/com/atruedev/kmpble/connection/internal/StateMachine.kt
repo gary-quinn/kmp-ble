@@ -41,8 +41,8 @@ internal object StateMachine {
             on<Connecting.Authenticating, ConnectionEvent.BondSucceeded> { _, _ -> Connecting.Discovering }
             on<Connecting.Authenticating, ConnectionEvent.BondFailed> { _, e -> Disconnected.ByError(e.extractError()) }
             on<Connecting.Authenticating, ConnectionEvent.ConnectionLost> {
-                    _,
-                    e,
+                _,
+                e,
                 ->
                 Disconnected.ByError(e.extractError())
             }
@@ -51,14 +51,14 @@ internal object StateMachine {
             // --- Connecting.Discovering ---
             on<Connecting.Discovering, ConnectionEvent.ServicesDiscovered> { _, _ -> Connecting.Configuring }
             on<Connecting.Discovering, ConnectionEvent.DiscoveryFailed> {
-                    _,
-                    e,
+                _,
+                e,
                 ->
                 Disconnected.ByError(e.extractError())
             }
             on<Connecting.Discovering, ConnectionEvent.ConnectionLost> {
-                    _,
-                    e,
+                _,
+                e,
                 ->
                 Disconnected.ByError(e.extractError())
             }
@@ -67,15 +67,15 @@ internal object StateMachine {
             // --- Connecting.Configuring ---
             on<Connecting.Configuring, ConnectionEvent.ConfigurationComplete> { _, _ -> Connected.Ready }
             on<Connecting.Configuring, ConnectionEvent.ConfigurationFailed> {
-                    _,
-                    e,
+                _,
+                e,
                 ->
                 Disconnected.ByError(e.extractError())
             }
             on<Connecting.Configuring, ConnectionEvent.InsufficientAuthentication> { _, _ -> Connecting.Authenticating }
             on<Connecting.Configuring, ConnectionEvent.ConnectionLost> {
-                    _,
-                    e,
+                _,
+                e,
                 ->
                 Disconnected.ByError(e.extractError())
             }
@@ -187,7 +187,7 @@ internal object StateMachine {
     private inline fun <
         reified S : State,
         reified E : ConnectionEvent,
-        > MutableMap<Pair<KClass<*>, KClass<*>>, (State, ConnectionEvent) -> State>.on(
+    > MutableMap<Pair<KClass<*>, KClass<*>>, (State, ConnectionEvent) -> State>.on(
         noinline resolver: (S, E) -> State,
     ) {
         put(Pair(S::class, E::class)) { state, event ->

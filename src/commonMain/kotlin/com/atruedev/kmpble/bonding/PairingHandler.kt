@@ -96,13 +96,19 @@ public sealed interface PairingEvent {
 @ExperimentalBleApi
 public sealed interface PairingResponse {
     /** Confirm or reject pairing (for [PairingEvent.NumericComparison], [PairingEvent.JustWorksConfirmation]). */
-    public data class Confirm(val accepted: Boolean) : PairingResponse
+    public data class Confirm(
+        val accepted: Boolean,
+    ) : PairingResponse
 
     /** Provide a PIN/passkey (for [PairingEvent.PasskeyRequest]). */
-    public data class ProvidePin(val pin: Int) : PairingResponse
+    public data class ProvidePin(
+        val pin: Int,
+    ) : PairingResponse
 
     /** Provide out-of-band data (for [PairingEvent.OutOfBandDataRequest]). */
-    public data class ProvideOobData(val data: ByteArray) : PairingResponse {
+    public data class ProvideOobData(
+        val data: ByteArray,
+    ) : PairingResponse {
         override fun equals(other: Any?): Boolean {
             if (this === other) return true
             if (other !is ProvideOobData) return false

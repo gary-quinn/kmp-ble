@@ -43,7 +43,9 @@ internal data class RawScanResult(
  * 5. [centralManagerDidUpdateState:] follows with current adapter state
  * 6. kmp-ble reconstructs Peripheral wrappers and re-subscribes observations
  */
-internal class KmpBleCentralDelegate : NSObject(), CBCentralManagerDelegateProtocol {
+internal class KmpBleCentralDelegate :
+    NSObject(),
+    CBCentralManagerDelegateProtocol {
     private val _adapterStateFlow = MutableStateFlow<BluetoothAdapterState>(BluetoothAdapterState.Unavailable)
     internal val adapterStateFlow: StateFlow<BluetoothAdapterState> = _adapterStateFlow.asStateFlow()
 

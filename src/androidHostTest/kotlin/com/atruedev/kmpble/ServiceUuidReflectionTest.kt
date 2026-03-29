@@ -16,8 +16,10 @@ class ServiceUuidReflectionTest {
     fun allListContainsEveryUuidProperty() {
         val uuidProperties =
             ServiceUuid::class.java.declaredFields
-                .filter { java.lang.reflect.Modifier.isStatic(it.modifiers) }
-                .filter { Uuid::class.java.isAssignableFrom(it.type) }
+                .filter {
+                    java.lang.reflect.Modifier
+                        .isStatic(it.modifiers)
+                }.filter { Uuid::class.java.isAssignableFrom(it.type) }
                 .map { it.name }
                 .sorted()
 

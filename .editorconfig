@@ -12,5 +12,8 @@ insert_final_newline = true
 max_line_length = 120
 ktlint_function_naming_ignore_when_annotated_with = Composable
 
+[*.{kt,kts}]
+ktlint_standard_backing-property-naming = disabled
+
 [**/MainViewController.kt]
 ktlint_standard_function-naming = disabled

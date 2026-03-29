@@ -47,8 +47,7 @@ class EmissionPolicyFilterTest {
                     ad(identifier = "device-2"),
                     // duplicate, same data
                     ad(identifier = "device-1"),
-                )
-                    .applyEmissionPolicy(EmissionPolicy.FirstThenChanges())
+                ).applyEmissionPolicy(EmissionPolicy.FirstThenChanges())
                     .toList()
 
             assertEquals(2, result.size)
@@ -66,8 +65,7 @@ class EmissionPolicyFilterTest {
                     ad(identifier = "device-1", rssi = -62),
                     // exceeds threshold from -60
                     ad(identifier = "device-1", rssi = -66),
-                )
-                    .applyEmissionPolicy(EmissionPolicy.FirstThenChanges(rssiThreshold = 5))
+                ).applyEmissionPolicy(EmissionPolicy.FirstThenChanges(rssiThreshold = 5))
                     .toList()
 
             assertEquals(2, result.size)
@@ -85,8 +83,7 @@ class EmissionPolicyFilterTest {
                     ad(identifier = "device-1", name = "Sensor"),
                     // name changed
                     ad(identifier = "device-1", name = "Sensor-v2"),
-                )
-                    .applyEmissionPolicy(EmissionPolicy.FirstThenChanges())
+                ).applyEmissionPolicy(EmissionPolicy.FirstThenChanges())
                     .toList()
 
             assertEquals(2, result.size)
@@ -104,19 +101,28 @@ class EmissionPolicyFilterTest {
                 flowOf(
                     Advertisement(
                         identifier = Identifier("device-1"),
-                        name = null, rssi = -60, txPower = null, isConnectable = true,
+                        name = null,
+                        rssi = -60,
+                        txPower = null,
+                        isConnectable = true,
                         serviceUuids = listOf(uuid1),
-                        manufacturerData = emptyMap(), serviceData = emptyMap(), timestampNanos = 0L,
+                        manufacturerData = emptyMap(),
+                        serviceData = emptyMap(),
+                        timestampNanos = 0L,
                     ),
                     Advertisement(
                         identifier = Identifier("device-1"),
-                        name = null, rssi = -60, txPower = null, isConnectable = true,
+                        name = null,
+                        rssi = -60,
+                        txPower = null,
+                        isConnectable = true,
                         // added a UUID
                         serviceUuids = listOf(uuid1, uuid2),
-                        manufacturerData = emptyMap(), serviceData = emptyMap(), timestampNanos = 0L,
+                        manufacturerData = emptyMap(),
+                        serviceData = emptyMap(),
+                        timestampNanos = 0L,
                     ),
-                )
-                    .applyEmissionPolicy(EmissionPolicy.FirstThenChanges())
+                ).applyEmissionPolicy(EmissionPolicy.FirstThenChanges())
                     .toList()
 
             assertEquals(2, result.size)
@@ -132,8 +138,7 @@ class EmissionPolicyFilterTest {
                     ad(identifier = "device-1", rssi = -69),
                     // exceeds threshold from -60
                     ad(identifier = "device-1", rssi = -71),
-                )
-                    .applyEmissionPolicy(EmissionPolicy.FirstThenChanges(rssiThreshold = 10))
+                ).applyEmissionPolicy(EmissionPolicy.FirstThenChanges(rssiThreshold = 10))
                     .toList()
 
             assertEquals(2, result.size)

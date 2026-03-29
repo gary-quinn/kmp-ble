@@ -23,7 +23,9 @@ import kotlin.concurrent.Volatile
 import kotlin.time.Duration
 import kotlin.time.TimeSource
 
-internal class PeripheralContext(val identifier: Identifier) {
+internal class PeripheralContext(
+    val identifier: Identifier,
+) {
     val dispatcher: CoroutineDispatcher = Dispatchers.Default.limitedParallelism(1)
     val scope =
         CoroutineScope(

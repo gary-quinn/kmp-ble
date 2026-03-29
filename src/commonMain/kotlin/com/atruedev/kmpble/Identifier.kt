@@ -8,4 +8,6 @@ import kotlin.jvm.JvmInline
  * - iOS: CBPeripheral.identifier UUID string (NOT a MAC address)
  */
 @JvmInline
-public value class Identifier(public val value: String)
+public value class Identifier(
+    public val value: String,
+)

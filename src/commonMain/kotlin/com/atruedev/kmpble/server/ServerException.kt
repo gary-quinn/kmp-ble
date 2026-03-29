@@ -1,6 +1,9 @@
 package com.atruedev.kmpble.server
 
-public sealed class ServerException(message: String, cause: Throwable? = null) : Exception(message, cause) {
+public sealed class ServerException(
+    message: String,
+    cause: Throwable? = null,
+) : Exception(message, cause) {
     public class OpenFailed(
         message: String,
         cause: Throwable? = null,
@@ -24,7 +27,10 @@ public sealed class ServerException(message: String, cause: Throwable? = null) :
     ) : ServerException("Notification failed: $message", cause)
 }
 
-public sealed class AdvertiserException(message: String, cause: Throwable? = null) : Exception(message, cause) {
+public sealed class AdvertiserException(
+    message: String,
+    cause: Throwable? = null,
+) : Exception(message, cause) {
     public class StartFailed(
         message: String,
         cause: Throwable? = null,

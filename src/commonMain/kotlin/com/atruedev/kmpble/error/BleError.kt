@@ -16,10 +16,16 @@ public sealed interface BleError
 public sealed interface ConnectionError : BleError
 
 /** The initial connection attempt failed before a link was established. */
-public data class ConnectionFailed(val reason: String, val platformCode: Int? = null) : ConnectionError
+public data class ConnectionFailed(
+    val reason: String,
+    val platformCode: Int? = null,
+) : ConnectionError
 
 /** An established connection was lost unexpectedly. */
-public data class ConnectionLost(val reason: String, val platformCode: Int? = null) : ConnectionError
+public data class ConnectionLost(
+    val reason: String,
+    val platformCode: Int? = null,
+) : ConnectionError
 
 // --- GATT operation errors ---
 
@@ -27,7 +33,10 @@ public data class ConnectionLost(val reason: String, val platformCode: Int? = nu
 public sealed interface GattOperationError : BleError
 
 /** A GATT operation returned a non-success [status]. */
-public data class GattError(val operation: String, val status: GattStatus) : GattOperationError
+public data class GattError(
+    val operation: String,
+    val status: GattStatus,
+) : GattOperationError
 
 // --- Authentication / encryption errors (composable with GattOperationError) ---
 
@@ -38,10 +47,15 @@ public sealed interface AuthError : BleError
 public data class AuthenticationFailed(
     val reason: String,
     val platformCode: Int? = null,
-) : AuthError, GattOperationError
+) : AuthError,
+    GattOperationError
 
 /** The link encryption required for this operation could not be established. */
-public data class EncryptionFailed(val reason: String, val platformCode: Int? = null) : AuthError, GattOperationError
+public data class EncryptionFailed(
+    val reason: String,
+    val platformCode: Int? = null,
+) : AuthError,
+    GattOperationError
 
 // --- Operation constraint errors ---
 
@@ -49,10 +63,15 @@ public data class EncryptionFailed(val reason: String, val platformCode: Int? = 
 public sealed interface OperationConstraintError : BleError
 
 /** The write payload ([attempted] bytes) exceeds the negotiated MTU ([maximum] bytes). */
-public data class MtuExceeded(val attempted: Int, val maximum: Int) : OperationConstraintError
+public data class MtuExceeded(
+    val attempted: Int,
+    val maximum: Int,
+) : OperationConstraintError
 
 /** A catch-all for operation failures that don't fit a more specific category. */
-public data class OperationFailed(val message: String) : BleError
+public data class OperationFailed(
+    val message: String,
+) : BleError
 
 /**
  * Exception wrapper for [BleError] values, allowing them to be thrown as exceptions.

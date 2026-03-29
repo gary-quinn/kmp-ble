@@ -65,10 +65,13 @@ public class IosScanner(
             CentralManagerProvider.adapterStateFlow.first { it == BluetoothAdapterState.On }
 
             val serviceUuids =
-                config.filterGroups.flatMap { andGroup ->
-                    andGroup.filterIsInstance<ScanPredicate.ServiceUuid>()
-                        .map { CBUUID.UUIDWithString(it.uuid.toString()) }
-                }.distinct().ifEmpty { null }
+                config.filterGroups
+                    .flatMap { andGroup ->
+                        andGroup
+                            .filterIsInstance<ScanPredicate.ServiceUuid>()
+                            .map { CBUUID.UUIDWithString(it.uuid.toString()) }
+                    }.distinct()
+                    .ifEmpty { null }
 
             val collectJob =
                 this@callbackFlow.launch {

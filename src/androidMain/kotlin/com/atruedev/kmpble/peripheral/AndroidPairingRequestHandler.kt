@@ -129,7 +129,12 @@ internal class AndroidPairingRequestHandler(
             is PairingResponse.Confirm ->
                 pairingDevice.setPairingConfirmation(response.accepted)
             is PairingResponse.ProvidePin ->
-                pairingDevice.setPin(response.pin.toString().padStart(6, '0').toByteArray())
+                pairingDevice.setPin(
+                    response.pin
+                        .toString()
+                        .padStart(6, '0')
+                        .toByteArray(),
+                )
             is PairingResponse.ProvideOobData ->
                 // OOB key exchange happens at a lower level via BluetoothAdapter;
                 // confirming here accepts the OOB pairing.

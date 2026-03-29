@@ -138,7 +138,10 @@ internal class AndroidGattServer(
 
     // Track per-device per-characteristic CCCD subscription mode.
     // Value: the raw CCCD bytes the device wrote (0x01,0x00 / 0x02,0x00 / 0x00,0x00)
-    private data class SubscriptionKey(val characteristicUuid: Uuid, val device: Identifier)
+    private data class SubscriptionKey(
+        val characteristicUuid: Uuid,
+        val device: Identifier,
+    )
 
     private val subscriptionModes = mutableMapOf<SubscriptionKey, ByteArray>()
 
@@ -220,7 +223,8 @@ internal class AndroidGattServer(
                                 list.filter { it.device != deviceId }
                             }
                             // Cancel any pending notification/indication for this device
-                            pendingNotifySent.remove(device.address)
+                            pendingNotifySent
+                                .remove(device.address)
                                 ?.cancel(kotlinx.coroutines.CancellationException("Device disconnected"))
                             logEvent(BleLogEvent.ServerClientEvent(deviceId, "disconnected"))
                             if (!_connectionEvents.tryEmit(ServerConnectionEvent.Disconnected(deviceId))) {
@@ -589,15 +593,16 @@ internal class AndroidGattServer(
                 }
             }
 
-            targets.map { target ->
-                async {
-                    try {
-                        awaitNotifySend(server, target, nativeChar, dataBytes, confirm = false)
-                    } catch (e: Exception) {
-                        logEvent(BleLogEvent.Error(Identifier(target.address), "notify failed", e))
+            targets
+                .map { target ->
+                    async {
+                        try {
+                            awaitNotifySend(server, target, nativeChar, dataBytes, confirm = false)
+                        } catch (e: Exception) {
+                            logEvent(BleLogEvent.Error(Identifier(target.address), "notify failed", e))
+                        }
                     }
-                }
-            }.awaitAll()
+                }.awaitAll()
 
             logEvent(
                 BleLogEvent.ServerRequest(

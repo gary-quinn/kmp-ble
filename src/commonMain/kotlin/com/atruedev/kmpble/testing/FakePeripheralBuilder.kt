@@ -81,7 +81,9 @@ public class FakePeripheralBuilder {
 }
 
 @OptIn(ExperimentalUuidApi::class)
-public class FakeServiceBuilder(private val serviceUuid: Uuid) {
+public class FakeServiceBuilder(
+    private val serviceUuid: Uuid,
+) {
     private val characteristics = mutableListOf<Characteristic>()
     private val configs = mutableListOf<FakeCharacteristicConfig>()
 
@@ -130,8 +132,12 @@ public class FakeCharacteristicBuilder(
     ) {
         props =
             Characteristic.Properties(
-                read = read, write = write, writeWithoutResponse = writeWithoutResponse,
-                signedWrite = signedWrite, notify = notify, indicate = indicate,
+                read = read,
+                write = write,
+                writeWithoutResponse = writeWithoutResponse,
+                signedWrite = signedWrite,
+                notify = notify,
+                indicate = indicate,
             )
     }
 
@@ -183,6 +189,5 @@ public class FakeCharacteristicBuilder(
 }
 
 @OptIn(ExperimentalUuidApi::class)
-public fun FakePeripheral(block: FakePeripheralBuilder.() -> Unit): FakePeripheral {
-    return FakePeripheralBuilder().apply(block).build()
-}
+public fun FakePeripheral(block: FakePeripheralBuilder.() -> Unit): FakePeripheral =
+    FakePeripheralBuilder().apply(block).build()

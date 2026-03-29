@@ -7,11 +7,7 @@ public actual fun GattServer(builder: GattServerBuilder.() -> Unit): GattServer 
     return IosGattServer(config.services)
 }
 
-public actual fun Advertiser(): Advertiser {
-    return IosAdvertiser()
-}
+public actual fun Advertiser(): Advertiser = IosAdvertiser()
 
 @ExperimentalBleApi
-public actual fun ExtendedAdvertiser(): ExtendedAdvertiser {
-    return IosExtendedAdvertiser()
-}
+public actual fun ExtendedAdvertiser(): ExtendedAdvertiser = IosExtendedAdvertiser()

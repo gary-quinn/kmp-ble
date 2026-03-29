@@ -16,9 +16,14 @@ import platform.darwin.NSObject
 import kotlin.concurrent.Volatile
 
 internal sealed interface AppleCallbackEvent {
-    data class DidDiscoverServices(val error: NSError?) : AppleCallbackEvent
+    data class DidDiscoverServices(
+        val error: NSError?,
+    ) : AppleCallbackEvent
 
-    data class DidDiscoverCharacteristics(val service: CBService, val error: NSError?) : AppleCallbackEvent
+    data class DidDiscoverCharacteristics(
+        val service: CBService,
+        val error: NSError?,
+    ) : AppleCallbackEvent
 
     // Kotlin/Native collapses didUpdateValue and didWriteValue for characteristics
     // into the same function signature. We use the didUpdateValue override for both
@@ -33,13 +38,25 @@ internal sealed interface AppleCallbackEvent {
         val error: NSError?,
     ) : AppleCallbackEvent
 
-    data class DidUpdateValueForDescriptor(val descriptor: CBDescriptor, val error: NSError?) : AppleCallbackEvent
+    data class DidUpdateValueForDescriptor(
+        val descriptor: CBDescriptor,
+        val error: NSError?,
+    ) : AppleCallbackEvent
 
-    data class DidWriteValueForDescriptor(val descriptor: CBDescriptor, val error: NSError?) : AppleCallbackEvent
+    data class DidWriteValueForDescriptor(
+        val descriptor: CBDescriptor,
+        val error: NSError?,
+    ) : AppleCallbackEvent
 
-    data class DidReadRSSI(val rssi: NSNumber, val error: NSError?) : AppleCallbackEvent
+    data class DidReadRSSI(
+        val rssi: NSNumber,
+        val error: NSError?,
+    ) : AppleCallbackEvent
 
-    data class DidOpenL2CAPChannel(val channel: CBL2CAPChannel?, val error: NSError?) : AppleCallbackEvent
+    data class DidOpenL2CAPChannel(
+        val channel: CBL2CAPChannel?,
+        val error: NSError?,
+    ) : AppleCallbackEvent
 }
 
 internal class ApplePeripheralBridge(

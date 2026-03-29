@@ -227,7 +227,10 @@ private sealed interface RecipeOption {
         override val label = "Custom"
     }
 
-    data class Preset(override val label: String, val options: ConnectionOptions) : RecipeOption
+    data class Preset(
+        override val label: String,
+        val options: ConnectionOptions,
+    ) : RecipeOption
 
     companion object {
         val entries =

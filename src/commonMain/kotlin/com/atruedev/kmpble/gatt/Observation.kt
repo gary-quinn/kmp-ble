@@ -9,7 +9,9 @@ package com.atruedev.kmpble.gatt
  */
 public sealed interface Observation {
     /** A notification or indication payload received from the peripheral. */
-    public data class Value(val data: ByteArray) : Observation {
+    public data class Value(
+        val data: ByteArray,
+    ) : Observation {
         override fun equals(other: Any?): Boolean {
             if (this === other) return true
             if (other !is Value) return false
