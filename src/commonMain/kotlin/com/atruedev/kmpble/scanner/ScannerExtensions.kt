@@ -18,8 +18,7 @@ import kotlin.time.Duration.Companion.seconds
 public suspend fun Scanner.firstOrNull(
     timeout: Duration = 30.seconds,
     predicate: (Advertisement) -> Boolean = { true },
-): Advertisement? {
-    return withTimeoutOrNull(timeout) {
+): Advertisement? =
+    withTimeoutOrNull(timeout) {
         advertisements.firstOrNull(predicate)
     }
-}

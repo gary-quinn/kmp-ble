@@ -13,8 +13,14 @@ kotlin {
 
     android {
         namespace = "com.atruedev.kmpble.sample"
-        compileSdk = libs.versions.androidCompileSdk.get().toInt()
-        minSdk = libs.versions.androidMinSdk.get().toInt()
+        compileSdk =
+            libs.versions.androidCompileSdk
+                .get()
+                .toInt()
+        minSdk =
+            libs.versions.androidMinSdk
+                .get()
+                .toInt()
     }
 
     listOf(

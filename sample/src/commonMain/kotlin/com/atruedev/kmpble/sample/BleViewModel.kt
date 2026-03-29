@@ -50,7 +50,9 @@ import kotlin.uuid.Uuid
  * sharing one Peripheral. In production, split by concern (e.g., separate DFU
  * orchestration, profile readers) to avoid accumulating responsibilities.
  */
-class BleViewModel(advertisement: Advertisement) : ViewModel() {
+class BleViewModel(
+    advertisement: Advertisement,
+) : ViewModel() {
     private val peripheral: Peripheral = advertisement.toPeripheral()
 
     val connectionState: StateFlow<State> = peripheral.state

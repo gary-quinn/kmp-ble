@@ -152,7 +152,9 @@ class AndroidGattServerTest {
 
     @Test
     fun `CCCD UUID is correct 2902`() {
-        val expected = com.atruedev.kmpble.scanner.uuidFrom("2902")
+        val expected =
+            com.atruedev.kmpble.scanner
+                .uuidFrom("2902")
         assertEquals(expected, AndroidGattServer.CCCD_UUID)
     }
 

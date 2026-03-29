@@ -18,19 +18,33 @@ import com.atruedev.kmpble.scanner.Advertisement
 sealed interface Screen {
     data object Scanner : Screen
 
-    data class DeviceDetail(val advertisement: Advertisement) : Screen
+    data class DeviceDetail(
+        val advertisement: Advertisement,
+    ) : Screen
 
-    data class ServiceExplorer(val advertisement: Advertisement) : Screen
+    data class ServiceExplorer(
+        val advertisement: Advertisement,
+    ) : Screen
 
-    data class HeartRateDemo(val advertisement: Advertisement) : Screen
+    data class HeartRateDemo(
+        val advertisement: Advertisement,
+    ) : Screen
 
-    data class BatteryDemo(val advertisement: Advertisement) : Screen
+    data class BatteryDemo(
+        val advertisement: Advertisement,
+    ) : Screen
 
-    data class DeviceInfoDemo(val advertisement: Advertisement) : Screen
+    data class DeviceInfoDemo(
+        val advertisement: Advertisement,
+    ) : Screen
 
-    data class DfuDemo(val advertisement: Advertisement) : Screen
+    data class DfuDemo(
+        val advertisement: Advertisement,
+    ) : Screen
 
-    data class CodecDemo(val advertisement: Advertisement) : Screen
+    data class CodecDemo(
+        val advertisement: Advertisement,
+    ) : Screen
 
     data object Server : Screen
 }

@@ -10,8 +10,12 @@ public sealed interface BondRemovalResult {
     public data object Success : BondRemovalResult
 
     /** Bond removal is not supported on this platform (iOS). */
-    public data class NotSupported(val message: String) : BondRemovalResult
+    public data class NotSupported(
+        val message: String,
+    ) : BondRemovalResult
 
     /** Bond removal failed for the given [reason]. */
-    public data class Failed(val reason: String) : BondRemovalResult
+    public data class Failed(
+        val reason: String,
+    ) : BondRemovalResult
 }

@@ -57,7 +57,9 @@ public sealed interface State {
         public data object ByRemote : Disconnected
 
         /** Disconnected due to a [BleError]. */
-        public data class ByError(val error: BleError) : Disconnected
+        public data class ByError(
+            val error: BleError,
+        ) : Disconnected
 
         /** The connection attempt timed out. */
         public data object ByTimeout : Disconnected

@@ -31,7 +31,9 @@ import kotlin.uuid.toJavaUuid
  * [AdvertiseCallback] fires on a Binder thread and dispatches into [scope]
  * to serialize state updates.
  */
-internal class AndroidAdvertiser(private val context: Context) : Advertiser {
+internal class AndroidAdvertiser(
+    private val context: Context,
+) : Advertiser {
     private val serialDispatcher = Dispatchers.Default.limitedParallelism(1)
     private val scope = CoroutineScope(SupervisorJob() + serialDispatcher)
 
@@ -86,7 +88,8 @@ internal class AndroidAdvertiser(private val context: Context) : Advertiser {
             advertiser = bleAdvertiser
 
             val settings =
-                AdvertiseSettings.Builder()
+                AdvertiseSettings
+                    .Builder()
                     .setAdvertiseMode(config.mode.toAndroidMode())
                     .setConnectable(config.connectable)
                     .setTxPowerLevel(config.txPower.toAndroidTxPower())
@@ -94,7 +97,8 @@ internal class AndroidAdvertiser(private val context: Context) : Advertiser {
                     .build()
 
             val dataBuilder =
-                AdvertiseData.Builder()
+                AdvertiseData
+                    .Builder()
                     .setIncludeDeviceName(config.name != null)
                     .setIncludeTxPowerLevel(config.includeTxPower)
 

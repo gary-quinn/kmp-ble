@@ -21,7 +21,9 @@ import kotlin.uuid.Uuid
  * reconnection lifecycle (distinguishing temporary disconnect from permanent disconnect).
  */
 internal sealed interface ObservationEvent {
-    data class Value(val data: ByteArray) : ObservationEvent {
+    data class Value(
+        val data: ByteArray,
+    ) : ObservationEvent {
         override fun equals(other: Any?): Boolean {
             if (this === other) return true
             if (other !is Value) return false
@@ -41,7 +43,10 @@ internal sealed interface ObservationEvent {
  * Required because Characteristic objects are session-scoped and replaced on reconnect.
  */
 @OptIn(ExperimentalUuidApi::class)
-internal data class ObservationKey(val serviceUuid: Uuid, val charUuid: Uuid)
+internal data class ObservationKey(
+    val serviceUuid: Uuid,
+    val charUuid: Uuid,
+)
 
 /**
  * Tracks an active observation with its flow and metadata.
@@ -106,9 +111,10 @@ internal class ObservationManager(
      */
     private fun notifyObservationsChanged() {
         onObservationsChanged?.invoke(
-            observationsSnapshot.values.map { tracked ->
-                PersistedObservation(tracked.key, tracked.backpressure)
-            }.toSet(),
+            observationsSnapshot.values
+                .map { tracked ->
+                    PersistedObservation(tracked.key, tracked.backpressure)
+                }.toSet(),
         )
     }
 
@@ -131,17 +137,18 @@ internal class ObservationManager(
         val tracked =
             withContext(serialDispatcher) {
                 val sizeBefore = observations.size
-                observations.getOrPut(key) {
-                    TrackedObservation(
-                        key = key,
-                        backpressure = backpressure,
-                        flow = MutableSharedFlow(extraBufferCapacity = OBSERVATION_BUFFER_CAPACITY),
-                    )
-                }.also {
-                    it.collectorCount++
-                    keyAdded = observations.size > sizeBefore
-                    if (keyAdded) updateSnapshot()
-                }
+                observations
+                    .getOrPut(key) {
+                        TrackedObservation(
+                            key = key,
+                            backpressure = backpressure,
+                            flow = MutableSharedFlow(extraBufferCapacity = OBSERVATION_BUFFER_CAPACITY),
+                        )
+                    }.also {
+                        it.collectorCount++
+                        keyAdded = observations.size > sizeBefore
+                        if (keyAdded) updateSnapshot()
+                    }
             }
         if (keyAdded) notifyObservationsChanged()
 
@@ -242,11 +249,10 @@ internal class ObservationManager(
     /**
      * Returns list of observation keys that need CCCD re-enabled on reconnect.
      */
-    suspend fun getObservationsToResubscribe(): List<ObservationKey> {
-        return withContext(serialDispatcher) {
+    suspend fun getObservationsToResubscribe(): List<ObservationKey> =
+        withContext(serialDispatcher) {
             observations.keys.toList()
         }
-    }
 
     /**
      * Complete a specific observation (e.g., when characteristic no longer exists after reconnect).

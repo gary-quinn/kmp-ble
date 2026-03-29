@@ -95,8 +95,7 @@ public class IosPeripheral(
         com.atruedev.kmpble.connection.internal.ReconnectionHandler(
             scope = peripheralContext.scope,
             stateFlow = peripheralContext.state,
-            connectAction = {
-                    opts ->
+            connectAction = { opts ->
                 connect(opts.copy(reconnectionStrategy = com.atruedev.kmpble.connection.ReconnectionStrategy.None))
             },
             onMaxAttemptsExhausted = { observationManager.onPermanentDisconnect() },
@@ -185,11 +184,10 @@ public class IosPeripheral(
     }
 
     @com.atruedev.kmpble.ExperimentalBleApi
-    override fun removeBond(): com.atruedev.kmpble.bonding.BondRemovalResult {
-        return com.atruedev.kmpble.bonding.BondRemovalResult.NotSupported(
+    override fun removeBond(): com.atruedev.kmpble.bonding.BondRemovalResult =
+        com.atruedev.kmpble.bonding.BondRemovalResult.NotSupported(
             "iOS does not support programmatic bond removal. Remove from Settings > Bluetooth.",
         )
-    }
 
     override fun close() {
         if (closed) return
@@ -221,12 +219,11 @@ public class IosPeripheral(
     override fun findCharacteristic(
         serviceUuid: Uuid,
         characteristicUuid: Uuid,
-    ): Characteristic? {
-        return services.value
+    ): Characteristic? =
+        services.value
             ?.firstOrNull { it.uuid == serviceUuid }
             ?.characteristics
             ?.firstOrNull { it.uuid == characteristicUuid }
-    }
 
     override fun findDescriptor(
         serviceUuid: Uuid,
@@ -432,23 +429,20 @@ public class IosPeripheral(
 
     // --- GATT Operations ---
 
-    private fun requireNativeCbChar(characteristic: Characteristic): CBCharacteristic {
-        return nativeCharMap[characteristic]
+    private fun requireNativeCbChar(characteristic: Characteristic): CBCharacteristic =
+        nativeCharMap[characteristic]
             ?: throw IllegalArgumentException("Characteristic not found. Re-acquire from services after connect.")
-    }
 
-    private fun requireNativeCbDesc(descriptor: Descriptor): CBDescriptor {
-        return nativeDescMap[descriptor]
+    private fun requireNativeCbDesc(descriptor: Descriptor): CBDescriptor =
+        nativeDescMap[descriptor]
             ?: throw IllegalArgumentException("Descriptor not found.")
-    }
 
-    private fun ByteArray.toNSData(): NSData {
-        return com.atruedev.kmpble.BleData(this).nsData
-    }
+    private fun ByteArray.toNSData(): NSData =
+        com.atruedev.kmpble
+            .BleData(this)
+            .nsData
 
-    private fun NSData.toByteArray(): ByteArray {
-        return bleDataFromNSData(this).toByteArray()
-    }
+    private fun NSData.toByteArray(): ByteArray = bleDataFromNSData(this).toByteArray()
 
     override suspend fun read(characteristic: Characteristic): ByteArray {
         checkNotClosed()
@@ -497,22 +491,21 @@ public class IosPeripheral(
         val serviceUuid = characteristic.serviceUuid
         val charUuid = characteristic.uuid
 
-        return kotlinx.coroutines.flow.flow {
-            val eventFlow = observationManager.subscribe(serviceUuid, charUuid, backpressure)
-            eventFlow.collect { event ->
-                when (event) {
-                    is ObservationEvent.Value -> emit(Observation.Value(event.data))
-                    is ObservationEvent.Disconnected -> emit(Observation.Disconnected)
-                    is ObservationEvent.PermanentlyDisconnected -> emit(Observation.Disconnected)
+        return kotlinx.coroutines.flow
+            .flow {
+                val eventFlow = observationManager.subscribe(serviceUuid, charUuid, backpressure)
+                eventFlow.collect { event ->
+                    when (event) {
+                        is ObservationEvent.Value -> emit(Observation.Value(event.data))
+                        is ObservationEvent.Disconnected -> emit(Observation.Disconnected)
+                        is ObservationEvent.PermanentlyDisconnected -> emit(Observation.Disconnected)
+                    }
                 }
-            }
-        }
-            .onStart {
+            }.onStart {
                 if (peripheralContext.state.value is State.Connected.Ready) {
                     enableNotifications(characteristic)
                 }
-            }
-            .applyBackpressure(backpressure)
+            }.applyBackpressure(backpressure)
             .onCompletion {
                 val wasLastCollector = observationManager.unsubscribe(serviceUuid, charUuid)
                 if (wasLastCollector) {
@@ -529,26 +522,25 @@ public class IosPeripheral(
         val serviceUuid = characteristic.serviceUuid
         val charUuid = characteristic.uuid
 
-        return kotlinx.coroutines.flow.flow {
-            val eventFlow = observationManager.subscribe(serviceUuid, charUuid, backpressure)
-            eventFlow.collect { event ->
-                when (event) {
-                    is ObservationEvent.Value -> emit(event.data)
-                    is ObservationEvent.Disconnected -> {
-                        // Transparent reconnection — no emission during disconnect
-                    }
-                    is ObservationEvent.PermanentlyDisconnected -> {
-                        // Flow completes normally, no emission (transformWhile ends the flow)
+        return kotlinx.coroutines.flow
+            .flow {
+                val eventFlow = observationManager.subscribe(serviceUuid, charUuid, backpressure)
+                eventFlow.collect { event ->
+                    when (event) {
+                        is ObservationEvent.Value -> emit(event.data)
+                        is ObservationEvent.Disconnected -> {
+                            // Transparent reconnection — no emission during disconnect
+                        }
+                        is ObservationEvent.PermanentlyDisconnected -> {
+                            // Flow completes normally, no emission (transformWhile ends the flow)
+                        }
                     }
                 }
-            }
-        }
-            .onStart {
+            }.onStart {
                 if (peripheralContext.state.value is State.Connected.Ready) {
                     enableNotifications(characteristic)
                 }
-            }
-            .applyBackpressure(backpressure)
+            }.applyBackpressure(backpressure)
             .onCompletion {
                 val wasLastCollector = observationManager.unsubscribe(serviceUuid, charUuid)
                 if (wasLastCollector) {
@@ -611,9 +603,10 @@ public class IosPeripheral(
         // iOS negotiates MTU automatically — no explicit request API.
         // Read the actual negotiated value from CoreBluetooth.
         val actualMtu =
-            cbPeripheral.maximumWriteValueLengthForType(
-                platform.CoreBluetooth.CBCharacteristicWriteWithResponse,
-            ).toInt() + ATT_HEADER_SIZE
+            cbPeripheral
+                .maximumWriteValueLengthForType(
+                    platform.CoreBluetooth.CBCharacteristicWriteWithResponse,
+                ).toInt() + ATT_HEADER_SIZE
         peripheralContext.updateMtu(actualMtu)
         return actualMtu
     }
@@ -689,7 +682,10 @@ public class IosPeripheral(
         nativeDescMap.clear()
         closeL2capChannels()
         observationManager.onDisconnect()
-        pendingOps.cancelAll(com.atruedev.kmpble.gatt.internal.NotConnectedException())
+        pendingOps.cancelAll(
+            com.atruedev.kmpble.gatt.internal
+                .NotConnectedException(),
+        )
     }
 
     /**

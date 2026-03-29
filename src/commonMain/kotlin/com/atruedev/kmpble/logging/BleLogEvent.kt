@@ -17,11 +17,15 @@ public sealed interface BleLogEvent {
      */
     public val formatted: String
 
-    public data class ScanStarted(val filterCount: Int) : BleLogEvent {
+    public data class ScanStarted(
+        val filterCount: Int,
+    ) : BleLogEvent {
         override val formatted: String get() = "[Scan] Started ($filterCount filters)"
     }
 
-    public data class ScanStopped(val reason: String) : BleLogEvent {
+    public data class ScanStopped(
+        val reason: String,
+    ) : BleLogEvent {
         override val formatted: String get() = "[Scan] Stopped: $reason"
     }
 
@@ -69,23 +73,38 @@ public sealed interface BleLogEvent {
         override val formatted: String get() = "[${identifier.value}] $direction uuid=$uuid $bytes bytes"
     }
 
-    public data class BondEvent(val identifier: Identifier, val event: String) : BleLogEvent {
+    public data class BondEvent(
+        val identifier: Identifier,
+        val event: String,
+    ) : BleLogEvent {
         override val formatted: String get() = "[${identifier.value}] Bond: $event"
     }
 
-    public data class Error(val identifier: Identifier?, val message: String, val cause: Throwable?) : BleLogEvent {
+    public data class Error(
+        val identifier: Identifier?,
+        val message: String,
+        val cause: Throwable?,
+    ) : BleLogEvent {
         override val formatted: String get() = "[${identifier?.value ?: "global"}] ERROR: $message"
     }
 
-    public data class StateRestoration(val identifier: Identifier?, val event: String) : BleLogEvent {
+    public data class StateRestoration(
+        val identifier: Identifier?,
+        val event: String,
+    ) : BleLogEvent {
         override val formatted: String get() = "[StateRestoration] ${identifier?.value ?: "global"}: $event"
     }
 
-    public data class ServerLifecycle(val event: String) : BleLogEvent {
+    public data class ServerLifecycle(
+        val event: String,
+    ) : BleLogEvent {
         override val formatted: String get() = "[Server] $event"
     }
 
-    public data class ServerClientEvent(val device: Identifier, val event: String) : BleLogEvent {
+    public data class ServerClientEvent(
+        val device: Identifier,
+        val event: String,
+    ) : BleLogEvent {
         override val formatted: String get() = "[Server] ${device.value}: $event"
     }
 

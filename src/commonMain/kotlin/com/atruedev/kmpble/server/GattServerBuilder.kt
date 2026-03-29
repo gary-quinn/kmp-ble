@@ -58,7 +58,9 @@ public class GattServerBuilder {
 }
 
 @GattServerDsl
-public class ServiceBuilder(private val uuid: Uuid) {
+public class ServiceBuilder(
+    private val uuid: Uuid,
+) {
     internal val characteristics = mutableListOf<CharacteristicDefinition>()
 
     public fun characteristic(
@@ -88,7 +90,9 @@ public class ServiceBuilder(private val uuid: Uuid) {
 }
 
 @GattServerDsl
-public class CharacteristicBuilder(private val uuid: Uuid) {
+public class CharacteristicBuilder(
+    private val uuid: Uuid,
+) {
     private var props = ServerCharacteristic.Properties()
     private var perms = ServerCharacteristic.Permissions()
     private var readHandler: (suspend (device: Identifier) -> BleData)? = null

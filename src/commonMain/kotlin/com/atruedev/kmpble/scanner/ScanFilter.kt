@@ -10,13 +10,23 @@ import kotlin.uuid.Uuid
  */
 @OptIn(ExperimentalUuidApi::class)
 internal sealed interface ScanPredicate {
-    data class Name(val exact: String) : ScanPredicate
+    data class Name(
+        val exact: String,
+    ) : ScanPredicate
 
-    data class NamePrefix(val prefix: String) : ScanPredicate
+    data class NamePrefix(
+        val prefix: String,
+    ) : ScanPredicate
 
-    data class ServiceUuid(val uuid: Uuid) : ScanPredicate
+    data class ServiceUuid(
+        val uuid: Uuid,
+    ) : ScanPredicate
 
-    data class ServiceData(val uuid: Uuid, val data: ByteArray?, val mask: ByteArray?) : ScanPredicate {
+    data class ServiceData(
+        val uuid: Uuid,
+        val data: ByteArray?,
+        val mask: ByteArray?,
+    ) : ScanPredicate {
         override fun equals(other: Any?): Boolean {
             if (this === other) return true
             if (other == null || this::class != other::class) return false
@@ -38,7 +48,11 @@ internal sealed interface ScanPredicate {
         }
     }
 
-    data class ManufacturerData(val companyId: Int, val data: ByteArray?, val mask: ByteArray?) : ScanPredicate {
+    data class ManufacturerData(
+        val companyId: Int,
+        val data: ByteArray?,
+        val mask: ByteArray?,
+    ) : ScanPredicate {
         override fun equals(other: Any?): Boolean {
             if (this === other) return true
             if (other == null || this::class != other::class) return false
@@ -60,9 +74,13 @@ internal sealed interface ScanPredicate {
         }
     }
 
-    data class MinRssi(val minRssi: Int) : ScanPredicate
+    data class MinRssi(
+        val minRssi: Int,
+    ) : ScanPredicate
 
-    data class Address(val mac: String) : ScanPredicate
+    data class Address(
+        val mac: String,
+    ) : ScanPredicate
 }
 
 /**

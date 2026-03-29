@@ -9,7 +9,9 @@ public sealed class BackpressureStrategy {
     public data object Latest : BackpressureStrategy()
 
     /** Buffer up to [capacity] notifications before suspending the producer. */
-    public data class Buffer(val capacity: Int) : BackpressureStrategy()
+    public data class Buffer(
+        val capacity: Int,
+    ) : BackpressureStrategy()
 
     /** Unlimited buffering — use with caution on high-throughput characteristics. */
     public data object Unbounded : BackpressureStrategy()

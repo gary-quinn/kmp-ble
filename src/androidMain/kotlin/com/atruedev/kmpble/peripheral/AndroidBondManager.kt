@@ -65,8 +65,8 @@ internal class AndroidBondManager(
     }
 
     @ExperimentalBleApi
-    internal fun removeBond(): BondRemovalResult {
-        return try {
+    internal fun removeBond(): BondRemovalResult =
+        try {
             val method = device.javaClass.getMethod("removeBond")
             val result = method.invoke(device) as? Boolean ?: false
             if (result) {
@@ -81,7 +81,6 @@ internal class AndroidBondManager(
         } catch (e: Exception) {
             BondRemovalResult.Failed(e.message ?: "Unknown error")
         }
-    }
 
     private fun updateFromDevice() {
         val state =
@@ -136,7 +135,8 @@ internal class AndroidBondManager(
                                 if (previousState == BluetoothDevice.BOND_BONDING) {
                                     peripheralContext.processEvent(
                                         ConnectionEvent.BondFailed(
-                                            com.atruedev.kmpble.error.ConnectionFailed(reason = "Bonding failed"),
+                                            com.atruedev.kmpble.error
+                                                .ConnectionFailed(reason = "Bonding failed"),
                                         ),
                                     )
                                     bondComplete?.complete(false)

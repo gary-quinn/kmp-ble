@@ -4,7 +4,10 @@ import com.atruedev.kmpble.error.GattStatus
 import kotlinx.coroutines.CompletableDeferred
 import kotlin.reflect.KProperty
 
-internal data class GattResult(val value: ByteArray, val status: GattStatus) {
+internal data class GattResult(
+    val value: ByteArray,
+    val status: GattStatus,
+) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (other !is GattResult) return false
@@ -14,7 +17,9 @@ internal data class GattResult(val value: ByteArray, val status: GattStatus) {
     override fun hashCode(): Int = 31 * value.contentHashCode() + status.hashCode()
 }
 
-internal class PendingSlot<T>(private val name: String) {
+internal class PendingSlot<T>(
+    private val name: String,
+) {
     private var deferred: CompletableDeferred<T>? = null
 
     operator fun getValue(

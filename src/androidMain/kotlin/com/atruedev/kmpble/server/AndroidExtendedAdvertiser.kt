@@ -36,7 +36,9 @@ import kotlin.uuid.toJavaUuid
  * via `limitedParallelism(1)`. No locks or synchronized blocks.
  */
 @ExperimentalBleApi
-internal class AndroidExtendedAdvertiser(private val context: Context) : ExtendedAdvertiser {
+internal class AndroidExtendedAdvertiser(
+    private val context: Context,
+) : ExtendedAdvertiser {
     private val serialDispatcher = Dispatchers.Default.limitedParallelism(1)
     private val scope = CoroutineScope(SupervisorJob() + serialDispatcher)
 
@@ -81,7 +83,8 @@ internal class AndroidExtendedAdvertiser(private val context: Context) : Extende
                     scope.launch {
                         val stoppedId =
                             advertisingSets.entries
-                                .firstOrNull { it.value.set === advertisingSet }?.key
+                                .firstOrNull { it.value.set === advertisingSet }
+                                ?.key
                         if (stoppedId != null) {
                             advertisingSets.remove(stoppedId)
                             _activeSets.update { it - stoppedId }
@@ -152,7 +155,8 @@ internal class AndroidExtendedAdvertiser(private val context: Context) : Extende
 
 @ExperimentalBleApi
 private fun ExtendedAdvertiseConfig.toParameters(): AdvertisingSetParameters =
-    AdvertisingSetParameters.Builder()
+    AdvertisingSetParameters
+        .Builder()
         .setConnectable(connectable)
         .setScannable(scannable)
         .setLegacyMode(false)
@@ -166,7 +170,8 @@ private fun ExtendedAdvertiseConfig.toParameters(): AdvertisingSetParameters =
 @ExperimentalBleApi
 private fun ExtendedAdvertiseConfig.toAdvertiseData(): AdvertiseData {
     val builder =
-        AdvertiseData.Builder()
+        AdvertiseData
+            .Builder()
             .setIncludeDeviceName(name != null)
 
     for (uuid in serviceUuids) {

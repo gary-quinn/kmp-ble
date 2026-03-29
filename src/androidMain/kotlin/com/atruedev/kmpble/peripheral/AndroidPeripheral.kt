@@ -107,8 +107,7 @@ public class AndroidPeripheral internal constructor(
         com.atruedev.kmpble.connection.internal.ReconnectionHandler(
             scope = peripheralContext.scope,
             stateFlow = peripheralContext.state,
-            connectAction = {
-                    opts ->
+            connectAction = { opts ->
                 connect(opts.copy(reconnectionStrategy = com.atruedev.kmpble.connection.ReconnectionStrategy.None))
             },
             onMaxAttemptsExhausted = { observationManager.onPermanentDisconnect() },
@@ -302,12 +301,11 @@ public class AndroidPeripheral internal constructor(
     override fun findCharacteristic(
         serviceUuid: Uuid,
         characteristicUuid: Uuid,
-    ): Characteristic? {
-        return services.value
+    ): Characteristic? =
+        services.value
             ?.firstOrNull { it.uuid == serviceUuid }
             ?.characteristics
             ?.firstOrNull { it.uuid == characteristicUuid }
-    }
 
     override fun findDescriptor(
         serviceUuid: Uuid,
@@ -337,7 +335,11 @@ public class AndroidPeripheral internal constructor(
                 }
                 is GattCallbackEvent.CharacteristicChanged -> {
                     val uuid = Uuid.parse(event.characteristic.uuid.toString())
-                    val serviceUuid = Uuid.parse(event.characteristic.service.uuid.toString())
+                    val serviceUuid =
+                        Uuid.parse(
+                            event.characteristic.service.uuid
+                                .toString(),
+                        )
                     observationManager.emitByUuid(serviceUuid, uuid, event.value)
                 }
                 is GattCallbackEvent.DescriptorRead -> {
@@ -514,18 +516,16 @@ public class AndroidPeripheral internal constructor(
         return char
     }
 
-    private fun requireNativeChar(characteristic: Characteristic): BluetoothGattCharacteristic {
-        return nativeCharMap[characteristic]
+    private fun requireNativeChar(characteristic: Characteristic): BluetoothGattCharacteristic =
+        nativeCharMap[characteristic]
             ?: throw IllegalArgumentException(
                 "Characteristic not found in current GATT profile. " +
                     "Re-acquire from services after connect.",
             )
-    }
 
-    private fun requireNativeDesc(descriptor: Descriptor): BluetoothGattDescriptor {
-        return nativeDescMap[descriptor]
+    private fun requireNativeDesc(descriptor: Descriptor): BluetoothGattDescriptor =
+        nativeDescMap[descriptor]
             ?: throw IllegalArgumentException("Descriptor not found in current GATT profile.")
-    }
 
     // --- GATT Operations ---
 
@@ -584,22 +584,21 @@ public class AndroidPeripheral internal constructor(
         val serviceUuid = characteristic.serviceUuid
         val charUuid = characteristic.uuid
 
-        return kotlinx.coroutines.flow.flow {
-            val eventFlow = observationManager.subscribe(serviceUuid, charUuid, backpressure)
-            eventFlow.collect { event ->
-                when (event) {
-                    is ObservationEvent.Value -> emit(Observation.Value(event.data))
-                    is ObservationEvent.Disconnected -> emit(Observation.Disconnected)
-                    is ObservationEvent.PermanentlyDisconnected -> emit(Observation.Disconnected)
+        return kotlinx.coroutines.flow
+            .flow {
+                val eventFlow = observationManager.subscribe(serviceUuid, charUuid, backpressure)
+                eventFlow.collect { event ->
+                    when (event) {
+                        is ObservationEvent.Value -> emit(Observation.Value(event.data))
+                        is ObservationEvent.Disconnected -> emit(Observation.Disconnected)
+                        is ObservationEvent.PermanentlyDisconnected -> emit(Observation.Disconnected)
+                    }
                 }
-            }
-        }
-            .onStart {
+            }.onStart {
                 if (peripheralContext.state.value is State.Connected.Ready) {
                     enableNotifications(characteristic)
                 }
-            }
-            .applyBackpressure(backpressure)
+            }.applyBackpressure(backpressure)
             .onCompletion {
                 val wasLastCollector = observationManager.unsubscribe(serviceUuid, charUuid)
                 if (wasLastCollector) {
@@ -616,26 +615,25 @@ public class AndroidPeripheral internal constructor(
         val serviceUuid = characteristic.serviceUuid
         val charUuid = characteristic.uuid
 
-        return kotlinx.coroutines.flow.flow {
-            val eventFlow = observationManager.subscribe(serviceUuid, charUuid, backpressure)
-            eventFlow.collect { event ->
-                when (event) {
-                    is ObservationEvent.Value -> emit(event.data)
-                    is ObservationEvent.Disconnected -> {
-                        // Transparent reconnection — no emission during disconnect
-                    }
-                    is ObservationEvent.PermanentlyDisconnected -> {
-                        // Flow completes normally, no emission (transformWhile ends the flow)
+        return kotlinx.coroutines.flow
+            .flow {
+                val eventFlow = observationManager.subscribe(serviceUuid, charUuid, backpressure)
+                eventFlow.collect { event ->
+                    when (event) {
+                        is ObservationEvent.Value -> emit(event.data)
+                        is ObservationEvent.Disconnected -> {
+                            // Transparent reconnection — no emission during disconnect
+                        }
+                        is ObservationEvent.PermanentlyDisconnected -> {
+                            // Flow completes normally, no emission (transformWhile ends the flow)
+                        }
                     }
                 }
-            }
-        }
-            .onStart {
+            }.onStart {
                 if (peripheralContext.state.value is State.Connected.Ready) {
                     enableNotifications(characteristic)
                 }
-            }
-            .applyBackpressure(backpressure)
+            }.applyBackpressure(backpressure)
             .onCompletion {
                 val wasLastCollector = observationManager.unsubscribe(serviceUuid, charUuid)
                 if (wasLastCollector) {
@@ -880,7 +878,10 @@ public class AndroidPeripheral internal constructor(
         nativeDescMap.clear()
         closeL2capChannels()
         observationManager.onDisconnect()
-        pendingOps.cancelAll(com.atruedev.kmpble.gatt.internal.NotConnectedException())
+        pendingOps.cancelAll(
+            com.atruedev.kmpble.gatt.internal
+                .NotConnectedException(),
+        )
     }
 
     private fun checkNotClosed() {

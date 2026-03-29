@@ -97,9 +97,9 @@ public class FakePeripheral internal constructor(
     }
 
     @com.atruedev.kmpble.ExperimentalBleApi
-    override fun removeBond(): com.atruedev.kmpble.bonding.BondRemovalResult {
-        return com.atruedev.kmpble.bonding.BondRemovalResult.NotSupported("FakePeripheral")
-    }
+    override fun removeBond(): com.atruedev.kmpble.bonding.BondRemovalResult =
+        com.atruedev.kmpble.bonding.BondRemovalResult
+            .NotSupported("FakePeripheral")
 
     override fun close() {
         if (closed) return
@@ -117,12 +117,11 @@ public class FakePeripheral internal constructor(
     override fun findCharacteristic(
         serviceUuid: Uuid,
         characteristicUuid: Uuid,
-    ): Characteristic? {
-        return services.value
+    ): Characteristic? =
+        services.value
             ?.firstOrNull { it.uuid == serviceUuid }
             ?.characteristics
             ?.firstOrNull { it.uuid == characteristicUuid }
-    }
 
     override fun findDescriptor(
         serviceUuid: Uuid,
@@ -202,13 +201,11 @@ public class FakePeripheral internal constructor(
                         is ObservationEvent.PermanentlyDisconnected -> emit(Observation.Disconnected)
                     }
                 }
-            }
-                .onStart {
-                    if (context.state.value is State.Connected.Ready) {
-                        cccdWrites.add(CccdWrite(serviceUuid, charUuid, enabled = true))
-                    }
+            }.onStart {
+                if (context.state.value is State.Connected.Ready) {
+                    cccdWrites.add(CccdWrite(serviceUuid, charUuid, enabled = true))
                 }
-                .applyBackpressure(backpressure)
+            }.applyBackpressure(backpressure)
                 .onCompletion {
                     val wasLastCollector = observationManager.unsubscribe(serviceUuid, charUuid)
                     if (wasLastCollector && context.state.value is State.Connected) {
@@ -247,13 +244,11 @@ public class FakePeripheral internal constructor(
                         }
                     }
                 }
-            }
-                .onStart {
-                    if (context.state.value is State.Connected.Ready) {
-                        cccdWrites.add(CccdWrite(serviceUuid, charUuid, enabled = true))
-                    }
+            }.onStart {
+                if (context.state.value is State.Connected.Ready) {
+                    cccdWrites.add(CccdWrite(serviceUuid, charUuid, enabled = true))
                 }
-                .applyBackpressure(backpressure)
+            }.applyBackpressure(backpressure)
                 .onCompletion {
                     val wasLastCollector = observationManager.unsubscribe(serviceUuid, charUuid)
                     if (wasLastCollector && context.state.value is State.Connected) {
@@ -323,12 +318,11 @@ public class FakePeripheral internal constructor(
         return flow { throw BleException(error) }
     }
 
-    private fun findConfig(characteristic: Characteristic): FakeCharacteristicConfig? {
-        return characteristicConfigs.firstOrNull {
+    private fun findConfig(characteristic: Characteristic): FakeCharacteristicConfig? =
+        characteristicConfigs.firstOrNull {
             it.characteristic.serviceUuid == characteristic.serviceUuid &&
                 it.characteristic.uuid == characteristic.uuid
         }
-    }
 
     private fun checkNotClosed() {
         check(!closed) { "Peripheral is closed" }
@@ -421,8 +415,10 @@ public class FakePeripheral internal constructor(
         value: ByteArray,
     ) {
         emitObservationValue(
-            com.atruedev.kmpble.scanner.uuidFrom(serviceUuid),
-            com.atruedev.kmpble.scanner.uuidFrom(charUuid),
+            com.atruedev.kmpble.scanner
+                .uuidFrom(serviceUuid),
+            com.atruedev.kmpble.scanner
+                .uuidFrom(charUuid),
             value,
         )
     }
@@ -446,7 +442,5 @@ public class FakePeripheral internal constructor(
     public suspend fun hasCollectors(
         serviceUuid: Uuid,
         charUuid: Uuid,
-    ): Boolean {
-        return observationManager.hasCollectors(serviceUuid, charUuid)
-    }
+    ): Boolean = observationManager.hasCollectors(serviceUuid, charUuid)
 }

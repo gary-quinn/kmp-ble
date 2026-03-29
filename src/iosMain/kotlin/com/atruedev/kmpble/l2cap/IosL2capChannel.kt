@@ -79,10 +79,11 @@ internal class IosL2capChannel(
                 if (inputStream.hasBytesAvailable) {
                     buffer.usePinned { pinned ->
                         val bytesRead =
-                            inputStream.read(
-                                pinned.addressOf(0).reinterpret<UByteVar>(),
-                                bufferSize.toULong(),
-                            ).toInt()
+                            inputStream
+                                .read(
+                                    pinned.addressOf(0).reinterpret<UByteVar>(),
+                                    bufferSize.toULong(),
+                                ).toInt()
 
                         when {
                             bytesRead > 0 -> dataChannel.send(buffer.copyOf(bytesRead))
@@ -121,10 +122,11 @@ internal class IosL2capChannel(
                     }
 
                     val written =
-                        outputStream.write(
-                            pinned.addressOf(totalWritten).reinterpret<UByteVar>(),
-                            (data.size - totalWritten).toULong(),
-                        ).toInt()
+                        outputStream
+                            .write(
+                                pinned.addressOf(totalWritten).reinterpret<UByteVar>(),
+                                (data.size - totalWritten).toULong(),
+                            ).toInt()
 
                     if (written < 0) {
                         throw L2capException.WriteFailed(

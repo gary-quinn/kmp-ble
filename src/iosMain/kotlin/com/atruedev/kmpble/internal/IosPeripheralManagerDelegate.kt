@@ -25,7 +25,9 @@ import kotlin.concurrent.Volatile
  * [PeripheralManagerProvider]) and remains for the lifetime of the manager.
  * Server and advertiser register their callbacks as needed.
  */
-internal class IosPeripheralManagerDelegate : NSObject(), CBPeripheralManagerDelegateProtocol {
+internal class IosPeripheralManagerDelegate :
+    NSObject(),
+    CBPeripheralManagerDelegateProtocol {
     private val _managerState = MutableStateFlow<Long>(CBPeripheralManagerStateUnknown)
     internal val managerState: StateFlow<Long> = _managerState.asStateFlow()
 

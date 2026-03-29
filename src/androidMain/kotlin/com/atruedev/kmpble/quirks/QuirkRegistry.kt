@@ -22,7 +22,9 @@ public class QuirkRegistry private constructor(
     public fun describe(): String = description
 
     /** Mutable builder for constructing a [QuirkRegistry]. */
-    public class Builder internal constructor(private val device: DeviceInfo) {
+    public class Builder internal constructor(
+        private val device: DeviceInfo,
+    ) {
         private val entries = mutableListOf<Entry<*>>()
 
         /** Register a quirk for devices matching [match]. */
@@ -96,10 +98,11 @@ public class QuirkRegistry private constructor(
 
         private val defaultRegistryLazy: Lazy<QuirkRegistry> =
             lazy {
-                Builder(DeviceInfo.current()).apply {
-                    ServiceLoader.load(QuirkProvider::class.java).forEach(::addProvider)
-                    userConfig.load()?.invoke(this)
-                }.build()
+                Builder(DeviceInfo.current())
+                    .apply {
+                        ServiceLoader.load(QuirkProvider::class.java).forEach(::addProvider)
+                        userConfig.load()?.invoke(this)
+                    }.build()
             }
 
         /**

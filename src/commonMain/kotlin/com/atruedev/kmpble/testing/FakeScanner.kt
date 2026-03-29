@@ -176,6 +176,4 @@ public class FakeAdvertisementBuilder {
 }
 
 @OptIn(ExperimentalUuidApi::class)
-public fun FakeScanner(block: FakeScannerBuilder.() -> Unit): FakeScanner {
-    return FakeScannerBuilder().apply(block).build()
-}
+public fun FakeScanner(block: FakeScannerBuilder.() -> Unit): FakeScanner = FakeScannerBuilder().apply(block).build()

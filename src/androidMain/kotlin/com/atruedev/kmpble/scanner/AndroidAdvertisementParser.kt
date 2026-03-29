@@ -67,7 +67,8 @@ private fun parseManufacturerData(record: android.bluetooth.le.ScanRecord?): Map
 @OptIn(ExperimentalUuidApi::class)
 private fun parseServiceData(record: android.bluetooth.le.ScanRecord?): Map<Uuid, BleData> {
     val raw = record?.serviceData ?: return emptyMap()
-    return raw.map { (parcelUuid, data) ->
-        Uuid.parse(parcelUuid.uuid.toString()) to BleData(data)
-    }.toMap()
+    return raw
+        .map { (parcelUuid, data) ->
+            Uuid.parse(parcelUuid.uuid.toString()) to BleData(data)
+        }.toMap()
 }

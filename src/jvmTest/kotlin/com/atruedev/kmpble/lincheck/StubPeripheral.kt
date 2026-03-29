@@ -25,7 +25,9 @@ import kotlin.uuid.Uuid
  * throw because Lincheck tests only exercise registry operations.
  */
 @OptIn(ExperimentalUuidApi::class)
-internal class StubPeripheral(override val identifier: Identifier) : Peripheral {
+internal class StubPeripheral(
+    override val identifier: Identifier,
+) : Peripheral {
     override val state: StateFlow<State> = MutableStateFlow(State.Disconnected.ByRequest)
     override val bondState: StateFlow<BondState> = MutableStateFlow(BondState.Unknown)
     override val services: StateFlow<List<DiscoveredService>?> = MutableStateFlow(null)

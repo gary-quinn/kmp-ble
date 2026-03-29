@@ -79,7 +79,8 @@ public class AndroidScanner(
 
             val osFilters = buildOsFilters(config.filterGroups)
             val settings =
-                ScanSettings.Builder()
+                ScanSettings
+                    .Builder()
                     .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
                     .setLegacy(config.legacyOnly)
                     .build()
@@ -96,55 +97,58 @@ public class AndroidScanner(
         internal fun buildOsFilters(filterGroups: List<List<ScanPredicate>>): List<ScanFilter>? {
             if (filterGroups.isEmpty()) return null
 
-            return filterGroups.mapNotNull { andGroup ->
-                val builder = ScanFilter.Builder()
-                var hasOsPredicate = false
+            return filterGroups
+                .mapNotNull { andGroup ->
+                    val builder = ScanFilter.Builder()
+                    var hasOsPredicate = false
 
-                for (predicate in andGroup) {
-                    when (predicate) {
-                        is ScanPredicate.ServiceUuid -> {
-                            builder.setServiceUuid(ParcelUuid(java.util.UUID.fromString(predicate.uuid.toString())))
-                            hasOsPredicate = true
-                        }
-                        is ScanPredicate.Name -> {
-                            builder.setDeviceName(predicate.exact)
-                            hasOsPredicate = true
-                        }
-                        is ScanPredicate.Address -> {
-                            builder.setDeviceAddress(predicate.mac)
-                            hasOsPredicate = true
-                        }
-                        is ScanPredicate.ManufacturerData -> {
-                            if (predicate.data != null) {
-                                if (predicate.mask != null) {
-                                    builder.setManufacturerData(predicate.companyId, predicate.data, predicate.mask)
-                                } else {
-                                    builder.setManufacturerData(predicate.companyId, predicate.data)
-                                }
+                    for (predicate in andGroup) {
+                        when (predicate) {
+                            is ScanPredicate.ServiceUuid -> {
+                                builder.setServiceUuid(ParcelUuid(java.util.UUID.fromString(predicate.uuid.toString())))
+                                hasOsPredicate = true
                             }
-                            hasOsPredicate = true
-                        }
-                        is ScanPredicate.ServiceData -> {
-                            val uuid = ParcelUuid(java.util.UUID.fromString(predicate.uuid.toString()))
-                            if (predicate.data != null) {
-                                if (predicate.mask != null) {
-                                    builder.setServiceData(uuid, predicate.data, predicate.mask)
-                                } else {
-                                    builder.setServiceData(uuid, predicate.data)
-                                }
+                            is ScanPredicate.Name -> {
+                                builder.setDeviceName(predicate.exact)
+                                hasOsPredicate = true
                             }
-                            hasOsPredicate = true
+                            is ScanPredicate.Address -> {
+                                builder.setDeviceAddress(predicate.mac)
+                                hasOsPredicate = true
+                            }
+                            is ScanPredicate.ManufacturerData -> {
+                                if (predicate.data != null) {
+                                    if (predicate.mask != null) {
+                                        builder.setManufacturerData(predicate.companyId, predicate.data, predicate.mask)
+                                    } else {
+                                        builder.setManufacturerData(predicate.companyId, predicate.data)
+                                    }
+                                }
+                                hasOsPredicate = true
+                            }
+                            is ScanPredicate.ServiceData -> {
+                                val uuid = ParcelUuid(java.util.UUID.fromString(predicate.uuid.toString()))
+                                if (predicate.data != null) {
+                                    if (predicate.mask != null) {
+                                        builder.setServiceData(uuid, predicate.data, predicate.mask)
+                                    } else {
+                                        builder.setServiceData(uuid, predicate.data)
+                                    }
+                                }
+                                hasOsPredicate = true
+                            }
+                            is ScanPredicate.NamePrefix,
+                            is ScanPredicate.MinRssi,
+                            -> { /* post-filter only */ }
                         }
-                        is ScanPredicate.NamePrefix,
-                        is ScanPredicate.MinRssi,
-                        -> { /* post-filter only */ }
                     }
-                }
 
-                if (hasOsPredicate) builder.build() else null
-            }.ifEmpty { null }
+                    if (hasOsPredicate) builder.build() else null
+                }.ifEmpty { null }
         }
     }
 }
 
-public class ScanFailedException(errorCode: Int) : Exception("BLE scan failed with error code: $errorCode")
+public class ScanFailedException(
+    errorCode: Int,
+) : Exception("BLE scan failed with error code: $errorCode")

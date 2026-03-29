@@ -8,11 +8,7 @@ public actual fun GattServer(builder: GattServerBuilder.() -> Unit): GattServer 
     return AndroidGattServer(KmpBle.requireContext(), config.services)
 }
 
-public actual fun Advertiser(): Advertiser {
-    return AndroidAdvertiser(KmpBle.requireContext())
-}
+public actual fun Advertiser(): Advertiser = AndroidAdvertiser(KmpBle.requireContext())
 
 @ExperimentalBleApi
-public actual fun ExtendedAdvertiser(): ExtendedAdvertiser {
-    return AndroidExtendedAdvertiser(KmpBle.requireContext())
-}
+public actual fun ExtendedAdvertiser(): ExtendedAdvertiser = AndroidExtendedAdvertiser(KmpBle.requireContext())

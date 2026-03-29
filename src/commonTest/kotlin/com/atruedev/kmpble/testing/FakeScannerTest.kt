@@ -56,7 +56,11 @@ class FakeScannerTest {
                     advertisement {}
                 }
 
-            val ad = scanner.advertisements.take(1).toList().first()
+            val ad =
+                scanner.advertisements
+                    .take(1)
+                    .toList()
+                    .first()
             assertNull(ad.name)
             assertEquals(-60, ad.rssi)
             assertEquals(true, ad.isConnectable)
@@ -73,7 +77,11 @@ class FakeScannerTest {
                     }
                 }
 
-            val ad = scanner.advertisements.take(1).toList().first()
+            val ad =
+                scanner.advertisements
+                    .take(1)
+                    .toList()
+                    .first()
             assertEquals(3, ad.serviceUuids.size)
             assertEquals(uuidFrom("180d"), ad.serviceUuids[0])
             assertEquals(uuidFrom("180a"), ad.serviceUuids[1])
@@ -91,7 +99,11 @@ class FakeScannerTest {
                     }
                 }
 
-            val ad = scanner.advertisements.take(1).toList().first()
+            val ad =
+                scanner.advertisements
+                    .take(1)
+                    .toList()
+                    .first()
             assertEquals("AA:BB:CC:DD:EE:FF", ad.identifier.value)
         }
 
@@ -102,7 +114,11 @@ class FakeScannerTest {
                 FakeScanner {
                     advertisement {}
                 }
-            val ad = scanner.advertisements.take(1).toList().first()
+            val ad =
+                scanner.advertisements
+                    .take(1)
+                    .toList()
+                    .first()
             assertTrue(ad.isLegacy)
             assertEquals(Phy.Le1M, ad.primaryPhy)
             assertNull(ad.secondaryPhy)
@@ -126,7 +142,11 @@ class FakeScannerTest {
                         dataStatus(DataStatus.Truncated)
                     }
                 }
-            val ad = scanner.advertisements.take(1).toList().first()
+            val ad =
+                scanner.advertisements
+                    .take(1)
+                    .toList()
+                    .first()
             assertFalse(ad.isLegacy)
             assertEquals(Phy.LeCoded, ad.primaryPhy)
             assertEquals(Phy.Le2M, ad.secondaryPhy)

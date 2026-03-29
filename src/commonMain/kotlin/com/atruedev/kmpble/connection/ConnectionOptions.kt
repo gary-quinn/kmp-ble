@@ -66,7 +66,9 @@ public enum class TransportType {
 }
 
 /** Physical layer (PHY) preference for BLE 5.0 connections. */
-public enum class PhyMask(public val value: Int) {
+public enum class PhyMask(
+    public val value: Int,
+) {
     /** 1 Mbps PHY — universally supported. */
     LE_1M(1),
 

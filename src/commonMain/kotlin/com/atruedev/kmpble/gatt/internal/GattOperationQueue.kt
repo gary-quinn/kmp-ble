@@ -10,7 +10,9 @@ import kotlin.concurrent.Volatile
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
-internal class GattOperationQueue(private val scope: CoroutineScope) {
+internal class GattOperationQueue(
+    private val scope: CoroutineScope,
+) {
     private class QueueEntry(
         val action: suspend () -> Unit,
         val cancel: (Throwable) -> Unit,
