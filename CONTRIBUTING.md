@@ -40,9 +40,10 @@ kmp-ble/
 │   ├── androidMain/         # Android BluetoothGatt, BluetoothLeScanner
 │   ├── androidHostTest/     # Android-specific tests
 │   └── iosMain/             # CoreBluetooth CBCentralManager, CBPeripheralManager
-├── sample/                  # Compose Multiplatform sample app
-├── sample-android/          # Android-only sample app
-└── iosApp/                  # iOS sample app (Xcode project)
+├── sample/                  # BLE Toolkit — production-grade sample app (Android + iOS)
+├── sample-quickstart/       # Minimal scan-connect-read quickstart (~150 lines)
+├── sample-android/          # Android application wrapper for sample/
+└── iosApp/                  # iOS application wrapper (Xcode project)
 ```
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for how the internals fit together.
