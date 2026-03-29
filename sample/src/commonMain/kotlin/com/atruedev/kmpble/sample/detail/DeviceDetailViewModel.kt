@@ -20,7 +20,10 @@ import com.atruedev.kmpble.sample.profiles.ProfileUiState
 import com.atruedev.kmpble.sample.registry.BluetoothUuidNames
 import com.atruedev.kmpble.scanner.Advertisement
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -43,6 +46,13 @@ class DeviceDetailViewModel(
 
     private val peripheral: Peripheral = advertisement.toPeripheral()
 
+    private val serialScope =
+        CoroutineScope(
+            viewModelScope.coroutineContext +
+                Dispatchers.Default.limitedParallelism(1) +
+                SupervisorJob(viewModelScope.coroutineContext[Job]),
+        )
+
     private val _uiState =
         MutableStateFlow(
             DeviceDetailUiState(
@@ -52,12 +62,12 @@ class DeviceDetailViewModel(
         )
     val uiState: StateFlow<DeviceDetailUiState> = _uiState.asStateFlow()
 
-    private val charOps = CharacteristicOperations(peripheral, _uiState, viewModelScope)
-    private val bondingOps = BondingOperations(peripheral, _uiState, viewModelScope)
-    private val dfuOps = DfuOperations(peripheral, _uiState, viewModelScope)
+    private val charOps = CharacteristicOperations(peripheral, _uiState, serialScope)
+    private val bondingOps = BondingOperations(peripheral, _uiState, serialScope)
+    private val dfuOps = DfuOperations(peripheral, _uiState, serialScope)
     private val _profileState = MutableStateFlow(ProfileUiState())
-    private val profileOps = ProfileOperations(peripheral, _profileState, viewModelScope)
-    private val l2capOps = L2capOperations(peripheral, _uiState, viewModelScope)
+    private val profileOps = ProfileOperations(peripheral, _profileState, serialScope)
+    private val l2capOps = L2capOperations(peripheral, _uiState, serialScope)
     private var rssiJob: Job? = null
 
     init {
@@ -66,7 +76,7 @@ class DeviceDetailViewModel(
     }
 
     private fun observeConnectionState() {
-        viewModelScope.launch {
+        serialScope.launch {
             peripheral.state.collect { state ->
                 _uiState.update { it.copy(connectionState = state, error = null) }
                 when (state) {
@@ -79,7 +89,7 @@ class DeviceDetailViewModel(
     }
 
     private fun observeBondState() {
-        viewModelScope.launch {
+        serialScope.launch {
             peripheral.bondState.collect { bondState ->
                 _uiState.update { it.copy(bondState = bondState) }
             }
@@ -87,7 +97,7 @@ class DeviceDetailViewModel(
     }
 
     fun connect() {
-        viewModelScope.launch {
+        serialScope.launch {
             try {
                 _uiState.update { it.copy(error = null) }
                 peripheral.connect(
@@ -110,7 +120,7 @@ class DeviceDetailViewModel(
     }
 
     fun disconnect() {
-        viewModelScope.launch {
+        serialScope.launch {
             try {
                 charOps.stopAllNotifications()
                 peripheral.disconnect()
@@ -135,7 +145,7 @@ class DeviceDetailViewModel(
     }
 
     private fun discoverServices() {
-        viewModelScope.launch {
+        serialScope.launch {
             try {
                 val services = withTimeout(GATT_OPERATION_TIMEOUT) { peripheral.refreshServices() }
                 val serviceModels =
@@ -186,7 +196,7 @@ class DeviceDetailViewModel(
     private fun startRssiPolling() {
         rssiJob?.cancel()
         rssiJob =
-            viewModelScope.launch {
+            serialScope.launch {
                 var consecutiveFailures = 0
                 while (true) {
                     try {
@@ -211,7 +221,7 @@ class DeviceDetailViewModel(
 
     fun requestMtu(mtu: Int) {
         require(mtu in MTU_MIN..MTU_MAX) { "MTU must be between $MTU_MIN and $MTU_MAX" }
-        viewModelScope.launch {
+        serialScope.launch {
             try {
                 val negotiated = withTimeout(GATT_OPERATION_TIMEOUT) { peripheral.requestMtu(mtu) }
                 _uiState.update { it.copy(mtu = negotiated) }

@@ -135,18 +135,7 @@ internal class CharacteristicOperations(
                                 char.characteristic,
                                 BackpressureStrategy.Buffer(capacity = 16),
                             ).collect { value ->
-                                updateCharacteristic(serviceIndex, charIndex) { model ->
-                                    val values = model.notificationValues.toMutableList()
-                                    values.add(TimestampedValue(value, Clock.System.now()))
-                                    if (values.size > MAX_NOTIFICATION_VALUES) {
-                                        values.removeAt(0)
-                                    }
-                                    model.copy(
-                                        notificationValues = values,
-                                        lastReadValue = value,
-                                        error = null,
-                                    )
-                                }
+                                appendNotificationValue(serviceIndex, charIndex, value)
                             }
                     } catch (e: CancellationException) {
                         throw e
@@ -179,9 +168,35 @@ internal class CharacteristicOperations(
         }
     }
 
+    // Accumulate values in a reusable ArrayDeque to avoid allocating a new
+    // MutableList on every BLE notification. The deque is snapshotted to an
+    // immutable list only once per update for the UI state.
+    private val notificationBuffers = mutableMapOf<String, ArrayDeque<TimestampedValue>>()
+
+    private fun appendNotificationValue(
+        serviceIndex: Int,
+        charIndex: Int,
+        value: ByteArray,
+    ) {
+        val key = "${serviceIndex}_$charIndex"
+        val buffer = notificationBuffers.getOrPut(key) { ArrayDeque(MAX_NOTIFICATION_VALUES) }
+        buffer.addLast(TimestampedValue(value, Clock.System.now()))
+        while (buffer.size > MAX_NOTIFICATION_VALUES) {
+            buffer.removeFirst()
+        }
+        updateCharacteristic(serviceIndex, charIndex) { model ->
+            model.copy(
+                notificationValues = buffer.toList(),
+                lastReadValue = value,
+                error = null,
+            )
+        }
+    }
+
     fun stopAllNotifications() {
         notificationJobs.values.forEach { it.cancel() }
         notificationJobs.clear()
+        notificationBuffers.clear()
     }
 
     private fun updateCharacteristic(

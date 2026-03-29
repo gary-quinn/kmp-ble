@@ -185,7 +185,9 @@ class ScannerViewModel : ViewModel() {
     }
 
     fun toggleFilterBar() {
-        _uiState.update { it.copy(isFilterBarVisible = !it.isFilterBarVisible) }
+        serialScope.launch {
+            _uiState.update { it.copy(isFilterBarVisible = !it.isFilterBarVisible) }
+        }
     }
 
     override fun onCleared() {
