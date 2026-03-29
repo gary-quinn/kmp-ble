@@ -195,11 +195,6 @@ jobs:
           VERSION="${{ needs.publish.outputs.version }}"
           sed -i -E "s|implementation\(\"com\.atruedev:kmp-ble(-[a-z]+)?:[^\"]*\"\)|implementation(\"com.atruedev:kmp-ble\1:$VERSION\")|g" llms.txt
 
-      - name: Update ROADMAP.md
-        run: |
-          VERSION="${{ needs.publish.outputs.version }}"
-          sed -i "s|^\*Current as of v.*\*$|*Current as of v$VERSION*|" ROADMAP.md
-
       - name: Create Pull Request
         id: create-pr
         uses: peter-evans/create-pull-request@c0f553fe549906ede9cf27b5156039d195d2ece0 # v8.1.0
@@ -213,7 +208,6 @@ jobs:
             - `README.md` — dependency version
             - `CHANGELOG.md` — auto-generated entries from merged PRs
             - `llms.txt` — dependency version
-            - `ROADMAP.md` — "Current as of" footer
 
             Release: ${{ needs.publish.outputs.release_url }}
           branch: update-docs-${{ needs.publish.outputs.version }}
