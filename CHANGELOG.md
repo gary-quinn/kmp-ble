@@ -15,6 +15,17 @@ _Changes on `main` that have not yet been tagged for release._
 
 ---
 
+## [0.3.9] - 2026-03-29
+
+### Other
+- update Package.swift for v0.3.9
+- docs: remove CONTRIBUTING and ROADMAP, clean up references (#90)
+- refactor(sample): merge ble-toolkit as primary sample app (#88)
+- update Package.swift for v0.3.8
+
+
+---
+
 ## [0.3.8] - 2026-03-29
 
 ### Fixed
@@ -315,7 +326,8 @@ _Changes on `main` that have not yet been tagged for release._
 
 ---
 
-[Unreleased]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.8...HEAD
+[Unreleased]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.9...HEAD
+[0.3.9]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.8...v0.3.9
 [0.3.8]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.7...v0.3.8
 [0.3.7]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.6...v0.3.7
 [0.3.6]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.5...v0.3.6
