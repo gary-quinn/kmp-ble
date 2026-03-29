@@ -76,6 +76,8 @@ private fun ScanScreen(onDeviceSelected: (Advertisement) -> Unit) {
         Column(
             modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp),
         ) {
+            // Guard relies on recomposition timing — a rapid double-tap could
+            // theoretically create two scanners. Acceptable for quickstart simplicity.
             Button(
                 onClick = {
                     if (scanning) return@Button
@@ -91,8 +93,8 @@ private fun ScanScreen(onDeviceSelected: (Advertisement) -> Unit) {
                             }
                         } catch (e: CancellationException) {
                             throw e
-                        } catch (_: Exception) {
-                            // Scan timeout or error
+                        } catch (e: Exception) {
+                            println("Scan ended: ${e.message}")
                         } finally {
                             scanning = false
                         }

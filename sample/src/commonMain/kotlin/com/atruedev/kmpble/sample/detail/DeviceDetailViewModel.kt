@@ -21,7 +21,6 @@ import com.atruedev.kmpble.sample.registry.BluetoothUuidNames
 import com.atruedev.kmpble.scanner.Advertisement
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -189,7 +188,7 @@ class DeviceDetailViewModel(
         rssiJob =
             viewModelScope.launch {
                 var consecutiveFailures = 0
-                while (currentCoroutineContext()[Job]!!.isActive) {
+                while (true) {
                     try {
                         val rssi = withTimeout(GATT_OPERATION_TIMEOUT) { peripheral.readRssi() }
                         _uiState.update { it.copy(rssi = rssi) }
@@ -302,7 +301,11 @@ class DeviceDetailViewModel(
         _uiState.update { it.copy(error = null) }
     }
 
+    private var closed = false
+
     fun close() {
+        if (closed) return
+        closed = true
         charOps.stopAllNotifications()
         profileOps.stopAll()
         l2capOps.closeChannel()

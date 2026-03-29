@@ -61,6 +61,7 @@ class ScannerViewModel : ViewModel() {
 
     fun onPermissionGranted() {
         serialScope.launch {
+            stopScan()
             adapter.close()
             adapter = BluetoothAdapter()
             observeAdapterState()
@@ -170,13 +171,17 @@ class ScannerViewModel : ViewModel() {
     }
 
     fun updateFilters(newFilters: ScanFilters) {
-        _uiState.update { it.copy(filters = newFilters) }
-        serialScope.launch { updateFilteredAndSortedList() }
+        serialScope.launch {
+            _uiState.update { it.copy(filters = newFilters) }
+            updateFilteredAndSortedList()
+        }
     }
 
     fun setSortMode(mode: SortMode) {
-        _uiState.update { it.copy(sortMode = mode) }
-        serialScope.launch { updateFilteredAndSortedList() }
+        serialScope.launch {
+            _uiState.update { it.copy(sortMode = mode) }
+            updateFilteredAndSortedList()
+        }
     }
 
     fun toggleFilterBar() {

@@ -125,6 +125,8 @@ internal class CharacteristicOperations(
             updateCharacteristic(serviceIndex, charIndex) {
                 it.copy(isNotifying = true, notificationValues = emptyList())
             }
+            // Buffer(16) suspends the producer when full, applying backpressure
+            // to the BLE stack. Notifications resume once the collector drains items.
             val job =
                 scope.launch {
                     try {

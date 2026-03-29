@@ -50,8 +50,8 @@ internal class L2capOperations(
                     }
                 } catch (e: CancellationException) {
                     throw e
-                } catch (_: Exception) {
-                    _uiState.update { it.copy(l2capState = L2capState.Closed) }
+                } catch (e: Exception) {
+                    _uiState.update { it.copy(l2capState = L2capState.Error("Receive failed: ${e.message}")) }
                 }
             }
     }
