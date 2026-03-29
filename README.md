@@ -354,7 +354,7 @@ val peripheral = FakePeripheral {
 
 ### BLE Toolkit (`sample/`)
 
-Production-grade BLE utility app (Android + iOS) built entirely with kmp-ble. Tab-based navigation, composed operation classes, and polished UX:
+Production-grade BLE utility app (Android + iOS) with tab-based navigation, composed operation classes, and polished UX:
 
 - **Scanner** with RSSI/name filtering, sorting, device categorization, manufacturer name resolution
 - **Device Detail** with GATT service browser, value display in HEX/UTF-8/Decimal/Binary, connection recipes, bonding
