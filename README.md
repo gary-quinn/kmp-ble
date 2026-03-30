@@ -25,12 +25,12 @@ Kotlin Multiplatform BLE library for Android and iOS.
 kotlin {
     sourceSets {
         commonMain.dependencies {
-            implementation("com.atruedev:kmp-ble:0.3.9")
+            implementation("com.atruedev:kmp-ble:0.3.10")
 
             // Optional modules
-            implementation("com.atruedev:kmp-ble-profiles:0.3.9")
-            implementation("com.atruedev:kmp-ble-dfu:0.3.9")
-            implementation("com.atruedev:kmp-ble-codec:0.3.9")
+            implementation("com.atruedev:kmp-ble-profiles:0.3.10")
+            implementation("com.atruedev:kmp-ble-dfu:0.3.10")
+            implementation("com.atruedev:kmp-ble-codec:0.3.10")
         }
     }
 }
