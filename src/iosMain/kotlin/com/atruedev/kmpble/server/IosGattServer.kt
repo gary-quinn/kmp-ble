@@ -384,63 +384,91 @@ internal class IosGattServer(
         val firstRequest = requests.first()
 
         scope.launch {
-            var failed = false
-            var failError: Long = CB_ATT_ERROR_UNLIKELY
-
-            for (request in requests) {
-                val data = if (request.value != null) bleDataFromNSData(request.value!!) else emptyBleData()
-
-                trackCentral(request.central)
-
-                val handler = writeHandlers[request.charUuid]
-                if (handler == null) {
-                    logEvent(
-                        BleLogEvent.ServerRequest(
-                            request.centralId,
-                            "write-rejected (no handler)",
-                            request.charUuid,
-                            GattStatus.WriteNotPermitted,
-                        ),
-                    )
-                    failed = true
-                    failError = CBATTErrorWriteNotPermitted
-                    break
-                }
-
-                try {
-                    val status = handler(request.centralId, data, true)
-                    if (status != null && status != GattStatus.Success) {
-                        failed = true
-                        failError = status.toCBATTError()
-                        break
+            // CoreBluetooth delivers fragmented writes as a batch with non-zero offsets
+            val hasFragments = requests.any { it.offset.toInt() > 0 }
+            val writes: List<Pair<Uuid, BleData>> =
+                if (hasFragments) {
+                    val assembled = assembleFragmentedWrites(requests)
+                    if (assembled == null) {
+                        peripheral.respondToRequest(
+                            firstRequest,
+                            withResult = CBATTErrorInvalidAttributeValueLength,
+                        )
+                        return@launch
                     }
-                    logEvent(
-                        BleLogEvent.ServerRequest(
-                            request.centralId,
-                            "write (${data.size}B)",
-                            request.charUuid,
-                            status,
-                        ),
-                    )
-                } catch (e: Exception) {
-                    if (e is kotlinx.coroutines.CancellationException) throw e
-                    logEvent(
-                        BleLogEvent.ServerRequest(
-                            request.centralId,
-                            "write-failed (handler threw)",
-                            request.charUuid,
-                            GattStatus.Failure,
-                        ),
-                    )
-                    failed = true
-                    break
+                    assembled
+                } else {
+                    requests.map { request ->
+                        val data = if (request.value != null) bleDataFromNSData(request.value!!) else emptyBleData()
+                        request.charUuid to data
+                    }
                 }
+
+            val errorCode = dispatchWrites(requests.first().centralId, requests.first().central, writes)
+            peripheral.respondToRequest(firstRequest, withResult = errorCode ?: CBATTErrorSuccess)
+        }
+    }
+
+    /**
+     * Dispatch assembled writes to handlers. Returns the first error code, or null on success.
+     */
+    private suspend fun dispatchWrites(
+        centralId: Identifier,
+        central: CBCentral,
+        writes: List<Pair<Uuid, BleData>>,
+    ): Long? {
+        trackCentral(central)
+
+        for ((charUuid, data) in writes) {
+            val handler = writeHandlers[charUuid]
+            if (handler == null) {
+                logEvent(
+                    BleLogEvent.ServerRequest(
+                        centralId,
+                        "write-rejected (no handler)",
+                        charUuid,
+                        GattStatus.WriteNotPermitted,
+                    ),
+                )
+                return CBATTErrorWriteNotPermitted
             }
 
-            if (failed) {
-                peripheral.respondToRequest(firstRequest, withResult = failError)
-            } else {
-                peripheral.respondToRequest(firstRequest, withResult = CBATTErrorSuccess)
+            try {
+                val status = handler(centralId, data, true)
+                if (status != null && status != GattStatus.Success) {
+                    return status.toCBATTError()
+                }
+                logEvent(BleLogEvent.ServerRequest(centralId, "write (${data.size}B)", charUuid, status))
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                logEvent(
+                    BleLogEvent.ServerRequest(centralId, "write-failed (handler threw)", charUuid, GattStatus.Failure),
+                )
+                return CB_ATT_ERROR_UNLIKELY
+            }
+        }
+        return null
+    }
+
+    private fun assembleFragmentedWrites(requests: List<CBATTRequest>): List<Pair<Uuid, BleData>>? {
+        val fragments =
+            requests.map { request ->
+                val nsData = request.value
+                val bytes = if (nsData != null) bleDataFromNSData(nsData).toByteArray() else byteArrayOf()
+                WriteFragment(request.charUuid, request.offset.toInt(), bytes)
+            }
+        return when (val result = assembleWriteFragments(fragments)) {
+            is AssemblyResult.Success -> result.writes.map { it.charUuid to BleData(it.data) }
+            is AssemblyResult.PayloadTooLarge -> {
+                logEvent(
+                    BleLogEvent.ServerRequest(
+                        requests.first().centralId,
+                        "write-rejected (${result.actualSize}B exceeds limit)",
+                        result.charUuid,
+                        GattStatus.InvalidAttributeLength,
+                    ),
+                )
+                null
             }
         }
     }
