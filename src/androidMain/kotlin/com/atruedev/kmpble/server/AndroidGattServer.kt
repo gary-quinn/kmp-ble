@@ -156,16 +156,9 @@ internal class AndroidGattServer(
     private val readHandlers = mutableMapOf<Uuid, suspend (Identifier) -> BleData>()
     private val writeHandlers = mutableMapOf<Uuid, suspend (Identifier, BleData, Boolean) -> GattStatus?>()
 
-    // Prepared Write (Write Long) buffer: per-device accumulation of chunks.
-    // Key = device address, Value = list of (characteristicUuid, offset, bytes).
-    // Filled during preparedWrite requests, drained on executeWrite.
-    private data class PreparedChunk(
-        val charUuid: Uuid,
-        val offset: Int,
-        val value: ByteArray,
-    )
-
-    private val preparedWriteBuffer = mutableMapOf<String, MutableList<PreparedChunk>>()
+    // Prepared Write (Write Long) buffer: per-device fragment accumulation.
+    // Filled during preparedWrite requests, drained on executeWrite or disconnect.
+    private val preparedWriteBuffer = mutableMapOf<String, MutableList<WriteFragment>>()
 
     // O(1) lookup cache: characteristic UUID -> native characteristic (built during open)
     private val characteristicCache = mutableMapOf<Uuid, BluetoothGattCharacteristic>()
@@ -225,6 +218,7 @@ internal class AndroidGattServer(
                         BluetoothProfile.STATE_DISCONNECTED -> {
                             connectedDevices.remove(deviceId)
                             deviceMtu.remove(deviceId)
+                            preparedWriteBuffer.remove(device.address)
                             // Remove all subscriptions for this device
                             subscriptionModes.keys.removeAll { it.device == deviceId }
                             for ((_, subscribers) in subscribersByChar) {
@@ -318,10 +312,9 @@ internal class AndroidGattServer(
                     val deviceId = Identifier(device.address)
                     val charUuid = characteristic.uuid.toKotlinUuid()
 
-                    // Prepared writes (Write Long): buffer chunks until Execute Write
+                    // Prepared writes (Write Long): buffer fragments until Execute Write
                     if (preparedWrite) {
-                        val handler = writeHandlers[charUuid]
-                        if (handler == null) {
+                        if (writeHandlers[charUuid] == null) {
                             logEvent(
                                 BleLogEvent.ServerRequest(
                                     deviceId,
@@ -342,9 +335,31 @@ internal class AndroidGattServer(
                             return@launch
                         }
 
-                        preparedWriteBuffer
-                            .getOrPut(device.address) { mutableListOf() }
-                            .add(PreparedChunk(charUuid, offset, value ?: byteArrayOf()))
+                        val buffer = preparedWriteBuffer.getOrPut(device.address) { mutableListOf() }
+                        val bufferedBytes = buffer.sumOf { it.bytes.size } + (value?.size ?: 0)
+                        if (bufferedBytes > MAX_PREPARED_WRITE_BUFFER_BYTES) {
+                            preparedWriteBuffer.remove(device.address)
+                            logEvent(
+                                BleLogEvent.ServerRequest(
+                                    deviceId,
+                                    "prepared-write-rejected (buffer limit ${bufferedBytes}B)",
+                                    charUuid,
+                                    GattStatus.InvalidAttributeLength,
+                                ),
+                            )
+                            if (responseNeeded) {
+                                sendResponseSafe(
+                                    device,
+                                    requestId,
+                                    BluetoothGatt.GATT_INVALID_ATTRIBUTE_LENGTH,
+                                    offset,
+                                    null,
+                                )
+                            }
+                            return@launch
+                        }
+
+                        buffer.add(WriteFragment(charUuid, offset, value ?: byteArrayOf()))
                         logEvent(
                             BleLogEvent.ServerRequest(
                                 deviceId,
@@ -456,11 +471,10 @@ internal class AndroidGattServer(
                 execute: Boolean,
             ) {
                 scope.launch {
-                    val chunks = preparedWriteBuffer.remove(device.address)
+                    val fragments = preparedWriteBuffer.remove(device.address)
                     val deviceId = Identifier(device.address)
 
-                    if (!execute || chunks.isNullOrEmpty()) {
-                        // Client cancelled the prepared write — discard buffered data
+                    if (!execute || fragments.isNullOrEmpty()) {
                         logEvent(
                             BleLogEvent.ServerClientEvent(
                                 deviceId,
@@ -471,18 +485,17 @@ internal class AndroidGattServer(
                         return@launch
                     }
 
-                    // Group chunks by characteristic and assemble each into a single byte array
-                    val grouped = chunks.groupBy { it.charUuid }
+                    val assembled = assembleWriteFragments(fragments)
                     var failed = false
 
-                    for ((charUuid, charChunks) in grouped) {
-                        val handler = writeHandlers[charUuid]
+                    for (write in assembled) {
+                        val handler = writeHandlers[write.charUuid]
                         if (handler == null) {
                             logEvent(
                                 BleLogEvent.ServerRequest(
                                     deviceId,
                                     "execute-write-rejected (no handler)",
-                                    charUuid,
+                                    write.charUuid,
                                     GattStatus.WriteNotPermitted,
                                 ),
                             )
@@ -490,21 +503,13 @@ internal class AndroidGattServer(
                             break
                         }
 
-                        // Assemble chunks by offset into a contiguous byte array
-                        val totalSize = charChunks.maxOf { it.offset + it.value.size }
-                        val assembled = ByteArray(totalSize)
-                        for (chunk in charChunks) {
-                            chunk.value.copyInto(assembled, destinationOffset = chunk.offset)
-                        }
-
                         try {
-                            val bleData = BleData(assembled)
-                            val status = handler(deviceId, bleData, true)
+                            val status = handler(deviceId, BleData(write.data), true)
                             logEvent(
                                 BleLogEvent.ServerRequest(
                                     deviceId,
-                                    "execute-write (${assembled.size}B from ${charChunks.size} chunks)",
-                                    charUuid,
+                                    "execute-write (${write.data.size}B)",
+                                    write.charUuid,
                                     status,
                                 ),
                             )
@@ -512,12 +517,13 @@ internal class AndroidGattServer(
                                 failed = true
                                 break
                             }
-                        } catch (_: Exception) {
+                        } catch (e: Exception) {
+                            if (e is kotlinx.coroutines.CancellationException) throw e
                             logEvent(
                                 BleLogEvent.ServerRequest(
                                     deviceId,
                                     "execute-write-failed (handler threw)",
-                                    charUuid,
+                                    write.charUuid,
                                     GattStatus.Failure,
                                 ),
                             )
@@ -946,6 +952,7 @@ internal class AndroidGattServer(
         const val DEFAULT_MTU = 23
         const val ATT_HEADER_SIZE = 3
         const val CONNECTION_WARNING_THRESHOLD = 7
+        const val MAX_PREPARED_WRITE_BUFFER_BYTES = 4096
 
         // Global single-instance guard — Android supports one GATT server per app
         private val instanceLock = AtomicBoolean(false)

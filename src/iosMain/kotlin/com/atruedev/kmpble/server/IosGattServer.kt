@@ -374,6 +374,12 @@ internal class IosGattServer(
         }
     }
 
+    private class DeliverableWrite(
+        val request: CBATTRequest,
+        val charUuid: Uuid,
+        val data: BleData,
+    )
+
     private fun handleWriteRequests(
         peripheral: CBPeripheralManager,
         rawRequests: List<*>,
@@ -384,34 +390,32 @@ internal class IosGattServer(
         val firstRequest = requests.first()
 
         scope.launch {
-            // Check if any request has a non-zero offset (Write Long / Prepared Write).
-            // If so, group by characteristic and assemble fragments before delivering.
-            val hasOffsets = requests.any { it.offset.toInt() > 0 }
+            val hasFragments = requests.any { it.offset.toInt() > 0 }
 
-            val deliverableWrites: List<Triple<CBATTRequest, Uuid, BleData>> =
-                if (hasOffsets) {
+            val writes: List<DeliverableWrite> =
+                if (hasFragments) {
                     assembleFragmentedWrites(requests)
                 } else {
                     requests.map { request ->
                         val data =
                             if (request.value != null) bleDataFromNSData(request.value!!) else emptyBleData()
-                        Triple(request, request.charUuid, data)
+                        DeliverableWrite(request, request.charUuid, data)
                     }
                 }
 
             var failed = false
             var failError: Long = CB_ATT_ERROR_UNLIKELY
 
-            for ((request, charUuid, data) in deliverableWrites) {
-                trackCentral(request.central)
+            for (write in writes) {
+                trackCentral(write.request.central)
 
-                val handler = writeHandlers[charUuid]
+                val handler = writeHandlers[write.charUuid]
                 if (handler == null) {
                     logEvent(
                         BleLogEvent.ServerRequest(
-                            request.centralId,
+                            write.request.centralId,
                             "write-rejected (no handler)",
-                            charUuid,
+                            write.charUuid,
                             GattStatus.WriteNotPermitted,
                         ),
                     )
@@ -421,7 +425,7 @@ internal class IosGattServer(
                 }
 
                 try {
-                    val status = handler(request.centralId, data, true)
+                    val status = handler(write.request.centralId, write.data, true)
                     if (status != null && status != GattStatus.Success) {
                         failed = true
                         failError = status.toCBATTError()
@@ -429,9 +433,9 @@ internal class IosGattServer(
                     }
                     logEvent(
                         BleLogEvent.ServerRequest(
-                            request.centralId,
-                            "write (${data.size}B)",
-                            charUuid,
+                            write.request.centralId,
+                            "write (${write.data.size}B)",
+                            write.charUuid,
                             status,
                         ),
                     )
@@ -439,9 +443,9 @@ internal class IosGattServer(
                     if (e is kotlinx.coroutines.CancellationException) throw e
                     logEvent(
                         BleLogEvent.ServerRequest(
-                            request.centralId,
+                            write.request.centralId,
                             "write-failed (handler threw)",
-                            charUuid,
+                            write.charUuid,
                             GattStatus.Failure,
                         ),
                     )
@@ -458,51 +462,22 @@ internal class IosGattServer(
         }
     }
 
-    /**
-     * Assemble Write Long (Prepared Write) fragments into complete writes.
-     *
-     * When a central writes data larger than ATT_MTU, Core Bluetooth delivers
-     * multiple [CBATTRequest] objects with increasing [CBATTRequest.offset] values.
-     * This method groups them by characteristic UUID, sorts by offset, and assembles
-     * the fragments into a single contiguous [BleData] per characteristic.
-     *
-     * Returns a list of (representative request, charUuid, assembled data) triples,
-     * one per characteristic that was written to.
-     */
-    private fun assembleFragmentedWrites(requests: List<CBATTRequest>): List<Triple<CBATTRequest, Uuid, BleData>> {
-        data class Fragment(
-            val offset: Int,
-            val bytes: ByteArray,
-        )
-
-        // Group fragments by characteristic UUID
-        val grouped = mutableMapOf<Uuid, MutableList<Fragment>>()
+    /** Assemble Write Long fragments using the shared assembler, preserving a representative request per characteristic. */
+    private fun assembleFragmentedWrites(requests: List<CBATTRequest>): List<DeliverableWrite> {
         val representativeRequest = mutableMapOf<Uuid, CBATTRequest>()
-
-        for (request in requests) {
-            val charUuid = request.charUuid
-            val bytes =
-                if (request.value != null) {
-                    bleDataFromNSData(request.value!!).toByteArray()
-                } else {
-                    byteArrayOf()
+        val fragments =
+            requests.map { request ->
+                val charUuid = request.charUuid
+                if (charUuid !in representativeRequest) {
+                    representativeRequest[charUuid] = request
                 }
-            grouped
-                .getOrPut(charUuid) { mutableListOf() }
-                .add(Fragment(request.offset.toInt(), bytes))
-            if (charUuid !in representativeRequest) {
-                representativeRequest[charUuid] = request
+                val bytes =
+                    if (request.value != null) bleDataFromNSData(request.value!!).toByteArray() else byteArrayOf()
+                WriteFragment(charUuid, request.offset.toInt(), bytes)
             }
-        }
 
-        return grouped.map { (charUuid, fragments) ->
-            val sorted = fragments.sortedBy { it.offset }
-            val totalSize = sorted.maxOf { it.offset + it.bytes.size }
-            val assembled = ByteArray(totalSize)
-            for (fragment in sorted) {
-                fragment.bytes.copyInto(assembled, destinationOffset = fragment.offset)
-            }
-            Triple(representativeRequest[charUuid]!!, charUuid, BleData(assembled))
+        return assembleWriteFragments(fragments).map { assembled ->
+            DeliverableWrite(representativeRequest[assembled.charUuid]!!, assembled.charUuid, BleData(assembled.data))
         }
     }
 
