@@ -156,6 +156,17 @@ internal class AndroidGattServer(
     private val readHandlers = mutableMapOf<Uuid, suspend (Identifier) -> BleData>()
     private val writeHandlers = mutableMapOf<Uuid, suspend (Identifier, BleData, Boolean) -> GattStatus?>()
 
+    // Prepared Write (Write Long) buffer: per-device accumulation of chunks.
+    // Key = device address, Value = list of (characteristicUuid, offset, bytes).
+    // Filled during preparedWrite requests, drained on executeWrite.
+    private data class PreparedChunk(
+        val charUuid: Uuid,
+        val offset: Int,
+        val value: ByteArray,
+    )
+
+    private val preparedWriteBuffer = mutableMapOf<String, MutableList<PreparedChunk>>()
+
     // O(1) lookup cache: characteristic UUID -> native characteristic (built during open)
     private val characteristicCache = mutableMapOf<Uuid, BluetoothGattCharacteristic>()
 
@@ -307,18 +318,43 @@ internal class AndroidGattServer(
                     val deviceId = Identifier(device.address)
                     val charUuid = characteristic.uuid.toKotlinUuid()
 
-                    // Prepared writes (long writes) — not supported, respond with RequestNotSupported
+                    // Prepared writes (Write Long): buffer chunks until Execute Write
                     if (preparedWrite) {
+                        val handler = writeHandlers[charUuid]
+                        if (handler == null) {
+                            logEvent(
+                                BleLogEvent.ServerRequest(
+                                    deviceId,
+                                    "prepared-write-rejected (no handler)",
+                                    charUuid,
+                                    GattStatus.WriteNotPermitted,
+                                ),
+                            )
+                            if (responseNeeded) {
+                                sendResponseSafe(
+                                    device,
+                                    requestId,
+                                    BluetoothGatt.GATT_WRITE_NOT_PERMITTED,
+                                    offset,
+                                    null,
+                                )
+                            }
+                            return@launch
+                        }
+
+                        preparedWriteBuffer
+                            .getOrPut(device.address) { mutableListOf() }
+                            .add(PreparedChunk(charUuid, offset, value ?: byteArrayOf()))
                         logEvent(
                             BleLogEvent.ServerRequest(
                                 deviceId,
-                                "prepared-write-rejected",
+                                "prepared-write (${value?.size ?: 0}B @$offset)",
                                 charUuid,
-                                GattStatus.RequestNotSupported,
+                                GattStatus.Success,
                             ),
                         )
                         if (responseNeeded) {
-                            sendResponseSafe(device, requestId, BluetoothGatt.GATT_REQUEST_NOT_SUPPORTED, offset, null)
+                            sendResponseSafe(device, requestId, BluetoothGatt.GATT_SUCCESS, offset, value)
                         }
                         return@launch
                     }
@@ -419,10 +455,80 @@ internal class AndroidGattServer(
                 requestId: Int,
                 execute: Boolean,
             ) {
-                // Prepared writes are rejected in onCharacteristicWriteRequest, but a
-                // misbehaving client may still send Execute Write. Respond immediately
-                // so the client doesn't hang waiting for a response.
-                sendResponseSafe(device, requestId, BluetoothGatt.GATT_REQUEST_NOT_SUPPORTED, 0, null)
+                scope.launch {
+                    val chunks = preparedWriteBuffer.remove(device.address)
+                    val deviceId = Identifier(device.address)
+
+                    if (!execute || chunks.isNullOrEmpty()) {
+                        // Client cancelled the prepared write — discard buffered data
+                        logEvent(
+                            BleLogEvent.ServerClientEvent(
+                                deviceId,
+                                if (execute) "execute-write (empty)" else "execute-write (cancelled)",
+                            ),
+                        )
+                        sendResponseSafe(device, requestId, BluetoothGatt.GATT_SUCCESS, 0, null)
+                        return@launch
+                    }
+
+                    // Group chunks by characteristic and assemble each into a single byte array
+                    val grouped = chunks.groupBy { it.charUuid }
+                    var failed = false
+
+                    for ((charUuid, charChunks) in grouped) {
+                        val handler = writeHandlers[charUuid]
+                        if (handler == null) {
+                            logEvent(
+                                BleLogEvent.ServerRequest(
+                                    deviceId,
+                                    "execute-write-rejected (no handler)",
+                                    charUuid,
+                                    GattStatus.WriteNotPermitted,
+                                ),
+                            )
+                            failed = true
+                            break
+                        }
+
+                        // Assemble chunks by offset into a contiguous byte array
+                        val totalSize = charChunks.maxOf { it.offset + it.value.size }
+                        val assembled = ByteArray(totalSize)
+                        for (chunk in charChunks) {
+                            chunk.value.copyInto(assembled, destinationOffset = chunk.offset)
+                        }
+
+                        try {
+                            val bleData = BleData(assembled)
+                            val status = handler(deviceId, bleData, true)
+                            logEvent(
+                                BleLogEvent.ServerRequest(
+                                    deviceId,
+                                    "execute-write (${assembled.size}B from ${charChunks.size} chunks)",
+                                    charUuid,
+                                    status,
+                                ),
+                            )
+                            if (status != null && status != GattStatus.Success) {
+                                failed = true
+                                break
+                            }
+                        } catch (_: Exception) {
+                            logEvent(
+                                BleLogEvent.ServerRequest(
+                                    deviceId,
+                                    "execute-write-failed (handler threw)",
+                                    charUuid,
+                                    GattStatus.Failure,
+                                ),
+                            )
+                            failed = true
+                            break
+                        }
+                    }
+
+                    val resultStatus = if (failed) BluetoothGatt.GATT_FAILURE else BluetoothGatt.GATT_SUCCESS
+                    sendResponseSafe(device, requestId, resultStatus, 0, null)
+                }
             }
 
             override fun onNotificationSent(
