@@ -384,9 +384,19 @@ internal class IosGattServer(
         val firstRequest = requests.first()
 
         scope.launch {
+            // CoreBluetooth delivers fragmented writes as a batch with non-zero offsets
+            val hasFragments = requests.any { it.offset.toInt() > 0 }
             val writes: List<Pair<Uuid, BleData>> =
-                if (requests.any { it.offset.toInt() > 0 }) {
-                    assembleFragmentedWrites(requests)
+                if (hasFragments) {
+                    val assembled = assembleFragmentedWrites(requests)
+                    if (assembled == null) {
+                        peripheral.respondToRequest(
+                            firstRequest,
+                            withResult = CBATTErrorInvalidAttributeValueLength,
+                        )
+                        return@launch
+                    }
+                    assembled
                 } else {
                     requests.map { request ->
                         val data = if (request.value != null) bleDataFromNSData(request.value!!) else emptyBleData()
@@ -394,13 +404,8 @@ internal class IosGattServer(
                     }
                 }
 
-            val result = dispatchWrites(requests.first().centralId, requests.first().central, writes)
-
-            if (result != null) {
-                peripheral.respondToRequest(firstRequest, withResult = result)
-            } else {
-                peripheral.respondToRequest(firstRequest, withResult = CBATTErrorSuccess)
-            }
+            val errorCode = dispatchWrites(requests.first().centralId, requests.first().central, writes)
+            peripheral.respondToRequest(firstRequest, withResult = errorCode ?: CBATTErrorSuccess)
         }
     }
 
@@ -445,14 +450,27 @@ internal class IosGattServer(
         return null
     }
 
-    private fun assembleFragmentedWrites(requests: List<CBATTRequest>): List<Pair<Uuid, BleData>> {
+    private fun assembleFragmentedWrites(requests: List<CBATTRequest>): List<Pair<Uuid, BleData>>? {
         val fragments =
             requests.map { request ->
                 val nsData = request.value
                 val bytes = if (nsData != null) bleDataFromNSData(nsData).toByteArray() else byteArrayOf()
                 WriteFragment(request.charUuid, request.offset.toInt(), bytes)
             }
-        return assembleWriteFragments(fragments).map { it.charUuid to BleData(it.data) }
+        return when (val result = assembleWriteFragments(fragments)) {
+            is AssemblyResult.Success -> result.writes.map { it.charUuid to BleData(it.data) }
+            is AssemblyResult.PayloadTooLarge -> {
+                logEvent(
+                    BleLogEvent.ServerRequest(
+                        requests.first().centralId,
+                        "write-rejected (${result.actualSize}B exceeds limit)",
+                        result.charUuid,
+                        GattStatus.InvalidAttributeLength,
+                    ),
+                )
+                null
+            }
+        }
     }
 
     private fun handleSubscribe(
