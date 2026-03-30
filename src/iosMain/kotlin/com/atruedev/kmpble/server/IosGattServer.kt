@@ -374,6 +374,12 @@ internal class IosGattServer(
         }
     }
 
+    private class DeliverableWrite(
+        val request: CBATTRequest,
+        val charUuid: Uuid,
+        val data: BleData,
+    )
+
     private fun handleWriteRequests(
         peripheral: CBPeripheralManager,
         rawRequests: List<*>,
@@ -384,21 +390,32 @@ internal class IosGattServer(
         val firstRequest = requests.first()
 
         scope.launch {
+            val hasFragments = requests.any { it.offset.toInt() > 0 }
+
+            val writes: List<DeliverableWrite> =
+                if (hasFragments) {
+                    assembleFragmentedWrites(requests)
+                } else {
+                    requests.map { request ->
+                        val data =
+                            if (request.value != null) bleDataFromNSData(request.value!!) else emptyBleData()
+                        DeliverableWrite(request, request.charUuid, data)
+                    }
+                }
+
             var failed = false
             var failError: Long = CB_ATT_ERROR_UNLIKELY
 
-            for (request in requests) {
-                val data = if (request.value != null) bleDataFromNSData(request.value!!) else emptyBleData()
+            for (write in writes) {
+                trackCentral(write.request.central)
 
-                trackCentral(request.central)
-
-                val handler = writeHandlers[request.charUuid]
+                val handler = writeHandlers[write.charUuid]
                 if (handler == null) {
                     logEvent(
                         BleLogEvent.ServerRequest(
-                            request.centralId,
+                            write.request.centralId,
                             "write-rejected (no handler)",
-                            request.charUuid,
+                            write.charUuid,
                             GattStatus.WriteNotPermitted,
                         ),
                     )
@@ -408,7 +425,7 @@ internal class IosGattServer(
                 }
 
                 try {
-                    val status = handler(request.centralId, data, true)
+                    val status = handler(write.request.centralId, write.data, true)
                     if (status != null && status != GattStatus.Success) {
                         failed = true
                         failError = status.toCBATTError()
@@ -416,9 +433,9 @@ internal class IosGattServer(
                     }
                     logEvent(
                         BleLogEvent.ServerRequest(
-                            request.centralId,
-                            "write (${data.size}B)",
-                            request.charUuid,
+                            write.request.centralId,
+                            "write (${write.data.size}B)",
+                            write.charUuid,
                             status,
                         ),
                     )
@@ -426,9 +443,9 @@ internal class IosGattServer(
                     if (e is kotlinx.coroutines.CancellationException) throw e
                     logEvent(
                         BleLogEvent.ServerRequest(
-                            request.centralId,
+                            write.request.centralId,
                             "write-failed (handler threw)",
-                            request.charUuid,
+                            write.charUuid,
                             GattStatus.Failure,
                         ),
                     )
@@ -442,6 +459,25 @@ internal class IosGattServer(
             } else {
                 peripheral.respondToRequest(firstRequest, withResult = CBATTErrorSuccess)
             }
+        }
+    }
+
+    /** Assemble Write Long fragments using the shared assembler, preserving a representative request per characteristic. */
+    private fun assembleFragmentedWrites(requests: List<CBATTRequest>): List<DeliverableWrite> {
+        val representativeRequest = mutableMapOf<Uuid, CBATTRequest>()
+        val fragments =
+            requests.map { request ->
+                val charUuid = request.charUuid
+                if (charUuid !in representativeRequest) {
+                    representativeRequest[charUuid] = request
+                }
+                val bytes =
+                    if (request.value != null) bleDataFromNSData(request.value!!).toByteArray() else byteArrayOf()
+                WriteFragment(charUuid, request.offset.toInt(), bytes)
+            }
+
+        return assembleWriteFragments(fragments).map { assembled ->
+            DeliverableWrite(representativeRequest[assembled.charUuid]!!, assembled.charUuid, BleData(assembled.data))
         }
     }
 
