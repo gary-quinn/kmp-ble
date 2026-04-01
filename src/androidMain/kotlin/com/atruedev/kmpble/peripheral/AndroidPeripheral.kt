@@ -14,6 +14,7 @@ import com.atruedev.kmpble.connection.BondingPreference
 import com.atruedev.kmpble.connection.ConnectionOptions
 import com.atruedev.kmpble.connection.State
 import com.atruedev.kmpble.connection.internal.ConnectionEvent
+import com.atruedev.kmpble.error.BleException
 import com.atruedev.kmpble.error.ConnectionFailed
 import com.atruedev.kmpble.error.ConnectionLost
 import com.atruedev.kmpble.error.GattError
@@ -540,7 +541,7 @@ public class AndroidPeripheral internal constructor(
                 throw IllegalStateException("readCharacteristic initiation failed")
             }
             val result = deferred.await()
-            if (!result.status.isSuccess()) throw Exception("Read failed: ${result.status}")
+            if (!result.status.isSuccess()) throw BleException(GattError("read", result.status))
             result.value
         }
     }
@@ -571,7 +572,7 @@ public class AndroidPeripheral internal constructor(
                     throw IllegalStateException("writeCharacteristic initiation failed")
                 }
                 val status = deferred.await()
-                if (!status.isSuccess()) throw Exception("Write failed: $status")
+                if (!status.isSuccess()) throw BleException(GattError("write", status))
             }
         }
     }
@@ -579,38 +580,32 @@ public class AndroidPeripheral internal constructor(
     override fun observe(
         characteristic: Characteristic,
         backpressure: BackpressureStrategy,
-    ): Flow<Observation> {
-        checkNotClosed()
-        val serviceUuid = characteristic.serviceUuid
-        val charUuid = characteristic.uuid
-
-        return kotlinx.coroutines.flow
-            .flow {
-                val eventFlow = observationManager.subscribe(serviceUuid, charUuid, backpressure)
-                eventFlow.collect { event ->
-                    when (event) {
-                        is ObservationEvent.Value -> emit(Observation.Value(event.data))
-                        is ObservationEvent.Disconnected -> emit(Observation.Disconnected)
-                        is ObservationEvent.PermanentlyDisconnected -> emit(Observation.Disconnected)
-                    }
-                }
-            }.onStart {
-                if (peripheralContext.state.value is State.Connected.Ready) {
-                    enableNotifications(characteristic)
-                }
-            }.applyBackpressure(backpressure)
-            .onCompletion {
-                val wasLastCollector = observationManager.unsubscribe(serviceUuid, charUuid)
-                if (wasLastCollector) {
-                    disableNotifications(characteristic)
-                }
+    ): Flow<Observation> =
+        observeInternal(characteristic, backpressure) { event ->
+            when (event) {
+                is ObservationEvent.Value -> emit(Observation.Value(event.data))
+                is ObservationEvent.Disconnected -> emit(Observation.Disconnected)
+                is ObservationEvent.PermanentlyDisconnected -> emit(Observation.Disconnected)
             }
-    }
+        }
 
     override fun observeValues(
         characteristic: Characteristic,
         backpressure: BackpressureStrategy,
-    ): Flow<ByteArray> {
+    ): Flow<ByteArray> =
+        observeInternal(characteristic, backpressure) { event ->
+            when (event) {
+                is ObservationEvent.Value -> emit(event.data)
+                is ObservationEvent.Disconnected -> Unit
+                is ObservationEvent.PermanentlyDisconnected -> Unit
+            }
+        }
+
+    private fun <T> observeInternal(
+        characteristic: Characteristic,
+        backpressure: BackpressureStrategy,
+        mapper: suspend kotlinx.coroutines.flow.FlowCollector<T>.(ObservationEvent) -> Unit,
+    ): Flow<T> {
         checkNotClosed()
         val serviceUuid = characteristic.serviceUuid
         val charUuid = characteristic.uuid
@@ -618,17 +613,7 @@ public class AndroidPeripheral internal constructor(
         return kotlinx.coroutines.flow
             .flow {
                 val eventFlow = observationManager.subscribe(serviceUuid, charUuid, backpressure)
-                eventFlow.collect { event ->
-                    when (event) {
-                        is ObservationEvent.Value -> emit(event.data)
-                        is ObservationEvent.Disconnected -> {
-                            // Transparent reconnection — no emission during disconnect
-                        }
-                        is ObservationEvent.PermanentlyDisconnected -> {
-                            // Flow completes normally, no emission (transformWhile ends the flow)
-                        }
-                    }
-                }
+                eventFlow.collect { event -> mapper(event) }
             }.onStart {
                 if (peripheralContext.state.value is State.Connected.Ready) {
                     enableNotifications(characteristic)
@@ -642,19 +627,18 @@ public class AndroidPeripheral internal constructor(
             }
     }
 
-    private fun enableNotifications(characteristic: Characteristic) {
+    private suspend fun enableNotifications(characteristic: Characteristic) {
         val native = requireNativeChar(characteristic)
         bridge.setCharacteristicNotification(native, true)
-        val cccd = native.getDescriptor(java.util.UUID.fromString(CCCD_UUID.toString()))
-        if (cccd != null) {
-            val value = if (characteristic.properties.indicate) ENABLE_INDICATION_VALUE else ENABLE_NOTIFICATION_VALUE
-            peripheralContext.scope.launch {
-                peripheralContext.gattQueue.enqueue {
-                    val deferred = CompletableDeferred<com.atruedev.kmpble.error.GattStatus>()
-                    pendingOps.descriptorWrite = deferred
-                    bridge.writeDescriptor(cccd, value)
-                    deferred.await()
-                }
+        val cccd = native.getDescriptor(java.util.UUID.fromString(CCCD_UUID.toString())) ?: return
+        val value = if (characteristic.properties.indicate) ENABLE_INDICATION_VALUE else ENABLE_NOTIFICATION_VALUE
+        peripheralContext.gattQueue.enqueue {
+            val deferred = CompletableDeferred<com.atruedev.kmpble.error.GattStatus>()
+            pendingOps.descriptorWrite = deferred
+            bridge.writeDescriptor(cccd, value)
+            val status = deferred.await()
+            if (!status.isSuccess()) {
+                throw BleException(GattError("enableNotifications", status))
             }
         }
     }
@@ -689,7 +673,7 @@ public class AndroidPeripheral internal constructor(
                 throw IllegalStateException("readDescriptor initiation failed")
             }
             val result = deferred.await()
-            if (!result.status.isSuccess()) throw Exception("Descriptor read failed: ${result.status}")
+            if (!result.status.isSuccess()) throw BleException(GattError("descriptorRead", result.status))
             result.value
         }
     }
@@ -708,7 +692,7 @@ public class AndroidPeripheral internal constructor(
                 throw IllegalStateException("writeDescriptor initiation failed")
             }
             val status = deferred.await()
-            if (!status.isSuccess()) throw Exception("Descriptor write failed: $status")
+            if (!status.isSuccess()) throw BleException(GattError("descriptorWrite", status))
         }
     }
 
