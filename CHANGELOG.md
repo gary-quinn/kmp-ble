@@ -15,6 +15,19 @@ _Changes on `main` that have not yet been tagged for release._
 
 ---
 
+## [0.3.11] - 2026-04-01
+
+### Fixed
+- fix: address review findings - race conditions, error types, code duplication (#96)
+
+### Other
+- update Package.swift for v0.3.11
+- docs: update copyright holder in LICENSE file
+- update Package.swift for v0.3.10
+
+
+---
+
 ## [0.3.10] - 2026-03-30
 
 ### Other
@@ -336,7 +349,8 @@ _Changes on `main` that have not yet been tagged for release._
 
 ---
 
-[Unreleased]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.10...HEAD
+[Unreleased]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.11...HEAD
+[0.3.11]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.10...v0.3.11
 [0.3.10]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.9...v0.3.10
 [0.3.9]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.8...v0.3.9
 [0.3.8]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.7...v0.3.8
