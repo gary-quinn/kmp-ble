@@ -6,17 +6,18 @@ import kotlin.concurrent.Volatile
 
 /**
  * Prevents duplicate [Peripheral] instances for the same physical device.
- * Uses weak-like semantics: entries are cleared when the peripheral is closed
- * or on adapter reset.
+ * Entries are cleared when the peripheral is closed or on adapter reset.
  *
- * Thread-safety: Uses @Volatile copy-on-write immutable map. The read-check-write
- * in [getOrCreate] has a narrow TOCTOU window: if two threads call with the same
- * identifier simultaneously, both may invoke [factory]. The second write wins and
- * the extra Peripheral is GC'd immediately. This is acceptable because:
- * 1. The race requires near-simultaneous scan results for the same device
- * 2. The consequence is a single wasted allocation (no resource leak)
- * 3. Platform-level synchronization (Mutex/synchronized) would require either
- *    expect/actual declarations or making this function suspend
+ * Thread-safety: @Volatile copy-on-write immutable map. [getOrCreate] has a TOCTOU
+ * window where concurrent calls for the same identifier may both invoke [factory].
+ * The duplicate is closed immediately to prevent CoroutineScope leaks. The registry
+ * may briefly hold a Peripheral that differs from what a racing thread received —
+ * this is acceptable because the race requires near-simultaneous scan results for the
+ * same device, and both Peripheral instances are valid (they wrap the same hardware).
+ *
+ * A fully linearizable implementation would require either `synchronized` (JVM-only)
+ * or making [getOrCreate] suspend (breaking the public `toPeripheral()` API).
+ * Neither trade-off is justified given the narrow race window.
  */
 internal object PeripheralRegistry {
     @Volatile
@@ -28,7 +29,18 @@ internal object PeripheralRegistry {
     ): Peripheral {
         registry[identifier]?.let { return it }
         val peripheral = factory()
-        registry = registry + (identifier to peripheral)
+        // Re-check after factory() — another thread may have written first.
+        // If so, close our duplicate and return the winner.
+        val snapshot = registry
+        val existing = snapshot[identifier]
+        if (existing != null) {
+            try {
+                peripheral.close()
+            } catch (_: Throwable) {
+            }
+            return existing
+        }
+        registry = snapshot + (identifier to peripheral)
         return peripheral
     }
 
@@ -36,7 +48,6 @@ internal object PeripheralRegistry {
         registry = registry - identifier
     }
 
-    /** Returns the set of peripheral ID strings currently in the registry. */
     internal fun identifiers(): Set<String> = registry.keys.map { it.value }.toSet()
 
     internal fun clear() {
