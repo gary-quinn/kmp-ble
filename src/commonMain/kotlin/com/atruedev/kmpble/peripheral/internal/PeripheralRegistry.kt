@@ -2,25 +2,26 @@ package com.atruedev.kmpble.peripheral.internal
 
 import com.atruedev.kmpble.Identifier
 import com.atruedev.kmpble.peripheral.Peripheral
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.launch
 import kotlin.concurrent.Volatile
 
 /**
  * Prevents duplicate [Peripheral] instances for the same physical device.
  * Entries are cleared when the peripheral is closed or on adapter reset.
  *
- * Thread-safety: Copy-on-write with @Volatile. [getOrCreate] has a narrow TOCTOU window
- * where two threads may invoke [factory] for the same identifier. The second write wins;
- * the loser's Peripheral is explicitly closed to prevent scope leaks.
+ * Thread-safety: @Volatile copy-on-write immutable map. [getOrCreate] has a TOCTOU
+ * window where concurrent calls for the same identifier may both invoke [factory].
+ * The duplicate is closed immediately to prevent CoroutineScope leaks. The registry
+ * may briefly hold a Peripheral that differs from what a racing thread received —
+ * this is acceptable because the race requires near-simultaneous scan results for the
+ * same device, and both Peripheral instances are valid (they wrap the same hardware).
+ *
+ * A fully linearizable implementation would require either `synchronized` (JVM-only)
+ * or making [getOrCreate] suspend (breaking the public `toPeripheral()` API).
+ * Neither trade-off is justified given the narrow race window.
  */
 internal object PeripheralRegistry {
     @Volatile
     private var registry = mapOf<Identifier, Peripheral>()
-
-    private val cleanupScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     internal fun getOrCreate(
         identifier: Identifier,
@@ -28,13 +29,18 @@ internal object PeripheralRegistry {
     ): Peripheral {
         registry[identifier]?.let { return it }
         val peripheral = factory()
-        val existing = registry[identifier]
+        // Re-check after factory() — another thread may have written first.
+        // If so, close our duplicate and return the winner.
+        val snapshot = registry
+        val existing = snapshot[identifier]
         if (existing != null) {
-            // Lost the race — close the duplicate to prevent scope leak
-            cleanupScope.launch { peripheral.close() }
+            try {
+                peripheral.close()
+            } catch (_: Throwable) {
+            }
             return existing
         }
-        registry = registry + (identifier to peripheral)
+        registry = snapshot + (identifier to peripheral)
         return peripheral
     }
 
