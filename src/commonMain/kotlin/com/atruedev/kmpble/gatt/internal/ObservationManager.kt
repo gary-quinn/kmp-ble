@@ -233,16 +233,16 @@ internal class ObservationManager(
      * Called when reconnection exhausts max attempts (permanent disconnect).
      * Emits [ObservationEvent.PermanentlyDisconnected] to all observations, then clears them.
      *
-     * Thread-safety: Called from the peripheral's serialized context (single-writer).
-     * Reads snapshot, then clears both map and snapshot atomically.
+     * Must be called from the peripheral's serialized dispatcher.
      */
-    fun onPermanentDisconnect() {
-        val snapshot = observationsSnapshot
-        for (tracked in snapshot.values) {
-            tracked.flow.tryEmit(ObservationEvent.PermanentlyDisconnected)
+    suspend fun onPermanentDisconnect() {
+        withContext(serialDispatcher) {
+            for (tracked in observations.values) {
+                tracked.flow.tryEmit(ObservationEvent.PermanentlyDisconnected)
+            }
+            observations.clear()
+            updateSnapshot()
         }
-        observations.clear()
-        observationsSnapshot = emptyMap()
         notifyObservationsChanged()
     }
 
@@ -280,18 +280,15 @@ internal class ObservationManager(
     }
 
     /**
-     * Terminal cleanup — clear all observations.
-     * Called on Peripheral.close().
-     *
-     * Thread-safety: Called from the peripheral's serialized context (single-writer).
+     * Terminal cleanup. Safe without dispatcher: called after scope cancellation
+     * guarantees no concurrent [withContext] blocks are in-flight.
      */
     fun clear() {
-        val snapshot = observationsSnapshot
-        for (tracked in snapshot.values) {
+        for (tracked in observations.values) {
             tracked.flow.tryEmit(ObservationEvent.PermanentlyDisconnected)
         }
         observations.clear()
-        observationsSnapshot = emptyMap()
+        updateSnapshot()
     }
 
     private companion object {

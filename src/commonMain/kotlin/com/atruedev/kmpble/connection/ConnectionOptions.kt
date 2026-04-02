@@ -18,6 +18,8 @@ import kotlin.time.Duration.Companion.seconds
  * @property mtuRequest Request a specific MTU after connection, or `null` for the platform default.
  * @property bondingPreference Whether bonding should be required, optional, or skipped.
  * @property reconnectionStrategy Strategy to apply on unexpected disconnects.
+ * @property gattOperationTimeout Maximum time a single GATT operation may take before the watchdog
+ *   cancels it. Increase for devices with slow BLE stacks or firmware update flows.
  */
 public data class ConnectionOptions(
     val autoConnect: Boolean = false,
@@ -27,6 +29,7 @@ public data class ConnectionOptions(
     val mtuRequest: Int? = null,
     val bondingPreference: BondingPreference = BondingPreference.IfRequired,
     val reconnectionStrategy: ReconnectionStrategy = ReconnectionStrategy.None,
+    val gattOperationTimeout: Duration = 10.seconds,
     /**
      * Handler for pairing events that require user interaction.
      *
@@ -39,7 +42,16 @@ public data class ConnectionOptions(
      */
     @property:ExperimentalBleApi
     val pairingHandler: PairingHandler? = null,
-)
+) {
+    init {
+        require(timeout.isPositive() && timeout.isFinite()) {
+            "timeout must be positive and finite, was $timeout"
+        }
+        require(gattOperationTimeout.isPositive() && gattOperationTimeout.isFinite()) {
+            "gattOperationTimeout must be positive and finite, was $gattOperationTimeout"
+        }
+    }
+}
 
 /** Whether bonding should be initiated during connection. */
 public enum class BondingPreference {

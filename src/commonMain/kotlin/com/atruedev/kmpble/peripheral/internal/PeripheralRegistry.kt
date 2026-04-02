@@ -2,44 +2,54 @@ package com.atruedev.kmpble.peripheral.internal
 
 import com.atruedev.kmpble.Identifier
 import com.atruedev.kmpble.peripheral.Peripheral
-import kotlin.concurrent.Volatile
+import kotlin.concurrent.atomics.AtomicReference
+import kotlin.concurrent.atomics.ExperimentalAtomicApi
 
 /**
  * Prevents duplicate [Peripheral] instances for the same physical device.
- * Uses weak-like semantics: entries are cleared when the peripheral is closed
- * or on adapter reset.
- *
- * Thread-safety: Uses @Volatile copy-on-write immutable map. The read-check-write
- * in [getOrCreate] has a narrow TOCTOU window: if two threads call with the same
- * identifier simultaneously, both may invoke [factory]. The second write wins and
- * the extra Peripheral is GC'd immediately. This is acceptable because:
- * 1. The race requires near-simultaneous scan results for the same device
- * 2. The consequence is a single wasted allocation (no resource leak)
- * 3. Platform-level synchronization (Mutex/synchronized) would require either
- *    expect/actual declarations or making this function suspend
+ * Lock-free via [AtomicReference] CAS — no blocking, no suspend, no TOCTOU.
  */
+@OptIn(ExperimentalAtomicApi::class)
 internal object PeripheralRegistry {
-    @Volatile
-    private var registry = mapOf<Identifier, Peripheral>()
+    private val registry = AtomicReference(mapOf<Identifier, Peripheral>())
 
     internal fun getOrCreate(
         identifier: Identifier,
         factory: () -> Peripheral,
     ): Peripheral {
-        registry[identifier]?.let { return it }
+        registry.load()[identifier]?.let { return it }
+
         val peripheral = factory()
-        registry = registry + (identifier to peripheral)
-        return peripheral
+        while (true) {
+            val current = registry.load()
+            current[identifier]?.let {
+                try {
+                    peripheral.close()
+                } catch (_: Exception) {
+                }
+                return it
+            }
+            if (registry.compareAndSet(current, current + (identifier to peripheral))) {
+                return peripheral
+            }
+        }
     }
 
     internal fun remove(identifier: Identifier) {
-        registry = registry - identifier
+        while (true) {
+            val current = registry.load()
+            val updated = current - identifier
+            if (registry.compareAndSet(current, updated)) return
+        }
     }
 
-    /** Returns the set of peripheral ID strings currently in the registry. */
-    internal fun identifiers(): Set<String> = registry.keys.map { it.value }.toSet()
+    internal fun identifiers(): Set<String> =
+        registry
+            .load()
+            .keys
+            .mapTo(mutableSetOf()) { it.value }
 
     internal fun clear() {
-        registry = emptyMap()
+        registry.store(emptyMap())
     }
 }

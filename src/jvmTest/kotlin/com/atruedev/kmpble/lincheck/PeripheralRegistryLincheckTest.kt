@@ -2,24 +2,14 @@ package com.atruedev.kmpble.lincheck
 
 import com.atruedev.kmpble.Identifier
 import com.atruedev.kmpble.peripheral.internal.PeripheralRegistry
-import org.jetbrains.lincheck.LincheckAssertionError
 import org.jetbrains.lincheck.datastructures.ModelCheckingOptions
 import org.jetbrains.lincheck.datastructures.Operation
 import org.jetbrains.lincheck.datastructures.StressOptions
 import org.junit.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertSame
 
-/**
- * Lincheck tests for [PeripheralRegistry].
- *
- * PeripheralRegistry uses @Volatile copy-on-write with a documented TOCTOU
- * race in [PeripheralRegistry.getOrCreate]. These tests prove the race exists
- * by expecting [LincheckAssertionError]. If the race is ever fixed (e.g., by
- * adding synchronization), these tests will start failing — remove the
- * `expected` annotation at that point.
- *
- * Sequential specification: [PeripheralRegistrySequential] models the
- * intended atomic get-or-put behavior.
- */
+/** Lincheck concurrency tests for [PeripheralRegistry]. */
 class PeripheralRegistryLincheckTest {
     private val ids =
         arrayOf(
@@ -49,7 +39,7 @@ class PeripheralRegistryLincheckTest {
     @Operation
     fun clear() = PeripheralRegistry.clear()
 
-    @Test(expected = LincheckAssertionError::class)
+    @Test
     fun stressTest() =
         StressOptions()
             .iterations(50)
@@ -58,7 +48,7 @@ class PeripheralRegistryLincheckTest {
             .sequentialSpecification(PeripheralRegistrySequential::class.java)
             .check(this::class)
 
-    @Test(expected = LincheckAssertionError::class)
+    @Test
     fun modelCheckingTest() =
         ModelCheckingOptions()
             .iterations(50)
@@ -66,12 +56,28 @@ class PeripheralRegistryLincheckTest {
             .actorsPerThread(3)
             .sequentialSpecification(PeripheralRegistrySequential::class.java)
             .check(this::class)
+
+    @Test
+    fun getOrCreateReturnsSameInstanceForSameIdentifier() {
+        PeripheralRegistry.clear()
+        val id = Identifier("test-device")
+        val first = PeripheralRegistry.getOrCreate(id) { StubPeripheral(id) }
+        val second = PeripheralRegistry.getOrCreate(id) { StubPeripheral(id) }
+        assertSame(first, second)
+    }
+
+    @Test
+    fun clearRemovesAllEntries() {
+        PeripheralRegistry.clear()
+        PeripheralRegistry.getOrCreate(Identifier("a")) { StubPeripheral(Identifier("a")) }
+        PeripheralRegistry.getOrCreate(Identifier("b")) { StubPeripheral(Identifier("b")) }
+        assertEquals(setOf("a", "b"), PeripheralRegistry.identifiers())
+        PeripheralRegistry.clear()
+        assertEquals(emptySet(), PeripheralRegistry.identifiers())
+    }
 }
 
-/**
- * Sequential specification: atomic get-or-put with a HashMap.
- * This is what a correctly synchronized PeripheralRegistry would behave like.
- */
+/** Sequential specification: atomic get-or-put. Lincheck verifies the CAS-based registry matches. */
 class PeripheralRegistrySequential {
     private val map = HashMap<String, String>()
 

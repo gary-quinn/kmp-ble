@@ -24,9 +24,12 @@ internal class GattOperationQueue(
     @Volatile
     private var accepting = false
 
-    fun start() {
+    private var operationTimeout: Duration = DEFAULT_OPERATION_TIMEOUT
+
+    fun start(timeout: Duration? = null) {
         drainJob?.cancel()
         accepting = true
+        if (timeout != null) operationTimeout = timeout
         drainJob =
             scope.launch {
                 for (entry in channel) {
@@ -40,7 +43,7 @@ internal class GattOperationQueue(
     }
 
     suspend fun <T> enqueue(
-        timeout: Duration = DEFAULT_OPERATION_TIMEOUT,
+        timeout: Duration = operationTimeout,
         block: suspend () -> T,
     ): T {
         if (!accepting) throw NotConnectedException()

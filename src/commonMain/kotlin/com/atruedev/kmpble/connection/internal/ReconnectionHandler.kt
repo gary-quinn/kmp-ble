@@ -9,6 +9,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlin.math.min
+import kotlin.random.Random
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -17,6 +18,7 @@ internal class ReconnectionHandler(
     private val stateFlow: StateFlow<State>,
     private val connectAction: suspend (ConnectionOptions) -> Unit,
     private val onMaxAttemptsExhausted: (suspend () -> Unit)? = null,
+    private val random: Random = Random,
 ) {
     private var options: ConnectionOptions? = null
     private var job: Job? = null
@@ -61,39 +63,42 @@ internal class ReconnectionHandler(
         attempt = 0
     }
 
-    internal companion object {
-        private const val MAX_BACKOFF_SHIFT = 30
-
-        internal fun computeDelay(
-            strategy: ReconnectionStrategy,
-            attempt: Int,
-        ): Duration? =
-            when (strategy) {
-                is ReconnectionStrategy.None -> null
-                is ReconnectionStrategy.ExponentialBackoff -> {
-                    if (attempt >= strategy.maxAttempts) {
-                        null
-                    } else {
-                        val shift = min(attempt, MAX_BACKOFF_SHIFT)
-                        val baseMs = strategy.initialDelay.inWholeMilliseconds
-                        val maxMs = strategy.maxDelay.inWholeMilliseconds
-                        val multiplier = 1L shl shift
-                        val delayMs =
-                            if (baseMs > maxMs / multiplier) {
-                                maxMs
-                            } else {
-                                min(baseMs * multiplier, maxMs)
-                            }
-                        delayMs.milliseconds
-                    }
-                }
-                is ReconnectionStrategy.LinearBackoff -> {
-                    if (attempt >= strategy.maxAttempts) {
-                        null
-                    } else {
-                        strategy.delay
-                    }
+    internal fun computeDelay(
+        strategy: ReconnectionStrategy,
+        attempt: Int,
+    ): Duration? =
+        when (strategy) {
+            is ReconnectionStrategy.None -> null
+            is ReconnectionStrategy.ExponentialBackoff -> {
+                if (attempt >= strategy.maxAttempts) {
+                    null
+                } else {
+                    val shift = min(attempt, MAX_BACKOFF_SHIFT)
+                    val baseMs = strategy.initialDelay.inWholeMilliseconds
+                    val maxMs = strategy.maxDelay.inWholeMilliseconds
+                    val multiplier = 1L shl shift
+                    val delayMs =
+                        if (baseMs > maxMs / multiplier) {
+                            maxMs
+                        } else {
+                            min(baseMs * multiplier, maxMs)
+                        }
+                    // ±20% jitter. At sub-5ms delays, truncation to Long zeros out the jitter —
+                    // acceptable since sub-5ms backoff is not a thundering-herd risk.
+                    val jitter = (delayMs * 0.2 * (2.0 * random.nextDouble() - 1.0)).toLong()
+                    (delayMs + jitter).coerceAtLeast(1).milliseconds
                 }
             }
+            is ReconnectionStrategy.LinearBackoff -> {
+                if (attempt >= strategy.maxAttempts) {
+                    null
+                } else {
+                    strategy.delay
+                }
+            }
+        }
+
+    private companion object {
+        const val MAX_BACKOFF_SHIFT = 30
     }
 }
