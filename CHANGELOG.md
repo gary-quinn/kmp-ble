@@ -15,6 +15,18 @@ _Changes on `main` that have not yet been tagged for release._
 
 ---
 
+## [0.3.12] - 2026-04-02
+
+### Added
+- feat: configurable GATT timeout, reconnection jitter, strict mode (#98)
+
+### Other
+- update Package.swift for v0.3.12
+- update Package.swift for v0.3.11
+
+
+---
+
 ## [0.3.11] - 2026-04-01
 
 ### Fixed
@@ -349,7 +361,8 @@ _Changes on `main` that have not yet been tagged for release._
 
 ---
 
-[Unreleased]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.11...HEAD
+[Unreleased]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.12...HEAD
+[0.3.12]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.11...v0.3.12
 [0.3.11]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.10...v0.3.11
 [0.3.10]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.9...v0.3.10
 [0.3.9]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.8...v0.3.9
