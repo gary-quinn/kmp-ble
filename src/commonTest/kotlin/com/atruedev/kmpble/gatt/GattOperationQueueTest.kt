@@ -3,7 +3,9 @@ package com.atruedev.kmpble.gatt
 import com.atruedev.kmpble.gatt.internal.GattOperationQueue
 import com.atruedev.kmpble.gatt.internal.NotConnectedException
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -11,6 +13,34 @@ import kotlin.test.assertFailsWith
 import kotlin.time.Duration.Companion.seconds
 
 class GattOperationQueueTest {
+    @Test
+    fun startSetsOperationTimeout() =
+        runTest {
+            val queue = GattOperationQueue(this)
+            queue.start(timeout = 1.seconds)
+
+            assertFailsWith<TimeoutCancellationException> {
+                queue.enqueue { delay(5.seconds) }
+            }
+
+            queue.close()
+        }
+
+    @Test
+    fun restartWithoutArgReusesTimeout() =
+        runTest {
+            val queue = GattOperationQueue(this)
+            queue.start(timeout = 1.seconds)
+            queue.drain()
+            queue.start()
+
+            assertFailsWith<TimeoutCancellationException> {
+                queue.enqueue { delay(5.seconds) }
+            }
+
+            queue.close()
+        }
+
     @Test
     fun fifoOrdering() =
         runTest {
@@ -52,10 +82,8 @@ class GattOperationQueueTest {
             val queue = GattOperationQueue(this)
             queue.start()
 
-            assertFailsWith<kotlinx.coroutines.TimeoutCancellationException> {
-                queue.enqueue(timeout = 1.seconds) {
-                    kotlinx.coroutines.delay(10.seconds)
-                }
+            assertFailsWith<TimeoutCancellationException> {
+                queue.enqueue(timeout = 1.seconds) { delay(10.seconds) }
             }
 
             queue.close()

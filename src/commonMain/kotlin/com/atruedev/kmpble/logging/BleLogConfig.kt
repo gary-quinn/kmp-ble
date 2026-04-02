@@ -19,6 +19,10 @@ package com.atruedev.kmpble.logging
 public object BleLogConfig {
     @kotlin.concurrent.Volatile
     public var logger: BleLogger? = null
+
+    /** Throws on invalid state transitions when enabled. Set once at app startup. */
+    @kotlin.concurrent.Volatile
+    public var strictMode: Boolean = false
 }
 
 internal fun logEvent(event: BleLogEvent) {

@@ -28,7 +28,7 @@ public sealed class ReconnectionStrategy {
     ) : ReconnectionStrategy()
 
     /**
-     * Reconnect with a fixed delay between attempts.
+     * Reconnect with a fixed delay between attempts. No jitter applied.
      *
      * @property delay Constant delay between reconnection attempts.
      * @property maxAttempts Maximum number of attempts before giving up.

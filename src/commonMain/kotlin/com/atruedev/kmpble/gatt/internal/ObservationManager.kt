@@ -280,16 +280,15 @@ internal class ObservationManager(
     }
 
     /**
-     * Terminal cleanup — clear all observations.
-     * Called from Peripheral.close() (synchronous, non-suspend).
-     * Safe because close() is terminal — no concurrent mutations after this.
+     * Terminal cleanup. Safe without dispatcher: called after scope cancellation
+     * guarantees no concurrent [withContext] blocks are in-flight.
      */
     fun clear() {
         for (tracked in observations.values) {
             tracked.flow.tryEmit(ObservationEvent.PermanentlyDisconnected)
         }
         observations.clear()
-        observationsSnapshot = emptyMap()
+        updateSnapshot()
     }
 
     private companion object {

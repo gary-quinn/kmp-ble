@@ -2,19 +2,61 @@ package com.atruedev.kmpble.lincheck
 
 import com.atruedev.kmpble.Identifier
 import com.atruedev.kmpble.peripheral.internal.PeripheralRegistry
-import kotlin.test.Test
+import org.jetbrains.lincheck.datastructures.ModelCheckingOptions
+import org.jetbrains.lincheck.datastructures.Operation
+import org.jetbrains.lincheck.datastructures.StressOptions
+import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertSame
 
-/**
- * Verifies [PeripheralRegistry] behavior.
- *
- * The registry uses @Volatile copy-on-write with a documented TOCTOU race in
- * [getOrCreate]. Concurrent Lincheck tests were removed because the implementation
- * is intentionally non-linearizable — the narrow race window is accepted as a
- * trade-off for keeping `toPeripheral()` non-suspend.
- */
+/** Lincheck concurrency tests for [PeripheralRegistry]. */
 class PeripheralRegistryLincheckTest {
+    private val ids =
+        arrayOf(
+            Identifier("device-0"),
+            Identifier("device-1"),
+            Identifier("device-2"),
+        )
+
+    init {
+        PeripheralRegistry.clear()
+    }
+
+    @Operation
+    fun getOrCreate(index: Int): String {
+        val id = ids[index % ids.size]
+        return PeripheralRegistry.getOrCreate(id) { StubPeripheral(id) }.identifier.value
+    }
+
+    @Operation
+    fun remove(index: Int) {
+        PeripheralRegistry.remove(ids[index % ids.size])
+    }
+
+    @Operation
+    fun identifiers(): Set<String> = PeripheralRegistry.identifiers()
+
+    @Operation
+    fun clear() = PeripheralRegistry.clear()
+
+    @Test
+    fun stressTest() =
+        StressOptions()
+            .iterations(50)
+            .threads(3)
+            .actorsPerThread(3)
+            .sequentialSpecification(PeripheralRegistrySequential::class.java)
+            .check(this::class)
+
+    @Test
+    fun modelCheckingTest() =
+        ModelCheckingOptions()
+            .iterations(50)
+            .threads(3)
+            .actorsPerThread(3)
+            .sequentialSpecification(PeripheralRegistrySequential::class.java)
+            .check(this::class)
+
     @Test
     fun getOrCreateReturnsSameInstanceForSameIdentifier() {
         PeripheralRegistry.clear()
@@ -22,27 +64,6 @@ class PeripheralRegistryLincheckTest {
         val first = PeripheralRegistry.getOrCreate(id) { StubPeripheral(id) }
         val second = PeripheralRegistry.getOrCreate(id) { StubPeripheral(id) }
         assertSame(first, second)
-    }
-
-    @Test
-    fun getOrCreateReturnsDifferentInstancesForDifferentIdentifiers() {
-        PeripheralRegistry.clear()
-        val id1 = Identifier("device-a")
-        val id2 = Identifier("device-b")
-        val first = PeripheralRegistry.getOrCreate(id1) { StubPeripheral(id1) }
-        val second = PeripheralRegistry.getOrCreate(id2) { StubPeripheral(id2) }
-        assertEquals(id1, first.identifier)
-        assertEquals(id2, second.identifier)
-    }
-
-    @Test
-    fun removeAllowsNewCreation() {
-        PeripheralRegistry.clear()
-        val id = Identifier("test-device")
-        val first = PeripheralRegistry.getOrCreate(id) { StubPeripheral(id) }
-        PeripheralRegistry.remove(id)
-        val second = PeripheralRegistry.getOrCreate(id) { StubPeripheral(id) }
-        assertEquals(id, second.identifier)
     }
 
     @Test
@@ -54,4 +75,24 @@ class PeripheralRegistryLincheckTest {
         PeripheralRegistry.clear()
         assertEquals(emptySet(), PeripheralRegistry.identifiers())
     }
+}
+
+/** Sequential specification: atomic get-or-put. Lincheck verifies the CAS-based registry matches. */
+class PeripheralRegistrySequential {
+    private val map = HashMap<String, String>()
+
+    fun getOrCreate(index: Int): String {
+        val ids = arrayOf("device-0", "device-1", "device-2")
+        val key = ids[index % ids.size]
+        return map.getOrPut(key) { key }
+    }
+
+    fun remove(index: Int) {
+        val ids = arrayOf("device-0", "device-1", "device-2")
+        map.remove(ids[index % ids.size])
+    }
+
+    fun identifiers(): Set<String> = map.keys.toSet()
+
+    fun clear() = map.clear()
 }

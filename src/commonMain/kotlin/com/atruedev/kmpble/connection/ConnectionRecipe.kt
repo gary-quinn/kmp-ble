@@ -31,6 +31,7 @@ public object ConnectionRecipe {
         ConnectionOptions(
             mtuRequest = BLE_4_2_MAX_ATT_MTU,
             timeout = 60.seconds,
+            gattOperationTimeout = 30.seconds,
             reconnectionStrategy =
                 ReconnectionStrategy.ExponentialBackoff(
                     initialDelay = 1.seconds,
@@ -52,6 +53,7 @@ public object ConnectionRecipe {
         ConnectionOptions(
             mtuRequest = BLE_4_2_MAX_ATT_MTU,
             timeout = 30.seconds,
+            gattOperationTimeout = 10.seconds,
             reconnectionStrategy =
                 ReconnectionStrategy.ExponentialBackoff(
                     initialDelay = 0.5.seconds,
@@ -73,6 +75,7 @@ public object ConnectionRecipe {
         ConnectionOptions(
             mtuRequest = null,
             timeout = 15.seconds,
+            gattOperationTimeout = 10.seconds,
             reconnectionStrategy =
                 ReconnectionStrategy.LinearBackoff(
                     delay = 2.seconds,
@@ -93,6 +96,7 @@ public object ConnectionRecipe {
         ConnectionOptions(
             mtuRequest = BLE_4_2_MAX_ATT_MTU,
             timeout = 20.seconds,
+            gattOperationTimeout = 10.seconds,
             reconnectionStrategy =
                 ReconnectionStrategy.ExponentialBackoff(
                     initialDelay = 1.seconds,

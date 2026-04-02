@@ -197,7 +197,7 @@ public class AndroidPeripheral internal constructor(
             }
 
             peripheralContext.processEvent(ConnectionEvent.ConnectRequested)
-            peripheralContext.gattQueue.start()
+            peripheralContext.gattQueue.start(options.gattOperationTimeout)
 
             connectionComplete = CompletableDeferred()
 

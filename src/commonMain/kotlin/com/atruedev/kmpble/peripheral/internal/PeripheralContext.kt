@@ -7,6 +7,7 @@ import com.atruedev.kmpble.connection.internal.ConnectionEvent
 import com.atruedev.kmpble.connection.internal.StateMachine
 import com.atruedev.kmpble.gatt.DiscoveredService
 import com.atruedev.kmpble.gatt.internal.GattOperationQueue
+import com.atruedev.kmpble.logging.BleLogConfig
 import com.atruedev.kmpble.logging.BleLogEvent
 import com.atruedev.kmpble.logging.logEvent
 import kotlinx.coroutines.CoroutineDispatcher
@@ -69,6 +70,11 @@ internal class PeripheralContext(
             val previousState = _state.value
             val result = StateMachine.transition(previousState, event)
             if (!result.valid) {
+                if (BleLogConfig.strictMode) {
+                    val msg = "Invalid state transition: $previousState + $event"
+                    logEvent(BleLogEvent.Error(identifier, msg, cause = null))
+                    error(msg)
+                }
                 return@withContext previousState
             }
 

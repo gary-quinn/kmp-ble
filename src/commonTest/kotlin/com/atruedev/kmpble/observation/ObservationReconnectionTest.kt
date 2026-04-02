@@ -275,6 +275,30 @@ class ObservationReconnectionTest {
         }
 
     @Test
+    fun cccdWriteCompletesBeforeFirstValue() =
+        runTest {
+            val peripheral = createPeripheral()
+            peripheral.connect()
+
+            val char = peripheral.findCharacteristic(testServiceUuid, testCharUuid)!!
+
+            peripheral.observe(char, BackpressureStrategy.Unbounded).test {
+                // CCCD must be written during onStart, before any value emission
+                val cccdBeforeValue = peripheral.getCccdWrites()
+                assertEquals(1, cccdBeforeValue.size)
+                assertTrue(cccdBeforeValue[0].enabled)
+
+                // Now emit — only possible after CCCD enable completed
+                peripheral.emitObservationValue(testServiceUuid, testCharUuid, byteArrayOf(0x42))
+                val v = awaitItem()
+                assertIs<Observation.Value>(v)
+                assertContentEquals(byteArrayOf(0x42), v.data)
+
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
     fun observeEmitsDisconnectedThenResumesOnReconnect() =
         runTest {
             val peripheral = createPeripheral()

@@ -119,7 +119,7 @@ public class IosPeripheral(
         reconnectionHandler.start(options)
         withContext(peripheralContext.dispatcher) {
             peripheralContext.processEvent(ConnectionEvent.ConnectRequested)
-            peripheralContext.gattQueue.start()
+            peripheralContext.gattQueue.start(options.gattOperationTimeout)
 
             connectionComplete = CompletableDeferred()
             bridge.connect()
