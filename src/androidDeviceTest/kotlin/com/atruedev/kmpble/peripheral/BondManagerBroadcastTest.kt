@@ -14,7 +14,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import java.util.concurrent.CountDownLatch
 import kotlin.test.assertEquals
-import kotlin.test.assertTrue
+import kotlin.test.assertFailsWith
 
 /**
  * Validates the BroadcastReceiver pattern used by [AndroidBondManager]
@@ -133,13 +133,9 @@ class BondManagerBroadcastTest {
 
         context.unregisterReceiver(receiver!!)
 
-        var threwException = false
-        try {
+        assertFailsWith<IllegalArgumentException> {
             context.unregisterReceiver(receiver!!)
-        } catch (_: IllegalArgumentException) {
-            threwException = true
         }
-        assertTrue(threwException, "Double unregister should throw IllegalArgumentException")
         receiver = null
     }
 

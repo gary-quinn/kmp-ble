@@ -9,6 +9,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
@@ -111,10 +112,7 @@ class GattCallbackDispatchTest {
         }
 
         assertTrue(latch.await(2, TimeUnit.SECONDS))
-        assertTrue(
-            results == listOf(1, 2, 3),
-            "Callbacks should dispatch in order, got $results",
-        )
+        assertEquals(listOf(1, 2, 3), results)
     }
 
     @Test

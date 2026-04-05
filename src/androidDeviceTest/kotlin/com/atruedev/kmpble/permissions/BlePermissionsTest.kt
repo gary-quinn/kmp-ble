@@ -9,15 +9,14 @@ import org.junit.Assume
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import kotlin.test.assertContains
+import kotlin.test.assertEquals
 import kotlin.test.assertIs
-import kotlin.test.assertTrue
 
 /**
  * Validates [checkBlePermissions] on a real Android runtime.
  *
- * On an emulator without granted BLE permissions, the result should be [PermissionResult.Denied]
- * with the correct permission strings. Tests are skipped if permissions are already granted
- * (e.g. via a test runner that auto-grants).
+ * Skipped when permissions are already granted (e.g. via auto-granting test runner).
  */
 @RunWith(AndroidJUnit4::class)
 class BlePermissionsTest {
@@ -27,39 +26,19 @@ class BlePermissionsTest {
         KmpBle.init(appContext)
 
         Assume.assumeFalse(
-            "BLE permissions already granted — skipping denial tests",
+            "BLE permissions already granted",
             appContext.checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN) ==
                 PackageManager.PERMISSION_GRANTED,
         )
     }
 
     @Test
-    fun checkPermissions_returnsDenied_whenPermissionsNotGranted() {
+    fun checkPermissions_returnsDenied_withRequiredPermissions() {
         val result = checkBlePermissions()
-        assertIs<PermissionResult.Denied>(result)
-    }
+        val denied = assertIs<PermissionResult.Denied>(result)
 
-    @Test
-    fun deniedResult_containsBluetoothScan() {
-        val result = checkBlePermissions()
-        assertIs<PermissionResult.Denied>(result)
-        assertTrue(result.permissions.contains(Manifest.permission.BLUETOOTH_SCAN))
-    }
-
-    @Test
-    fun deniedResult_containsBluetoothConnect() {
-        val result = checkBlePermissions()
-        assertIs<PermissionResult.Denied>(result)
-        assertTrue(result.permissions.contains(Manifest.permission.BLUETOOTH_CONNECT))
-    }
-
-    @Test
-    fun deniedResult_containsExactlyTwoPermissions() {
-        val result = checkBlePermissions()
-        assertIs<PermissionResult.Denied>(result)
-        assertTrue(
-            result.permissions.size == 2,
-            "Expected exactly 2 denied permissions, got ${result.permissions.size}: ${result.permissions}",
-        )
+        assertContains(denied.permissions, Manifest.permission.BLUETOOTH_SCAN)
+        assertContains(denied.permissions, Manifest.permission.BLUETOOTH_CONNECT)
+        assertEquals(2, denied.permissions.size)
     }
 }

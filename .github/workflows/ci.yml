@@ -62,7 +62,7 @@ jobs:
           path: |
             ~/.android/avd/*
             ~/.android/adb*
-          key: avd-api34-${{ runner.os }}
+          key: avd-api34-x86_64-${{ runner.os }}
 
       - name: Run instrumented tests
         uses: reactivecircus/android-emulator-runner@e89f39f1abbbd05b1113a29cf4db69e7540cae5a # v2.37.0
@@ -70,6 +70,7 @@ jobs:
           api-level: 34
           arch: x86_64
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          emulator-boot-timeout: 300
           script: ./gradlew androidDeviceCheck
 
       - name: Upload test results

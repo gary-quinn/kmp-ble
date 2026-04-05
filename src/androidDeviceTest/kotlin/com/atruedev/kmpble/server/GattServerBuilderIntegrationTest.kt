@@ -10,7 +10,6 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
-import kotlin.test.assertTrue
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.toJavaUuid
 
@@ -123,7 +122,7 @@ class GattServerBuilderIntegrationTest {
         service.addCharacteristic(char1)
         service.addCharacteristic(char2)
 
-        assertTrue(service.characteristics.size == 2)
+        assertEquals(2, service.characteristics.size)
     }
 
     @Test

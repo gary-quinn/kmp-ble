@@ -72,10 +72,10 @@ class BluetoothAdapterStateTest {
     }
 
     @Test
-    fun hasSystemFeature_bleLe_returnsExpectedValue() {
-        val hasBle = context.packageManager.hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE)
-        // On a modern emulator, BLE feature flag is typically true
-        // This validates the API call works, regardless of the value
-        assertTrue(hasBle || !hasBle, "hasSystemFeature should return without error")
+    fun hasSystemFeature_bleLe_isAvailable() {
+        assertTrue(
+            context.packageManager.hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE),
+            "API 34 emulator should report BLE support",
+        )
     }
 }

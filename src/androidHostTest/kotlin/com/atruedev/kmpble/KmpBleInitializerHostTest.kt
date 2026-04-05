@@ -12,10 +12,9 @@ import kotlin.test.assertTrue
 class KmpBleInitializerHostTest {
     @Before
     fun setup() {
-        val backingField = KmpBle::class.java.getDeclaredField("appContext")
-        backingField.isAccessible = true
-        @Suppress("UNCHECKED_CAST")
-        (backingField as java.lang.reflect.Field).set(KmpBle, null)
+        val field = KmpBle::class.java.getDeclaredField("appContext")
+        field.isAccessible = true
+        field.set(KmpBle, null)
     }
 
     @Test
