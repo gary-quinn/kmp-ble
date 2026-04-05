@@ -386,4 +386,4 @@ Minimal ~150-line single-screen app: scan, tap, connect, read first characterist
 
 ## License
 
-[Apache 2.0](LICENSE) — Copyright (C) 2026 Huynh Thien Thach
+[Apache 2.0](LICENSE) — Copyright (C) 2026 Gary Quinn
