@@ -1,21 +1,26 @@
 package com.atruedev.kmpble
 
-import androidx.test.ext.junit.runners.AndroidJUnit4
-import androidx.test.platform.app.InstrumentationRegistry
-import org.junit.Test
+import org.junit.Before
 import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
+import kotlin.test.Test
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
-/**
- * Validates [KmpBleInitializer] and [KmpBle] on a real Android runtime
- * with a real [android.content.Context].
- */
-@RunWith(AndroidJUnit4::class)
-class KmpBleInitializerTest {
+@RunWith(RobolectricTestRunner::class)
+class KmpBleInitializerHostTest {
+    @Before
+    fun setup() {
+        val backingField = KmpBle::class.java.getDeclaredField("appContext")
+        backingField.isAccessible = true
+        @Suppress("UNCHECKED_CAST")
+        (backingField as java.lang.reflect.Field).set(KmpBle, null)
+    }
+
     @Test
     fun init_storesApplicationContext() {
-        val appContext = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext
+        val appContext = RuntimeEnvironment.getApplication()
         KmpBle.init(appContext)
 
         val stored = KmpBle.requireContext()
@@ -24,11 +29,10 @@ class KmpBleInitializerTest {
 
     @Test
     fun requireContext_returnsApplicationContext() {
-        val appContext = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext
+        val appContext = RuntimeEnvironment.getApplication()
         KmpBle.init(appContext)
 
         val context = KmpBle.requireContext()
-        // applicationContext should return itself
         assertTrue(context === context.applicationContext)
     }
 

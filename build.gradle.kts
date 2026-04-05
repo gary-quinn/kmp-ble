@@ -116,6 +116,11 @@ kotlin {
             implementation(libs.androidx.startup)
             runtimeOnly(project(":kmp-ble-quirks"))
         }
+        named("androidHostTest").dependencies {
+            implementation(libs.kotlin.test)
+            implementation(libs.robolectric)
+            implementation(libs.androidx.test.core)
+        }
         named("androidDeviceTest").dependencies {
             implementation(libs.kotlin.test)
             implementation(libs.kotlinx.coroutines.test)

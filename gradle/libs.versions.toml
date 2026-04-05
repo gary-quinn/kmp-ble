@@ -11,6 +11,7 @@ androidxLifecycle = "2.10.0"
 androidxActivityCompose = "1.13.0"
 androidxTestCore = "1.6.1"
 androidxTestRunner = "1.6.2"
+robolectric = "4.14.1"
 androidMinSdk = "33"
 androidCompileSdk = "36"
 androidTargetSdk = "36"
@@ -34,6 +35,7 @@ kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotl
 androidx-test-core = { module = "androidx.test:core-ktx", version.ref = "androidxTestCore" }
 androidx-test-runner = { module = "androidx.test:runner", version.ref = "androidxTestRunner" }
 androidx-test-ext-junit = { module = "androidx.test.ext:junit-ktx", version = "1.2.1" }
+robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
 lincheck = { module = "org.jetbrains.lincheck:lincheck", version.ref = "lincheck" }
 turbine = { module = "app.cash.turbine:turbine", version.ref = "turbine" }
 lifecycle-viewmodel-compose = { module = "org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "androidxLifecycle" }
