@@ -13,7 +13,7 @@ import kotlin.uuid.Uuid
  *
  * - **Android**: Full support via `AdvertisingSet` API (API 26+).
  * - **iOS**: CoreBluetooth does not expose extended advertising parameters.
- *   Falls back to legacy advertising via [CBPeripheralManager].
+ *   Falls back to legacy advertising via `CBPeripheralManager`.
  *
  * ## Differences from [Advertiser]
  *

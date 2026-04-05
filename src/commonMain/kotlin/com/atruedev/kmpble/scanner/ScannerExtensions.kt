@@ -6,7 +6,7 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
 /**
- * Collect [advertisements], return the first matching [predicate], or null after [timeout].
+ * Collect [Scanner.advertisements], return the first matching [predicate], or null after [timeout].
  *
  * Since [Scanner.advertisements] is a cold flow, scanning starts when this function
  * begins collecting and stops automatically when a match is found or the timeout expires.

@@ -226,7 +226,7 @@ internal class AndroidGattBridge(
      * ```
      *
      * Used as a workaround for OEMs (OnePlus, Xiaomi) that return stale cached services
-     * after bonding. See [BleQuirks.RefreshServicesOnBond].
+     * after bonding. See [com.atruedev.kmpble.quirks.BleQuirks.RefreshServicesOnBond].
      */
     internal fun refreshDeviceCache(): Boolean {
         val g = gatt ?: return false

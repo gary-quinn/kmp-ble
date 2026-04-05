@@ -26,7 +26,7 @@ public class ScannerConfig internal constructor() {
      * When `true` (default), only legacy advertisements (≤ 31 bytes) are reported.
      * Set to `false` to also receive BLE 5.0 extended advertisements.
      *
-     * On Android, this maps to [android.bluetooth.le.ScanSettings.Builder.setLegacy].
+     * On Android, this maps to `android.bluetooth.le.ScanSettings.Builder.setLegacy`.
      * On iOS, CoreBluetooth receives extended advertisements transparently
      * regardless of this setting.
      */
