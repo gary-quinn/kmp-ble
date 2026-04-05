@@ -18,13 +18,13 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             // Core — scan, connect, GATT client/server, advertise, L2CAP
-            implementation("com.atruedev:kmp-ble:0.3.13")
+            implementation("com.atruedev:kmp-ble:0.3.15")
 
             // Optional modules
-            implementation("com.atruedev:kmp-ble-profiles:0.3.13")  // type-safe GATT profiles
-            implementation("com.atruedev:kmp-ble-dfu:0.3.13")       // Nordic DFU firmware updates
-            implementation("com.atruedev:kmp-ble-codec:0.3.13")     // typed read/write codec
-            implementation("com.atruedev:kmp-ble-quirks:0.3.13")    // OEM device workarounds
+            implementation("com.atruedev:kmp-ble-profiles:0.3.15")  // type-safe GATT profiles
+            implementation("com.atruedev:kmp-ble-dfu:0.3.15")       // Nordic DFU firmware updates
+            implementation("com.atruedev:kmp-ble-codec:0.3.15")     // typed read/write codec
+            implementation("com.atruedev:kmp-ble-quirks:0.3.15")    // OEM device workarounds
         }
     }
 }
