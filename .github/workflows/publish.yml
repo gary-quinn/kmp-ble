@@ -146,7 +146,7 @@ jobs:
 
       - name: Generate changelog entries from merged PRs
         id: changelog
-        uses: gary-quinn/shared-actions/changelog@v1
+        uses: gary-quinn/shared-actions/changelog@4975dde119744969d162d01444f13e2515c639c2 # v1
         with:
           prev_tag: ${{ steps.meta.outputs.prev_tag }}
           current_tag: ${{ needs.publish.outputs.tag }}
