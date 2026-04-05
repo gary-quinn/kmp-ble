@@ -145,9 +145,11 @@ jobs:
           echo "prev_tag=$PREV_TAG" >> $GITHUB_OUTPUT
 
       - name: Generate changelog entries from merged PRs
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: .github/scripts/generate-changelog.sh "${{ steps.meta.outputs.prev_tag }}" "${{ needs.publish.outputs.tag }}"
+        id: changelog
+        uses: gary-quinn/shared-actions/changelog@v1
+        with:
+          prev_tag: ${{ steps.meta.outputs.prev_tag }}
+          current_tag: ${{ needs.publish.outputs.tag }}
 
       - name: Update README.md
         run: |
@@ -160,7 +162,7 @@ jobs:
           TAG="${{ needs.publish.outputs.tag }}"
           PREV_TAG="${{ steps.meta.outputs.prev_tag }}"
           DATE="${{ steps.meta.outputs.date }}"
-          ENTRIES=$(cat /tmp/changelog_entries.txt)
+          ENTRIES=$(cat ${{ steps.changelog.outputs.entries_file }})
 
           # Build the new CHANGELOG content using awk for reliable multi-line insertion
           awk -v version="$VERSION" -v date="$DATE" -v entries="$ENTRIES" '
