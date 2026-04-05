@@ -80,6 +80,9 @@ kotlin {
                 .toInt()
 
         withHostTestBuilder {}.configure {}
+        withDeviceTestBuilder {}.configure {
+            instrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        }
     }
 
     jvm()
@@ -112,6 +115,14 @@ kotlin {
             implementation(libs.androidx.core)
             implementation(libs.androidx.startup)
             runtimeOnly(project(":kmp-ble-quirks"))
+        }
+        named("androidDeviceTest").dependencies {
+            implementation(libs.kotlin.test)
+            implementation(libs.kotlinx.coroutines.test)
+            implementation(libs.turbine)
+            implementation(libs.androidx.test.core)
+            implementation(libs.androidx.test.runner)
+            implementation(libs.androidx.test.ext.junit)
         }
     }
 }
