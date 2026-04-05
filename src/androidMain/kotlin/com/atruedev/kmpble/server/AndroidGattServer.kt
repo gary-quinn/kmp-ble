@@ -698,7 +698,7 @@ internal class AndroidGattServer(
     }
 
     /**
-     * Send a notification or indication to a device and await [onNotificationSent].
+     * Send a notification or indication to a device and await `onNotificationSent`.
      *
      * Android's BLE stack requires waiting for onNotificationSent before sending
      * the next notification to the same device. This method serializes per-device

@@ -23,7 +23,7 @@ public interface BleCodec<T> : BleEncoder<T>, BleDecoder<T>
 /**
  * Encodes a value of type [T] directly into [BleData].
  *
- * Use for server-side operations ([GattServer.notify], [GattServer.indicate])
+ * Use for server-side operations (`GattServer.notify`, `GattServer.indicate`)
  * where [BleData] is the native currency, avoiding the intermediate
  * `ByteArray` allocation that [BleEncoder] would require.
  */

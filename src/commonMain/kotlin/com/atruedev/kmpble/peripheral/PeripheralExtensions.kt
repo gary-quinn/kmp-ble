@@ -11,9 +11,9 @@ import kotlin.uuid.Uuid
  * Returns a human-readable GATT service/characteristic/descriptor tree.
  *
  * Useful for debugging — answers "what does this device expose?" in one call.
- * Only meaningful after service discovery completes (i.e., in [State.Connected.Ready]).
+ * Only meaningful after service discovery completes (i.e., in [com.atruedev.kmpble.connection.State.Connected.Ready]).
  *
- * Takes a consistent snapshot of [state] and [services] before formatting,
+ * Takes a consistent snapshot of [Peripheral.state] and [Peripheral.services] before formatting,
  * so the output is internally coherent even under concurrent state changes.
  *
  * ```
@@ -93,11 +93,11 @@ private val WELL_KNOWN_DESCRIPTORS: Map<Uuid, String> =
  * ```
  *
  * Behavior:
- * - Delegates state validation to [connect] — if the peripheral is already connected
- *   or connecting, [connect]'s own invariants apply
+ * - Delegates state validation to [Peripheral.connect] — if the peripheral is already connected
+ *   or connecting, [Peripheral.connect]'s own invariants apply
  * - If connection drops mid-block: the block's coroutine is cancelled with
  *   [kotlinx.coroutines.CancellationException], then close() runs in finally
- * - [close] always runs in a [NonCancellable] context, guaranteeing cleanup
+ * - [Peripheral.close] always runs in a [NonCancellable] context, guaranteeing cleanup
  *   even if the coroutine is cancelled mid-block
  *
  * Not thread-safe — callers must ensure exclusive access to this peripheral.

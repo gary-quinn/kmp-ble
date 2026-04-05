@@ -107,7 +107,7 @@ internal class AndroidPairingRequestHandler(
         }
 
     /**
-     * Synchronous teardown for use in [AutoCloseable.close] where
+     * Synchronous teardown for use in `AutoCloseable.close()` where
      * the coroutine scope is about to be cancelled.
      */
     fun closeSync() {
