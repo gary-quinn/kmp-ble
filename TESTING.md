@@ -26,7 +26,7 @@ construction, permissions, HandlerThread dispatch, and GATT type construction.
 Requires a connected device or running emulator.
 
 ```bash
-./gradlew androidDeviceCheck
+./gradlew connectedAndroidDeviceTest
 ```
 
 ### JVM Concurrency Tests (Lincheck)
