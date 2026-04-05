@@ -23,6 +23,14 @@ _Changes on `main` that have not yet been tagged for release._
 
 ---
 
+## [0.3.15] - 2026-04-05
+
+### Fixed
+- fix(ci): use connectedAndroidDeviceTest to run instrumented tests
+
+
+---
+
 ## [0.3.13] - 2026-04-05
 
 ### Other
@@ -382,6 +390,7 @@ _Changes on `main` that have not yet been tagged for release._
 ---
 
 [Unreleased]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.15...HEAD
+[0.3.15]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.14...v0.3.15
 [0.3.15]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.14...v0.3.15
 [0.3.13]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.12...v0.3.13
 [0.3.12]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.11...v0.3.12
