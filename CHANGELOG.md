@@ -15,6 +15,18 @@ _Changes on `main` that have not yet been tagged for release._
 
 ---
 
+## [0.3.13] - 2026-04-05
+
+### Other
+- update Package.swift for v0.3.13
+- fix(ci): strip v prefix from VERSION env var in publish workflow (#102)
+- ci(dependabot): bump gradle/actions from 6.0.1 to 6.1.0 (#100)
+- build(dependabot): bump org.jetbrains.lincheck:lincheck from 3.4 to 3.5 (#101)
+- update Package.swift for v0.3.12
+
+
+---
+
 ## [0.3.12] - 2026-04-02
 
 ### Added
@@ -361,7 +373,8 @@ _Changes on `main` that have not yet been tagged for release._
 
 ---
 
-[Unreleased]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.12...HEAD
+[Unreleased]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.13...HEAD
+[0.3.13]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.12...v0.3.13
 [0.3.12]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.11...v0.3.12
 [0.3.11]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.10...v0.3.11
 [0.3.10]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.9...v0.3.10
