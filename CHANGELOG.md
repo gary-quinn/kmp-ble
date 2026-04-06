@@ -15,6 +15,13 @@ _Changes on `main` that have not yet been tagged for release._
 
 ---
 
+## [0.3.16] - 2026-04-06
+
+_No notable changes._
+
+
+---
+
 ## [0.3.15] - 2026-04-05
 
 ### Fixed
@@ -389,7 +396,8 @@ _Changes on `main` that have not yet been tagged for release._
 
 ---
 
-[Unreleased]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.15...HEAD
+[Unreleased]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.16...HEAD
+[0.3.16]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.15...v0.3.16
 [0.3.15]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.14...v0.3.15
 [0.3.15]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.14...v0.3.15
 [0.3.13]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.12...v0.3.13
