@@ -15,6 +15,14 @@ _Changes on `main` that have not yet been tagged for release._
 
 ---
 
+## [0.3.17] - 2026-04-07
+
+### Fixed
+- fix(android): correct package name in ProGuard consumer rules
+
+
+---
+
 ## [0.3.16] - 2026-04-06
 
 _No notable changes._
@@ -396,7 +404,8 @@ _No notable changes._
 
 ---
 
-[Unreleased]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.16...HEAD
+[Unreleased]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.17...HEAD
+[0.3.17]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.16...v0.3.17
 [0.3.16]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.15...v0.3.16
 [0.3.15]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.14...v0.3.15
 [0.3.15]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.14...v0.3.15
