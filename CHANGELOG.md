@@ -38,14 +38,6 @@ _No notable changes._
 
 ---
 
-## [0.3.15] - 2026-04-05
-
-### Fixed
-- fix(ci): use connectedAndroidDeviceTest to run instrumented tests
-
-
----
-
 ## [0.3.13] - 2026-04-05
 
 ### Other
