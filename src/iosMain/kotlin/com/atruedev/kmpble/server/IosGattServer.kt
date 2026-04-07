@@ -17,6 +17,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -58,7 +59,9 @@ import platform.Foundation.NSData
 import platform.Foundation.NSError
 import kotlin.concurrent.AtomicInt
 import kotlin.concurrent.Volatile
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
+import kotlin.time.TimeSource
 import kotlin.uuid.Uuid
 
 /**
@@ -79,7 +82,10 @@ import kotlin.uuid.Uuid
  * - On didReceiveRead/didReceiveWrite: add central to connections
  * - K/N limitation: didUnsubscribeFromCharacteristic cannot be overridden
  *   separately (same Kotlin type signature as didSubscribeToCharacteristic).
- *   Centrals remain in connections until [close] is called.
+ *
+ * Idle centrals are evicted by a periodic sweep ([CENTRAL_IDLE_TIMEOUT]).
+ * Each read, write, or subscribe refreshes the central's last-activity
+ * timestamp. See [evictIdleCentrals].
  *
  * ### CCCD handling
  * iOS manages CCCD automatically. We get didSubscribeTo callbacks
@@ -127,7 +133,7 @@ internal class IosGattServer(
 
     // --- All mutable collections below accessed ONLY on [dispatcher] ---
 
-    private val connectedCentrals = mutableMapOf<String, CBCentral>()
+    private val connectedCentrals = mutableMapOf<String, TrackedCentral>()
     private val subscriptions = mutableMapOf<String, MutableSet<String>>()
     private val readHandlers = mutableMapOf<Uuid, suspend (Identifier) -> BleData>()
     private val writeHandlers =
@@ -224,6 +230,14 @@ internal class IosGattServer(
         }
 
         isOpen.value = 1
+
+        scope.launch {
+            while (true) {
+                delay(CENTRAL_SWEEP_INTERVAL)
+                evictIdleCentrals()
+            }
+        }
+
         logEvent(
             BleLogEvent.ServerLifecycle("open (${serviceDefinitions.size} services)"),
         )
@@ -244,12 +258,12 @@ internal class IosGattServer(
 
             val targets: List<CBCentral>? =
                 if (device != null) {
-                    val central =
+                    val tracked =
                         connectedCentrals[device.value]
                             ?: throw ServerException.DeviceNotConnected(
                                 "Device $device not connected",
                             )
-                    listOf(central)
+                    listOf(tracked.central)
                 } else {
                     null
                 }
@@ -517,18 +531,18 @@ internal class IosGattServer(
     }
 
     /**
-     * Track a central as connected. Returns true if the central is newly discovered.
+     * Track a central as connected and refresh its last-activity mark.
+     * Returns true if the central is newly discovered.
      * Must be called on [dispatcher].
-     *
-     * TODO: Centrals accumulate until [close] because K/N cannot override
-     *  didUnsubscribeFromCharacteristic separately from didSubscribeToCharacteristic
-     *  (identical Kotlin type signatures). For long-lived servers with many transient
-     *  clients, consider a periodic sweep or idle-timeout eviction.
      */
     private fun trackCentral(central: CBCentral): Boolean {
         val id = central.id
-        if (connectedCentrals.containsKey(id)) return false
-        connectedCentrals[id] = central
+        val existing = connectedCentrals[id]
+        if (existing != null) {
+            existing.lastActivity = TimeSource.Monotonic.markNow()
+            return false
+        }
+        connectedCentrals[id] = TrackedCentral(central, TimeSource.Monotonic.markNow())
         _connections.update { list ->
             list + ServerConnection(Identifier(id))
         }
@@ -539,6 +553,26 @@ internal class IosGattServer(
             ),
         )
         return true
+    }
+
+    private suspend fun evictIdleCentrals() {
+        val now = TimeSource.Monotonic.markNow()
+        val idle = connectedCentrals.entries.filter { (_, tracked) ->
+            (now - tracked.lastActivity) > CENTRAL_IDLE_TIMEOUT
+        }
+        for ((id, _) in idle) {
+            connectedCentrals.remove(id)
+            subscriptions.values.forEach { it.remove(id) }
+            val identifier = Identifier(id)
+            _connections.update { list -> list.filter { it.device != identifier } }
+            _connectionEvents.tryEmit(ServerConnectionEvent.Disconnected(identifier))
+            logEvent(
+                BleLogEvent.ServerClientEvent(
+                    identifier,
+                    "evicted (idle > ${CENTRAL_IDLE_TIMEOUT})",
+                ),
+            )
+        }
     }
 
     // iOS silently truncates notification/indication payloads to the negotiated
@@ -605,10 +639,17 @@ internal class IosGattServer(
         const val SERVICE_ADD_TIMEOUT_MS = 10_000L
         const val MAX_NOTIFY_RETRIES = 3
         val NOTIFY_TIMEOUT = 5.seconds
+        val CENTRAL_IDLE_TIMEOUT = 5.minutes
+        val CENTRAL_SWEEP_INTERVAL = 1.minutes
 
         val instanceLock = AtomicInt(0)
     }
 }
+
+private class TrackedCentral(
+    val central: CBCentral,
+    var lastActivity: TimeSource.Monotonic.ValueTimeMark,
+)
 
 // --- Private extensions to reduce CBATTRequest/CBCentral identity boilerplate ---
 
