@@ -557,9 +557,10 @@ internal class IosGattServer(
 
     private suspend fun evictIdleCentrals() {
         val now = TimeSource.Monotonic.markNow()
-        val idle = connectedCentrals.entries.filter { (_, tracked) ->
-            (now - tracked.lastActivity) > CENTRAL_IDLE_TIMEOUT
-        }
+        val idle =
+            connectedCentrals.entries.filter { (_, tracked) ->
+                (now - tracked.lastActivity) > CENTRAL_IDLE_TIMEOUT
+            }
         for ((id, _) in idle) {
             connectedCentrals.remove(id)
             subscriptions.values.forEach { it.remove(id) }
