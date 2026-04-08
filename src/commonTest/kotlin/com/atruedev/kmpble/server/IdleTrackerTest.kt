@@ -34,6 +34,13 @@ class IdleTrackerTest {
     }
 
     @Test
+    fun trackOrRefresh_updates_value_on_refresh() {
+        tracker.trackOrRefresh("a", "v1")
+        tracker.trackOrRefresh("a", "v2")
+        assertEquals("v2", tracker["a"])
+    }
+
+    @Test
     fun trackOrRefresh_refreshes_activity_preventing_eviction() {
         tracker.trackOrRefresh("a", "centralA")
 
@@ -181,5 +188,31 @@ class IdleTrackerTest {
 
         assertTrue(tracker.trackOrRefresh("a", "centralA-v2"))
         assertEquals("centralA-v2", tracker["a"])
+    }
+
+    // --- multiple keys sharing same value ---
+
+    @Test
+    fun evicting_one_key_does_not_affect_another_with_same_value() {
+        tracker.trackOrRefresh("a", "shared")
+        timeSource += 4.minutes
+        tracker.trackOrRefresh("b", "shared")
+        timeSource += 2.minutes
+
+        val evicted = tracker.evictIdle()
+        assertEquals(listOf("a" to "shared"), evicted)
+        assertEquals("shared", tracker["b"])
+    }
+
+    // --- evictIdle zero-allocation common case ---
+
+    @Test
+    fun evictIdle_returns_empty_list_when_all_active() {
+        repeat(100) { tracker.trackOrRefresh("k$it", "v$it") }
+        timeSource += 1.minutes
+
+        val evicted = tracker.evictIdle()
+        assertTrue(evicted.isEmpty())
+        assertEquals(100, tracker.size)
     }
 }

@@ -15,19 +15,20 @@ internal class IdleTracker<T>(
     private val idleTimeout: Duration,
     private val timeSource: TimeSource.WithComparableMarks = TimeSource.Monotonic,
 ) {
-    private class Entry<T>(val value: T, var lastActivity: ComparableTimeMark)
+    private class Entry<T>(var value: T, var lastActivity: ComparableTimeMark)
 
     private val entries = mutableMapOf<String, Entry<T>>()
 
     val size: Int get() = entries.size
 
     /**
-     * Track a new entry or refresh an existing one.
+     * Track a new entry or refresh an existing one's value and timestamp.
      * Returns `true` if the entry was newly added.
      */
     fun trackOrRefresh(key: String, value: T): Boolean {
         val existing = entries[key]
         if (existing != null) {
+            existing.value = value
             existing.lastActivity = timeSource.markNow()
             return false
         }
@@ -44,11 +45,13 @@ internal class IdleTracker<T>(
      */
     fun evictIdle(): List<Pair<String, T>> {
         val now = timeSource.markNow()
-        val idle = entries.entries
-            .filter { (now - it.value.lastActivity) > idleTimeout }
-            .map { it.key to it.value.value }
-        idle.forEach { (key, _) -> entries.remove(key) }
-        return idle
+        val evicted = mutableListOf<Pair<String, T>>()
+        entries.entries.removeAll { (key, entry) ->
+            val idle = (now - entry.lastActivity) > idleTimeout
+            if (idle) evicted.add(key to entry.value)
+            idle
+        }
+        return evicted
     }
 
     fun remove(key: String): T? = entries.remove(key)?.value
