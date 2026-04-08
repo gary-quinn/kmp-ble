@@ -1,5 +1,7 @@
 package com.atruedev.kmpble.gatt.internal
 
+import com.atruedev.kmpble.error.BleException
+import com.atruedev.kmpble.error.MtuExceeded
 import com.atruedev.kmpble.gatt.WriteType
 
 internal object LargeWriteHandler {
@@ -29,12 +31,7 @@ internal object LargeWriteHandler {
         writeType: WriteType,
     ) {
         if (writeType == WriteType.Signed && data.size > maxLength) {
-            throw MtuExceededException(attempted = data.size, maximum = maxLength)
+            throw BleException(MtuExceeded(attempted = data.size, maximum = maxLength))
         }
     }
 }
-
-internal class MtuExceededException(
-    val attempted: Int,
-    val maximum: Int,
-) : Exception("Data size ($attempted) exceeds MTU limit ($maximum). Signed writes cannot be chunked.")
