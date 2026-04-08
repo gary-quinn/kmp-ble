@@ -1,12 +1,14 @@
 package com.atruedev.kmpble.gatt
 
+import com.atruedev.kmpble.error.BleException
+import com.atruedev.kmpble.error.MtuExceeded
 import com.atruedev.kmpble.gatt.internal.LargeWriteHandler
-import com.atruedev.kmpble.gatt.internal.MtuExceededException
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
+import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
 class LargeWriteTest {
@@ -54,9 +56,13 @@ class LargeWriteTest {
     @Test
     fun signedWriteThrowsOnOversized() {
         val data = ByteArray(25) { it.toByte() }
-        assertFailsWith<MtuExceededException> {
-            LargeWriteHandler.validateForWriteType(data, maxLength = 20, WriteType.Signed)
-        }
+        val exception =
+            assertFailsWith<BleException> {
+                LargeWriteHandler.validateForWriteType(data, maxLength = 20, WriteType.Signed)
+            }
+        val error = assertIs<MtuExceeded>(exception.error)
+        assertEquals(25, error.attempted)
+        assertEquals(20, error.maximum)
     }
 
     @Test
