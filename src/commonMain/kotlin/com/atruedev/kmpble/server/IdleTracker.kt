@@ -15,7 +15,10 @@ internal class IdleTracker<T>(
     private val idleTimeout: Duration,
     private val timeSource: TimeSource.WithComparableMarks = TimeSource.Monotonic,
 ) {
-    private class Entry<T>(var value: T, var lastActivity: ComparableTimeMark)
+    private class Entry<T>(
+        var value: T,
+        var lastActivity: ComparableTimeMark,
+    )
 
     private val entries = mutableMapOf<String, Entry<T>>()
 
@@ -25,7 +28,10 @@ internal class IdleTracker<T>(
      * Track a new entry or refresh an existing one's value and timestamp.
      * Returns `true` if the entry was newly added.
      */
-    fun trackOrRefresh(key: String, value: T): Boolean {
+    fun trackOrRefresh(
+        key: String,
+        value: T,
+    ): Boolean {
         val existing = entries[key]
         if (existing != null) {
             existing.value = value
