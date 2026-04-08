@@ -75,8 +75,20 @@ public data class OperationFailed(
 
 /**
  * Exception wrapper for [BleError] values, allowing them to be thrown as exceptions.
- * Used by [com.atruedev.kmpble.testing.FakePeripheral] error injection
- * and catchable in test assertions.
+ *
+ * All GATT and connection failures surface as [BleException]. Callers should catch
+ * this type and inspect [error] for the structured failure:
+ * ```
+ * try {
+ *     peripheral.read(characteristic)
+ * } catch (e: BleException) {
+ *     when (e.error) {
+ *         is GattError -> handleGattError(e.error as GattError)
+ *         is ConnectionLost -> handleDisconnect()
+ *         else -> handleGenericError(e.error)
+ *     }
+ * }
+ * ```
  */
 public data class BleException(
     public val error: BleError,

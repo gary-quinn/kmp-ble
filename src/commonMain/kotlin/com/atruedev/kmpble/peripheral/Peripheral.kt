@@ -72,7 +72,10 @@ public interface Peripheral : AutoCloseable {
      * May be called before connecting — CCCD will be enabled when connection is established.
      *
      * @param characteristic The characteristic to observe (must support notify or indicate)
-     * @param backpressure Strategy for handling backpressure when values arrive faster than consumed
+     * @param backpressure Strategy for handling backpressure when values arrive faster than consumed.
+     *   Defaults to [BackpressureStrategy.Latest], which drops intermediate values and keeps only the
+     *   most recent notification. Use [BackpressureStrategy.Buffer] to retain a fixed number of
+     *   unprocessed values, or [BackpressureStrategy.Unbounded] for lossless delivery.
      * @return A cold flow that emits [Observation] events
      */
     public fun observe(
@@ -98,7 +101,10 @@ public interface Peripheral : AutoCloseable {
      * May be called before connecting — CCCD will be enabled when connection is established.
      *
      * @param characteristic The characteristic to observe (must support notify or indicate)
-     * @param backpressure Strategy for handling backpressure when values arrive faster than consumed
+     * @param backpressure Strategy for handling backpressure when values arrive faster than consumed.
+     *   Defaults to [BackpressureStrategy.Latest], which drops intermediate values and keeps only the
+     *   most recent notification. Use [BackpressureStrategy.Buffer] to retain a fixed number of
+     *   unprocessed values, or [BackpressureStrategy.Unbounded] for lossless delivery.
      * @return A cold flow that emits raw [ByteArray] values
      */
     public fun observeValues(
