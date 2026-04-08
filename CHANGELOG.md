@@ -15,6 +15,19 @@ _Changes on `main` that have not yet been tagged for release._
 
 ---
 
+## [0.3.18] - 2026-04-08
+
+### Changed
+- chore: remove duplicate CHANGELOG entry for v0.3.15
+- test(ios): add iOS platform tests for GATT status mapper and peripheral manager delegate
+
+### Fixed
+- fix(shared): align MtuExceeded with BleError hierarchy
+- fix(ios): evict idle centrals from GATT server via IdleTracker
+
+
+---
+
 ## [0.3.17] - 2026-04-07
 
 ### Fixed
@@ -396,7 +409,8 @@ _No notable changes._
 
 ---
 
-[Unreleased]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.17...HEAD
+[Unreleased]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.18...HEAD
+[0.3.18]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.17...v0.3.18
 [0.3.17]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.16...v0.3.17
 [0.3.16]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.15...v0.3.16
 [0.3.15]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.14...v0.3.15
