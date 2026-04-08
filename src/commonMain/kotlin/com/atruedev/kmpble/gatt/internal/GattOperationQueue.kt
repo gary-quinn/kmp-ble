@@ -67,6 +67,13 @@ internal class GattOperationQueue(
         }
     }
 
+    /**
+     * Stops accepting new operations and cancels all queued entries.
+     *
+     * Thread-safety invariant: [enqueue] checks [accepting] before inserting into [channel],
+     * so once [accepting] is set to `false`, no new entries can be enqueued. The drain loop
+     * only needs to clear entries that were already in the channel at that point.
+     */
     fun drain() {
         accepting = false
         while (true) {

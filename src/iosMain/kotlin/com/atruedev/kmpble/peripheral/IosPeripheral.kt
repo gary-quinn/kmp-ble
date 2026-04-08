@@ -124,28 +124,8 @@ public class IosPeripheral(
             connectionComplete = CompletableDeferred()
             bridge.connect()
 
-            // K/N limitation: didFailToConnectPeripheral shares signature with
-            // didDisconnectPeripheral — only one override possible. Poll CBPeripheral.state
-            // to detect connection failure early instead of waiting for the full timeout.
-            val failureDetector =
-                peripheralContext.scope.launch {
-                    while (connectionComplete?.isCompleted == false) {
-                        kotlinx.coroutines.delay(CONNECT_POLL_INTERVAL_MS)
-                        if (cbPeripheral.state == platform.CoreBluetooth.CBPeripheralStateDisconnected) {
-                            val deferred = connectionComplete ?: break
-                            if (!deferred.isCompleted) {
-                                peripheralContext.processEvent(
-                                    ConnectionEvent.ConnectionLost(
-                                        ConnectionFailed("Connection failed (peripheral disconnected)"),
-                                    ),
-                                )
-                                deferred.complete(Unit)
-                            }
-                            break
-                        }
-                    }
-                }
-
+            // didFailToConnectPeripheral is handled by the ObjC delegate proxy
+            // (KmpBleDelegateProxy) which routes through handleConnectionCallback.
             try {
                 withTimeout(options.timeout) {
                     connectionComplete!!.await()
@@ -156,7 +136,6 @@ public class IosPeripheral(
                     ConnectionEvent.ConnectionLost(ConnectionFailed("Connection timeout")),
                 )
             } finally {
-                failureDetector.cancel()
                 connectionComplete = null
             }
         }
@@ -753,7 +732,6 @@ public class IosPeripheral(
 
     private companion object {
         const val L2CAP_OPEN_TIMEOUT_MS = 30_000L
-        const val CONNECT_POLL_INTERVAL_MS = 500L
         const val DISCONNECT_TIMEOUT_MS = 5_000L
         const val DISCOVERY_TIMEOUT_MS = 10_000L
         const val ATT_HEADER_SIZE = 3

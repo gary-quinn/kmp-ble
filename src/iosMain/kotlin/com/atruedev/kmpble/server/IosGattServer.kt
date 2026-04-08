@@ -554,13 +554,13 @@ internal class IosGattServer(
         }
     }
 
-    private fun evictIdleCentrals() {
+    private suspend fun evictIdleCentrals() {
         val evicted = connectedCentrals.evictIdle()
         for ((id, _) in evicted) {
             subscriptions.values.forEach { it.remove(id) }
             val identifier = Identifier(id)
             _connections.update { list -> list.filter { it.device != identifier } }
-            _connectionEvents.tryEmit(ServerConnectionEvent.Disconnected(identifier))
+            _connectionEvents.emit(ServerConnectionEvent.Disconnected(identifier))
             logEvent(
                 BleLogEvent.ServerClientEvent(identifier, "evicted (idle > $centralIdleTimeout)"),
             )

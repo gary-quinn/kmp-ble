@@ -87,11 +87,29 @@ kotlin {
 
     jvm()
 
+    val objcSrcDir = project.file("src/nativeInterop/cinterop")
+
     listOf(
         iosArm64(),
         iosSimulatorArm64(),
         iosX64(),
     ).forEach { target ->
+        target.compilations.getByName("main") {
+            cinterops.create("KmpBleDelegateProxy") {
+                defFile(project.file("src/nativeInterop/cinterop/KmpBleDelegateProxy.def"))
+                includeDirs(objcSrcDir)
+            }
+        }
+
+        val archivePath = compileObjcLibrary(target.name, "KmpBleDelegateProxy", objcSrcDir)
+        target.compilations.getByName("main") {
+            val archiveTask = "archiveObjc${target.name.replaceFirstChar { it.uppercase() }}"
+            compileTaskProvider.configure { dependsOn(archiveTask) }
+            compilerOptions.configure {
+                freeCompilerArgs.addAll("-include-binary", archivePath)
+            }
+        }
+
         target.binaries.framework {
             baseName = "KmpBle"
             isStatic = true
@@ -130,6 +148,12 @@ kotlin {
             implementation(libs.androidx.test.ext.junit)
         }
     }
+}
+
+// Lincheck bytecode transformation needs headroom in the JVM test fork.
+tasks.named<Test>("jvmTest") {
+    maxHeapSize = "4g"
+    jvmArgs("--add-opens", "java.base/java.lang=ALL-UNNAMED")
 }
 
 // KMP 2.1+ new Android DSL absorbs the AGP extension, so consumerProguardFiles
