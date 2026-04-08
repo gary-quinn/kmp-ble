@@ -6,6 +6,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import org.jetbrains.lincheck.datastructures.Operation
 import org.jetbrains.lincheck.datastructures.StressOptions
+import org.jetbrains.lincheck.datastructures.Validate
 import org.junit.Test
 
 /**
@@ -17,9 +18,13 @@ import org.junit.Test
  *
  * Uses [StressOptions] only — [ModelCheckingOptions] conflicts with the
  * coroutine launched inside [start].
+ *
+ * [Dispatchers.Unconfined] avoids spawning worker threads per scenario;
+ * Lincheck already controls thread scheduling.
  */
 class GattOperationQueueLifecycleLincheckTest {
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val job = SupervisorJob()
+    private val scope = CoroutineScope(job + Dispatchers.Unconfined)
     private val queue = GattOperationQueue(scope)
 
     @Operation
@@ -27,6 +32,12 @@ class GattOperationQueueLifecycleLincheckTest {
 
     @Operation
     fun drain() = queue.drain()
+
+    @Validate
+    fun cleanup() {
+        queue.close()
+        job.cancel()
+    }
 
     @Test
     fun stressTest() =
