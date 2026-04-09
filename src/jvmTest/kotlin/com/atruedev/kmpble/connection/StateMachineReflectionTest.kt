@@ -15,7 +15,7 @@ import kotlin.test.assertTrue
 class StateMachineReflectionTest {
     @Test
     fun everyDisconnectedSubtypeHasParentMapping() {
-        val sealedSubclasses = State.Disconnected::class.sealedSubclasses.map { it }
+        val sealedSubclasses = State.Disconnected::class.sealedSubclasses
         val mapped = StateMachine.allParentMappings.keys
 
         assertTrue(sealedSubclasses.isNotEmpty(), "Sealed subclass reflection returned empty")
