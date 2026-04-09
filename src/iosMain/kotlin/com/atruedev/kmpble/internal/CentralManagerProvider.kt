@@ -21,7 +21,9 @@ internal object CentralManagerProvider {
         KmpBleDelegateProxy(target = delegate).apply {
             onConnectionFailure = { peripheral, error ->
                 val id = peripheral?.identifier?.UUIDString
-                if (id == null) {
+                if (id != null) {
+                    delegate.handleConnectionFailure(id, error)
+                } else {
                     logEvent(
                         BleLogEvent.Error(
                             identifier = null,
@@ -29,9 +31,7 @@ internal object CentralManagerProvider {
                             cause = null,
                         ),
                     )
-                    return@apply
                 }
-                delegate.handleConnectionFailure(id, error)
             }
         }
 
