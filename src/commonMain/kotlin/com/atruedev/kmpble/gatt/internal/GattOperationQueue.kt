@@ -10,6 +10,13 @@ import kotlin.concurrent.Volatile
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
+/**
+ * Serializes GATT operations into a single-consumer queue with timeout support.
+ *
+ * Acceptance is controlled by channel lifecycle: [start] opens a new channel,
+ * [drain] closes it. [Channel.trySend] on a closed channel fails atomically,
+ * eliminating the TOCTOU window that a separate flag would introduce.
+ */
 internal class GattOperationQueue(
     private val scope: CoroutineScope,
 ) {
@@ -18,25 +25,22 @@ internal class GattOperationQueue(
         val cancel: (Throwable) -> Unit,
     )
 
-    private val channel = Channel<QueueEntry>(Channel.UNLIMITED)
+    @Volatile
+    private var channel = Channel<QueueEntry>(Channel.UNLIMITED)
     private var drainJob: Job? = null
 
     @Volatile
-    private var accepting = false
-
     private var operationTimeout: Duration = DEFAULT_OPERATION_TIMEOUT
 
     fun start(timeout: Duration? = null) {
+        drain()
         drainJob?.cancel()
-        accepting = true
         if (timeout != null) operationTimeout = timeout
+        val ch = Channel<QueueEntry>(Channel.UNLIMITED)
+        channel = ch
         drainJob =
             scope.launch {
-                for (entry in channel) {
-                    if (!accepting) {
-                        entry.cancel(NotConnectedException())
-                        continue
-                    }
+                for (entry in ch) {
                     entry.action()
                 }
             }
@@ -46,8 +50,6 @@ internal class GattOperationQueue(
         timeout: Duration = operationTimeout,
         block: suspend () -> T,
     ): T {
-        if (!accepting) throw NotConnectedException()
-
         val deferred = CompletableDeferred<T>()
         val entry =
             QueueEntry(
@@ -60,24 +62,19 @@ internal class GattOperationQueue(
                 },
                 cancel = { deferred.completeExceptionally(it) },
             )
-        channel.send(entry)
+
+        if (!channel.trySend(entry).isSuccess) throw NotConnectedException()
 
         return withTimeout(timeout) {
             deferred.await()
         }
     }
 
-    /**
-     * Stops accepting new operations and cancels all queued entries.
-     *
-     * Thread-safety invariant: [enqueue] checks [accepting] before inserting into [channel],
-     * so once [accepting] is set to `false`, no new entries can be enqueued. The drain loop
-     * only needs to clear entries that were already in the channel at that point.
-     */
     fun drain() {
-        accepting = false
+        val ch = channel
+        ch.close()
         while (true) {
-            val entry = channel.tryReceive().getOrNull() ?: break
+            val entry = ch.tryReceive().getOrNull() ?: break
             entry.cancel(NotConnectedException())
         }
     }
@@ -85,7 +82,6 @@ internal class GattOperationQueue(
     fun close() {
         drain()
         drainJob?.cancel()
-        channel.close()
     }
 }
 

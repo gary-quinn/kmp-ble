@@ -6,10 +6,14 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.yield
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertIs
+import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 
 class GattOperationQueueTest {
@@ -101,5 +105,72 @@ class GattOperationQueueTest {
             }
 
             queue.close()
+        }
+
+    @Test
+    fun drainCancelsPendingEntries() =
+        runTest {
+            val queue = GattOperationQueue(this)
+            queue.start()
+
+            // Hold the drain loop on a gate so subsequent entries stay in the channel buffer.
+            val gate = CompletableDeferred<Unit>()
+            launch {
+                runCatching {
+                    queue.enqueue {
+                        gate.await()
+                        "blocker"
+                    }
+                }
+            }
+            // Let drainJob dequeue the blocker and suspend on gate.
+            yield()
+
+            // Victim entry sits in the channel buffer (drain loop is blocked).
+            val victim = CompletableDeferred<Result<String>>()
+            launch {
+                victim.complete(runCatching { queue.enqueue { "victim" } })
+            }
+            yield()
+
+            // drain() closes the channel — victim gets NotConnectedException.
+            queue.drain()
+            gate.complete(Unit)
+
+            val failure = victim.await()
+            assertTrue(failure.isFailure, "Queued entry should have been cancelled by drain")
+            assertIs<NotConnectedException>(failure.exceptionOrNull())
+
+            queue.close()
+        }
+
+    @Test
+    fun restartAfterDrainAcceptsNewOperations() =
+        runTest {
+            val queue = GattOperationQueue(this)
+            queue.start()
+            queue.drain()
+
+            assertFailsWith<NotConnectedException> {
+                queue.enqueue { "rejected" }
+            }
+
+            queue.start()
+            val result = queue.enqueue { "accepted" }
+            assertEquals("accepted", result)
+
+            queue.close()
+        }
+
+    @Test
+    fun closeRejectsNewOperations() =
+        runTest {
+            val queue = GattOperationQueue(this)
+            queue.start()
+            queue.close()
+
+            assertFailsWith<NotConnectedException> {
+                queue.enqueue { "should fail" }
+            }
         }
 }

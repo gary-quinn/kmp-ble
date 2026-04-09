@@ -55,6 +55,7 @@ import platform.CoreBluetooth.CBPeripheral
 import platform.CoreBluetooth.CBService
 import platform.Foundation.NSData
 import kotlin.concurrent.Volatile
+import kotlin.time.Duration.Companion.seconds
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
@@ -151,7 +152,7 @@ public class IosPeripheral(
             bridge.disconnect()
 
             try {
-                withTimeout(DISCONNECT_TIMEOUT_MS) { disconnectComplete!!.await() }
+                withTimeout(DISCONNECT_TIMEOUT) { disconnectComplete!!.await() }
             } catch (_: kotlinx.coroutines.TimeoutCancellationException) {
                 peripheralContext.processEvent(
                     ConnectionEvent.ConnectionLost(OperationFailed("Disconnect timeout")),
@@ -188,7 +189,7 @@ public class IosPeripheral(
             discoveryComplete = CompletableDeferred()
             bridge.discoverServices()
             try {
-                withTimeout(DISCOVERY_TIMEOUT_MS) { discoveryComplete!!.await() }
+                withTimeout(DISCOVERY_TIMEOUT) { discoveryComplete!!.await() }
             } finally {
                 discoveryComplete = null
             }
@@ -612,7 +613,7 @@ public class IosPeripheral(
 
             try {
                 val cbChannel =
-                    withTimeout(L2CAP_OPEN_TIMEOUT_MS) {
+                    withTimeout(L2CAP_OPEN_TIMEOUT) {
                         deferred.await()
                     }
                 val channel = IosL2capChannel(cbChannel, peripheralContext.scope)
@@ -714,7 +715,7 @@ public class IosPeripheral(
                 bridge.discoverServices()
 
                 try {
-                    withTimeout(DISCOVERY_TIMEOUT_MS) {
+                    withTimeout(DISCOVERY_TIMEOUT) {
                         connectionComplete!!.await()
                     }
                 } finally {
@@ -731,9 +732,9 @@ public class IosPeripheral(
     }
 
     private companion object {
-        const val L2CAP_OPEN_TIMEOUT_MS = 30_000L
-        const val DISCONNECT_TIMEOUT_MS = 5_000L
-        const val DISCOVERY_TIMEOUT_MS = 10_000L
+        val L2CAP_OPEN_TIMEOUT = 30.seconds
+        val DISCONNECT_TIMEOUT = 5.seconds
+        val DISCOVERY_TIMEOUT = 10.seconds
         const val ATT_HEADER_SIZE = 3
     }
 }
