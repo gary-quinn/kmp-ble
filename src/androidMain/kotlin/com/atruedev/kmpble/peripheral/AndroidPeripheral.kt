@@ -18,6 +18,7 @@ import com.atruedev.kmpble.error.BleException
 import com.atruedev.kmpble.error.ConnectionFailed
 import com.atruedev.kmpble.error.ConnectionLost
 import com.atruedev.kmpble.error.GattError
+import com.atruedev.kmpble.error.GattStatus
 import com.atruedev.kmpble.error.OperationFailed
 import com.atruedev.kmpble.gatt.BackpressureStrategy
 import com.atruedev.kmpble.gatt.Characteristic
@@ -289,7 +290,7 @@ public class AndroidPeripheral internal constructor(
             discoveryComplete = CompletableDeferred()
             if (!bridge.discoverServices()) {
                 discoveryComplete = null
-                throw IllegalStateException("discoverServices() returned false")
+                throw BleException(OperationFailed("discoverServices initiation failed"))
             }
             try {
                 withTimeout(SERVICE_DISCOVERY_TIMEOUT) { discoveryComplete!!.await() }
@@ -538,7 +539,7 @@ public class AndroidPeripheral internal constructor(
             pendingOps.characteristicRead = deferred
             if (!bridge.readCharacteristic(native)) {
                 pendingOps.characteristicRead = null
-                throw IllegalStateException("readCharacteristic initiation failed")
+                throw BleException(GattError("read", GattStatus.Failure))
             }
             val result = deferred.await()
             if (!result.status.isSuccess()) throw BleException(GattError("read", result.status))
@@ -569,7 +570,7 @@ public class AndroidPeripheral internal constructor(
                 pendingOps.characteristicWrite = deferred
                 if (!bridge.writeCharacteristic(native, chunk, androidWriteType)) {
                     pendingOps.characteristicWrite = null
-                    throw IllegalStateException("writeCharacteristic initiation failed")
+                    throw BleException(GattError("write", GattStatus.Failure))
                 }
                 val status = deferred.await()
                 if (!status.isSuccess()) throw BleException(GattError("write", status))
@@ -670,7 +671,7 @@ public class AndroidPeripheral internal constructor(
             pendingOps.descriptorRead = deferred
             if (!bridge.readDescriptor(native)) {
                 pendingOps.descriptorRead = null
-                throw IllegalStateException("readDescriptor initiation failed")
+                throw BleException(GattError("readDescriptor", GattStatus.Failure))
             }
             val result = deferred.await()
             if (!result.status.isSuccess()) throw BleException(GattError("descriptorRead", result.status))
@@ -689,7 +690,7 @@ public class AndroidPeripheral internal constructor(
             pendingOps.descriptorWrite = deferred
             if (!bridge.writeDescriptor(native, data)) {
                 pendingOps.descriptorWrite = null
-                throw IllegalStateException("writeDescriptor initiation failed")
+                throw BleException(GattError("writeDescriptor", GattStatus.Failure))
             }
             val status = deferred.await()
             if (!status.isSuccess()) throw BleException(GattError("descriptorWrite", status))
@@ -703,7 +704,7 @@ public class AndroidPeripheral internal constructor(
             pendingOps.rssiRead = deferred
             if (!bridge.readRemoteRssi()) {
                 pendingOps.rssiRead = null
-                throw IllegalStateException("readRemoteRssi initiation failed")
+                throw BleException(GattError("readRssi", GattStatus.Failure))
             }
             deferred.await()
         }
@@ -716,7 +717,7 @@ public class AndroidPeripheral internal constructor(
             pendingOps.mtuRequest = deferred
             if (!bridge.requestMtu(mtu)) {
                 pendingOps.mtuRequest = null
-                throw IllegalStateException("requestMtu initiation failed")
+                throw BleException(GattError("requestMtu", GattStatus.Failure))
             }
             deferred.await()
         }

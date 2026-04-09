@@ -1,6 +1,7 @@
 package com.atruedev.kmpble.internal
 
 import com.atruedev.kmpble.adapter.BluetoothAdapterState
+import com.atruedev.kmpble.interop.KmpBleDelegateProxy
 import kotlinx.coroutines.flow.StateFlow
 import platform.CoreBluetooth.CBCentralManager
 import platform.CoreBluetooth.CBCentralManagerOptionRestoreIdentifierKey
@@ -10,6 +11,17 @@ import kotlin.concurrent.Volatile
 internal object CentralManagerProvider {
     private val queue = dispatch_queue_create("com.atruedev.kmpble", null)
     private val delegate = KmpBleCentralDelegate()
+
+    // ObjC proxy handles didFailToConnectPeripheral (K/N can't override it due to
+    // signature collision with didDisconnectPeripheral). All other delegate methods
+    // forward to the Kotlin delegate via ObjC message forwarding.
+    private val delegateProxy =
+        KmpBleDelegateProxy(target = delegate).apply {
+            onConnectionFailure = { peripheral, error ->
+                val id = peripheral!!.identifier.UUIDString
+                delegate.handleConnectionFailure(id, error)
+            }
+        }
 
     /**
      * State restoration identifier. Set via [enableStateRestoration] before
@@ -28,7 +40,7 @@ internal object CentralManagerProvider {
             val restoreId = restoreIdentifier
             if (restoreId != null) {
                 CBCentralManager(
-                    delegate = delegate,
+                    delegate = delegateProxy,
                     queue = queue,
                     options =
                         mapOf<Any?, Any?>(
@@ -37,7 +49,7 @@ internal object CentralManagerProvider {
                 )
             } else {
                 CBCentralManager(
-                    delegate = delegate,
+                    delegate = delegateProxy,
                     queue = queue,
                 )
             }

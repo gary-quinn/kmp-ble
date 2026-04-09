@@ -139,7 +139,14 @@ internal class KmpBleCentralDelegate :
         connectionCallbacks[id]?.invoke(false, error)
     }
 
-    // K/N limitation: didFailToConnectPeripheral shares Kotlin type signature with
-    // didDisconnectPeripheral — only one override possible. Connection failures
-    // fall through to the connect() timeout. Wire via ObjC helper in a future release.
+    /**
+     * Called by [KmpBleDelegateProxy] when didFailToConnectPeripheral fires.
+     * Routes through the same connection callback as didDisconnectPeripheral.
+     */
+    internal fun handleConnectionFailure(
+        peripheralId: String,
+        error: platform.Foundation.NSError?,
+    ) {
+        connectionCallbacks[peripheralId]?.invoke(false, error)
+    }
 }

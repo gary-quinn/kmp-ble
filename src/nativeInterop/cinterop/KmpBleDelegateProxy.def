@@ -1,0 +1,6 @@
+language = Objective-C
+package = com.atruedev.kmpble.interop
+headers = KmpBleDelegateProxy.h
+headerFilter = KmpBleDelegateProxy.h
+compilerOpts = -framework CoreBluetooth
+linkerOpts = -framework CoreBluetooth
