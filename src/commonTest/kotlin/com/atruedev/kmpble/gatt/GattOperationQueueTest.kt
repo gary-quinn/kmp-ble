@@ -8,6 +8,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.yield
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -112,18 +113,32 @@ class GattOperationQueueTest {
             val queue = GattOperationQueue(this)
             queue.start()
 
-            // Enqueue an entry, then drain before it executes
-            val result = CompletableDeferred<Result<String>>()
+            // Hold the drain loop on a gate so subsequent entries stay in the channel buffer.
+            val gate = CompletableDeferred<Unit>()
             launch {
-                result.complete(
-                    runCatching { queue.enqueue { "should be cancelled" } },
-                )
+                runCatching {
+                    queue.enqueue {
+                        gate.await()
+                        "blocker"
+                    }
+                }
             }
+            // Let drainJob dequeue the blocker and suspend on gate.
+            yield()
 
+            // Victim entry sits in the channel buffer (drain loop is blocked).
+            val victim = CompletableDeferred<Result<String>>()
+            launch {
+                victim.complete(runCatching { queue.enqueue { "victim" } })
+            }
+            yield()
+
+            // drain() closes the channel — victim gets NotConnectedException.
             queue.drain()
+            gate.complete(Unit)
 
-            val failure = result.await()
-            assertTrue(failure.isFailure, "Entry should have been cancelled by drain")
+            val failure = victim.await()
+            assertTrue(failure.isFailure, "Queued entry should have been cancelled by drain")
             assertIs<NotConnectedException>(failure.exceptionOrNull())
 
             queue.close()

@@ -31,8 +31,8 @@ internal class GattOperationQueue(
     private var operationTimeout: Duration = DEFAULT_OPERATION_TIMEOUT
 
     fun start(timeout: Duration? = null) {
+        drain()
         drainJob?.cancel()
-        channel.close()
         if (timeout != null) operationTimeout = timeout
         val ch = Channel<QueueEntry>(Channel.UNLIMITED)
         channel = ch
@@ -83,8 +83,8 @@ internal class GattOperationQueue(
     }
 
     fun close() {
-        drainJob?.cancel()
         drain()
+        drainJob?.cancel()
     }
 }
 
