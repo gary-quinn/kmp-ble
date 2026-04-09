@@ -28,6 +28,8 @@ internal class GattOperationQueue(
     @Volatile
     private var channel = Channel<QueueEntry>(Channel.UNLIMITED)
     private var drainJob: Job? = null
+
+    @Volatile
     private var operationTimeout: Duration = DEFAULT_OPERATION_TIMEOUT
 
     fun start(timeout: Duration? = null) {
@@ -71,8 +73,10 @@ internal class GattOperationQueue(
     fun drain() {
         val ch = channel
         ch.close()
-        generateSequence { ch.tryReceive().getOrNull() }
-            .forEach { it.cancel(NotConnectedException()) }
+        while (true) {
+            val entry = ch.tryReceive().getOrNull() ?: break
+            entry.cancel(NotConnectedException())
+        }
     }
 
     fun close() {
