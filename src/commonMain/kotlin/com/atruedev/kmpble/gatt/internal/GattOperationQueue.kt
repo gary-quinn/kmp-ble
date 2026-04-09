@@ -27,6 +27,8 @@ internal class GattOperationQueue(
 
     @Volatile
     private var channel = Channel<QueueEntry>(Channel.UNLIMITED)
+
+    @Volatile
     private var drainJob: Job? = null
 
     @Volatile
