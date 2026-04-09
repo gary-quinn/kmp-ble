@@ -17,20 +17,20 @@ import com.atruedev.kmpble.gatt.Descriptor
 import com.atruedev.kmpble.gatt.DiscoveredService
 import com.atruedev.kmpble.gatt.Observation
 import com.atruedev.kmpble.gatt.WriteType
-import com.atruedev.kmpble.gatt.internal.ObservationEvent
 import com.atruedev.kmpble.gatt.internal.ObservationManager
-import com.atruedev.kmpble.gatt.internal.applyBackpressure
+import com.atruedev.kmpble.gatt.internal.observationFlow
+import com.atruedev.kmpble.gatt.internal.observationValuesFlow
+import com.atruedev.kmpble.gatt.internal.resubscribe
 import com.atruedev.kmpble.l2cap.L2capChannel
 import com.atruedev.kmpble.l2cap.L2capException
 import com.atruedev.kmpble.peripheral.Peripheral
 import com.atruedev.kmpble.peripheral.internal.PeripheralContext
+import com.atruedev.kmpble.gatt.internal.applyBackpressure
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.onCompletion
-import kotlinx.coroutines.flow.onStart
 import kotlin.time.Duration
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
@@ -114,24 +114,6 @@ public class FakePeripheral internal constructor(
         return fakeServices
     }
 
-    override fun findCharacteristic(
-        serviceUuid: Uuid,
-        characteristicUuid: Uuid,
-    ): Characteristic? =
-        services.value
-            ?.firstOrNull { it.uuid == serviceUuid }
-            ?.characteristics
-            ?.firstOrNull { it.uuid == characteristicUuid }
-
-    override fun findDescriptor(
-        serviceUuid: Uuid,
-        characteristicUuid: Uuid,
-        descriptorUuid: Uuid,
-    ): Descriptor? {
-        val char = findCharacteristic(serviceUuid, characteristicUuid) ?: return null
-        return char.descriptors.firstOrNull { it.uuid == descriptorUuid }
-    }
-
     // --- GATT Operations ---
 
     override suspend fun read(characteristic: Characteristic): ByteArray {
@@ -179,39 +161,22 @@ public class FakePeripheral internal constructor(
         backpressure: BackpressureStrategy,
     ): Flow<Observation> {
         checkNotClosed()
-        val serviceUuid = characteristic.serviceUuid
-        val charUuid = characteristic.uuid
-
         val config = findConfig(characteristic)
         failWithFlow<Observation>(config)?.let { return it }
 
         val handler = config?.observeHandler
-
         return if (handler != null) {
             handler()
                 .map<ByteArray, Observation> { Observation.Value(it) }
                 .applyBackpressure(backpressure)
         } else {
-            flow {
-                val eventFlow = observationManager.subscribe(serviceUuid, charUuid, backpressure)
-                eventFlow.collect { event ->
-                    when (event) {
-                        is ObservationEvent.Value -> emit(Observation.Value(event.data))
-                        is ObservationEvent.Disconnected -> emit(Observation.Disconnected)
-                        is ObservationEvent.PermanentlyDisconnected -> emit(Observation.Disconnected)
-                    }
-                }
-            }.onStart {
-                if (context.state.value is State.Connected.Ready) {
-                    cccdWrites.add(CccdWrite(serviceUuid, charUuid, enabled = true))
-                }
-            }.applyBackpressure(backpressure)
-                .onCompletion {
-                    val wasLastCollector = observationManager.unsubscribe(serviceUuid, charUuid)
-                    if (wasLastCollector && context.state.value is State.Connected) {
-                        cccdWrites.add(CccdWrite(serviceUuid, charUuid, enabled = false))
-                    }
-                }
+            observationManager.observationFlow(
+                characteristic = characteristic,
+                backpressure = backpressure,
+                isReady = { context.state.value is State.Connected.Ready },
+                enableNotifications = { recordCccdWrite(characteristic, enabled = true) },
+                disableNotifications = { recordCccdDisable(characteristic) },
+            )
         }
     }
 
@@ -220,41 +185,30 @@ public class FakePeripheral internal constructor(
         backpressure: BackpressureStrategy,
     ): Flow<ByteArray> {
         checkNotClosed()
-        val serviceUuid = characteristic.serviceUuid
-        val charUuid = characteristic.uuid
-
         val config = findConfig(characteristic)
         failWithFlow<ByteArray>(config)?.let { return it }
 
         val handler = config?.observeHandler
-
         return if (handler != null) {
             handler().applyBackpressure(backpressure)
         } else {
-            flow {
-                val eventFlow = observationManager.subscribe(serviceUuid, charUuid, backpressure)
-                eventFlow.collect { event ->
-                    when (event) {
-                        is ObservationEvent.Value -> emit(event.data)
-                        is ObservationEvent.Disconnected -> {
-                            // Transparent reconnection — no emission during disconnect
-                        }
-                        is ObservationEvent.PermanentlyDisconnected -> {
-                            // Flow completes normally, no emission (transformWhile ends the flow)
-                        }
-                    }
-                }
-            }.onStart {
-                if (context.state.value is State.Connected.Ready) {
-                    cccdWrites.add(CccdWrite(serviceUuid, charUuid, enabled = true))
-                }
-            }.applyBackpressure(backpressure)
-                .onCompletion {
-                    val wasLastCollector = observationManager.unsubscribe(serviceUuid, charUuid)
-                    if (wasLastCollector && context.state.value is State.Connected) {
-                        cccdWrites.add(CccdWrite(serviceUuid, charUuid, enabled = false))
-                    }
-                }
+            observationManager.observationValuesFlow(
+                characteristic = characteristic,
+                backpressure = backpressure,
+                isReady = { context.state.value is State.Connected.Ready },
+                enableNotifications = { recordCccdWrite(characteristic, enabled = true) },
+                disableNotifications = { recordCccdDisable(characteristic) },
+            )
+        }
+    }
+
+    private fun recordCccdWrite(characteristic: Characteristic, enabled: Boolean) {
+        cccdWrites.add(CccdWrite(characteristic.serviceUuid, characteristic.uuid, enabled))
+    }
+
+    private fun recordCccdDisable(characteristic: Characteristic) {
+        if (context.state.value is State.Connected) {
+            cccdWrites.add(CccdWrite(characteristic.serviceUuid, characteristic.uuid, enabled = false))
         }
     }
 
@@ -372,16 +326,10 @@ public class FakePeripheral internal constructor(
     }
 
     private suspend fun resubscribeObservations() {
-        val toResubscribe = observationManager.getObservationsToResubscribe()
-        for (key in toResubscribe) {
-            val char = findCharacteristic(key.serviceUuid, key.charUuid)
-            if (char != null) {
-                cccdWrites.add(CccdWrite(key.serviceUuid, key.charUuid, enabled = true))
-            } else {
-                // Characteristic no longer exists — complete that observation
-                observationManager.completeObservation(key)
-            }
-        }
+        observationManager.resubscribe(
+            findCharacteristic = ::findCharacteristic,
+            enableNotifications = { char -> recordCccdWrite(char, enabled = true) },
+        )
     }
 
     /**

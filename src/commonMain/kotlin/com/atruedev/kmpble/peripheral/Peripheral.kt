@@ -43,13 +43,20 @@ public interface Peripheral : AutoCloseable {
     public fun findCharacteristic(
         serviceUuid: Uuid,
         characteristicUuid: Uuid,
-    ): Characteristic?
+    ): Characteristic? =
+        services.value
+            ?.firstOrNull { it.uuid == serviceUuid }
+            ?.characteristics
+            ?.firstOrNull { it.uuid == characteristicUuid }
 
     public fun findDescriptor(
         serviceUuid: Uuid,
         characteristicUuid: Uuid,
         descriptorUuid: Uuid,
-    ): Descriptor?
+    ): Descriptor? =
+        findCharacteristic(serviceUuid, characteristicUuid)
+            ?.descriptors
+            ?.firstOrNull { it.uuid == descriptorUuid }
 
     // --- GATT Operations ---
     public suspend fun read(characteristic: Characteristic): ByteArray

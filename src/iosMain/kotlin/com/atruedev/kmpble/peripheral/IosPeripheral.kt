@@ -17,11 +17,12 @@ import com.atruedev.kmpble.gatt.Observation
 import com.atruedev.kmpble.gatt.WriteType
 import com.atruedev.kmpble.gatt.internal.GattResult
 import com.atruedev.kmpble.gatt.internal.LargeWriteHandler
-import com.atruedev.kmpble.gatt.internal.ObservationEvent
 import com.atruedev.kmpble.gatt.internal.ObservationManager
 import com.atruedev.kmpble.gatt.internal.PendingOperations
 import com.atruedev.kmpble.gatt.internal.PersistedObservation
-import com.atruedev.kmpble.gatt.internal.applyBackpressure
+import com.atruedev.kmpble.gatt.internal.observationFlow
+import com.atruedev.kmpble.gatt.internal.observationValuesFlow
+import com.atruedev.kmpble.gatt.internal.resubscribe
 import com.atruedev.kmpble.internal.CentralManagerProvider
 import com.atruedev.kmpble.internal.StateRestorationHandler
 import com.atruedev.kmpble.l2cap.IosL2capChannel
@@ -36,8 +37,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.getAndUpdate
-import kotlinx.coroutines.flow.onCompletion
-import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -54,11 +53,14 @@ import platform.CoreBluetooth.CBL2CAPChannel
 import platform.CoreBluetooth.CBPeripheral
 import platform.CoreBluetooth.CBService
 import platform.Foundation.NSData
-import kotlin.concurrent.Volatile
+import kotlin.concurrent.atomics.AtomicBoolean
+import kotlin.concurrent.atomics.ExperimentalAtomicApi
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
-@OptIn(ExperimentalUuidApi::class)
+@OptIn(ExperimentalUuidApi::class, ExperimentalAtomicApi::class)
 public class IosPeripheral(
     private val cbPeripheral: CBPeripheral,
 ) : Peripheral {
@@ -86,8 +88,7 @@ public class IosPeripheral(
     override val services: StateFlow<List<DiscoveredService>?> get() = peripheralContext.services
     override val maximumWriteValueLength: StateFlow<Int> get() = peripheralContext.maximumWriteValueLength
 
-    @Volatile
-    private var closed = false
+    private val closed = AtomicBoolean(false)
 
     // Safe: all callbacks dispatched to peripheralContext.scope (limitedParallelism(1))
     private var pendingCharacteristicDiscovery = 0
@@ -130,7 +131,7 @@ public class IosPeripheral(
             val failureDetector =
                 peripheralContext.scope.launch {
                     while (connectionComplete?.isCompleted == false) {
-                        kotlinx.coroutines.delay(CONNECT_POLL_INTERVAL_MS)
+                        kotlinx.coroutines.delay(CONNECT_POLL_INTERVAL)
                         if (cbPeripheral.state == platform.CoreBluetooth.CBPeripheralStateDisconnected) {
                             val deferred = connectionComplete ?: break
                             if (!deferred.isCompleted) {
@@ -172,7 +173,7 @@ public class IosPeripheral(
             bridge.disconnect()
 
             try {
-                withTimeout(DISCONNECT_TIMEOUT_MS) { disconnectComplete!!.await() }
+                withTimeout(DISCONNECT_TIMEOUT) { disconnectComplete!!.await() }
             } catch (_: kotlinx.coroutines.TimeoutCancellationException) {
                 peripheralContext.processEvent(
                     ConnectionEvent.ConnectionLost(OperationFailed("Disconnect timeout")),
@@ -190,8 +191,7 @@ public class IosPeripheral(
         )
 
     override fun close() {
-        if (closed) return
-        closed = true
+        if (!closed.compareAndSet(expectedValue = false, newValue = true)) return
         reconnectionHandler.stop()
         closeL2capChannels()
         centralDelegate.unregisterConnectionCallback(identifier.value)
@@ -209,29 +209,11 @@ public class IosPeripheral(
             discoveryComplete = CompletableDeferred()
             bridge.discoverServices()
             try {
-                withTimeout(DISCOVERY_TIMEOUT_MS) { discoveryComplete!!.await() }
+                withTimeout(DISCOVERY_TIMEOUT) { discoveryComplete!!.await() }
             } finally {
                 discoveryComplete = null
             }
         }
-    }
-
-    override fun findCharacteristic(
-        serviceUuid: Uuid,
-        characteristicUuid: Uuid,
-    ): Characteristic? =
-        services.value
-            ?.firstOrNull { it.uuid == serviceUuid }
-            ?.characteristics
-            ?.firstOrNull { it.uuid == characteristicUuid }
-
-    override fun findDescriptor(
-        serviceUuid: Uuid,
-        characteristicUuid: Uuid,
-        descriptorUuid: Uuid,
-    ): Descriptor? {
-        val char = findCharacteristic(serviceUuid, characteristicUuid) ?: return null
-        return char.descriptors.firstOrNull { it.uuid == descriptorUuid }
     }
 
     // --- Central manager connection callbacks ---
@@ -376,16 +358,10 @@ public class IosPeripheral(
     }
 
     private suspend fun resubscribeObservations() {
-        val toResubscribe = observationManager.getObservationsToResubscribe()
-        for (key in toResubscribe) {
-            val char = findCharacteristic(key.serviceUuid, key.charUuid)
-            if (char != null) {
-                enableNotifications(char)
-            } else {
-                // Characteristic no longer exists — complete that observation
-                observationManager.completeObservation(key)
-            }
-        }
+        observationManager.resubscribe(
+            findCharacteristic = ::findCharacteristic,
+            enableNotifications = ::enableNotifications,
+        )
     }
 
     // --- Service parsing ---
@@ -488,30 +464,13 @@ public class IosPeripheral(
         backpressure: BackpressureStrategy,
     ): Flow<Observation> {
         checkNotClosed()
-        val serviceUuid = characteristic.serviceUuid
-        val charUuid = characteristic.uuid
-
-        return kotlinx.coroutines.flow
-            .flow {
-                val eventFlow = observationManager.subscribe(serviceUuid, charUuid, backpressure)
-                eventFlow.collect { event ->
-                    when (event) {
-                        is ObservationEvent.Value -> emit(Observation.Value(event.data))
-                        is ObservationEvent.Disconnected -> emit(Observation.Disconnected)
-                        is ObservationEvent.PermanentlyDisconnected -> emit(Observation.Disconnected)
-                    }
-                }
-            }.onStart {
-                if (peripheralContext.state.value is State.Connected.Ready) {
-                    enableNotifications(characteristic)
-                }
-            }.applyBackpressure(backpressure)
-            .onCompletion {
-                val wasLastCollector = observationManager.unsubscribe(serviceUuid, charUuid)
-                if (wasLastCollector) {
-                    disableNotifications(characteristic)
-                }
-            }
+        return observationManager.observationFlow(
+            characteristic = characteristic,
+            backpressure = backpressure,
+            isReady = { peripheralContext.state.value is State.Connected.Ready },
+            enableNotifications = { enableNotifications(characteristic) },
+            disableNotifications = { disableNotifications(characteristic) },
+        )
     }
 
     override fun observeValues(
@@ -519,34 +478,13 @@ public class IosPeripheral(
         backpressure: BackpressureStrategy,
     ): Flow<ByteArray> {
         checkNotClosed()
-        val serviceUuid = characteristic.serviceUuid
-        val charUuid = characteristic.uuid
-
-        return kotlinx.coroutines.flow
-            .flow {
-                val eventFlow = observationManager.subscribe(serviceUuid, charUuid, backpressure)
-                eventFlow.collect { event ->
-                    when (event) {
-                        is ObservationEvent.Value -> emit(event.data)
-                        is ObservationEvent.Disconnected -> {
-                            // Transparent reconnection — no emission during disconnect
-                        }
-                        is ObservationEvent.PermanentlyDisconnected -> {
-                            // Flow completes normally, no emission (transformWhile ends the flow)
-                        }
-                    }
-                }
-            }.onStart {
-                if (peripheralContext.state.value is State.Connected.Ready) {
-                    enableNotifications(characteristic)
-                }
-            }.applyBackpressure(backpressure)
-            .onCompletion {
-                val wasLastCollector = observationManager.unsubscribe(serviceUuid, charUuid)
-                if (wasLastCollector) {
-                    disableNotifications(characteristic)
-                }
-            }
+        return observationManager.observationValuesFlow(
+            characteristic = characteristic,
+            backpressure = backpressure,
+            isReady = { peripheralContext.state.value is State.Connected.Ready },
+            enableNotifications = { enableNotifications(characteristic) },
+            disableNotifications = { disableNotifications(characteristic) },
+        )
     }
 
     private fun enableNotifications(characteristic: Characteristic) {
@@ -606,7 +544,7 @@ public class IosPeripheral(
             cbPeripheral
                 .maximumWriteValueLengthForType(
                     platform.CoreBluetooth.CBCharacteristicWriteWithResponse,
-                ).toInt() + ATT_HEADER_SIZE
+                ).toInt() + PeripheralContext.ATT_HEADER_SIZE
         peripheralContext.updateMtu(actualMtu)
         return actualMtu
     }
@@ -633,7 +571,7 @@ public class IosPeripheral(
 
             try {
                 val cbChannel =
-                    withTimeout(L2CAP_OPEN_TIMEOUT_MS) {
+                    withTimeout(L2CAP_OPEN_TIMEOUT) {
                         deferred.await()
                     }
                 val channel = IosL2capChannel(cbChannel, peripheralContext.scope)
@@ -708,7 +646,7 @@ public class IosPeripheral(
      * ```
      */
     internal suspend fun restoreFromStateRestoration(savedObservations: Set<PersistedObservation>) {
-        if (closed) return
+        if (closed.load()) return
 
         withContext(peripheralContext.dispatcher) {
             // Pre-populate observation subscriptions from persisted entries.
@@ -735,7 +673,7 @@ public class IosPeripheral(
                 bridge.discoverServices()
 
                 try {
-                    withTimeout(DISCOVERY_TIMEOUT_MS) {
+                    withTimeout(DISCOVERY_TIMEOUT) {
                         connectionComplete!!.await()
                     }
                 } finally {
@@ -748,14 +686,13 @@ public class IosPeripheral(
     }
 
     private fun checkNotClosed() {
-        check(!closed) { "Peripheral is closed" }
+        check(!closed.load()) { "Peripheral is closed" }
     }
 
     private companion object {
-        const val L2CAP_OPEN_TIMEOUT_MS = 30_000L
-        const val CONNECT_POLL_INTERVAL_MS = 500L
-        const val DISCONNECT_TIMEOUT_MS = 5_000L
-        const val DISCOVERY_TIMEOUT_MS = 10_000L
-        const val ATT_HEADER_SIZE = 3
+        val L2CAP_OPEN_TIMEOUT = 30.seconds
+        val CONNECT_POLL_INTERVAL = 500.milliseconds
+        val DISCONNECT_TIMEOUT = 5.seconds
+        val DISCOVERY_TIMEOUT = 10.seconds
     }
 }

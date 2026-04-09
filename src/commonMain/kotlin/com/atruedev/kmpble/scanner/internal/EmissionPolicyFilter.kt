@@ -62,9 +62,7 @@ private fun hasChanged(
     if (previous.name != current.name) return true
     if (previous.serviceUuids != current.serviceUuids) return true
     if (abs(previous.rssi - current.rssi) > rssiThreshold) return true
-    // Check data content changes via hash
-    val currentSnapshot = current.snapshot()
-    if (previous.manufacturerDataHash != currentSnapshot.manufacturerDataHash) return true
-    if (previous.serviceDataHash != currentSnapshot.serviceDataHash) return true
+    if (previous.manufacturerDataHash != current.manufacturerData.hashCode()) return true
+    if (previous.serviceDataHash != current.serviceData.hashCode()) return true
     return false
 }

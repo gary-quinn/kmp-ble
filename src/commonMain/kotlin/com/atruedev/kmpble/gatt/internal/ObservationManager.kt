@@ -50,9 +50,10 @@ internal data class ObservationKey(
 
 /**
  * Tracks an active observation with its flow and metadata.
+ * Not a data class: collectorCount is mutable session state, not structural identity.
  */
 @OptIn(ExperimentalUuidApi::class)
-internal data class TrackedObservation(
+internal class TrackedObservation(
     val key: ObservationKey,
     val backpressure: BackpressureStrategy,
     val flow: MutableSharedFlow<ObservationEvent>,

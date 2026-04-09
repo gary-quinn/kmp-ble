@@ -20,10 +20,12 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
-import kotlin.concurrent.Volatile
+import kotlin.concurrent.atomics.AtomicBoolean
+import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.time.Duration
 import kotlin.time.TimeSource
 
+@OptIn(ExperimentalAtomicApi::class)
 internal class PeripheralContext(
     val identifier: Identifier,
 ) {
@@ -47,8 +49,7 @@ internal class PeripheralContext(
 
     val gattQueue = GattOperationQueue(scope)
 
-    @Volatile
-    private var closed = false
+    private val closed = AtomicBoolean(false)
 
     /**
      * Tracks when the current state was entered, for connection timeline logging.
@@ -65,7 +66,7 @@ internal class PeripheralContext(
      */
     suspend fun processEvent(event: ConnectionEvent): State =
         withContext(dispatcher) {
-            check(!closed) { "PeripheralContext is closed" }
+            check(!closed.load()) { "PeripheralContext is closed" }
 
             val previousState = _state.value
             val result = StateMachine.transition(previousState, event)
@@ -115,10 +116,9 @@ internal class PeripheralContext(
             _maximumWriteValueLength.value = (mtu - ATT_HEADER_SIZE).coerceAtLeast(DEFAULT_ATT_MTU - ATT_HEADER_SIZE)
         }
 
-    /** Terminal — non-suspend for ViewModel.onCleared() / deinit. Idempotent. */
+    /** Terminal — non-suspend for ViewModel.onCleared() / deinit. Idempotent and atomic. */
     fun close() {
-        if (closed) return
-        closed = true
+        if (!closed.compareAndSet(expectedValue = false, newValue = true)) return
         gattQueue.close()
         scope.cancel()
     }

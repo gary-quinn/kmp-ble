@@ -31,10 +31,11 @@ import com.atruedev.kmpble.gatt.internal.ENABLE_INDICATION_VALUE
 import com.atruedev.kmpble.gatt.internal.ENABLE_NOTIFICATION_VALUE
 import com.atruedev.kmpble.gatt.internal.GattResult
 import com.atruedev.kmpble.gatt.internal.LargeWriteHandler
-import com.atruedev.kmpble.gatt.internal.ObservationEvent
 import com.atruedev.kmpble.gatt.internal.ObservationManager
 import com.atruedev.kmpble.gatt.internal.PendingOperations
-import com.atruedev.kmpble.gatt.internal.applyBackpressure
+import com.atruedev.kmpble.gatt.internal.observationFlow
+import com.atruedev.kmpble.gatt.internal.observationValuesFlow
+import com.atruedev.kmpble.gatt.internal.resubscribe
 import com.atruedev.kmpble.l2cap.AndroidL2capChannel
 import com.atruedev.kmpble.l2cap.BluetoothL2capSocket
 import com.atruedev.kmpble.l2cap.L2capChannel
@@ -53,22 +54,21 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.getAndUpdate
-import kotlinx.coroutines.flow.onCompletion
-import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import java.io.IOException
-import kotlin.concurrent.Volatile
+import kotlin.concurrent.atomics.AtomicBoolean
+import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.time.Duration.Companion.seconds
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
-@OptIn(ExperimentalUuidApi::class)
+@OptIn(ExperimentalUuidApi::class, ExperimentalAtomicApi::class)
 public class AndroidPeripheral internal constructor(
     private val device: BluetoothDevice,
     context: Context,
@@ -101,8 +101,7 @@ public class AndroidPeripheral internal constructor(
     override val services: StateFlow<List<DiscoveredService>?> get() = peripheralContext.services
     override val maximumWriteValueLength: StateFlow<Int> get() = peripheralContext.maximumWriteValueLength
 
-    @Volatile
-    private var closed = false
+    private val closed = AtomicBoolean(false)
     private var currentConnectionOptions: ConnectionOptions? = null
     private val reconnectionHandler =
         com.atruedev.kmpble.connection.internal.ReconnectionHandler(
@@ -265,8 +264,7 @@ public class AndroidPeripheral internal constructor(
 
     @OptIn(com.atruedev.kmpble.ExperimentalBleApi::class)
     override fun close() {
-        if (closed) return
-        closed = true
+        if (!closed.compareAndSet(expectedValue = false, newValue = true)) return
         reconnectionHandler.stop()
         pairingRequestHandler.closeSync()
         bondManager.stop()
@@ -297,24 +295,6 @@ public class AndroidPeripheral internal constructor(
                 discoveryComplete = null
             }
         }
-    }
-
-    override fun findCharacteristic(
-        serviceUuid: Uuid,
-        characteristicUuid: Uuid,
-    ): Characteristic? =
-        services.value
-            ?.firstOrNull { it.uuid == serviceUuid }
-            ?.characteristics
-            ?.firstOrNull { it.uuid == characteristicUuid }
-
-    override fun findDescriptor(
-        serviceUuid: Uuid,
-        characteristicUuid: Uuid,
-        descriptorUuid: Uuid,
-    ): Descriptor? {
-        val char = findCharacteristic(serviceUuid, characteristicUuid) ?: return null
-        return char.descriptors.firstOrNull { it.uuid == descriptorUuid }
     }
 
     // --- GATT callback handling (runs on HandlerThread, bridges to PeripheralContext) ---
@@ -461,15 +441,10 @@ public class AndroidPeripheral internal constructor(
     }
 
     private suspend fun resubscribeObservations() {
-        val toResubscribe = observationManager.getObservationsToResubscribe()
-        for (key in toResubscribe) {
-            val char = findCharacteristic(key.serviceUuid, key.charUuid)
-            if (char != null) {
-                enableNotifications(char)
-            } else {
-                observationManager.completeObservation(key)
-            }
-        }
+        observationManager.resubscribe(
+            findCharacteristic = ::findCharacteristic,
+            enableNotifications = ::enableNotifications,
+        )
     }
 
     private suspend fun handleMtuChanged(event: GattCallbackEvent.MtuChanged) {
@@ -580,51 +555,29 @@ public class AndroidPeripheral internal constructor(
     override fun observe(
         characteristic: Characteristic,
         backpressure: BackpressureStrategy,
-    ): Flow<Observation> =
-        observeInternal(characteristic, backpressure) { event ->
-            when (event) {
-                is ObservationEvent.Value -> emit(Observation.Value(event.data))
-                is ObservationEvent.Disconnected -> emit(Observation.Disconnected)
-                is ObservationEvent.PermanentlyDisconnected -> emit(Observation.Disconnected)
-            }
-        }
+    ): Flow<Observation> {
+        checkNotClosed()
+        return observationManager.observationFlow(
+            characteristic = characteristic,
+            backpressure = backpressure,
+            isReady = { peripheralContext.state.value is State.Connected.Ready },
+            enableNotifications = { enableNotifications(characteristic) },
+            disableNotifications = { disableNotifications(characteristic) },
+        )
+    }
 
     override fun observeValues(
         characteristic: Characteristic,
         backpressure: BackpressureStrategy,
-    ): Flow<ByteArray> =
-        observeInternal(characteristic, backpressure) { event ->
-            when (event) {
-                is ObservationEvent.Value -> emit(event.data)
-                is ObservationEvent.Disconnected -> Unit
-                is ObservationEvent.PermanentlyDisconnected -> Unit
-            }
-        }
-
-    private fun <T> observeInternal(
-        characteristic: Characteristic,
-        backpressure: BackpressureStrategy,
-        mapper: suspend kotlinx.coroutines.flow.FlowCollector<T>.(ObservationEvent) -> Unit,
-    ): Flow<T> {
+    ): Flow<ByteArray> {
         checkNotClosed()
-        val serviceUuid = characteristic.serviceUuid
-        val charUuid = characteristic.uuid
-
-        return kotlinx.coroutines.flow
-            .flow {
-                val eventFlow = observationManager.subscribe(serviceUuid, charUuid, backpressure)
-                eventFlow.collect { event -> mapper(event) }
-            }.onStart {
-                if (peripheralContext.state.value is State.Connected.Ready) {
-                    enableNotifications(characteristic)
-                }
-            }.applyBackpressure(backpressure)
-            .onCompletion {
-                val wasLastCollector = observationManager.unsubscribe(serviceUuid, charUuid)
-                if (wasLastCollector) {
-                    disableNotifications(characteristic)
-                }
-            }
+        return observationManager.observationValuesFlow(
+            characteristic = characteristic,
+            backpressure = backpressure,
+            isReady = { peripheralContext.state.value is State.Connected.Ready },
+            enableNotifications = { enableNotifications(characteristic) },
+            disableNotifications = { disableNotifications(characteristic) },
+        )
     }
 
     private suspend fun enableNotifications(characteristic: Characteristic) {
@@ -869,7 +822,7 @@ public class AndroidPeripheral internal constructor(
     }
 
     private fun checkNotClosed() {
-        check(!closed) { "Peripheral is closed" }
+        check(!closed.load()) { "Peripheral is closed" }
     }
 
     private companion object {
