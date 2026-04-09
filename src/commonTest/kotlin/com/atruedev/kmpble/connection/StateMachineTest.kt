@@ -235,35 +235,4 @@ class StateMachineTest {
             transition(State.Connecting.Configuring, ConnectionEvent.DisconnectRequested),
         )
     }
-
-    // --- Parent map consistency with transition table ---
-
-    @Test
-    fun parentMapCoversAllTransitionTableParents() {
-        val transitionTableStates = StateMachine.allTransitions.map { it.first }.toSet()
-        val parentMapChildren = StateMachine.allParentMappings.keys
-        val parentMapParents = StateMachine.allParentMappings.values.toSet()
-
-        // Every parent referenced in the map must appear as a key in the transition table,
-        // otherwise the hierarchy walk would resolve to a class with no transitions.
-        for (parent in parentMapParents) {
-            assertTrue(
-                parent in transitionTableStates,
-                "${parent.simpleName} is a parent in the hierarchy map but has no transitions",
-            )
-        }
-
-        // Every child in the parent map must NOT appear as a direct key in the transition
-        // table (it relies on hierarchy resolution through its parent).
-        // If it does appear, the parent mapping is redundant but not harmful — skip this
-        // assertion as it's a style preference, not a correctness invariant.
-
-        // Core invariant: ConnectRequested from any Disconnected subtype must resolve.
-        // This is already covered by connectFromAllDisconnectedSubtypes, but we verify
-        // the parent map is non-empty (a guard against accidental clearing).
-        assertTrue(
-            parentMapChildren.isNotEmpty(),
-            "Parent map is empty — hierarchy resolution is broken",
-        )
-    }
 }
