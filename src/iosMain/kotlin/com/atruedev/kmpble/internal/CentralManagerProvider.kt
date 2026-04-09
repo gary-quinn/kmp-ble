@@ -18,7 +18,7 @@ internal object CentralManagerProvider {
     private val delegateProxy =
         KmpBleDelegateProxy(target = delegate).apply {
             onConnectionFailure = { peripheral, error ->
-                val id = peripheral!!.identifier.UUIDString
+                val id = peripheral?.identifier?.UUIDString ?: return@apply
                 delegate.handleConnectionFailure(id, error)
             }
         }

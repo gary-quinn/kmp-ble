@@ -126,7 +126,7 @@ public class IosPeripheral(
             bridge.connect()
 
             // didFailToConnectPeripheral is handled by the ObjC delegate proxy
-            // (KmpBleDelegateProxy) which routes through handleConnectionCallback.
+            // (KmpBleDelegateProxy) which routes through handleConnectionFailure.
             try {
                 withTimeout(options.timeout) {
                     connectionComplete!!.await()

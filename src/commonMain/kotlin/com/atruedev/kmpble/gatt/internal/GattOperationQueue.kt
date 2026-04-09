@@ -27,6 +27,8 @@ internal class GattOperationQueue(
 
     @Volatile
     private var channel = Channel<QueueEntry>(Channel.UNLIMITED)
+
+    @Volatile
     private var drainJob: Job? = null
 
     @Volatile
@@ -34,7 +36,6 @@ internal class GattOperationQueue(
 
     fun start(timeout: Duration? = null) {
         drain()
-        drainJob?.cancel()
         if (timeout != null) operationTimeout = timeout
         val ch = Channel<QueueEntry>(Channel.UNLIMITED)
         channel = ch
