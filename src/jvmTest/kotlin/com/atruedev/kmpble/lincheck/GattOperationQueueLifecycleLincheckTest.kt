@@ -4,6 +4,7 @@ import com.atruedev.kmpble.gatt.internal.GattOperationQueue
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import org.jetbrains.lincheck.datastructures.Operation
 import org.jetbrains.lincheck.datastructures.StressOptions
 import org.jetbrains.lincheck.datastructures.Validate
@@ -40,10 +41,15 @@ class GattOperationQueueLifecycleLincheckTest {
     }
 
     @Test
-    fun stressTest() =
-        StressOptions()
-            .iterations(50)
-            .threads(2)
-            .actorsPerThread(3)
-            .check(this::class)
+    fun stressTest() {
+        try {
+            StressOptions()
+                .iterations(50)
+                .threads(2)
+                .actorsPerThread(3)
+                .check(this::class)
+        } finally {
+            scope.cancel()
+        }
+    }
 }

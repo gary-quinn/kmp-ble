@@ -168,17 +168,21 @@ internal object StateMachine {
         return null
     }
 
+    private val stateParentMap: Map<KClass<*>, KClass<*>> =
+        mapOf(
+            Disconnected.ByRequest::class to Disconnected::class,
+            Disconnected.ByRemote::class to Disconnected::class,
+            Disconnected.ByError::class to Disconnected::class,
+            Disconnected.ByTimeout::class to Disconnected::class,
+            Disconnected.BySystemEvent::class to Disconnected::class,
+        )
+
+    /** All registered parent mappings, for test verification. */
+    val allParentMappings: Map<KClass<*>, KClass<*>>
+        get() = stateParentMap
+
     private val KClass<*>.superclasses: List<KClass<*>>
-        get() =
-            when (this) {
-                Disconnected.ByRequest::class,
-                Disconnected.ByRemote::class,
-                Disconnected.ByError::class,
-                Disconnected.ByTimeout::class,
-                Disconnected.BySystemEvent::class,
-                -> listOf(Disconnected::class)
-                else -> emptyList()
-            }
+        get() = listOfNotNull(stateParentMap[this])
 
     /** All registered transitions, for test verification. */
     val allTransitions: Set<Pair<KClass<*>, KClass<*>>>

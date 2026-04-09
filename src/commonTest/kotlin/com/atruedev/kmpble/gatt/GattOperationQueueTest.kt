@@ -6,10 +6,13 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertIs
+import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 
 class GattOperationQueueTest {
@@ -101,5 +104,58 @@ class GattOperationQueueTest {
             }
 
             queue.close()
+        }
+
+    @Test
+    fun drainCancelsPendingEntries() =
+        runTest {
+            val queue = GattOperationQueue(this)
+            queue.start()
+
+            // Enqueue an entry, then drain before it executes
+            val result = CompletableDeferred<Result<String>>()
+            launch {
+                result.complete(
+                    runCatching { queue.enqueue { "should be cancelled" } },
+                )
+            }
+
+            queue.drain()
+
+            val failure = result.await()
+            assertTrue(failure.isFailure, "Entry should have been cancelled by drain")
+            assertIs<NotConnectedException>(failure.exceptionOrNull())
+
+            queue.close()
+        }
+
+    @Test
+    fun restartAfterDrainAcceptsNewOperations() =
+        runTest {
+            val queue = GattOperationQueue(this)
+            queue.start()
+            queue.drain()
+
+            assertFailsWith<NotConnectedException> {
+                queue.enqueue { "rejected" }
+            }
+
+            queue.start()
+            val result = queue.enqueue { "accepted" }
+            assertEquals("accepted", result)
+
+            queue.close()
+        }
+
+    @Test
+    fun closeRejectsNewOperations() =
+        runTest {
+            val queue = GattOperationQueue(this)
+            queue.start()
+            queue.close()
+
+            assertFailsWith<NotConnectedException> {
+                queue.enqueue { "should fail" }
+            }
         }
 }

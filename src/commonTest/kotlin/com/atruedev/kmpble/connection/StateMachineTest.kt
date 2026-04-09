@@ -235,4 +235,25 @@ class StateMachineTest {
             transition(State.Connecting.Configuring, ConnectionEvent.DisconnectRequested),
         )
     }
+
+    // --- Parent map completeness ---
+
+    @Test
+    fun allDisconnectedSubtypesHaveParentMapping() {
+        val allDisconnected =
+            listOf(
+                State.Disconnected.ByRequest::class,
+                State.Disconnected.ByRemote::class,
+                State.Disconnected.ByError::class,
+                State.Disconnected.ByTimeout::class,
+                State.Disconnected.BySystemEvent::class,
+            )
+        val mapped = StateMachine.allParentMappings.keys
+        for (subtype in allDisconnected) {
+            assertTrue(
+                subtype in mapped,
+                "${subtype.simpleName} is missing from StateMachine parent map",
+            )
+        }
+    }
 }
