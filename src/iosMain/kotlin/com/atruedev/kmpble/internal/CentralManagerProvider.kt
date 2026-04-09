@@ -2,6 +2,8 @@ package com.atruedev.kmpble.internal
 
 import com.atruedev.kmpble.adapter.BluetoothAdapterState
 import com.atruedev.kmpble.interop.KmpBleDelegateProxy
+import com.atruedev.kmpble.logging.BleLogEvent
+import com.atruedev.kmpble.logging.logEvent
 import kotlinx.coroutines.flow.StateFlow
 import platform.CoreBluetooth.CBCentralManager
 import platform.CoreBluetooth.CBCentralManagerOptionRestoreIdentifierKey
@@ -18,7 +20,17 @@ internal object CentralManagerProvider {
     private val delegateProxy =
         KmpBleDelegateProxy(target = delegate).apply {
             onConnectionFailure = { peripheral, error ->
-                val id = peripheral?.identifier?.UUIDString ?: return@apply
+                val id = peripheral?.identifier?.UUIDString
+                if (id == null) {
+                    logEvent(
+                        BleLogEvent.Error(
+                            identifier = null,
+                            message = "didFailToConnectPeripheral fired with null peripheral",
+                            cause = null,
+                        ),
+                    )
+                    return@apply
+                }
                 delegate.handleConnectionFailure(id, error)
             }
         }

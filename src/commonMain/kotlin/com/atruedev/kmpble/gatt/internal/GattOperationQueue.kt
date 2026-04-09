@@ -36,6 +36,7 @@ internal class GattOperationQueue(
 
     fun start(timeout: Duration? = null) {
         drain()
+        drainJob?.cancel()
         if (timeout != null) operationTimeout = timeout
         val ch = Channel<QueueEntry>(Channel.UNLIMITED)
         channel = ch
