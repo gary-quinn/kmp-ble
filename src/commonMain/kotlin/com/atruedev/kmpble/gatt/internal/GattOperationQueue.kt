@@ -16,6 +16,10 @@ import kotlin.time.Duration.Companion.seconds
  * Acceptance is controlled by channel lifecycle: [start] opens a new channel,
  * [drain] closes it. [Channel.trySend] on a closed channel fails atomically,
  * eliminating the TOCTOU window that a separate flag would introduce.
+ *
+ * Thread-safety contract: [start], [drain], and [close] must be called from
+ * the owning [PeripheralContext]'s serialized dispatcher (`limitedParallelism(1)`).
+ * [enqueue] may be called from any coroutine context.
  */
 internal class GattOperationQueue(
     private val scope: CoroutineScope,

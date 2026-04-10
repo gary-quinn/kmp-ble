@@ -1,13 +1,20 @@
 package com.atruedev.kmpble.peripheral
 
+import com.atruedev.kmpble.ExperimentalBleApi
 import com.atruedev.kmpble.Identifier
 import com.atruedev.kmpble.bleDataFromNSData
+import com.atruedev.kmpble.bonding.BondRemovalResult
+import com.atruedev.kmpble.bonding.BondState
 import com.atruedev.kmpble.connection.ConnectionOptions
+import com.atruedev.kmpble.connection.ReconnectionStrategy
 import com.atruedev.kmpble.connection.State
 import com.atruedev.kmpble.connection.internal.ConnectionEvent
+import com.atruedev.kmpble.connection.internal.ReconnectionHandler
+import com.atruedev.kmpble.error.BleException
 import com.atruedev.kmpble.error.ConnectionFailed
 import com.atruedev.kmpble.error.ConnectionLost
 import com.atruedev.kmpble.error.GattError
+import com.atruedev.kmpble.error.GattStatus
 import com.atruedev.kmpble.error.OperationFailed
 import com.atruedev.kmpble.gatt.BackpressureStrategy
 import com.atruedev.kmpble.gatt.Characteristic
@@ -17,6 +24,7 @@ import com.atruedev.kmpble.gatt.Observation
 import com.atruedev.kmpble.gatt.WriteType
 import com.atruedev.kmpble.gatt.internal.GattResult
 import com.atruedev.kmpble.gatt.internal.LargeWriteHandler
+import com.atruedev.kmpble.gatt.internal.NotConnectedException
 import com.atruedev.kmpble.gatt.internal.ObservationEvent
 import com.atruedev.kmpble.gatt.internal.ObservationManager
 import com.atruedev.kmpble.gatt.internal.PendingOperations
@@ -33,8 +41,10 @@ import com.atruedev.kmpble.scanner.uuidFrom
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.FlowCollector
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.getAndUpdate
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onStart
@@ -83,7 +93,7 @@ public class IosPeripheral(
     private val activeL2capChannels = MutableStateFlow<List<IosL2capChannel>>(emptyList())
 
     override val state: StateFlow<State> get() = peripheralContext.state
-    override val bondState: StateFlow<com.atruedev.kmpble.bonding.BondState> get() = peripheralContext.bondState
+    override val bondState: StateFlow<BondState> get() = peripheralContext.bondState
     override val services: StateFlow<List<DiscoveredService>?> get() = peripheralContext.services
     override val maximumWriteValueLength: StateFlow<Int> get() = peripheralContext.maximumWriteValueLength
 
@@ -93,11 +103,11 @@ public class IosPeripheral(
     // Safe: all callbacks dispatched to peripheralContext.scope (limitedParallelism(1))
     private var pendingCharacteristicDiscovery = 0
     private val reconnectionHandler =
-        com.atruedev.kmpble.connection.internal.ReconnectionHandler(
+        ReconnectionHandler(
             scope = peripheralContext.scope,
             stateFlow = peripheralContext.state,
             connectAction = { opts ->
-                connect(opts.copy(reconnectionStrategy = com.atruedev.kmpble.connection.ReconnectionStrategy.None))
+                connect(opts.copy(reconnectionStrategy = ReconnectionStrategy.None))
             },
             onMaxAttemptsExhausted = { observationManager.onPermanentDisconnect() },
         )
@@ -132,7 +142,7 @@ public class IosPeripheral(
                 withTimeout(options.timeout) {
                     deferred.await()
                 }
-            } catch (_: kotlinx.coroutines.TimeoutCancellationException) {
+            } catch (_: TimeoutCancellationException) {
                 bridge.disconnect()
                 peripheralContext.processEvent(
                     ConnectionEvent.ConnectionLost(ConnectionFailed("Connection timeout")),
@@ -155,7 +165,7 @@ public class IosPeripheral(
 
             try {
                 withTimeout(DISCONNECT_TIMEOUT) { deferred.await() }
-            } catch (_: kotlinx.coroutines.TimeoutCancellationException) {
+            } catch (_: TimeoutCancellationException) {
                 peripheralContext.processEvent(
                     ConnectionEvent.ConnectionLost(OperationFailed("Disconnect timeout")),
                 )
@@ -165,9 +175,9 @@ public class IosPeripheral(
         }
     }
 
-    @com.atruedev.kmpble.ExperimentalBleApi
-    override fun removeBond(): com.atruedev.kmpble.bonding.BondRemovalResult =
-        com.atruedev.kmpble.bonding.BondRemovalResult.NotSupported(
+    @ExperimentalBleApi
+    override fun removeBond(): BondRemovalResult =
+        BondRemovalResult.NotSupported(
             "iOS does not support programmatic bond removal. Remove from Settings > Bluetooth.",
         )
 
@@ -435,7 +445,7 @@ public class IosPeripheral(
             pendingOps.characteristicRead = deferred
             bridge.readCharacteristic(native)
             val result = deferred.await()
-            if (!result.status.isSuccess()) throw Exception("Read failed: ${result.status}")
+            if (!result.status.isSuccess()) throw BleException(GattError("read", result.status))
             result.value
         }
     }
@@ -454,11 +464,11 @@ public class IosPeripheral(
         peripheralContext.gattQueue.enqueue {
             for (chunk in chunks) {
                 if (withResponse) {
-                    val deferred = CompletableDeferred<com.atruedev.kmpble.error.GattStatus>()
+                    val deferred = CompletableDeferred<GattStatus>()
                     pendingOps.characteristicWrite = deferred
                     bridge.writeCharacteristic(native, chunk.toNSData(), withResponse = true)
                     val status = deferred.await()
-                    if (!status.isSuccess()) throw Exception("Write failed: $status")
+                    if (!status.isSuccess()) throw BleException(GattError("write", status))
                 } else {
                     bridge.writeCharacteristic(native, chunk.toNSData(), withResponse = false)
                 }
@@ -469,61 +479,44 @@ public class IosPeripheral(
     override fun observe(
         characteristic: Characteristic,
         backpressure: BackpressureStrategy,
-    ): Flow<Observation> {
-        checkNotClosed()
-        val serviceUuid = characteristic.serviceUuid
-        val charUuid = characteristic.uuid
-
-        return kotlinx.coroutines.flow
-            .flow {
-                val eventFlow = observationManager.subscribe(serviceUuid, charUuid, backpressure)
-                eventFlow.collect { event ->
-                    when (event) {
-                        is ObservationEvent.Value -> emit(Observation.Value(event.data))
-                        is ObservationEvent.Disconnected -> emit(Observation.Disconnected)
-                        is ObservationEvent.PermanentlyDisconnected -> emit(Observation.Disconnected)
-                    }
-                }
-            }.onStart {
-                if (peripheralContext.state.value is State.Connected.Ready) {
-                    enableNotifications(characteristic)
-                }
-            }.applyBackpressure(backpressure)
-            .onCompletion {
-                val wasLastCollector = observationManager.unsubscribe(serviceUuid, charUuid)
-                if (wasLastCollector) {
-                    disableNotifications(characteristic)
-                }
+    ): Flow<Observation> =
+        observeInternal(characteristic, backpressure) { event ->
+            when (event) {
+                is ObservationEvent.Value -> emit(Observation.Value(event.data))
+                is ObservationEvent.Disconnected -> emit(Observation.Disconnected)
+                is ObservationEvent.PermanentlyDisconnected -> emit(Observation.Disconnected)
             }
-    }
+        }
 
     override fun observeValues(
         characteristic: Characteristic,
         backpressure: BackpressureStrategy,
-    ): Flow<ByteArray> {
+    ): Flow<ByteArray> =
+        observeInternal(characteristic, backpressure) { event ->
+            when (event) {
+                is ObservationEvent.Value -> emit(event.data)
+                is ObservationEvent.Disconnected -> Unit
+                is ObservationEvent.PermanentlyDisconnected -> Unit
+            }
+        }
+
+    private fun <T> observeInternal(
+        characteristic: Characteristic,
+        backpressure: BackpressureStrategy,
+        mapper: suspend FlowCollector<T>.(ObservationEvent) -> Unit,
+    ): Flow<T> {
         checkNotClosed()
         val serviceUuid = characteristic.serviceUuid
         val charUuid = characteristic.uuid
 
-        return kotlinx.coroutines.flow
-            .flow {
-                val eventFlow = observationManager.subscribe(serviceUuid, charUuid, backpressure)
-                eventFlow.collect { event ->
-                    when (event) {
-                        is ObservationEvent.Value -> emit(event.data)
-                        is ObservationEvent.Disconnected -> {
-                            // Transparent reconnection — no emission during disconnect
-                        }
-                        is ObservationEvent.PermanentlyDisconnected -> {
-                            // Flow completes normally, no emission (transformWhile ends the flow)
-                        }
-                    }
-                }
-            }.onStart {
-                if (peripheralContext.state.value is State.Connected.Ready) {
-                    enableNotifications(characteristic)
-                }
-            }.applyBackpressure(backpressure)
+        return flow {
+            val eventFlow = observationManager.subscribe(serviceUuid, charUuid, backpressure)
+            eventFlow.collect { event -> mapper(event) }
+        }.onStart {
+            if (peripheralContext.state.value is State.Connected.Ready) {
+                enableNotifications(characteristic)
+            }
+        }.applyBackpressure(backpressure)
             .onCompletion {
                 val wasLastCollector = observationManager.unsubscribe(serviceUuid, charUuid)
                 if (wasLastCollector) {
@@ -551,7 +544,7 @@ public class IosPeripheral(
             pendingOps.descriptorRead = deferred
             bridge.readDescriptor(native)
             val result = deferred.await()
-            if (!result.status.isSuccess()) throw Exception("Descriptor read failed: ${result.status}")
+            if (!result.status.isSuccess()) throw BleException(GattError("readDescriptor", result.status))
             result.value
         }
     }
@@ -563,11 +556,11 @@ public class IosPeripheral(
         checkNotClosed()
         peripheralContext.gattQueue.enqueue {
             val native = requireNativeCbDesc(descriptor)
-            val deferred = CompletableDeferred<com.atruedev.kmpble.error.GattStatus>()
+            val deferred = CompletableDeferred<GattStatus>()
             pendingOps.descriptorWrite = deferred
             bridge.writeDescriptor(native, data.toNSData())
             val status = deferred.await()
-            if (!status.isSuccess()) throw Exception("Descriptor write failed: $status")
+            if (!status.isSuccess()) throw BleException(GattError("writeDescriptor", status))
         }
     }
 
@@ -665,10 +658,7 @@ public class IosPeripheral(
         nativeDescMap.clear()
         closeL2capChannels()
         observationManager.onDisconnect()
-        pendingOps.cancelAll(
-            com.atruedev.kmpble.gatt.internal
-                .NotConnectedException(),
-        )
+        pendingOps.cancelAll(NotConnectedException())
     }
 
     /**
