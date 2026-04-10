@@ -93,9 +93,6 @@ internal class AndroidL2capChannel(
                             incomingChannel.send(data)
                         }
                     } catch (_: IOException) {
-                        if (!closed.get()) {
-                            break
-                        }
                         break
                     }
                 }

@@ -122,14 +122,15 @@ public class IosPeripheral(
             peripheralContext.processEvent(ConnectionEvent.ConnectRequested)
             peripheralContext.gattQueue.start(options.gattOperationTimeout)
 
-            connectionComplete = CompletableDeferred()
+            val deferred = CompletableDeferred<Unit>()
+            connectionComplete = deferred
             bridge.connect()
 
             // didFailToConnectPeripheral is handled by the ObjC delegate proxy
             // (KmpBleDelegateProxy) which routes through handleConnectionFailure.
             try {
                 withTimeout(options.timeout) {
-                    connectionComplete!!.await()
+                    deferred.await()
                 }
             } catch (_: kotlinx.coroutines.TimeoutCancellationException) {
                 bridge.disconnect()
@@ -148,11 +149,12 @@ public class IosPeripheral(
         withContext(peripheralContext.dispatcher) {
             if (peripheralContext.state.value is State.Disconnected) return@withContext
             peripheralContext.processEvent(ConnectionEvent.DisconnectRequested)
-            disconnectComplete = CompletableDeferred()
+            val deferred = CompletableDeferred<Unit>()
+            disconnectComplete = deferred
             bridge.disconnect()
 
             try {
-                withTimeout(DISCONNECT_TIMEOUT) { disconnectComplete!!.await() }
+                withTimeout(DISCONNECT_TIMEOUT) { deferred.await() }
             } catch (_: kotlinx.coroutines.TimeoutCancellationException) {
                 peripheralContext.processEvent(
                     ConnectionEvent.ConnectionLost(OperationFailed("Disconnect timeout")),
@@ -186,10 +188,11 @@ public class IosPeripheral(
     override suspend fun refreshServices(): List<DiscoveredService> {
         checkNotClosed()
         return withContext(peripheralContext.dispatcher) {
-            discoveryComplete = CompletableDeferred()
+            val deferred = CompletableDeferred<List<DiscoveredService>>()
+            discoveryComplete = deferred
             bridge.discoverServices()
             try {
-                withTimeout(DISCOVERY_TIMEOUT) { discoveryComplete!!.await() }
+                withTimeout(DISCOVERY_TIMEOUT) { deferred.await() }
             } finally {
                 discoveryComplete = null
             }
@@ -711,12 +714,13 @@ public class IosPeripheral(
                 peripheralContext.gattQueue.start()
                 peripheralContext.processEvent(ConnectionEvent.LinkEstablished)
 
-                connectionComplete = CompletableDeferred()
+                val deferred = CompletableDeferred<Unit>()
+                connectionComplete = deferred
                 bridge.discoverServices()
 
                 try {
                     withTimeout(DISCOVERY_TIMEOUT) {
-                        connectionComplete!!.await()
+                        deferred.await()
                     }
                 } finally {
                     connectionComplete = null
