@@ -150,10 +150,7 @@ internal class IosL2capChannel(
         dataChannel.close()
     }
 
-    private val streamsClosed = MutableStateFlow(false)
-
     private fun closeStreams() {
-        if (!streamsClosed.compareAndSet(expect = false, update = true)) return
         cbChannel.inputStream?.close()
         cbChannel.outputStream?.close()
     }
