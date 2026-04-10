@@ -1,3 +1,5 @@
+@file:OptIn(kotlinx.cinterop.ExperimentalForeignApi::class)
+
 package com.atruedev.kmpble.internal
 
 import com.atruedev.kmpble.adapter.BluetoothAdapterState
