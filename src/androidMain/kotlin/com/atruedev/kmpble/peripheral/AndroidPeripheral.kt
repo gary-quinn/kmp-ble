@@ -39,6 +39,7 @@ import com.atruedev.kmpble.gatt.internal.LargeWriteHandler
 import com.atruedev.kmpble.gatt.internal.NotConnectedException
 import com.atruedev.kmpble.gatt.internal.ObservationEvent
 import com.atruedev.kmpble.gatt.internal.ObservationManager
+import com.atruedev.kmpble.gatt.internal.PendingOp
 import com.atruedev.kmpble.gatt.internal.PendingOperations
 import com.atruedev.kmpble.gatt.internal.applyBackpressure
 import com.atruedev.kmpble.l2cap.AndroidL2capChannel
@@ -334,12 +335,10 @@ public class AndroidPeripheral internal constructor(
                 is GattCallbackEvent.MtuChanged -> handleMtuChanged(event)
                 is GattCallbackEvent.CharacteristicRead -> {
                     val status = event.status.toGattStatus()
-                    pendingOps.characteristicRead?.complete(GattResult(event.value, status))
-                    pendingOps.characteristicRead = null
+                    pendingOps.complete(PendingOp.CharacteristicRead, GattResult(event.value, status))
                 }
                 is GattCallbackEvent.CharacteristicWrite -> {
-                    pendingOps.characteristicWrite?.complete(event.status.toGattStatus())
-                    pendingOps.characteristicWrite = null
+                    pendingOps.complete(PendingOp.CharacteristicWrite, event.status.toGattStatus())
                 }
                 is GattCallbackEvent.CharacteristicChanged -> {
                     val uuid = Uuid.parse(event.characteristic.uuid.toString())
@@ -352,22 +351,20 @@ public class AndroidPeripheral internal constructor(
                 }
                 is GattCallbackEvent.DescriptorRead -> {
                     val status = event.status.toGattStatus()
-                    pendingOps.descriptorRead?.complete(GattResult(event.value, status))
-                    pendingOps.descriptorRead = null
+                    pendingOps.complete(PendingOp.DescriptorRead, GattResult(event.value, status))
                 }
                 is GattCallbackEvent.DescriptorWrite -> {
-                    pendingOps.descriptorWrite?.complete(event.status.toGattStatus())
-                    pendingOps.descriptorWrite = null
+                    pendingOps.complete(PendingOp.DescriptorWrite, event.status.toGattStatus())
                 }
                 is GattCallbackEvent.ReadRemoteRssi -> {
                     if (event.status.toGattStatus().isSuccess()) {
-                        pendingOps.rssiRead?.complete(event.rssi)
+                        pendingOps.complete(PendingOp.RssiRead, event.rssi)
                     } else {
-                        pendingOps.rssiRead?.completeExceptionally(
+                        pendingOps.fail(
+                            PendingOp.RssiRead,
                             Exception("readRssi failed: ${event.status.toGattStatus()}"),
                         )
                     }
-                    pendingOps.rssiRead = null
                 }
             }
         }
@@ -483,8 +480,7 @@ public class AndroidPeripheral internal constructor(
         if (event.status.toGattStatus().isSuccess()) {
             peripheralContext.updateMtu(event.mtu)
         }
-        pendingOps.mtuRequest?.complete(event.mtu)
-        pendingOps.mtuRequest = null
+        pendingOps.complete(PendingOp.MtuRequest, event.mtu)
     }
 
     // --- Service parsing ---
@@ -542,9 +538,9 @@ public class AndroidPeripheral internal constructor(
         return peripheralContext.gattQueue.enqueue {
             val native = requireNativeChar(characteristic)
             val deferred = CompletableDeferred<GattResult>()
-            pendingOps.characteristicRead = deferred
+            pendingOps.set(PendingOp.CharacteristicRead, deferred)
             if (!bridge.readCharacteristic(native)) {
-                pendingOps.characteristicRead = null
+                pendingOps.clear(PendingOp.CharacteristicRead)
                 throw BleException(GattError("read", GattStatus.Failure))
             }
             val result = deferred.await()
@@ -573,9 +569,9 @@ public class AndroidPeripheral internal constructor(
         peripheralContext.gattQueue.enqueue {
             for (chunk in chunks) {
                 val deferred = CompletableDeferred<GattStatus>()
-                pendingOps.characteristicWrite = deferred
+                pendingOps.set(PendingOp.CharacteristicWrite, deferred)
                 if (!bridge.writeCharacteristic(native, chunk, androidWriteType)) {
-                    pendingOps.characteristicWrite = null
+                    pendingOps.clear(PendingOp.CharacteristicWrite)
                     throw BleException(GattError("write", GattStatus.Failure))
                 }
                 val status = deferred.await()
@@ -641,7 +637,7 @@ public class AndroidPeripheral internal constructor(
         val value = if (characteristic.properties.indicate) ENABLE_INDICATION_VALUE else ENABLE_NOTIFICATION_VALUE
         peripheralContext.gattQueue.enqueue {
             val deferred = CompletableDeferred<GattStatus>()
-            pendingOps.descriptorWrite = deferred
+            pendingOps.set(PendingOp.DescriptorWrite, deferred)
             bridge.writeDescriptor(cccd, value)
             val status = deferred.await()
             if (!status.isSuccess()) {
@@ -659,7 +655,7 @@ public class AndroidPeripheral internal constructor(
             try {
                 peripheralContext.gattQueue.enqueue {
                     val deferred = CompletableDeferred<GattStatus>()
-                    pendingOps.descriptorWrite = deferred
+                    pendingOps.set(PendingOp.DescriptorWrite, deferred)
                     bridge.writeDescriptor(cccd, DISABLE_NOTIFICATION_VALUE)
                     deferred.await()
                 }
@@ -674,9 +670,9 @@ public class AndroidPeripheral internal constructor(
         return peripheralContext.gattQueue.enqueue {
             val native = requireNativeDesc(descriptor)
             val deferred = CompletableDeferred<GattResult>()
-            pendingOps.descriptorRead = deferred
+            pendingOps.set(PendingOp.DescriptorRead, deferred)
             if (!bridge.readDescriptor(native)) {
-                pendingOps.descriptorRead = null
+                pendingOps.clear(PendingOp.DescriptorRead)
                 throw BleException(GattError("readDescriptor", GattStatus.Failure))
             }
             val result = deferred.await()
@@ -693,9 +689,9 @@ public class AndroidPeripheral internal constructor(
         peripheralContext.gattQueue.enqueue {
             val native = requireNativeDesc(descriptor)
             val deferred = CompletableDeferred<GattStatus>()
-            pendingOps.descriptorWrite = deferred
+            pendingOps.set(PendingOp.DescriptorWrite, deferred)
             if (!bridge.writeDescriptor(native, data)) {
-                pendingOps.descriptorWrite = null
+                pendingOps.clear(PendingOp.DescriptorWrite)
                 throw BleException(GattError("writeDescriptor", GattStatus.Failure))
             }
             val status = deferred.await()
@@ -707,9 +703,9 @@ public class AndroidPeripheral internal constructor(
         checkNotClosed()
         return peripheralContext.gattQueue.enqueue {
             val deferred = CompletableDeferred<Int>()
-            pendingOps.rssiRead = deferred
+            pendingOps.set(PendingOp.RssiRead, deferred)
             if (!bridge.readRemoteRssi()) {
-                pendingOps.rssiRead = null
+                pendingOps.clear(PendingOp.RssiRead)
                 throw BleException(GattError("readRssi", GattStatus.Failure))
             }
             deferred.await()
@@ -720,9 +716,9 @@ public class AndroidPeripheral internal constructor(
         checkNotClosed()
         return peripheralContext.gattQueue.enqueue {
             val deferred = CompletableDeferred<Int>()
-            pendingOps.mtuRequest = deferred
+            pendingOps.set(PendingOp.MtuRequest, deferred)
             if (!bridge.requestMtu(mtu)) {
-                pendingOps.mtuRequest = null
+                pendingOps.clear(PendingOp.MtuRequest)
                 throw BleException(GattError("requestMtu", GattStatus.Failure))
             }
             deferred.await()
