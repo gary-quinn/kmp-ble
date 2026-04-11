@@ -26,13 +26,12 @@ import com.atruedev.kmpble.peripheral.Peripheral
 import com.atruedev.kmpble.peripheral.internal.PeripheralContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onStart
-import kotlinx.coroutines.flow.update
+import kotlin.concurrent.Volatile
 import kotlin.time.Duration
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
@@ -49,16 +48,15 @@ public class FakePeripheral internal constructor(
     private val context = PeripheralContext(identifier)
     private val observationManager = ObservationManager()
     private var closed = false
-    private val _cccdWrites = MutableStateFlow<List<CccdWrite>>(emptyList())
+
+    @Volatile
+    private var cccdWritesList = emptyList<CccdWrite>()
 
     override val state: StateFlow<State> get() = context.state
     override val bondState: StateFlow<com.atruedev.kmpble.bonding.BondState> get() = context.bondState
     override val services: StateFlow<List<DiscoveredService>?> get() = context.services
     override val maximumWriteValueLength: StateFlow<Int> get() = context.maximumWriteValueLength
 
-    /**
-     * Record of CCCD writes for test verification.
-     */
     public data class CccdWrite(
         val serviceUuid: Uuid,
         val charUuid: Uuid,
@@ -139,7 +137,6 @@ public class FakePeripheral internal constructor(
     override suspend fun read(characteristic: Characteristic): ByteArray {
         checkNotClosed()
         checkConnected()
-        // config null → no delay/error injection, fall through to handler requirement
         val config = findConfig(characteristic)
         applyDelay(config)
         checkFailWith(config)
@@ -172,7 +169,6 @@ public class FakePeripheral internal constructor(
                     GattError("write", GattStatus.WriteNotPermitted),
                 )
             }
-            // No handler but writable — succeed silently
         }
     }
 
@@ -180,6 +176,7 @@ public class FakePeripheral internal constructor(
         characteristic: Characteristic,
         backpressure: BackpressureStrategy,
     ): Flow<Observation> {
+        checkNotClosed()
         val config = findConfig(characteristic)
         failWithFlow<Observation>(config)?.let { return it }
         val handler = config?.observeHandler
@@ -202,6 +199,7 @@ public class FakePeripheral internal constructor(
         characteristic: Characteristic,
         backpressure: BackpressureStrategy,
     ): Flow<ByteArray> {
+        checkNotClosed()
         val config = findConfig(characteristic)
         failWithFlow<ByteArray>(config)?.let { return it }
         val handler = config?.observeHandler
@@ -211,6 +209,7 @@ public class FakePeripheral internal constructor(
             observeInternal(characteristic, backpressure) { event ->
                 when (event) {
                     is ObservationEvent.Value -> emit(event.data)
+                    // Transparent reconnection — ObservationManager re-subscribes on reconnect
                     is ObservationEvent.Disconnected -> Unit
                     is ObservationEvent.PermanentlyDisconnected -> Unit
                 }
@@ -223,7 +222,6 @@ public class FakePeripheral internal constructor(
         backpressure: BackpressureStrategy,
         mapper: suspend kotlinx.coroutines.flow.FlowCollector<T>.(ObservationEvent) -> Unit,
     ): Flow<T> {
-        checkNotClosed()
         val serviceUuid = characteristic.serviceUuid
         val charUuid = characteristic.uuid
 
@@ -314,7 +312,7 @@ public class FakePeripheral internal constructor(
         charUuid: Uuid,
         enabled: Boolean,
     ) {
-        _cccdWrites.update { it + CccdWrite(serviceUuid, charUuid, enabled) }
+        cccdWritesList = cccdWritesList + CccdWrite(serviceUuid, charUuid, enabled)
     }
 
     private fun checkNotClosed() {
@@ -347,7 +345,6 @@ public class FakePeripheral internal constructor(
      */
     public suspend fun simulateReconnect(newServices: List<DiscoveredService>? = null) {
         checkNotClosed()
-        // Update services if provided (simulates service change on reconnect)
         if (newServices != null) {
             fakeServices = newServices
         }
@@ -358,7 +355,6 @@ public class FakePeripheral internal constructor(
         context.processEvent(ConnectionEvent.ServicesDiscovered)
         context.updateServices(fakeServices)
 
-        // Re-enable CCCD for observations that survived the disconnect
         resubscribeObservations()
 
         context.processEvent(ConnectionEvent.ConfigurationComplete)
@@ -371,7 +367,6 @@ public class FakePeripheral internal constructor(
             if (char != null) {
                 recordCccdWrite(key.serviceUuid, key.charUuid, enabled = true)
             } else {
-                // Characteristic no longer exists — complete that observation
                 observationManager.completeObservation(key)
             }
         }
@@ -387,9 +382,6 @@ public class FakePeripheral internal constructor(
         observationManager.onPermanentDisconnect()
     }
 
-    /**
-     * Emit a value to an observation. Use this to simulate characteristic notifications.
-     */
     public suspend fun emitObservationValue(
         serviceUuid: Uuid,
         charUuid: Uuid,
@@ -399,39 +391,24 @@ public class FakePeripheral internal constructor(
         observationManager.emitValue(serviceUuid, charUuid, value)
     }
 
-    /**
-     * Emit a value to an observation using short UUID strings.
-     */
     public suspend fun emitObservationValue(
         serviceUuid: String,
         charUuid: String,
         value: ByteArray,
     ) {
         emitObservationValue(
-            com.atruedev.kmpble.scanner
-                .uuidFrom(serviceUuid),
-            com.atruedev.kmpble.scanner
-                .uuidFrom(charUuid),
+            com.atruedev.kmpble.scanner.uuidFrom(serviceUuid),
+            com.atruedev.kmpble.scanner.uuidFrom(charUuid),
             value,
         )
     }
 
-    /**
-     * Get all CCCD writes that have occurred. Useful for verifying that
-     * CCCD is enabled/disabled at the correct times.
-     */
-    public fun getCccdWrites(): List<CccdWrite> = _cccdWrites.value
+    public fun getCccdWrites(): List<CccdWrite> = cccdWritesList
 
-    /**
-     * Clear recorded CCCD writes.
-     */
     public fun clearCccdWrites() {
-        _cccdWrites.value = emptyList()
+        cccdWritesList = emptyList()
     }
 
-    /**
-     * Check if there are any active collectors for a characteristic.
-     */
     public suspend fun hasCollectors(
         serviceUuid: Uuid,
         charUuid: Uuid,

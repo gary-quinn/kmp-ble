@@ -28,9 +28,9 @@ internal sealed interface ScanPredicate {
         val mask: ByteArray?,
     ) : ScanPredicate {
         override fun equals(other: Any?): Boolean =
-            this === other || (other is ServiceData && uuid == other.uuid && byteArrayFieldsEqual(data, mask, other.data, other.mask))
+            this === other || (other is ServiceData && uuid == other.uuid && contentPairEquals(data, mask, other.data, other.mask))
 
-        override fun hashCode(): Int = byteArrayFieldsHash(uuid.hashCode(), data, mask)
+        override fun hashCode(): Int = contentPairHash(uuid.hashCode(), data, mask)
     }
 
     data class ManufacturerData(
@@ -39,9 +39,9 @@ internal sealed interface ScanPredicate {
         val mask: ByteArray?,
     ) : ScanPredicate {
         override fun equals(other: Any?): Boolean =
-            this === other || (other is ManufacturerData && companyId == other.companyId && byteArrayFieldsEqual(data, mask, other.data, other.mask))
+            this === other || (other is ManufacturerData && companyId == other.companyId && contentPairEquals(data, mask, other.data, other.mask))
 
-        override fun hashCode(): Int = byteArrayFieldsHash(companyId, data, mask)
+        override fun hashCode(): Int = contentPairHash(companyId, data, mask)
     }
 
     data class MinRssi(
@@ -130,14 +130,14 @@ public class FiltersScope internal constructor() {
     }
 }
 
-private fun byteArrayFieldsEqual(
+private fun contentPairEquals(
     data1: ByteArray?,
     mask1: ByteArray?,
     data2: ByteArray?,
     mask2: ByteArray?,
 ): Boolean = data1.contentEquals(data2) && mask1.contentEquals(mask2)
 
-private fun byteArrayFieldsHash(
+private fun contentPairHash(
     seed: Int,
     data: ByteArray?,
     mask: ByteArray?,

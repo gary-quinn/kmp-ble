@@ -16,44 +16,51 @@ internal data class GattResult(
     override fun hashCode(): Int = 31 * value.contentHashCode() + status.hashCode()
 }
 
-internal enum class PendingOp {
-    CharacteristicRead,
-    CharacteristicWrite,
-    DescriptorRead,
-    DescriptorWrite,
-    RssiRead,
-    MtuRequest,
+/**
+ * Type-safe key for pending GATT operations. The type parameter [T] links each
+ * operation to its result type, so the compiler rejects mismatched completions
+ * (e.g. completing a CharacteristicRead with a GattStatus instead of GattResult).
+ */
+internal sealed interface PendingOp<T> {
+    data object CharacteristicRead : PendingOp<GattResult>
+    data object CharacteristicWrite : PendingOp<GattStatus>
+    data object DescriptorRead : PendingOp<GattResult>
+    data object DescriptorWrite : PendingOp<GattStatus>
+    data object RssiRead : PendingOp<Int>
+    data object MtuRequest : PendingOp<Int>
 }
 
 internal class PendingOperations {
-    private val slots = mutableMapOf<PendingOp, CompletableDeferred<*>>()
+    private val slots = mutableMapOf<PendingOp<*>, CompletableDeferred<*>>()
 
     fun <T> set(
-        op: PendingOp,
+        op: PendingOp<T>,
         deferred: CompletableDeferred<T>,
     ) {
-        check(op !in slots) { "${op.name} overwritten while pending" }
+        check(op !in slots) { "${op::class.simpleName} overwritten while pending" }
         slots[op] = deferred
     }
 
-    fun has(op: PendingOp): Boolean = op in slots
+    fun has(op: PendingOp<*>): Boolean = op in slots
 
+    // Type linkage between PendingOp<T> and CompletableDeferred<T> is enforced
+    // at set() — the cast bridges JVM type erasure, not a type-safety gap.
     @Suppress("UNCHECKED_CAST")
     fun <T> complete(
-        op: PendingOp,
+        op: PendingOp<T>,
         value: T,
     ) {
         (slots.remove(op) as? CompletableDeferred<T>)?.complete(value)
     }
 
     fun fail(
-        op: PendingOp,
+        op: PendingOp<*>,
         cause: Throwable,
     ) {
         slots.remove(op)?.completeExceptionally(cause)
     }
 
-    fun clear(op: PendingOp) {
+    fun clear(op: PendingOp<*>) {
         slots.remove(op)
     }
 
