@@ -92,5 +92,4 @@ public data class OperationFailed(
  */
 public data class BleException(
     public val error: BleError,
-    val errorMessage: String = error.toString(),
-) : Exception(errorMessage)
+) : Exception(error.toString())

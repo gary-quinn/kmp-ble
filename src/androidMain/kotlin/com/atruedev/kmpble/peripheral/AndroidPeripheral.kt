@@ -8,12 +8,16 @@ import android.bluetooth.BluetoothGattCharacteristic
 import android.bluetooth.BluetoothGattDescriptor
 import android.bluetooth.BluetoothProfile
 import android.content.Context
+import com.atruedev.kmpble.ExperimentalBleApi
 import com.atruedev.kmpble.Identifier
+import com.atruedev.kmpble.bonding.BondRemovalResult
 import com.atruedev.kmpble.bonding.BondState
 import com.atruedev.kmpble.connection.BondingPreference
 import com.atruedev.kmpble.connection.ConnectionOptions
+import com.atruedev.kmpble.connection.ReconnectionStrategy
 import com.atruedev.kmpble.connection.State
 import com.atruedev.kmpble.connection.internal.ConnectionEvent
+import com.atruedev.kmpble.connection.internal.ReconnectionHandler
 import com.atruedev.kmpble.error.BleException
 import com.atruedev.kmpble.error.ConnectionFailed
 import com.atruedev.kmpble.error.ConnectionLost
@@ -32,6 +36,7 @@ import com.atruedev.kmpble.gatt.internal.ENABLE_INDICATION_VALUE
 import com.atruedev.kmpble.gatt.internal.ENABLE_NOTIFICATION_VALUE
 import com.atruedev.kmpble.gatt.internal.GattResult
 import com.atruedev.kmpble.gatt.internal.LargeWriteHandler
+import com.atruedev.kmpble.gatt.internal.NotConnectedException
 import com.atruedev.kmpble.gatt.internal.ObservationEvent
 import com.atruedev.kmpble.gatt.internal.ObservationManager
 import com.atruedev.kmpble.gatt.internal.PendingOperations
@@ -49,6 +54,7 @@ import com.atruedev.kmpble.quirks.QuirkRegistry
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -93,7 +99,7 @@ public class AndroidPeripheral internal constructor(
 
     private val bondManager = AndroidBondManager(device, context, peripheralContext)
 
-    @OptIn(com.atruedev.kmpble.ExperimentalBleApi::class)
+    @OptIn(ExperimentalBleApi::class)
     private val pairingRequestHandler =
         AndroidPairingRequestHandler(device, context, peripheralContext.scope, peripheralContext.dispatcher)
 
@@ -106,11 +112,11 @@ public class AndroidPeripheral internal constructor(
     private var closed = false
     private var currentConnectionOptions: ConnectionOptions? = null
     private val reconnectionHandler =
-        com.atruedev.kmpble.connection.internal.ReconnectionHandler(
+        ReconnectionHandler(
             scope = peripheralContext.scope,
             stateFlow = peripheralContext.state,
             connectAction = { opts ->
-                connect(opts.copy(reconnectionStrategy = com.atruedev.kmpble.connection.ReconnectionStrategy.None))
+                connect(opts.copy(reconnectionStrategy = ReconnectionStrategy.None))
             },
             onMaxAttemptsExhausted = { observationManager.onPermanentDisconnect() },
         )
@@ -127,7 +133,7 @@ public class AndroidPeripheral internal constructor(
         )
     }
 
-    @OptIn(com.atruedev.kmpble.ExperimentalBleApi::class)
+    @OptIn(ExperimentalBleApi::class)
     override suspend fun connect(options: ConnectionOptions) {
         checkNotClosed()
         currentConnectionOptions = options
@@ -158,7 +164,7 @@ public class AndroidPeripheral internal constructor(
                 bondManager.createBond()
             }
             logEvent(BleLogEvent.BondEvent(identifier, "Quirk: bond-before-connect succeeded"))
-        } catch (_: kotlinx.coroutines.TimeoutCancellationException) {
+        } catch (_: TimeoutCancellationException) {
             logEvent(
                 BleLogEvent.Error(
                     identifier,
@@ -218,7 +224,7 @@ public class AndroidPeripheral internal constructor(
                 withTimeout(timeout) {
                     connectionComplete!!.await()
                 }
-            } catch (_: kotlinx.coroutines.TimeoutCancellationException) {
+            } catch (_: TimeoutCancellationException) {
                 bridge.disconnect()
                 bridge.releaseGatt()
                 peripheralContext.processEvent(
@@ -239,7 +245,7 @@ public class AndroidPeripheral internal constructor(
         }
     }
 
-    @OptIn(com.atruedev.kmpble.ExperimentalBleApi::class)
+    @OptIn(ExperimentalBleApi::class)
     override suspend fun disconnect() {
         checkNotClosed()
         reconnectionHandler.stop()
@@ -253,7 +259,7 @@ public class AndroidPeripheral internal constructor(
 
             try {
                 withTimeout(DISCONNECT_TIMEOUT) { disconnectComplete!!.await() }
-            } catch (_: kotlinx.coroutines.TimeoutCancellationException) {
+            } catch (_: TimeoutCancellationException) {
                 peripheralContext.processEvent(
                     ConnectionEvent.ConnectionLost(OperationFailed("Disconnect timeout")),
                 )
@@ -264,7 +270,7 @@ public class AndroidPeripheral internal constructor(
         }
     }
 
-    @OptIn(com.atruedev.kmpble.ExperimentalBleApi::class)
+    @OptIn(ExperimentalBleApi::class)
     override fun close() {
         if (closed) return
         closed = true
@@ -278,8 +284,8 @@ public class AndroidPeripheral internal constructor(
         PeripheralRegistry.remove(identifier)
     }
 
-    @com.atruedev.kmpble.ExperimentalBleApi
-    override fun removeBond(): com.atruedev.kmpble.bonding.BondRemovalResult {
+    @ExperimentalBleApi
+    override fun removeBond(): BondRemovalResult {
         checkNotClosed()
         return bondManager.removeBond()
     }
@@ -384,7 +390,7 @@ public class AndroidPeripheral internal constructor(
                                 withTimeout(bondTimeout) {
                                     bondManager.createBond()
                                 }
-                            } catch (_: kotlinx.coroutines.TimeoutCancellationException) {
+                            } catch (_: TimeoutCancellationException) {
                                 logEvent(
                                     BleLogEvent.Error(
                                         identifier,
@@ -566,7 +572,7 @@ public class AndroidPeripheral internal constructor(
         val chunks = LargeWriteHandler.chunk(data, maximumWriteValueLength.value)
         peripheralContext.gattQueue.enqueue {
             for (chunk in chunks) {
-                val deferred = CompletableDeferred<com.atruedev.kmpble.error.GattStatus>()
+                val deferred = CompletableDeferred<GattStatus>()
                 pendingOps.characteristicWrite = deferred
                 if (!bridge.writeCharacteristic(native, chunk, androidWriteType)) {
                     pendingOps.characteristicWrite = null
@@ -634,7 +640,7 @@ public class AndroidPeripheral internal constructor(
         val cccd = native.getDescriptor(java.util.UUID.fromString(CCCD_UUID.toString())) ?: return
         val value = if (characteristic.properties.indicate) ENABLE_INDICATION_VALUE else ENABLE_NOTIFICATION_VALUE
         peripheralContext.gattQueue.enqueue {
-            val deferred = CompletableDeferred<com.atruedev.kmpble.error.GattStatus>()
+            val deferred = CompletableDeferred<GattStatus>()
             pendingOps.descriptorWrite = deferred
             bridge.writeDescriptor(cccd, value)
             val status = deferred.await()
@@ -652,7 +658,7 @@ public class AndroidPeripheral internal constructor(
         peripheralContext.scope.launch {
             try {
                 peripheralContext.gattQueue.enqueue {
-                    val deferred = CompletableDeferred<com.atruedev.kmpble.error.GattStatus>()
+                    val deferred = CompletableDeferred<GattStatus>()
                     pendingOps.descriptorWrite = deferred
                     bridge.writeDescriptor(cccd, DISABLE_NOTIFICATION_VALUE)
                     deferred.await()
@@ -686,7 +692,7 @@ public class AndroidPeripheral internal constructor(
         checkNotClosed()
         peripheralContext.gattQueue.enqueue {
             val native = requireNativeDesc(descriptor)
-            val deferred = CompletableDeferred<com.atruedev.kmpble.error.GattStatus>()
+            val deferred = CompletableDeferred<GattStatus>()
             pendingOps.descriptorWrite = deferred
             if (!bridge.writeDescriptor(native, data)) {
                 pendingOps.descriptorWrite = null
@@ -863,10 +869,7 @@ public class AndroidPeripheral internal constructor(
         nativeDescMap.clear()
         closeL2capChannels()
         observationManager.onDisconnect()
-        pendingOps.cancelAll(
-            com.atruedev.kmpble.gatt.internal
-                .NotConnectedException(),
-        )
+        pendingOps.cancelAll(NotConnectedException())
     }
 
     private fun checkNotClosed() {
