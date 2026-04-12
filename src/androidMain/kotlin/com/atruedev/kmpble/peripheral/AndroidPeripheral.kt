@@ -58,8 +58,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.FlowCollector
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.getAndUpdate
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onStart
@@ -607,17 +609,16 @@ public class AndroidPeripheral internal constructor(
     private fun <T> observeInternal(
         characteristic: Characteristic,
         backpressure: BackpressureStrategy,
-        mapper: suspend kotlinx.coroutines.flow.FlowCollector<T>.(ObservationEvent) -> Unit,
+        mapper: suspend FlowCollector<T>.(ObservationEvent) -> Unit,
     ): Flow<T> {
         checkNotClosed()
         val serviceUuid = characteristic.serviceUuid
         val charUuid = characteristic.uuid
 
-        return kotlinx.coroutines.flow
-            .flow {
-                val eventFlow = observationManager.subscribe(serviceUuid, charUuid, backpressure)
-                eventFlow.collect { event -> mapper(event) }
-            }.onStart {
+        return flow {
+            val eventFlow = observationManager.subscribe(serviceUuid, charUuid, backpressure)
+            eventFlow.collect { event -> mapper(event) }
+        }.onStart {
                 if (peripheralContext.state.value is State.Connected.Ready) {
                     enableNotifications(characteristic)
                 }

@@ -44,8 +44,8 @@ internal class GattOperationQueue(
 
     fun start(timeout: Duration? = null) {
         val prev = state
-        prev.drainJob?.cancel()
         drainChannel(prev.channel)
+        prev.drainJob?.cancel()
 
         val ch = Channel<QueueEntry>(Channel.UNLIMITED)
         val job = scope.launch {

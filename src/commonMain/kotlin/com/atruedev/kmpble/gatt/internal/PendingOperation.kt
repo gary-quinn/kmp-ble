@@ -17,9 +17,8 @@ internal data class GattResult(
 }
 
 /**
- * Type-safe key for pending GATT operations. The type parameter [T] links each
- * operation to its result type, so the compiler rejects mismatched completions
- * (e.g. completing a CharacteristicRead with a GattStatus instead of GattResult).
+ * Type-safe key for pending GATT operations. [T] binds each operation to its
+ * result type so the compiler rejects mismatched completions.
  */
 internal sealed interface PendingOp<T> {
     data object CharacteristicRead : PendingOp<GattResult>
@@ -30,44 +29,37 @@ internal sealed interface PendingOp<T> {
     data object MtuRequest : PendingOp<Int>
 }
 
+/**
+ * Holds at most one [CompletableDeferred] per [PendingOp] type.
+ *
+ * Confined to the owning peripheral's serialized dispatcher
+ * (`limitedParallelism(1)`) — no synchronization required.
+ */
 internal class PendingOperations {
     private val slots = mutableMapOf<PendingOp<*>, CompletableDeferred<*>>()
 
-    fun <T> set(
-        op: PendingOp<T>,
-        deferred: CompletableDeferred<T>,
-    ) {
+    fun <T> set(op: PendingOp<T>, deferred: CompletableDeferred<T>) {
         check(op !in slots) { "${op::class.simpleName} overwritten while pending" }
         slots[op] = deferred
     }
 
     fun has(op: PendingOp<*>): Boolean = op in slots
 
-    // Type linkage between PendingOp<T> and CompletableDeferred<T> is enforced
-    // at set() — the cast bridges JVM type erasure, not a type-safety gap.
-    @Suppress("UNCHECKED_CAST")
-    fun <T> complete(
-        op: PendingOp<T>,
-        value: T,
-    ) {
-        (slots.remove(op) as? CompletableDeferred<T>)?.complete(value)
-    }
-
-    fun fail(
-        op: PendingOp<*>,
-        cause: Throwable,
-    ) {
-        slots.remove(op)?.completeExceptionally(cause)
-    }
-
     fun clear(op: PendingOp<*>) {
         slots.remove(op)
     }
 
+    @Suppress("UNCHECKED_CAST")
+    fun <T> complete(op: PendingOp<T>, value: T) {
+        (slots.remove(op) as? CompletableDeferred<T>)?.complete(value)
+    }
+
+    fun fail(op: PendingOp<*>, cause: Throwable) {
+        slots.remove(op)?.completeExceptionally(cause)
+    }
+
     fun cancelAll(cause: Throwable) {
-        for (deferred in slots.values) {
-            deferred.completeExceptionally(cause)
-        }
+        slots.values.forEach { it.completeExceptionally(cause) }
         slots.clear()
     }
 }

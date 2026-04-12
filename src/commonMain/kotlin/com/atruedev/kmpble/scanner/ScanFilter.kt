@@ -27,10 +27,13 @@ internal sealed interface ScanPredicate {
         val data: ByteArray?,
         val mask: ByteArray?,
     ) : ScanPredicate {
-        override fun equals(other: Any?): Boolean =
-            this === other || (other is ServiceData && uuid == other.uuid && contentPairEquals(data, mask, other.data, other.mask))
+        override fun equals(other: Any?): Boolean {
+            if (this === other) return true
+            if (other !is ServiceData) return false
+            return uuid == other.uuid && byteFieldsEqual(data, mask, other.data, other.mask)
+        }
 
-        override fun hashCode(): Int = contentPairHash(uuid.hashCode(), data, mask)
+        override fun hashCode(): Int = byteFieldsHash(uuid.hashCode(), data, mask)
     }
 
     data class ManufacturerData(
@@ -38,10 +41,13 @@ internal sealed interface ScanPredicate {
         val data: ByteArray?,
         val mask: ByteArray?,
     ) : ScanPredicate {
-        override fun equals(other: Any?): Boolean =
-            this === other || (other is ManufacturerData && companyId == other.companyId && contentPairEquals(data, mask, other.data, other.mask))
+        override fun equals(other: Any?): Boolean {
+            if (this === other) return true
+            if (other !is ManufacturerData) return false
+            return companyId == other.companyId && byteFieldsEqual(data, mask, other.data, other.mask)
+        }
 
-        override fun hashCode(): Int = contentPairHash(companyId, data, mask)
+        override fun hashCode(): Int = byteFieldsHash(companyId, data, mask)
     }
 
     data class MinRssi(
@@ -130,19 +136,19 @@ public class FiltersScope internal constructor() {
     }
 }
 
-private fun contentPairEquals(
+private fun byteFieldsEqual(
     data1: ByteArray?,
     mask1: ByteArray?,
     data2: ByteArray?,
     mask2: ByteArray?,
 ): Boolean = data1.contentEquals(data2) && mask1.contentEquals(mask2)
 
-private fun contentPairHash(
-    seed: Int,
+private fun byteFieldsHash(
+    identifierHash: Int,
     data: ByteArray?,
     mask: ByteArray?,
 ): Int {
-    var result = seed
+    var result = identifierHash
     result = 31 * result + (data?.contentHashCode() ?: 0)
     result = 31 * result + (mask?.contentHashCode() ?: 0)
     return result
