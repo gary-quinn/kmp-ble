@@ -71,6 +71,7 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import java.io.IOException
+import java.util.UUID
 import kotlin.concurrent.Volatile
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
@@ -91,8 +92,13 @@ public class AndroidPeripheral internal constructor(
     private val peripheralContext = PeripheralContext(identifier)
     private val bridge = AndroidGattBridge(device, context)
 
+    @Volatile
     private var connectionComplete: CompletableDeferred<Unit>? = null
+
+    @Volatile
     private var discoveryComplete: CompletableDeferred<List<DiscoveredService>>? = null
+
+    @Volatile
     private var disconnectComplete: CompletableDeferred<Unit>? = null
     private val pendingOps = PendingOperations()
     private val observationManager = ObservationManager()
@@ -113,6 +119,8 @@ public class AndroidPeripheral internal constructor(
 
     @Volatile
     private var closed = false
+
+    @Volatile
     private var currentConnectionOptions: ConnectionOptions? = null
     private val reconnectionHandler =
         ReconnectionHandler(
@@ -359,12 +367,13 @@ public class AndroidPeripheral internal constructor(
                     pendingOps.complete(PendingOp.DescriptorWrite, event.status.toGattStatus())
                 }
                 is GattCallbackEvent.ReadRemoteRssi -> {
-                    if (event.status.toGattStatus().isSuccess()) {
+                    val status = event.status.toGattStatus()
+                    if (status.isSuccess()) {
                         pendingOps.complete(PendingOp.RssiRead, event.rssi)
                     } else {
                         pendingOps.fail(
                             PendingOp.RssiRead,
-                            Exception("readRssi failed: ${event.status.toGattStatus()}"),
+                            BleException(GattError("readRssi", status)),
                         )
                     }
                 }
@@ -461,7 +470,7 @@ public class AndroidPeripheral internal constructor(
             )
             connectionComplete?.complete(Unit)
             discoveryComplete?.completeExceptionally(
-                IllegalStateException("Service discovery failed: $status"),
+                BleException(GattError("discoverServices", status)),
             )
         }
     }
@@ -634,7 +643,7 @@ public class AndroidPeripheral internal constructor(
     private suspend fun enableNotifications(characteristic: Characteristic) {
         val native = requireNativeChar(characteristic)
         bridge.setCharacteristicNotification(native, true)
-        val cccd = native.getDescriptor(java.util.UUID.fromString(CCCD_UUID.toString())) ?: return
+        val cccd = native.getDescriptor(UUID.fromString(CCCD_UUID.toString())) ?: return
         val value = if (characteristic.properties.indicate) ENABLE_INDICATION_VALUE else ENABLE_NOTIFICATION_VALUE
         peripheralContext.gattQueue.enqueue {
             val deferred = CompletableDeferred<GattStatus>()
@@ -651,7 +660,7 @@ public class AndroidPeripheral internal constructor(
         if (peripheralContext.state.value !is State.Connected) return
         val native = nativeCharMap[characteristic] ?: return
         bridge.setCharacteristicNotification(native, false)
-        val cccd = native.getDescriptor(java.util.UUID.fromString(CCCD_UUID.toString())) ?: return
+        val cccd = native.getDescriptor(UUID.fromString(CCCD_UUID.toString())) ?: return
         peripheralContext.scope.launch {
             try {
                 peripheralContext.gattQueue.enqueue {
