@@ -22,10 +22,15 @@ internal data class GattResult(
  */
 internal sealed interface PendingOp<T> {
     data object CharacteristicRead : PendingOp<GattResult>
+
     data object CharacteristicWrite : PendingOp<GattStatus>
+
     data object DescriptorRead : PendingOp<GattResult>
+
     data object DescriptorWrite : PendingOp<GattStatus>
+
     data object RssiRead : PendingOp<Int>
+
     data object MtuRequest : PendingOp<Int>
 }
 
@@ -38,7 +43,10 @@ internal sealed interface PendingOp<T> {
 internal class PendingOperations {
     private val slots = mutableMapOf<PendingOp<*>, CompletableDeferred<*>>()
 
-    fun <T> set(op: PendingOp<T>, deferred: CompletableDeferred<T>) {
+    fun <T> set(
+        op: PendingOp<T>,
+        deferred: CompletableDeferred<T>,
+    ) {
         check(op !in slots) { "${op::class.simpleName} overwritten while pending" }
         slots[op] = deferred
     }
@@ -50,11 +58,17 @@ internal class PendingOperations {
     }
 
     @Suppress("UNCHECKED_CAST")
-    fun <T> complete(op: PendingOp<T>, value: T) {
+    fun <T> complete(
+        op: PendingOp<T>,
+        value: T,
+    ) {
         (slots.remove(op) as? CompletableDeferred<T>)?.complete(value)
     }
 
-    fun fail(op: PendingOp<*>, cause: Throwable) {
+    fun fail(
+        op: PendingOp<*>,
+        cause: Throwable,
+    ) {
         slots.remove(op)?.completeExceptionally(cause)
     }
 

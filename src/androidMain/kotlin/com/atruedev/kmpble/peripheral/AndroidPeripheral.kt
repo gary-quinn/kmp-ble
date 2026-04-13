@@ -619,10 +619,10 @@ public class AndroidPeripheral internal constructor(
             val eventFlow = observationManager.subscribe(serviceUuid, charUuid, backpressure)
             eventFlow.collect { event -> mapper(event) }
         }.onStart {
-                if (peripheralContext.state.value is State.Connected.Ready) {
-                    enableNotifications(characteristic)
-                }
-            }.applyBackpressure(backpressure)
+            if (peripheralContext.state.value is State.Connected.Ready) {
+                enableNotifications(characteristic)
+            }
+        }.applyBackpressure(backpressure)
             .onCompletion {
                 val wasLastCollector = observationManager.unsubscribe(serviceUuid, charUuid)
                 if (wasLastCollector) {

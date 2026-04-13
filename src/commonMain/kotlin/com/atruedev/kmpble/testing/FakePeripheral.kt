@@ -26,14 +26,14 @@ import com.atruedev.kmpble.peripheral.Peripheral
 import com.atruedev.kmpble.peripheral.internal.PeripheralContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.FlowCollector
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.flow.update
 import kotlin.time.Duration
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
@@ -399,8 +399,10 @@ public class FakePeripheral internal constructor(
         value: ByteArray,
     ) {
         emitObservationValue(
-            com.atruedev.kmpble.scanner.uuidFrom(serviceUuid),
-            com.atruedev.kmpble.scanner.uuidFrom(charUuid),
+            com.atruedev.kmpble.scanner
+                .uuidFrom(serviceUuid),
+            com.atruedev.kmpble.scanner
+                .uuidFrom(charUuid),
             value,
         )
     }

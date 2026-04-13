@@ -36,11 +36,12 @@ internal class GattOperationQueue(
     )
 
     @Volatile
-    private var state = QueueState(
-        channel = Channel(Channel.UNLIMITED),
-        drainJob = null,
-        operationTimeout = DEFAULT_OPERATION_TIMEOUT,
-    )
+    private var state =
+        QueueState(
+            channel = Channel(Channel.UNLIMITED),
+            drainJob = null,
+            operationTimeout = DEFAULT_OPERATION_TIMEOUT,
+        )
 
     fun start(timeout: Duration? = null) {
         val prev = state
@@ -48,16 +49,18 @@ internal class GattOperationQueue(
         prev.drainJob?.cancel()
 
         val ch = Channel<QueueEntry>(Channel.UNLIMITED)
-        val job = scope.launch {
-            for (entry in ch) {
-                entry.action()
+        val job =
+            scope.launch {
+                for (entry in ch) {
+                    entry.action()
+                }
             }
-        }
-        state = QueueState(
-            channel = ch,
-            drainJob = job,
-            operationTimeout = timeout ?: prev.operationTimeout,
-        )
+        state =
+            QueueState(
+                channel = ch,
+                drainJob = job,
+                operationTimeout = timeout ?: prev.operationTimeout,
+            )
     }
 
     suspend fun <T> enqueue(
