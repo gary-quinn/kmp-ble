@@ -27,6 +27,7 @@ import com.atruedev.kmpble.gatt.internal.LargeWriteHandler
 import com.atruedev.kmpble.gatt.internal.NotConnectedException
 import com.atruedev.kmpble.gatt.internal.ObservationEvent
 import com.atruedev.kmpble.gatt.internal.ObservationManager
+import com.atruedev.kmpble.gatt.internal.PendingOp
 import com.atruedev.kmpble.gatt.internal.PendingOperations
 import com.atruedev.kmpble.gatt.internal.PersistedObservation
 import com.atruedev.kmpble.gatt.internal.applyBackpressure
@@ -270,14 +271,12 @@ public class IosPeripheral(
                     // one of read/write is pending. Check write first, then read, then notification.
                     val cbChar = event.characteristic
                     val error = event.error
-                    if (pendingOps.characteristicWrite != null) {
-                        pendingOps.characteristicWrite?.complete(error.toGattStatus())
-                        pendingOps.characteristicWrite = null
-                    } else if (pendingOps.characteristicRead != null) {
+                    if (pendingOps.has(PendingOp.CharacteristicWrite)) {
+                        pendingOps.complete(PendingOp.CharacteristicWrite, error.toGattStatus())
+                    } else if (pendingOps.has(PendingOp.CharacteristicRead)) {
                         val status = error.toGattStatus()
                         val value = cbChar.value?.toByteArray() ?: byteArrayOf()
-                        pendingOps.characteristicRead?.complete(GattResult(value, status))
-                        pendingOps.characteristicRead = null
+                        pendingOps.complete(PendingOp.CharacteristicRead, GattResult(value, status))
                     } else {
                         val value = cbChar.value?.toByteArray() ?: return@launch
                         val svcUuid = uuidFrom(cbChar.service?.UUID?.UUIDString ?: return@launch)
@@ -286,33 +285,29 @@ public class IosPeripheral(
                     }
                 }
                 is AppleCallbackEvent.DidWriteValueForCharacteristic -> {
-                    pendingOps.characteristicWrite?.complete(event.error.toGattStatus())
-                    pendingOps.characteristicWrite = null
+                    pendingOps.complete(PendingOp.CharacteristicWrite, event.error.toGattStatus())
                 }
                 is AppleCallbackEvent.DidUpdateValueForDescriptor -> {
                     val error = event.error
-                    if (pendingOps.descriptorWrite != null) {
-                        pendingOps.descriptorWrite?.complete(error.toGattStatus())
-                        pendingOps.descriptorWrite = null
+                    if (pendingOps.has(PendingOp.DescriptorWrite)) {
+                        pendingOps.complete(PendingOp.DescriptorWrite, error.toGattStatus())
                     } else {
                         val value = (event.descriptor.value as? NSData)?.toByteArray() ?: byteArrayOf()
-                        pendingOps.descriptorRead?.complete(GattResult(value, error.toGattStatus()))
-                        pendingOps.descriptorRead = null
+                        pendingOps.complete(PendingOp.DescriptorRead, GattResult(value, error.toGattStatus()))
                     }
                 }
                 is AppleCallbackEvent.DidWriteValueForDescriptor -> {
-                    pendingOps.descriptorWrite?.complete(event.error.toGattStatus())
-                    pendingOps.descriptorWrite = null
+                    pendingOps.complete(PendingOp.DescriptorWrite, event.error.toGattStatus())
                 }
                 is AppleCallbackEvent.DidReadRSSI -> {
                     if (event.error == null) {
-                        pendingOps.rssiRead?.complete(event.rssi.intValue)
+                        pendingOps.complete(PendingOp.RssiRead, event.rssi.intValue)
                     } else {
-                        pendingOps.rssiRead?.completeExceptionally(
+                        pendingOps.fail(
+                            PendingOp.RssiRead,
                             Exception("readRSSI failed: ${event.error.localizedDescription}"),
                         )
                     }
-                    pendingOps.rssiRead = null
                 }
                 is AppleCallbackEvent.DidOpenL2CAPChannel -> {
                     handleDidOpenL2CAPChannel(event)
@@ -442,7 +437,7 @@ public class IosPeripheral(
         return peripheralContext.gattQueue.enqueue {
             val native = requireNativeCbChar(characteristic)
             val deferred = CompletableDeferred<GattResult>()
-            pendingOps.characteristicRead = deferred
+            pendingOps.set(PendingOp.CharacteristicRead, deferred)
             bridge.readCharacteristic(native)
             val result = deferred.await()
             if (!result.status.isSuccess()) throw BleException(GattError("read", result.status))
@@ -465,7 +460,7 @@ public class IosPeripheral(
             for (chunk in chunks) {
                 if (withResponse) {
                     val deferred = CompletableDeferred<GattStatus>()
-                    pendingOps.characteristicWrite = deferred
+                    pendingOps.set(PendingOp.CharacteristicWrite, deferred)
                     bridge.writeCharacteristic(native, chunk.toNSData(), withResponse = true)
                     val status = deferred.await()
                     if (!status.isSuccess()) throw BleException(GattError("write", status))
@@ -541,7 +536,7 @@ public class IosPeripheral(
         return peripheralContext.gattQueue.enqueue {
             val native = requireNativeCbDesc(descriptor)
             val deferred = CompletableDeferred<GattResult>()
-            pendingOps.descriptorRead = deferred
+            pendingOps.set(PendingOp.DescriptorRead, deferred)
             bridge.readDescriptor(native)
             val result = deferred.await()
             if (!result.status.isSuccess()) throw BleException(GattError("readDescriptor", result.status))
@@ -557,7 +552,7 @@ public class IosPeripheral(
         peripheralContext.gattQueue.enqueue {
             val native = requireNativeCbDesc(descriptor)
             val deferred = CompletableDeferred<GattStatus>()
-            pendingOps.descriptorWrite = deferred
+            pendingOps.set(PendingOp.DescriptorWrite, deferred)
             bridge.writeDescriptor(native, data.toNSData())
             val status = deferred.await()
             if (!status.isSuccess()) throw BleException(GattError("writeDescriptor", status))
@@ -568,7 +563,7 @@ public class IosPeripheral(
         checkNotClosed()
         return peripheralContext.gattQueue.enqueue {
             val deferred = CompletableDeferred<Int>()
-            pendingOps.rssiRead = deferred
+            pendingOps.set(PendingOp.RssiRead, deferred)
             bridge.readRSSI()
             deferred.await()
         }

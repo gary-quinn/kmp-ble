@@ -29,23 +29,11 @@ internal sealed interface ScanPredicate {
     ) : ScanPredicate {
         override fun equals(other: Any?): Boolean {
             if (this === other) return true
-            if (other == null || this::class != other::class) return false
-
-            other as ServiceData
-
-            if (uuid != other.uuid) return false
-            if (!data.contentEquals(other.data)) return false
-            if (!mask.contentEquals(other.mask)) return false
-
-            return true
+            if (other !is ServiceData) return false
+            return uuid == other.uuid && byteFieldsEqual(data, mask, other.data, other.mask)
         }
 
-        override fun hashCode(): Int {
-            var result = uuid.hashCode()
-            result = 31 * result + (data?.contentHashCode() ?: 0)
-            result = 31 * result + (mask?.contentHashCode() ?: 0)
-            return result
-        }
+        override fun hashCode(): Int = byteFieldsHash(uuid.hashCode(), data, mask)
     }
 
     data class ManufacturerData(
@@ -55,23 +43,11 @@ internal sealed interface ScanPredicate {
     ) : ScanPredicate {
         override fun equals(other: Any?): Boolean {
             if (this === other) return true
-            if (other == null || this::class != other::class) return false
-
-            other as ManufacturerData
-
-            if (companyId != other.companyId) return false
-            if (!data.contentEquals(other.data)) return false
-            if (!mask.contentEquals(other.mask)) return false
-
-            return true
+            if (other !is ManufacturerData) return false
+            return companyId == other.companyId && byteFieldsEqual(data, mask, other.data, other.mask)
         }
 
-        override fun hashCode(): Int {
-            var result = companyId
-            result = 31 * result + (data?.contentHashCode() ?: 0)
-            result = 31 * result + (mask?.contentHashCode() ?: 0)
-            return result
-        }
+        override fun hashCode(): Int = byteFieldsHash(companyId, data, mask)
     }
 
     data class MinRssi(
@@ -158,6 +134,24 @@ public class FiltersScope internal constructor() {
             matchGroups += scope.predicates.toList()
         }
     }
+}
+
+private fun byteFieldsEqual(
+    data1: ByteArray?,
+    mask1: ByteArray?,
+    data2: ByteArray?,
+    mask2: ByteArray?,
+): Boolean = data1.contentEquals(data2) && mask1.contentEquals(mask2)
+
+private fun byteFieldsHash(
+    identifierHash: Int,
+    data: ByteArray?,
+    mask: ByteArray?,
+): Int {
+    var result = identifierHash
+    result = 31 * result + (data?.contentHashCode() ?: 0)
+    result = 31 * result + (mask?.contentHashCode() ?: 0)
+    return result
 }
 
 /**

@@ -2,7 +2,6 @@ package com.atruedev.kmpble.gatt.internal
 
 import com.atruedev.kmpble.error.GattStatus
 import kotlinx.coroutines.CompletableDeferred
-import kotlin.reflect.KProperty
 
 internal data class GattResult(
     val value: ByteArray,
@@ -17,56 +16,64 @@ internal data class GattResult(
     override fun hashCode(): Int = 31 * value.contentHashCode() + status.hashCode()
 }
 
-internal class PendingSlot<T>(
-    private val name: String,
-) {
-    private var deferred: CompletableDeferred<T>? = null
+/**
+ * Type-safe key for pending GATT operations. [T] binds each operation to its
+ * result type so the compiler rejects mismatched completions.
+ */
+internal sealed interface PendingOp<T> {
+    data object CharacteristicRead : PendingOp<GattResult>
 
-    operator fun getValue(
-        thisRef: Any?,
-        property: KProperty<*>,
-    ): CompletableDeferred<T>? = deferred
+    data object CharacteristicWrite : PendingOp<GattStatus>
 
-    operator fun setValue(
-        thisRef: Any?,
-        property: KProperty<*>,
-        value: CompletableDeferred<T>?,
-    ) {
-        check(deferred == null || value == null) { "$name overwritten while pending" }
-        deferred = value
-    }
+    data object DescriptorRead : PendingOp<GattResult>
 
-    fun cancelAndClear(cause: Throwable) {
-        deferred?.completeExceptionally(cause)
-        deferred = null
-    }
+    data object DescriptorWrite : PendingOp<GattStatus>
+
+    data object RssiRead : PendingOp<Int>
+
+    data object MtuRequest : PendingOp<Int>
 }
 
+/**
+ * Holds at most one [CompletableDeferred] per [PendingOp] type.
+ *
+ * Confined to the owning peripheral's serialized dispatcher
+ * (`limitedParallelism(1)`) — no synchronization required.
+ */
 internal class PendingOperations {
-    private val _characteristicRead = PendingSlot<GattResult>("characteristicRead")
-    var characteristicRead: CompletableDeferred<GattResult>? by _characteristicRead
+    private val slots = mutableMapOf<PendingOp<*>, CompletableDeferred<*>>()
 
-    private val _characteristicWrite = PendingSlot<GattStatus>("characteristicWrite")
-    var characteristicWrite: CompletableDeferred<GattStatus>? by _characteristicWrite
+    fun <T> set(
+        op: PendingOp<T>,
+        deferred: CompletableDeferred<T>,
+    ) {
+        check(op !in slots) { "${op::class.simpleName} overwritten while pending" }
+        slots[op] = deferred
+    }
 
-    private val _descriptorRead = PendingSlot<GattResult>("descriptorRead")
-    var descriptorRead: CompletableDeferred<GattResult>? by _descriptorRead
+    fun has(op: PendingOp<*>): Boolean = op in slots
 
-    private val _descriptorWrite = PendingSlot<GattStatus>("descriptorWrite")
-    var descriptorWrite: CompletableDeferred<GattStatus>? by _descriptorWrite
+    fun clear(op: PendingOp<*>) {
+        slots.remove(op)
+    }
 
-    private val _rssiRead = PendingSlot<Int>("rssiRead")
-    var rssiRead: CompletableDeferred<Int>? by _rssiRead
+    @Suppress("UNCHECKED_CAST")
+    fun <T> complete(
+        op: PendingOp<T>,
+        value: T,
+    ) {
+        (slots.remove(op) as? CompletableDeferred<T>)?.complete(value)
+    }
 
-    private val _mtuRequest = PendingSlot<Int>("mtuRequest")
-    var mtuRequest: CompletableDeferred<Int>? by _mtuRequest
+    fun fail(
+        op: PendingOp<*>,
+        cause: Throwable,
+    ) {
+        slots.remove(op)?.completeExceptionally(cause)
+    }
 
     fun cancelAll(cause: Throwable) {
-        _characteristicRead.cancelAndClear(cause)
-        _characteristicWrite.cancelAndClear(cause)
-        _descriptorRead.cancelAndClear(cause)
-        _descriptorWrite.cancelAndClear(cause)
-        _rssiRead.cancelAndClear(cause)
-        _mtuRequest.cancelAndClear(cause)
+        slots.values.forEach { it.completeExceptionally(cause) }
+        slots.clear()
     }
 }
