@@ -15,6 +15,14 @@ _Changes on `main` that have not yet been tagged for release._
 
 ---
 
+## [0.4.1] - 2026-04-13
+
+### Fixed
+- fix(ci): use macos runner for Dokka API docs generation
+
+
+---
+
 ## [0.4.0] - 2026-04-13
 
 ### Changed
@@ -435,7 +443,8 @@ _No notable changes._
 
 ---
 
-[Unreleased]: https://github.com/gary-quinn/kmp-ble/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/gary-quinn/kmp-ble/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/gary-quinn/kmp-ble/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.18...v0.4.0
 [0.3.18]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.17...v0.3.18
 [0.3.17]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.16...v0.3.17
