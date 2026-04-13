@@ -15,6 +15,32 @@ _Changes on `main` that have not yet been tagged for release._
 
 ---
 
+## [0.4.0] - 2026-04-13
+
+### Changed
+- refactor(shared): unify error handling and reduce duplication across peripherals
+- refactor(shared): unify pending ops, observe pattern, and scan predicate equality
+- ci(dependabot): bump gradle/actions from 6.0.1 to 6.1.0
+- ci(dependabot): bump actions/cache from 4.2.0 to 5.0.4
+- ci(dependabot): bump peter-evans/create-pull-request from 8.1.0 to 8.1.1
+- ci(dependabot): bump actions/upload-artifact from 7.0.0 to 7.0.1
+- ci(dependabot): bump actions/upload-pages-artifact from 4.0.0 to 5.0.0
+- build(dependabot): bump org.robolectric:robolectric from 4.14.1 to 4.16.1
+- build(dependabot): bump androidx.test:runner from 1.6.2 to 1.7.0
+- build(dependabot): bump androidx.test.ext:junit-ktx from 1.2.1 to 1.3.0
+- build(dependabot): bump androidx.test:core-ktx from 1.6.1 to 1.7.0
+
+### Fixed
+- fix(shared): replace iOS connection polling with ObjC delegate proxy, use structured GATT errors
+- fix(shared): eliminate TOCTOU race in GattOperationQueue and harden StateMachine hierarchy
+- fix(shared): add missing volatile annotation and remove redundant cleanup
+- fix: harden lifecycle safety and fix docs CI runner
+- fix(ci): enable cinterop commonization for Dokka docs generation
+- fix(shared): harden thread safety and unify error types across peripherals
+
+
+---
+
 ## [0.3.18] - 2026-04-08
 
 ### Changed
@@ -409,7 +435,8 @@ _No notable changes._
 
 ---
 
-[Unreleased]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.18...HEAD
+[Unreleased]: https://github.com/gary-quinn/kmp-ble/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.18...v0.4.0
 [0.3.18]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.17...v0.3.18
 [0.3.17]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.16...v0.3.17
 [0.3.16]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.15...v0.3.16
