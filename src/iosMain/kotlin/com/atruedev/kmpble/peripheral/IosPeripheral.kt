@@ -1,5 +1,6 @@
 package com.atruedev.kmpble.peripheral
 
+import com.atruedev.kmpble.BleData
 import com.atruedev.kmpble.ExperimentalBleApi
 import com.atruedev.kmpble.Identifier
 import com.atruedev.kmpble.bleDataFromNSData
@@ -60,11 +61,14 @@ import platform.CoreBluetooth.CBCharacteristicPropertyNotify
 import platform.CoreBluetooth.CBCharacteristicPropertyRead
 import platform.CoreBluetooth.CBCharacteristicPropertyWrite
 import platform.CoreBluetooth.CBCharacteristicPropertyWriteWithoutResponse
+import platform.CoreBluetooth.CBCharacteristicWriteWithResponse
 import platform.CoreBluetooth.CBDescriptor
 import platform.CoreBluetooth.CBL2CAPChannel
 import platform.CoreBluetooth.CBPeripheral
+import platform.CoreBluetooth.CBPeripheralStateConnected
 import platform.CoreBluetooth.CBService
 import platform.Foundation.NSData
+import platform.Foundation.NSError
 import kotlin.concurrent.Volatile
 import kotlin.time.Duration.Companion.seconds
 import kotlin.uuid.ExperimentalUuidApi
@@ -79,8 +83,13 @@ public class IosPeripheral(
     private val bridge = ApplePeripheralBridge(cbPeripheral)
     private val centralDelegate = CentralManagerProvider.scanDelegate
 
+    @Volatile
     private var connectionComplete: CompletableDeferred<Unit>? = null
+
+    @Volatile
     private var discoveryComplete: CompletableDeferred<List<DiscoveredService>>? = null
+
+    @Volatile
     private var disconnectComplete: CompletableDeferred<Unit>? = null
     private val pendingOps = PendingOperations()
     private val observationManager = ObservationManager()
@@ -90,6 +99,7 @@ public class IosPeripheral(
     private val nativeDescMap = mutableMapOf<Descriptor, CBDescriptor>()
 
     // L2CAP state
+    @Volatile
     private var pendingL2capChannel: CompletableDeferred<CBL2CAPChannel>? = null
     private val activeL2capChannels = MutableStateFlow<List<IosL2capChannel>>(emptyList())
 
@@ -232,7 +242,7 @@ public class IosPeripheral(
 
     private fun handleConnectionCallback(
         connected: Boolean,
-        error: platform.Foundation.NSError?,
+        error: NSError?,
     ) {
         peripheralContext.scope.launch {
             if (connected) {
@@ -305,7 +315,7 @@ public class IosPeripheral(
                     } else {
                         pendingOps.fail(
                             PendingOp.RssiRead,
-                            Exception("readRSSI failed: ${event.error.localizedDescription}"),
+                            BleException(GattError("readRssi", event.error.toGattStatus())),
                         )
                     }
                 }
@@ -325,7 +335,7 @@ public class IosPeripheral(
             )
             connectionComplete?.complete(Unit)
             discoveryComplete?.completeExceptionally(
-                IllegalStateException("Service discovery failed: ${event.error.localizedDescription}"),
+                BleException(GattError("discoverServices", event.error.toGattStatus())),
             )
             return
         }
@@ -425,10 +435,7 @@ public class IosPeripheral(
         nativeDescMap[descriptor]
             ?: throw IllegalArgumentException("Descriptor not found.")
 
-    private fun ByteArray.toNSData(): NSData =
-        com.atruedev.kmpble
-            .BleData(this)
-            .nsData
+    private fun ByteArray.toNSData(): NSData = BleData(this).nsData
 
     private fun NSData.toByteArray(): ByteArray = bleDataFromNSData(this).toByteArray()
 
@@ -576,7 +583,7 @@ public class IosPeripheral(
         val actualMtu =
             cbPeripheral
                 .maximumWriteValueLengthForType(
-                    platform.CoreBluetooth.CBCharacteristicWriteWithResponse,
+                    CBCharacteristicWriteWithResponse,
                 ).toInt() + ATT_HEADER_SIZE
         peripheralContext.updateMtu(actualMtu)
         return actualMtu
@@ -694,7 +701,7 @@ public class IosPeripheral(
             // If the peripheral is already connected (iOS maintained the connection),
             // trigger service discovery to rebuild the native char/desc maps and
             // re-enable notifications.
-            if (cbPeripheral.state == platform.CoreBluetooth.CBPeripheralStateConnected) {
+            if (cbPeripheral.state == CBPeripheralStateConnected) {
                 peripheralContext.processEvent(ConnectionEvent.ConnectRequested)
                 peripheralContext.gattQueue.start()
                 peripheralContext.processEvent(ConnectionEvent.LinkEstablished)
