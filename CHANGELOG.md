@@ -15,6 +15,14 @@ _Changes on `main` that have not yet been tagged for release._
 
 ---
 
+## [0.4.2] - 2026-04-16
+
+### Changed
+- refactor: replace non-null assertions; feat(l2cap): configurable iOS MTU
+
+
+---
+
 ## [0.4.1] - 2026-04-13
 
 ### Fixed
@@ -443,7 +451,8 @@ _No notable changes._
 
 ---
 
-[Unreleased]: https://github.com/gary-quinn/kmp-ble/compare/v0.4.1...HEAD
+[Unreleased]: https://github.com/gary-quinn/kmp-ble/compare/v0.4.2...HEAD
+[0.4.2]: https://github.com/gary-quinn/kmp-ble/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/gary-quinn/kmp-ble/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.18...v0.4.0
 [0.3.18]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.17...v0.3.18
