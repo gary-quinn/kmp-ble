@@ -24,13 +24,14 @@ import platform.Foundation.NSStreamStatusError
 import platform.Foundation.NSStreamStatusOpen
 import kotlin.coroutines.coroutineContext
 
+internal const val DEFAULT_L2CAP_MTU = 2048
+
 internal class IosL2capChannel(
     private val cbChannel: CBL2CAPChannel,
     private val scope: CoroutineScope,
+    override val mtu: Int,
 ) : L2capChannel {
     override val psm: Int = cbChannel.PSM.toInt()
-
-    override val mtu: Int = DEFAULT_MTU
 
     private val _isOpen = MutableStateFlow(true)
     override val isOpen: Boolean get() = _isOpen.value
@@ -156,7 +157,6 @@ internal class IosL2capChannel(
     }
 
     private companion object {
-        const val DEFAULT_MTU = 2048
         const val READ_BUFFER_SIZE = 4096
         const val MIN_POLL_INTERVAL_MS = 10L
         const val MAX_POLL_INTERVAL_MS = 100L

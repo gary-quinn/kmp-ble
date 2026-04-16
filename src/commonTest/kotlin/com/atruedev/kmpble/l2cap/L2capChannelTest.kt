@@ -147,7 +147,7 @@ class L2capChannelTest {
         runTest {
             val peripheral =
                 FakePeripheral {
-                    onOpenL2capChannel { psm -> FakeL2capChannel(psm) }
+                    onOpenL2capChannel { psm, _ -> FakeL2capChannel(psm) }
                 }
 
             assertFailsWith<L2capException.NotConnected> {
@@ -160,7 +160,7 @@ class L2capChannelTest {
         runTest {
             val peripheral =
                 FakePeripheral {
-                    onOpenL2capChannel { psm -> FakeL2capChannel(psm) }
+                    onOpenL2capChannel { psm, _ -> FakeL2capChannel(psm) }
                 }
 
             peripheral.connect()
@@ -187,7 +187,7 @@ class L2capChannelTest {
             var receivedPsm = -1
             val peripheral =
                 FakePeripheral {
-                    onOpenL2capChannel { psm ->
+                    onOpenL2capChannel { psm, _ ->
                         receivedPsm = psm
                         FakeL2capChannel(psm)
                     }
@@ -197,6 +197,43 @@ class L2capChannelTest {
             peripheral.openL2capChannel(psm = 0x42)
 
             assertEquals(0x42, receivedPsm)
+        }
+
+    @Test
+    fun openL2capChannelForwardsMtuToHandler() =
+        runTest {
+            var receivedMtu: Int? = null
+            val peripheral =
+                FakePeripheral {
+                    onOpenL2capChannel { psm, mtu ->
+                        receivedMtu = mtu
+                        FakeL2capChannel(psm, mtu = mtu ?: 2048)
+                    }
+                }
+
+            peripheral.connect()
+            val channel = peripheral.openL2capChannel(psm = 0x25, mtu = 4096)
+
+            assertEquals(4096, receivedMtu)
+            assertEquals(4096, channel.mtu)
+        }
+
+    @Test
+    fun openL2capChannelDefaultsMtuToNull() =
+        runTest {
+            var receivedMtu: Int? = -1
+            val peripheral =
+                FakePeripheral {
+                    onOpenL2capChannel { psm, mtu ->
+                        receivedMtu = mtu
+                        FakeL2capChannel(psm)
+                    }
+                }
+
+            peripheral.connect()
+            peripheral.openL2capChannel(psm = 0x25)
+
+            assertEquals(null, receivedMtu)
         }
 
     // --- L2capException hierarchy ---

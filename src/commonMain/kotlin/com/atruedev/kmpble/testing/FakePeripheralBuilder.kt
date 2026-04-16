@@ -15,7 +15,7 @@ import kotlin.uuid.Uuid
 public typealias ReadHandler = suspend () -> ByteArray
 public typealias WriteHandler = suspend (data: ByteArray, writeType: WriteType) -> Unit
 public typealias ObserveHandler = () -> Flow<ByteArray>
-public typealias L2capHandler = suspend (psm: Int) -> L2capChannel
+public typealias L2capHandler = suspend (psm: Int, mtu: Int?) -> L2capChannel
 
 @OptIn(ExperimentalUuidApi::class)
 internal data class FakeCharacteristicConfig(
@@ -63,7 +63,7 @@ public class FakePeripheralBuilder {
 
     /**
      * Configure L2CAP channel opening behavior.
-     * The handler receives the PSM and returns an [L2capChannel] (typically [FakeL2capChannel]).
+     * The handler receives the PSM and optional MTU hint, returning an [L2capChannel].
      */
     public fun onOpenL2capChannel(handler: L2capHandler) {
         l2capHandler = handler

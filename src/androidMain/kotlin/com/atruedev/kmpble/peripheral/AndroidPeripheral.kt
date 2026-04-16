@@ -758,8 +758,10 @@ public class AndroidPeripheral internal constructor(
     override suspend fun openL2capChannel(
         psm: Int,
         secure: Boolean,
+        mtu: Int?,
     ): L2capChannel {
         checkNotClosed()
+        if (mtu != null) require(mtu > 0) { "mtu must be positive, was $mtu" }
 
         val currentState = state.value
         if (currentState !is State.Connected.Ready) {

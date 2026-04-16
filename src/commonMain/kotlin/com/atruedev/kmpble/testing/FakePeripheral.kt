@@ -258,15 +258,17 @@ public class FakePeripheral internal constructor(
     override suspend fun openL2capChannel(
         psm: Int,
         secure: Boolean,
+        mtu: Int?,
     ): L2capChannel {
         checkNotClosed()
+        if (mtu != null) require(mtu > 0) { "mtu must be positive, was $mtu" }
         if (context.state.value !is State.Connected) {
             throw L2capException.NotConnected("Peripheral is not connected (state: ${context.state.value})")
         }
         val handler =
             onL2capHandler
                 ?: throw L2capException.NotSupported("No onOpenL2capChannel handler configured")
-        return handler(psm)
+        return handler(psm, mtu)
     }
 
     override suspend fun readRssi(): Int {

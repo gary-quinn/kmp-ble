@@ -42,10 +42,13 @@ public interface L2capChannel : AutoCloseable {
      * Writes larger than this are segmented automatically by the OS.
      * Typical values: 2KB–64KB depending on peripheral and connection.
      *
-     * **Note:** iOS does not expose the negotiated L2CAP MTU directly via
-     * `CBL2CAPChannel`. The value returned is a conservative default (2048 bytes).
-     * Callers performing chunked transfers (e.g., firmware updates) should treat
-     * this as an upper-bound hint, not a precise negotiated value.
+     * **Platform behavior:**
+     * - **Android:** Queried from the socket via `maxTransmitPacketSize`, floored
+     *   at 672 bytes. Reflects the actual negotiated value.
+     * - **iOS:** CoreBluetooth does not expose the negotiated L2CAP MTU.
+     *   Defaults to 2048 bytes. Pass an explicit `mtu` to
+     *   [com.atruedev.kmpble.peripheral.Peripheral.openL2capChannel] to override
+     *   when the peripheral's MTU is known (e.g., from a device specification).
      */
     public val mtu: Int
 
