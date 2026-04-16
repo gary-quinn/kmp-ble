@@ -50,7 +50,8 @@ internal class AndroidBondManager(
             return true
         }
 
-        bondComplete = CompletableDeferred()
+        val deferred = CompletableDeferred<Boolean>()
+        bondComplete = deferred
         val initiated = device.createBond()
         if (!initiated) {
             bondComplete = null
@@ -58,7 +59,7 @@ internal class AndroidBondManager(
         }
 
         return try {
-            bondComplete!!.await()
+            deferred.await()
         } finally {
             bondComplete = null
         }

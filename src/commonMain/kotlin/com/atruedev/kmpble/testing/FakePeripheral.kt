@@ -258,6 +258,7 @@ public class FakePeripheral internal constructor(
     override suspend fun openL2capChannel(
         psm: Int,
         secure: Boolean,
+        mtu: Int?,
     ): L2capChannel {
         checkNotClosed()
         if (context.state.value !is State.Connected) {

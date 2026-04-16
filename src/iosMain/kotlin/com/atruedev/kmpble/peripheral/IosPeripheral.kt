@@ -594,6 +594,7 @@ public class IosPeripheral(
     override suspend fun openL2capChannel(
         psm: Int,
         secure: Boolean,
+        mtu: Int?,
     ): L2capChannel {
         checkNotClosed()
         if (peripheralContext.state.value !is State.Connected) {
@@ -614,7 +615,12 @@ public class IosPeripheral(
                     withTimeout(L2CAP_OPEN_TIMEOUT) {
                         deferred.await()
                     }
-                val channel = IosL2capChannel(cbChannel, peripheralContext.scope)
+                val channel =
+                    if (mtu != null) {
+                        IosL2capChannel(cbChannel, peripheralContext.scope, mtu)
+                    } else {
+                        IosL2capChannel(cbChannel, peripheralContext.scope)
+                    }
                 activeL2capChannels.update { it + channel }
                 channel
             } catch (_: TimeoutCancellationException) {

@@ -27,10 +27,9 @@ import kotlin.coroutines.coroutineContext
 internal class IosL2capChannel(
     private val cbChannel: CBL2CAPChannel,
     private val scope: CoroutineScope,
+    override val mtu: Int = DEFAULT_MTU,
 ) : L2capChannel {
     override val psm: Int = cbChannel.PSM.toInt()
-
-    override val mtu: Int = DEFAULT_MTU
 
     private val _isOpen = MutableStateFlow(true)
     override val isOpen: Boolean get() = _isOpen.value

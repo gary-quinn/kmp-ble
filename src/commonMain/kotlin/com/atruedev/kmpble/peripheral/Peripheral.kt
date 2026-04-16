@@ -168,6 +168,11 @@ public interface Peripheral : AutoCloseable {
      *                 channels inherit the connection's security level.
      *               - **Android:** When true, uses `createL2capChannel()` (encrypted);
      *                 when false, uses `createInsecureL2capChannel()`.
+     * @param mtu Optional MTU hint for the channel. **Platform behavior varies:**
+     *            - **iOS:** CoreBluetooth does not expose the negotiated L2CAP MTU.
+     *              When provided, the channel uses this value instead of the
+     *              conservative 2048-byte default.
+     *            - **Android:** Ignored. The MTU is queried from the socket directly.
      * @return Open L2CAP channel ready for communication
      * @throws com.atruedev.kmpble.l2cap.L2capException.NotConnected if peripheral is not connected
      * @throws com.atruedev.kmpble.l2cap.L2capException.OpenFailed if channel cannot be opened
@@ -176,5 +181,6 @@ public interface Peripheral : AutoCloseable {
     public suspend fun openL2capChannel(
         psm: Int,
         secure: Boolean = true,
+        mtu: Int? = null,
     ): L2capChannel
 }

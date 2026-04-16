@@ -217,7 +217,8 @@ public class AndroidPeripheral internal constructor(
             peripheralContext.processEvent(ConnectionEvent.ConnectRequested)
             peripheralContext.gattQueue.start(options.gattOperationTimeout)
 
-            connectionComplete = CompletableDeferred()
+            val deferred = CompletableDeferred<Unit>()
+            connectionComplete = deferred
 
             val gatt = bridge.connect(options)
             if (gatt == null) {
@@ -233,7 +234,7 @@ public class AndroidPeripheral internal constructor(
 
             try {
                 withTimeout(timeout) {
-                    connectionComplete!!.await()
+                    deferred.await()
                 }
             } catch (_: TimeoutCancellationException) {
                 bridge.disconnect()
@@ -265,11 +266,12 @@ public class AndroidPeripheral internal constructor(
             pairingRequestHandler.stop()
             if (peripheralContext.state.value is State.Disconnected) return@withContext
             peripheralContext.processEvent(ConnectionEvent.DisconnectRequested)
-            disconnectComplete = CompletableDeferred()
+            val deferred = CompletableDeferred<Unit>()
+            disconnectComplete = deferred
             bridge.disconnect()
 
             try {
-                withTimeout(DISCONNECT_TIMEOUT) { disconnectComplete!!.await() }
+                withTimeout(DISCONNECT_TIMEOUT) { deferred.await() }
             } catch (_: TimeoutCancellationException) {
                 peripheralContext.processEvent(
                     ConnectionEvent.ConnectionLost(OperationFailed("Disconnect timeout")),
@@ -304,13 +306,14 @@ public class AndroidPeripheral internal constructor(
     override suspend fun refreshServices(): List<DiscoveredService> {
         checkNotClosed()
         return withContext(peripheralContext.dispatcher) {
-            discoveryComplete = CompletableDeferred()
+            val deferred = CompletableDeferred<List<DiscoveredService>>()
+            discoveryComplete = deferred
             if (!bridge.discoverServices()) {
                 discoveryComplete = null
                 throw BleException(OperationFailed("discoverServices initiation failed"))
             }
             try {
-                withTimeout(SERVICE_DISCOVERY_TIMEOUT) { discoveryComplete!!.await() }
+                withTimeout(SERVICE_DISCOVERY_TIMEOUT) { deferred.await() }
             } finally {
                 discoveryComplete = null
             }
@@ -755,6 +758,7 @@ public class AndroidPeripheral internal constructor(
     override suspend fun openL2capChannel(
         psm: Int,
         secure: Boolean,
+        mtu: Int?,
     ): L2capChannel {
         checkNotClosed()
 

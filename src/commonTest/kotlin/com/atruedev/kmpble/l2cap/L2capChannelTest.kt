@@ -199,6 +199,20 @@ class L2capChannelTest {
             assertEquals(0x42, receivedPsm)
         }
 
+    @Test
+    fun openL2capChannelPassesMtuToChannel() =
+        runTest {
+            val peripheral =
+                FakePeripheral {
+                    onOpenL2capChannel { psm -> FakeL2capChannel(psm, mtu = 4096) }
+                }
+
+            peripheral.connect()
+            val channel = peripheral.openL2capChannel(psm = 0x25, mtu = 4096)
+
+            assertEquals(4096, channel.mtu)
+        }
+
     // --- L2capException hierarchy ---
 
     @Test
