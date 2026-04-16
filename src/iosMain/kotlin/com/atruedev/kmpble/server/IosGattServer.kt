@@ -409,7 +409,7 @@ internal class IosGattServer(
                     assembled
                 } else {
                     requests.map { request ->
-                        val data = if (request.value != null) bleDataFromNSData(request.value!!) else emptyBleData()
+                        val data = request.value?.let(::bleDataFromNSData) ?: emptyBleData()
                         request.charUuid to data
                     }
                 }

@@ -56,7 +56,7 @@ internal class AndroidExtendedAdvertiser(
         val data = config.toAdvertiseData()
 
         val setId = withContext(serialDispatcher) { ++nextSetId }
-        var callbackRef: AdvertisingSetCallback? = null
+        lateinit var callbackRef: AdvertisingSetCallback
 
         val callback =
             object : AdvertisingSetCallback() {
@@ -67,7 +67,7 @@ internal class AndroidExtendedAdvertiser(
                 ) {
                     scope.launch {
                         if (status == ADVERTISE_SUCCESS && advertisingSet != null) {
-                            advertisingSets[setId] = AdvertisingSetHandle(advertisingSet, callbackRef!!)
+                            advertisingSets[setId] = AdvertisingSetHandle(advertisingSet, callbackRef)
                             _activeSets.update { it + setId }
                             logEvent(BleLogEvent.ServerLifecycle("extended advertising set $setId started"))
                             deferred.complete(setId)
