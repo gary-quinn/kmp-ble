@@ -87,6 +87,7 @@ internal class StubPeripheral(
     override suspend fun openL2capChannel(
         psm: Int,
         secure: Boolean,
+        mtu: Int?,
     ): L2capChannel = unsupported()
 
     private fun unsupported(): Nothing = throw UnsupportedOperationException("StubPeripheral")

@@ -34,6 +34,7 @@ import com.atruedev.kmpble.gatt.internal.PersistedObservation
 import com.atruedev.kmpble.gatt.internal.applyBackpressure
 import com.atruedev.kmpble.internal.CentralManagerProvider
 import com.atruedev.kmpble.internal.StateRestorationHandler
+import com.atruedev.kmpble.l2cap.DEFAULT_L2CAP_MTU
 import com.atruedev.kmpble.l2cap.IosL2capChannel
 import com.atruedev.kmpble.l2cap.L2capChannel
 import com.atruedev.kmpble.l2cap.L2capException
@@ -594,8 +595,10 @@ public class IosPeripheral(
     override suspend fun openL2capChannel(
         psm: Int,
         secure: Boolean,
+        mtu: Int?,
     ): L2capChannel {
         checkNotClosed()
+        if (mtu != null) require(mtu > 0) { "mtu must be positive, was $mtu" }
         if (peripheralContext.state.value !is State.Connected) {
             throw L2capException.NotConnected("Peripheral is not connected (state: ${peripheralContext.state.value})")
         }
@@ -614,7 +617,7 @@ public class IosPeripheral(
                     withTimeout(L2CAP_OPEN_TIMEOUT) {
                         deferred.await()
                     }
-                val channel = IosL2capChannel(cbChannel, peripheralContext.scope)
+                val channel = IosL2capChannel(cbChannel, peripheralContext.scope, mtu ?: DEFAULT_L2CAP_MTU)
                 activeL2capChannels.update { it + channel }
                 channel
             } catch (_: TimeoutCancellationException) {
