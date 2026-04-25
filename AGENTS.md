@@ -20,6 +20,13 @@ blocks these characters in staged content:
 
 If a violation is genuinely required (regex sample, test fixture, verbatim
 quote from a spec), append `typo-ok` anywhere on that line to suppress.
+For bulk cases, paths matching `**/testdata/**` or `**/*.fixture.*` are
+already excluded; extend `EXCLUDE_PATHS` in `.githooks/pre-commit` if you
+need more.
+
+The hook uses `git grep -P` and requires git compiled with PCRE2. Apple Git,
+Homebrew git, and most Linux distros ship with it; if `git grep -P` fails
+on your build, install one of those.
 
 ## Commits and branches
 
