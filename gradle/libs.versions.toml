@@ -23,6 +23,7 @@ jdom2 = "2.0.6.1"
 jose4j = "0.9.6"
 commonsLang3 = "3.18.0"
 httpclient = "4.5.14"
+bouncycastle = "1.84"
 
 [libraries]
 androidx-core = { module = "androidx.core:core-ktx", version = "1.18.0" }

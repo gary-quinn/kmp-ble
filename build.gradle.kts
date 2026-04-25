@@ -12,6 +12,7 @@ val securityPatches: Action<DependencyResolveDetails> =
             "io.netty" -> useVersion(libs.versions.netty.get())
             "ch.qos.logback" -> useVersion(libs.versions.logback.get())
             "com.fasterxml.jackson.core" -> useVersion(libs.versions.jackson.get())
+            "org.bouncycastle" -> useVersion(libs.versions.bouncycastle.get())
         }
         when ("${requested.group}:${requested.name}") {
             "org.jdom:jdom2" -> useVersion(libs.versions.jdom2.get())
@@ -29,6 +30,7 @@ buildscript {
                 "io.netty" -> useVersion("4.1.132.Final")
                 "ch.qos.logback" -> useVersion("1.5.25")
                 "com.fasterxml.jackson.core" -> useVersion("2.18.6")
+                "org.bouncycastle" -> useVersion("1.84")
             }
             when ("${requested.group}:${requested.name}") {
                 "org.jdom:jdom2" -> useVersion("2.0.6.1")
