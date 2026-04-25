@@ -15,6 +15,21 @@ _Changes on `main` that have not yet been tagged for release._
 
 ---
 
+## [0.4.3] - 2026-04-25
+
+### Changed
+- ci(dependabot): bump actions/cache from 5.0.4 to 5.0.5
+- ci(dependabot): bump actions/github-script from 8.0.0 to 9.0.0
+- build(dependabot): bump agp from 9.1.0 to 9.1.1
+- style: replace em-dashes with hyphens across repo
+- chore: add agent guidelines and typography pre-commit hook
+
+### Fixed
+- fix(deps): pin Bouncy Castle to 1.84 to resolve security advisories
+
+
+---
+
 ## [0.4.2] - 2026-04-16
 
 ### Changed
@@ -451,7 +466,8 @@ _No notable changes._
 
 ---
 
-[Unreleased]: https://github.com/gary-quinn/kmp-ble/compare/v0.4.2...HEAD
+[Unreleased]: https://github.com/gary-quinn/kmp-ble/compare/v0.4.3...HEAD
+[0.4.3]: https://github.com/gary-quinn/kmp-ble/compare/v0.4.2...v0.4.3
 [0.4.2]: https://github.com/gary-quinn/kmp-ble/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/gary-quinn/kmp-ble/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/gary-quinn/kmp-ble/compare/v0.3.18...v0.4.0
