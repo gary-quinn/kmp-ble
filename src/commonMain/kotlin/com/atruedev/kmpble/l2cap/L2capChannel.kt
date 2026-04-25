@@ -40,7 +40,7 @@ public interface L2capChannel : AutoCloseable {
      *
      * Maximum payload size for a single write operation.
      * Writes larger than this are segmented automatically by the OS.
-     * Typical values: 2KB–64KB depending on peripheral and connection.
+     * Typical values: 2KB-64KB depending on peripheral and connection.
      *
      * **Platform behavior:**
      * - **Android:** Queried from the socket via `maxTransmitPacketSize`, floored
