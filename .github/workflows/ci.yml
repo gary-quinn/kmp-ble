@@ -10,6 +10,12 @@ permissions:
   contents: read
 
 jobs:
+  typography:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: gary-quinn/shared-actions/typography-check@da652cf908933a8f760fe35a4477ca59273ecd8c # PR #1; switch to @v1 after release
+
   android:
     runs-on: ubuntu-latest
     steps:
