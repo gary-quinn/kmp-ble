@@ -13,6 +13,6 @@ public sealed class BackpressureStrategy {
         val capacity: Int,
     ) : BackpressureStrategy()
 
-    /** Unlimited buffering — use with caution on high-throughput characteristics. */
+    /** Unlimited buffering - use with caution on high-throughput characteristics. */
     public data object Unbounded : BackpressureStrategy()
 }

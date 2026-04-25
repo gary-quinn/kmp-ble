@@ -1,7 +1,7 @@
 package com.atruedev.kmpble.dfu.protocol.smp
 
 /**
- * SMP (Simple Management Protocol) header — 8 bytes, big-endian.
+ * SMP (Simple Management Protocol) header - 8 bytes, big-endian.
  *
  * Layout:
  * ```

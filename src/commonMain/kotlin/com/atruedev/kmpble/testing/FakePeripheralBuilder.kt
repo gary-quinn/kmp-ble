@@ -155,7 +155,7 @@ public class FakeCharacteristicBuilder(
 
     /**
      * Add a delay before executing read/write handlers on this characteristic.
-     * The delay is cancellable — if the coroutine is cancelled during the delay,
+     * The delay is cancellable - if the coroutine is cancelled during the delay,
      * the operation cancels cleanly without invoking the handler.
      * Does not affect [onObserve] (notifications have their own timing via Flow).
      */
@@ -165,7 +165,7 @@ public class FakeCharacteristicBuilder(
 
     /**
      * Cause all operations (read, write, observe) on this characteristic to throw
-     * the specified [BleError]. Takes precedence over [onRead]/[onWrite]/[onObserve] —
+     * the specified [BleError]. Takes precedence over [onRead]/[onWrite]/[onObserve] -
      * if both are set, the error is thrown and handlers are never invoked.
      * Can be combined with [respondAfter] to delay before failing.
      */

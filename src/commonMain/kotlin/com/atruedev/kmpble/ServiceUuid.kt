@@ -99,7 +99,7 @@ public object ServiceUuid {
     public val GENERIC_TELEPHONE_BEARER: Uuid = sig("184c")
     public val MICROPHONE_CONTROL: Uuid = sig("184d")
 
-    /** Nordic UART Service — defacto standard for serial-over-BLE. */
+    /** Nordic UART Service - defacto standard for serial-over-BLE. */
     public val NORDIC_UART: Uuid = vendor("6e400001-b5a3-f393-e0a9-e50e24dcca9e")
 
     /** All UUIDs defined in this object, auto-populated via [sig] and [vendor]. */

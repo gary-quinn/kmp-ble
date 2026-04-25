@@ -88,7 +88,7 @@ internal class ApplePeripheralBridge(
             }
 
             // K/N maps didUpdateValue and didWriteValue for characteristics to the same
-            // Kotlin signature. Only didUpdateValue is overridden — handles reads + notifications.
+            // Kotlin signature. Only didUpdateValue is overridden - handles reads + notifications.
             // Write confirmations are handled by the IosPeripheral completing the write deferred
             // when this callback fires with a pending write operation.
             override fun peripheral(

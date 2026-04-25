@@ -4,7 +4,7 @@ package com.atruedev.kmpble
  * Zero-copy wrapper around platform-native byte buffers.
  *
  * - Android: wraps `ByteArray` directly (already native representation)
- * - iOS: wraps `NSData` — no memcpy on construction
+ * - iOS: wraps `NSData` - no memcpy on construction
  *
  * Provides indexed read access and slicing without copying. Call [toByteArray]
  * only when you need a mutable copy (e.g., for protocol parsing in consumer code).
@@ -16,7 +16,7 @@ public expect class BleData {
     /** Read a single byte at [index]. */
     public operator fun get(index: Int): Byte
 
-    /** Copy contents into a new ByteArray. Use sparingly — this allocates. */
+    /** Copy contents into a new ByteArray. Use sparingly - this allocates. */
     public fun toByteArray(): ByteArray
 
     /** Zero-copy slice from [fromIndex] (inclusive) to [toIndex] (exclusive). */

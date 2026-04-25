@@ -3,7 +3,7 @@ package com.atruedev.kmpble.connection
 import com.atruedev.kmpble.error.BleError
 
 /**
- * Peripheral connection state machine — 14 states organized into four phases.
+ * Peripheral connection state machine - 14 states organized into four phases.
  *
  * Observe via [com.atruedev.kmpble.peripheral.Peripheral.state]. The state machine uses a
  * declarative transition table with no invalid transitions possible at compile time.
@@ -29,13 +29,13 @@ public sealed interface State {
 
     /** The peripheral is connected and operational. */
     public sealed interface Connected : State {
-        /** Fully connected — GATT operations may be performed. */
+        /** Fully connected - GATT operations may be performed. */
         public data object Ready : Connected
 
         /** The bond state changed while connected (e.g. bond lost or re-paired). */
         public data object BondingChange : Connected
 
-        /** The remote GATT database changed — services need re-discovery. */
+        /** The remote GATT database changed - services need re-discovery. */
         public data object ServiceChanged : Connected
     }
 

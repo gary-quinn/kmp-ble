@@ -7,7 +7,7 @@ import java.io.OutputStream
 
 /**
  * Adapts [BluetoothSocket] to the [L2capSocket] interface used by
- * [AndroidL2capChannel]. Thin delegation — no added logic.
+ * [AndroidL2capChannel]. Thin delegation - no added logic.
  */
 @SuppressLint("NewApi")
 internal class BluetoothL2capSocket(

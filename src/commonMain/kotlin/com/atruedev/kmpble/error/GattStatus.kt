@@ -34,7 +34,7 @@ public sealed interface GattStatus {
     /** The peripheral does not support the requested ATT operation. */
     public data object RequestNotSupported : GattStatus
 
-    /** The connection is congested — retry the operation after a delay. */
+    /** The connection is congested - retry the operation after a delay. */
     public data object ConnectionCongested : GattStatus
 
     /** A generic GATT failure with no specific cause. */

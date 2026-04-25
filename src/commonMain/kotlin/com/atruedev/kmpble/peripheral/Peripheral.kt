@@ -69,7 +69,7 @@ public interface Peripheral : AutoCloseable {
      * - Resumes emitting [Observation.Value] when reconnected
      * - Completes normally when reconnection exhausts max attempts
      *
-     * May be called before connecting — CCCD will be enabled when connection is established.
+     * May be called before connecting - CCCD will be enabled when connection is established.
      *
      * @param characteristic The characteristic to observe (must support notify or indicate)
      * @param backpressure Strategy for handling backpressure when values arrive faster than consumed.
@@ -86,7 +86,7 @@ public interface Peripheral : AutoCloseable {
     /**
      * Observe raw notification/indication values from a characteristic.
      *
-     * Similar to [observe], but provides transparent reconnection — the flow suspends during
+     * Similar to [observe], but provides transparent reconnection - the flow suspends during
      * disconnects and resumes when reconnected, without emitting disconnect events.
      *
      * The returned flow survives disconnects and auto-resubscribes on reconnect:
@@ -98,7 +98,7 @@ public interface Peripheral : AutoCloseable {
      * Use this when you want to process values without handling connection state changes.
      * Consumers will see a gap in data during disconnects but no error handling is required.
      *
-     * May be called before connecting — CCCD will be enabled when connection is established.
+     * May be called before connecting - CCCD will be enabled when connection is established.
      *
      * @param characteristic The characteristic to observe (must support notify or indicate)
      * @param backpressure Strategy for handling backpressure when values arrive faster than consumed.

@@ -9,10 +9,10 @@ import kotlin.uuid.Uuid
 public sealed interface BleLogEvent {
     /**
      * Human-readable log line for this event. Loggers can use this instead of
-     * exhaustive `when` blocks — new event subtypes get a sensible format
+     * exhaustive `when` blocks - new event subtypes get a sensible format
      * automatically (OCP: loggers don't break when events are added).
      *
-     * Computed on each access — log events are typically format-once-discard,
+     * Computed on each access - log events are typically format-once-discard,
      * so a plain `get()` avoids the synchronization overhead of `lazy`.
      */
     public val formatted: String

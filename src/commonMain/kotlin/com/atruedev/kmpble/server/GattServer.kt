@@ -9,7 +9,7 @@ import kotlin.uuid.Uuid
 /**
  * A GATT server that hosts BLE services on the local device.
  *
- * The phone acts as a BLE peripheral — remote devices (centrals) can
+ * The phone acts as a BLE peripheral - remote devices (centrals) can
  * connect and read/write characteristics, subscribe to notifications.
  *
  * ## Usage
@@ -47,7 +47,7 @@ import kotlin.uuid.Uuid
  * - Created via [GattServer] factory function (no OS resources allocated)
  * - [open] allocates OS resources and starts accepting connections
  * - [close] disconnects all clients, releases OS resources
- * - Use independently from [Advertiser] — a server can accept connections
+ * - Use independently from [Advertiser] - a server can accept connections
  *   without advertising (if client already knows the address)
  */
 public interface GattServer : AutoCloseable {

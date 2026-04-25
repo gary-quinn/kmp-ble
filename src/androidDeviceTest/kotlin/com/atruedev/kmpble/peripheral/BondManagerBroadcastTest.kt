@@ -22,7 +22,7 @@ import kotlin.test.assertFailsWith
  *
  * Tests the receiver registration/unregistration lifecycle and intent
  * processing on a real Android runtime. Does NOT test with real Bluetooth
- * devices — validates the framework integration only.
+ * devices - validates the framework integration only.
  */
 @RunWith(AndroidJUnit4::class)
 class BondManagerBroadcastTest {
@@ -59,7 +59,7 @@ class BondManagerBroadcastTest {
             }
 
         val filter = IntentFilter(BluetoothDevice.ACTION_BOND_STATE_CHANGED)
-        // This should not throw — validates RECEIVER_NOT_EXPORTED works
+        // This should not throw - validates RECEIVER_NOT_EXPORTED works
         ContextCompat.registerReceiver(
             context,
             receiver!!,
@@ -180,6 +180,6 @@ class BondManagerBroadcastTest {
             filter,
             ContextCompat.RECEIVER_NOT_EXPORTED,
         )
-        // Registration succeeds — the broadcast itself requires real adapter state change
+        // Registration succeeds - the broadcast itself requires real adapter state change
     }
 }

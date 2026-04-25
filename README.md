@@ -12,9 +12,9 @@ Kotlin Multiplatform BLE library for Android and iOS.
 
 | Module | Artifact | Description |
 |--------|----------|-------------|
-| **kmp-ble** | `com.atruedev:kmp-ble` | Core BLE — scanning, connecting, GATT read/write/observe, server, advertising |
+| **kmp-ble** | `com.atruedev:kmp-ble` | Core BLE - scanning, connecting, GATT read/write/observe, server, advertising |
 | **kmp-ble-profiles** | `com.atruedev:kmp-ble-profiles` | Type-safe GATT profile parsing (Heart Rate, Battery, Device Info, Blood Pressure, Glucose, CSC) |
-| **kmp-ble-dfu** | `com.atruedev:kmp-ble-dfu` | Firmware updates — Nordic Secure DFU, MCUboot SMP, Espressif ESP OTA — with auto-detection and progress tracking |
+| **kmp-ble-dfu** | `com.atruedev:kmp-ble-dfu` | Firmware updates - Nordic Secure DFU, MCUboot SMP, Espressif ESP OTA - with auto-detection and progress tracking |
 | **kmp-ble-codec** | `com.atruedev:kmp-ble-codec` | Format-agnostic typed read/write via composable `BleEncoder`/`BleDecoder` |
 
 ## Setup
@@ -71,7 +71,7 @@ services, use the UUID from your device's documentation or GATT profile.
 See: [Bluetooth SIG Service UUIDs](https://bitbucket.org/bluetooth-SIG/public/src/main/assigned_numbers/uuids/service_uuids.yaml)
 
 ```kotlin
-// Common code — works on both Android and iOS
+// Common code - works on both Android and iOS
 val scanner = Scanner {
     timeout = 30.seconds
     emission = EmissionPolicy.FirstThenChanges(rssiThreshold = 10)
@@ -359,23 +359,23 @@ Production-grade BLE utility app (Android + iOS) with tab-based navigation, comp
 - **Scanner** with RSSI/name filtering, sorting, device categorization, manufacturer name resolution
 - **Device Detail** with GATT service browser, value display in HEX/UTF-8/Decimal/Binary, connection recipes, bonding
 - **Multi-protocol DFU** with auto-detection (Nordic Secure DFU, MCUboot SMP, Espressif ESP OTA)
-- **Profile monitoring** — Heart Rate, Battery, Device Information with auto-detection
+- **Profile monitoring** - Heart Rate, Battery, Device Information with auto-detection
 - **L2CAP channels** with message history and directional logging
 - **Codec** typed read/write with decoder composition
 - **GATT Server** with service builder presets and advanced advertising controls
 
 ### Quickstart (`sample-quickstart/`)
 
-Minimal ~150-line single-screen app: scan, tap, connect, read first characteristic, display value. No ViewModel, no navigation — the "Getting Started in 5 Minutes" reference.
+Minimal ~150-line single-screen app: scan, tap, connect, read first characteristic, display value. No ViewModel, no navigation - the "Getting Started in 5 Minutes" reference.
 
 ## Architecture
 
-- **State machine:** 14 states with declarative transition table — no invalid states in production
+- **State machine:** 14 states with declarative transition table - no invalid states in production
 - **Per-peripheral concurrency:** `limitedParallelism(1)` serialization, no locks
 - **GATT queue:** FIFO with timeout watchdog
 - **Zero-copy:** `BleData` wraps `NSData` on iOS, `ByteArray` on Android
 - **Object identity:** `Characteristic` and `Descriptor` use reference equality, matching native API behavior
-- **Composable errors:** Sealed interfaces — `AuthError`, `GattOperationError`, `ConnectionError`
+- **Composable errors:** Sealed interfaces - `AuthError`, `GattOperationError`, `ConnectionError`
 
 ## Requirements
 
@@ -386,4 +386,4 @@ Minimal ~150-line single-screen app: scan, tap, connect, read first characterist
 
 ## License
 
-[Apache 2.0](LICENSE) — Copyright (C) 2026 Gary Quinn
+[Apache 2.0](LICENSE) - Copyright (C) 2026 Gary Quinn

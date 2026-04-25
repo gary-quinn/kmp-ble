@@ -8,7 +8,7 @@ import kotlin.time.TimeSource
  * Tracks entries with monotonic last-activity timestamps and evicts those
  * idle beyond [idleTimeout].
  *
- * Not thread-safe — callers must confine access to a single dispatcher
+ * Not thread-safe - callers must confine access to a single dispatcher
  * (e.g. `limitedParallelism(1)`).
  */
 internal class IdleTracker<T>(

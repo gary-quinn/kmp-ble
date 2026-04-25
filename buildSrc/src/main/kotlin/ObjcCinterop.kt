@@ -12,7 +12,7 @@ private val iosTargetPlatform = mapOf(
  * Compiles an ObjC source file into a static library and registers Gradle tasks
  * so that the K/N compilation depends on the archive.
  *
- * Call this alongside `cinterops.create(...)` — cinterop generates Kotlin bindings
+ * Call this alongside `cinterops.create(...)` - cinterop generates Kotlin bindings
  * from the header; this function bridges the `.m` implementation.
  *
  * @param targetName K/N target name (e.g. "iosArm64")

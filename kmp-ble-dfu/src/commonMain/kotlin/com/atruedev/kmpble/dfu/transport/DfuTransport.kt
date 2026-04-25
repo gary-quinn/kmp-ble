@@ -6,10 +6,10 @@ import kotlinx.coroutines.flow.Flow
  * Abstraction over the BLE link used to send DFU commands and data.
  *
  * Built-in implementations:
- * - [GattDfuTransport] — uses DFU Control Point and DFU Packet characteristics
- * - [L2capDfuTransport] — L2CAP CoC channel for higher throughput (commands via GATT)
- * - [SmpTransport] — single SMP characteristic with response reassembly (MCUboot)
- * - [EspOtaTransport] — dual-characteristic OTA control/data (Espressif ESP-IDF)
+ * - [GattDfuTransport] - uses DFU Control Point and DFU Packet characteristics
+ * - [L2capDfuTransport] - L2CAP CoC channel for higher throughput (commands via GATT)
+ * - [SmpTransport] - single SMP characteristic with response reassembly (MCUboot)
+ * - [EspOtaTransport] - dual-characteristic OTA control/data (Espressif ESP-IDF)
  *
  * Implement this interface to support custom transport mechanisms.
  *

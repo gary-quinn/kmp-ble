@@ -189,7 +189,7 @@ public class AndroidPeripheral internal constructor(
     /**
      * Attempts GATT connection with device-specific retry behavior.
      *
-     * Pixel devices commonly return GATT error 133 on the first attempt — a retry with
+     * Pixel devices commonly return GATT error 133 on the first attempt - a retry with
      * a short delay (1–1.5s) typically succeeds. The retry count and delay are sourced
      * from [QuirkRegistry] so each OEM gets appropriate handling.
      *
@@ -673,7 +673,7 @@ public class AndroidPeripheral internal constructor(
                     deferred.await()
                 }
             } catch (_: Throwable) {
-                // Best-effort — don't fail the flow completion
+                // Best-effort - don't fail the flow completion
             }
         }
     }

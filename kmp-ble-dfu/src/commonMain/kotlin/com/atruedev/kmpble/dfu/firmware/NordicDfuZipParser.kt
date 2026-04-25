@@ -30,7 +30,7 @@ internal object NordicDfuZipParser {
      * Extract all `"key": "value"` pairs from a JSON string.
      *
      * Handles escaped quotes within values (`\"`). Does not attempt to parse
-     * nested objects, arrays, or non-string values — only flat string fields.
+     * nested objects, arrays, or non-string values - only flat string fields.
      * Sufficient for Nordic DFU manifest.json which contains only string
      * filenames in a shallow structure.
      */
@@ -48,7 +48,7 @@ internal object NordicDfuZipParser {
             i = skipWhitespaceAndColon(json, i)
 
             if (i >= json.length || json[i] != '"') {
-                // non-string value — advance past it; next iteration finds the next key
+                // non-string value - advance past it; next iteration finds the next key
                 i++
                 continue
             }

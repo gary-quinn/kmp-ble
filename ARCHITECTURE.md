@@ -21,34 +21,34 @@ The connection state machine is the core of the library. It tracks every periphe
 ```
 State
 ├── Connecting
-│   ├── Transport          — Physical link establishing
-│   ├── Authenticating     — Bonding/pairing in progress
-│   ├── Discovering        — GATT service discovery
-│   └── Configuring        — MTU negotiation, CCCD setup
+│   ├── Transport          - Physical link establishing
+│   ├── Authenticating     - Bonding/pairing in progress
+│   ├── Discovering        - GATT service discovery
+│   └── Configuring        - MTU negotiation, CCCD setup
 ├── Connected
-│   ├── Ready              — Normal operation
-│   ├── BondingChange      — Bond state changed mid-connection
-│   └── ServiceChanged     — Service list changed, rediscovering
+│   ├── Ready              - Normal operation
+│   ├── BondingChange      - Bond state changed mid-connection
+│   └── ServiceChanged     - Service list changed, rediscovering
 ├── Disconnecting
-│   ├── Requested          — Local disconnect initiated
-│   └── Error              — Connection lost during operation
+│   ├── Requested          - Local disconnect initiated
+│   └── Error              - Connection lost during operation
 └── Disconnected
-    ├── ByRequest          — Clean local disconnect completed
-    ├── ByRemote           — Remote device disconnected
-    ├── ByError(error)     — Connection error with details
-    ├── ByTimeout          — Supervision timeout
-    └── BySystemEvent      — Adapter off, airplane mode
+    ├── ByRequest          - Clean local disconnect completed
+    ├── ByRemote           - Remote device disconnected
+    ├── ByError(error)     - Connection error with details
+    ├── ByTimeout          - Supervision timeout
+    └── BySystemEvent      - Adapter off, airplane mode
 ```
 
 ### Transition Table
 
-The state machine uses a **declarative transition table** — a `Map` from `(State, Event)` pairs to transition functions. Two resolution mechanisms:
+The state machine uses a **declarative transition table** - a `Map` from `(State, Event)` pairs to transition functions. Two resolution mechanisms:
 
 1. **Wildcard transitions** (checked first): `AdapterOff` and `RemoteDisconnected` can fire from any non-Disconnected state, always winning over specific transitions.
 
 2. **Hierarchy-aware lookup**: If no exact match for `(Disconnected.ByError, SomeEvent)`, the resolver walks up to `(Disconnected, SomeEvent)`, then `(State, SomeEvent)`. This avoids duplicating transitions for every Disconnected subtype.
 
-Illegal transitions throw `IllegalStateException` — caught in tests, never silent in production.
+Illegal transitions throw `IllegalStateException` - caught in tests, never silent in production.
 
 ### Why 14 States?
 
@@ -78,7 +78,7 @@ Layer 2: Serialized processing (commonMain)
 Layer 3: Consumer API (caller's coroutine context)
 ```
 
-**Layer 2** uses `Dispatchers.Default.limitedParallelism(1)` — a serial execution view that works on all KMP targets without `expect/actual`. At most one coroutine runs at a time per peripheral. No locks, no mutexes.
+**Layer 2** uses `Dispatchers.Default.limitedParallelism(1)` - a serial execution view that works on all KMP targets without `expect/actual`. At most one coroutine runs at a time per peripheral. No locks, no mutexes.
 
 **Layer 1** is platform-specific:
 - **Android**: `HandlerThread` receives `BluetoothGattCallback` callbacks, completes `CompletableDeferred` values
@@ -120,9 +120,9 @@ A drain job consumes entries one at a time. Each entry's `block` runs, the resul
 
 ### Key Behaviors
 
-- **10-second timeout** per operation — Android will silently drop operations without a callback. The watchdog catches these.
-- **Drain on disconnect** — all pending operations complete with `NotConnectedException`.
-- **Cancellation** — cancelling the caller's coroutine cancels the *wait*, not the hardware operation. The in-flight GATT op completes silently, the result is discarded, and the queue advances. This prevents leaving the GATT in an inconsistent state.
+- **10-second timeout** per operation - Android will silently drop operations without a callback. The watchdog catches these.
+- **Drain on disconnect** - all pending operations complete with `NotConnectedException`.
+- **Cancellation** - cancelling the caller's coroutine cancels the *wait*, not the hardware operation. The in-flight GATT op completes silently, the result is discarded, and the queue advances. This prevents leaving the GATT in an inconsistent state.
 
 ---
 
@@ -132,9 +132,9 @@ A drain job consumes entries one at a time. Each entry's `block` runs, the resul
 
 ### How It Works
 
-1. **On subscribe**: `ObservationManager` creates a tracked observation keyed by `(serviceUuid, characteristicUuid)` — UUID-based, not object-reference-based. A `MutableSharedFlow` is returned to the consumer.
+1. **On subscribe**: `ObservationManager` creates a tracked observation keyed by `(serviceUuid, characteristicUuid)` - UUID-based, not object-reference-based. A `MutableSharedFlow` is returned to the consumer.
 
-2. **On disconnect**: All tracked observations receive an `Observation.Disconnected` event. Observations are **not cleared** — they remain tracked.
+2. **On disconnect**: All tracked observations receive an `Observation.Disconnected` event. Observations are **not cleared** - they remain tracked.
 
 3. **On reconnect**: `ObservationManager.getObservationsToResubscribe()` returns all tracked observations. The peripheral re-enables CCCD (Client Characteristic Configuration Descriptor) for each one using the *new* native characteristic objects from the fresh GATT session.
 
@@ -142,8 +142,8 @@ A drain job consumes entries one at a time. Each entry's `block` runs, the resul
 
 ### Two Consumer APIs
 
-- **`observe()`** — emits `Observation` sealed type: `Value(data)` during connection, `Disconnected` during gaps. Consumer handles both.
-- **`observeValues()`** — emits raw `ByteArray`. Suspends during disconnection gaps, transparently resumes on reconnect. Consumer doesn't see disconnects.
+- **`observe()`** - emits `Observation` sealed type: `Value(data)` during connection, `Disconnected` during gaps. Consumer handles both.
+- **`observeValues()`** - emits raw `ByteArray`. Suspends during disconnection gaps, transparently resumes on reconnect. Consumer doesn't see disconnects.
 
 ### Thread Safety
 
@@ -164,8 +164,8 @@ BleError
 │   └── ConnectionLost(reason, platformCode?)
 ├── GattOperationError
 │   ├── GattError(operation, status: GattStatus)
-│   ├── AuthenticationFailed — also implements AuthError
-│   └── EncryptionFailed    — also implements AuthError
+│   ├── AuthenticationFailed - also implements AuthError
+│   └── EncryptionFailed    - also implements AuthError
 ├── AuthError (composable interface)
 ├── OperationConstraintError
 │   └── MtuExceeded(attempted, maximum)
@@ -192,10 +192,10 @@ Android OEMs ship BLE stacks with device-specific bugs. The quirk registry appli
 
 ### Matching Priority
 
-1. `manufacturer:model:display` — exact firmware match
-2. `manufacturer:model` — any firmware
-3. `manufacturer:model-prefix` — 6-char prefix for device series (e.g., all Pixel 7 variants)
-4. `manufacturer` — any model from that OEM
+1. `manufacturer:model:display` - exact firmware match
+2. `manufacturer:model` - any firmware
+3. `manufacturer:model-prefix` - 6-char prefix for device series (e.g., all Pixel 7 variants)
+4. `manufacturer` - any model from that OEM
 
 ### Active Quirks
 
@@ -208,13 +208,13 @@ Android OEMs ship BLE stacks with device-specific bugs. The quirk registry appli
 | Bond state timeout | Xiaomi/Redmi/Poco (15s), Huawei/Honor (10s) | Extended timeout for slow bond callbacks |
 | Connection timeout | Samsung (30s), Huawei/Honor (35s) | Extended timeout for slow connections |
 
-The registry is internal — consumers don't interact with it.
+The registry is internal - consumers don't interact with it.
 
 ---
 
 ## GATT Server
 
-The server module lets the phone act as a BLE peripheral — advertising and serving GATT characteristics.
+The server module lets the phone act as a BLE peripheral - advertising and serving GATT characteristics.
 
 ### Architecture
 
@@ -269,7 +269,7 @@ interface L2capChannel : AutoCloseable {
 }
 ```
 
-L2CAP channels are independent of the GATT queue — they're a separate transport with their own read/write coroutines.
+L2CAP channels are independent of the GATT queue - they're a separate transport with their own read/write coroutines.
 
 | Platform | Implementation |
 |----------|---------------|
@@ -291,18 +291,18 @@ Every major component has a Fake* counterpart for unit testing without hardware:
 | Platform L2capChannel | `FakeL2capChannel` | Simulate streaming |
 
 `FakePeripheral` supports the full observation resilience lifecycle:
-- `simulateDisconnect()` — emits `Observation.Disconnected` without clearing observations
-- `simulateReconnect()` — transitions through connect states, re-enables CCCD
-- `simulatePermanentDisconnect()` — clears observations, completes Flows
-- `emitObservationValue()` — simulate characteristic notifications
+- `simulateDisconnect()` - emits `Observation.Disconnected` without clearing observations
+- `simulateReconnect()` - transitions through connect states, re-enables CCCD
+- `simulatePermanentDisconnect()` - clears observations, completes Flows
+- `emitObservationValue()` - simulate characteristic notifications
 
 ---
 
 ## Scanner
 
-`Scanner.advertisements` is a **cold Flow**. Creating a `Scanner` starts nothing — no OS resources, no scanning. Scanning starts on first `collect()`, stops when the collector's coroutine is cancelled.
+`Scanner.advertisements` is a **cold Flow**. Creating a `Scanner` starts nothing - no OS resources, no scanning. Scanning starts on first `collect()`, stops when the collector's coroutine is cancelled.
 
-Multiple concurrent collectors share one underlying OS scan. This is standard structured concurrency — no `scanner.stop()` needed.
+Multiple concurrent collectors share one underlying OS scan. This is standard structured concurrency - no `scanner.stop()` needed.
 
 ### Filters
 
@@ -329,8 +329,8 @@ Some filters are OS-level (hardware-offloaded, power-efficient), others are post
 
 ### Emission Policy
 
-- **`All`** — every advertisement packet (for RSSI tracking, indoor positioning)
-- **`FirstThenChanges(rssiThreshold)`** — deduplicate by device identifier, re-emit on data or RSSI change. Default. Prevents 200+ emissions/sec from 20 devices advertising at 100ms.
+- **`All`** - every advertisement packet (for RSSI tracking, indoor positioning)
+- **`FirstThenChanges(rssiThreshold)`** - deduplicate by device identifier, re-emit on data or RSSI change. Default. Prevents 200+ emissions/sec from 20 devices advertising at 100ms.
 
 ---
 
@@ -341,7 +341,7 @@ The `expect/actual` boundary is kept minimal. Platform code does two things:
 1. **Receive OS callbacks** on a platform-appropriate thread/queue
 2. **Complete `CompletableDeferred` values** to bridge into the common coroutine layer
 
-Everything else — state transitions, queue management, observation tracking, error normalization — lives in `commonMain`.
+Everything else - state transitions, queue management, observation tracking, error normalization - lives in `commonMain`.
 
 ```
 Android: BluetoothGattCallback.onCharacteristicRead()
@@ -361,7 +361,7 @@ iOS: CBPeripheralDelegate.peripheral(_:didUpdateValueFor:error:)
 | Decision | Rationale |
 |----------|-----------|
 | `limitedParallelism(1)` over dedicated threads | Compiles on all KMP targets. No thread lifecycle management. Same serial guarantee. |
-| Sealed interfaces over sealed classes for errors | Composability — `AuthenticationFailed` is both `GattOperationError` and `AuthError` |
+| Sealed interfaces over sealed classes for errors | Composability - `AuthenticationFailed` is both `GattOperationError` and `AuthError` |
 | UUID-based observation tracking over object reference | After reconnect, native characteristic objects are new. UUID is the stable identity. |
 | Cold Flows over hot streams for scanning | No OS resources until collection starts. Structured concurrency handles cleanup. |
 | 10s GATT operation timeout | Android silently drops operations. The watchdog prevents indefinite hangs. |

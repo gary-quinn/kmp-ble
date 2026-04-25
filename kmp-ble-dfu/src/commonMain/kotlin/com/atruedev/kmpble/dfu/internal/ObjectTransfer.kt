@@ -114,7 +114,7 @@ internal class ObjectTransfer(
             val message = if (resultCode == DfuResultCode.EXTENDED_ERROR && response.size >= 4) {
                 val extCode = response[3].toInt() and 0xFF
                 "DFU command 0x${expectedOpcode.toString(16)} failed: " +
-                    "${DfuResultCode.describe(resultCode)} — ${DfuExtendedError.describe(extCode)}"
+                    "${DfuResultCode.describe(resultCode)} - ${DfuExtendedError.describe(extCode)}"
             } else {
                 "DFU command 0x${expectedOpcode.toString(16)} failed: " +
                     DfuResultCode.describe(resultCode)

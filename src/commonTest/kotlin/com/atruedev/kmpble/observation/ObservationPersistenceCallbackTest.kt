@@ -91,7 +91,7 @@ class ObservationPersistenceCallbackTest {
     fun `no callback when callback is null`() =
         runTest {
             val manager = ObservationManager()
-            // Should not throw — callback is null by default
+            // Should not throw - callback is null by default
             manager.subscribe(serviceUuid, charUuid, BackpressureStrategy.Latest)
             manager.unsubscribe(serviceUuid, charUuid)
         }
@@ -105,7 +105,7 @@ class ObservationPersistenceCallbackTest {
             val received = mutableListOf<Set<PersistedObservation>>()
             manager.onObservationsChanged = { obs -> received.add(obs) }
 
-            // Second subscribe for same key — collector count goes up, but key set unchanged
+            // Second subscribe for same key - collector count goes up, but key set unchanged
             manager.subscribe(serviceUuid, charUuid, BackpressureStrategy.Latest)
 
             assertTrue(received.isEmpty(), "Callback should not fire when key set is unchanged")

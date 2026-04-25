@@ -74,7 +74,7 @@ internal actual class ObservationPersistence actual constructor() {
                     ),
                 )
             } catch (_: Exception) {
-                // Skip malformed entries — lenient restore
+                // Skip malformed entries - lenient restore
             }
         }
         return result

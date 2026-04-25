@@ -7,7 +7,7 @@ import kotlin.concurrent.atomics.ExperimentalAtomicApi
 
 /**
  * Prevents duplicate [Peripheral] instances for the same physical device.
- * Lock-free via [AtomicReference] CAS — no blocking, no suspend, no TOCTOU.
+ * Lock-free via [AtomicReference] CAS - no blocking, no suspend, no TOCTOU.
  */
 @OptIn(ExperimentalAtomicApi::class)
 internal object PeripheralRegistry {

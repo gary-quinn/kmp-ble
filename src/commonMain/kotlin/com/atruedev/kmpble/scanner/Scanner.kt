@@ -5,7 +5,7 @@ import kotlinx.coroutines.flow.Flow
 /**
  * BLE scanner that discovers nearby advertising devices.
  *
- * [advertisements] is a **cold Flow**. Creating a Scanner starts nothing — no OS
+ * [advertisements] is a **cold Flow**. Creating a Scanner starts nothing - no OS
  * resources allocated. Scanning starts on first `collect()`, stops when the collector's
  * coroutine is cancelled. Multiple concurrent collectors share one underlying OS scan.
  *

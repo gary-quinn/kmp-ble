@@ -8,8 +8,8 @@ import com.atruedev.kmpble.KmpBle
  * Android BLE permission check.
  *
  * On API 33+ (minSdk), the required permissions are:
- * - `BLUETOOTH_SCAN` — for scanning
- * - `BLUETOOTH_CONNECT` — for connecting, reading, writing
+ * - `BLUETOOTH_SCAN` - for scanning
+ * - `BLUETOOTH_CONNECT` - for connecting, reading, writing
  *
  * `ACCESS_FINE_LOCATION` is NOT required on API 31+ unless scanning
  * with physical location intent (`ScanSettings.SCAN_TYPE_CLASSIC`).

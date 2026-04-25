@@ -5,7 +5,7 @@ import kotlinx.coroutines.flow.StateFlow
 /**
  * Observes the system Bluetooth adapter state.
  *
- * Standalone — not coupled to the connection API. When the adapter transitions to
+ * Standalone - not coupled to the connection API. When the adapter transitions to
  * [BluetoothAdapterState.Off] or [BluetoothAdapterState.Unavailable], downstream
  * peripherals (P2+) will transition to Disconnected.BySystemEvent.
  *

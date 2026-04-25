@@ -112,7 +112,7 @@ public class MatchScope internal constructor() {
 
     /**
      * Match devices with this MAC address. **Android only.**
-     * Apple does not expose MAC addresses — this filter has no effect on iOS.
+     * Apple does not expose MAC addresses - this filter has no effect on iOS.
      */
     @AndroidOnly
     public fun address(mac: String) {

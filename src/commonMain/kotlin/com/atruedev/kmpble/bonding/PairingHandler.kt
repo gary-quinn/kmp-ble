@@ -65,7 +65,7 @@ public sealed interface PairingEvent {
     ) : PairingEvent
 
     /**
-     * Just Works pairing — no user verification needed but handler is notified.
+     * Just Works pairing - no user verification needed but handler is notified.
      * Respond with [PairingResponse.Confirm] (typically `true`).
      */
     public data class JustWorksConfirmation(
@@ -82,7 +82,7 @@ public sealed interface PairingEvent {
 
     /**
      * Passkey displayed on the remote device. Informational only.
-     * No response required — respond with [PairingResponse.Confirm].
+     * No response required - respond with [PairingResponse.Confirm].
      */
     public data class PasskeyNotification(
         override val deviceIdentifier: Identifier,

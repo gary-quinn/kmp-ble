@@ -20,7 +20,7 @@ public sealed interface FirmwarePackage {
      * Contains the init packet (metadata + signature) and the raw firmware binary,
      * parsed from a Nordic DFU .zip distribution package.
      *
-     * @property initPacket DFU init packet (.dat) — firmware metadata and signature
+     * @property initPacket DFU init packet (.dat) - firmware metadata and signature
      * @property firmware raw firmware binary (.bin) to flash onto the peripheral
      */
     public class Nordic(

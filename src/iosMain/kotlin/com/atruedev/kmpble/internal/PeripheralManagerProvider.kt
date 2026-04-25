@@ -6,7 +6,7 @@ import platform.darwin.dispatch_queue_create
 /**
  * Provides the shared [CBPeripheralManager] instance.
  *
- * Separate from [CentralManagerProvider] — CBPeripheralManager and
+ * Separate from [CentralManagerProvider] - CBPeripheralManager and
  * CBCentralManager coexist independently. Each has its own dispatch
  * queue and delegate.
  */

@@ -4,7 +4,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlin.uuid.Uuid
 
 /**
- * BLE advertiser — broadcasts the device's presence so centrals can discover it.
+ * BLE advertiser - broadcasts the device's presence so centrals can discover it.
  *
  * ## Usage
  *

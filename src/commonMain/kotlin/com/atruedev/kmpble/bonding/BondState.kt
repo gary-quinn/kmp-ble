@@ -13,9 +13,9 @@ public sealed interface BondState {
     /** A bonding procedure is in progress. */
     public data object Bonding : BondState
 
-    /** The peripheral is bonded — encryption keys are stored. */
+    /** The peripheral is bonded - encryption keys are stored. */
     public data object Bonded : BondState
 
-    /** iOS default — CoreBluetooth does not expose bond state directly. */
+    /** iOS default - CoreBluetooth does not expose bond state directly. */
     public data object Unknown : BondState
 }

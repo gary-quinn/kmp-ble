@@ -9,7 +9,7 @@ import kotlin.time.TimeSource
  * Measures data throughput for BLE transfer operations.
  *
  * Accumulates byte counts and computes throughput over the measurement window.
- * Not thread-safe — confine to a single coroutine or use external serialization.
+ * Not thread-safe - confine to a single coroutine or use external serialization.
  *
  * ```kotlin
  * val meter = ThroughputMeter()

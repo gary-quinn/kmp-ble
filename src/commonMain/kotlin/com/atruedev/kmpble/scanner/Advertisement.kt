@@ -9,7 +9,7 @@ import kotlin.uuid.Uuid
 /**
  * Parsed BLE advertisement data from a single scan result.
  *
- * [manufacturerData] and [serviceData] values are [BleData] — zero-copy on iOS
+ * [manufacturerData] and [serviceData] values are [BleData] - zero-copy on iOS
  * (wraps NSData), lightweight on Android (wraps ByteArray). Call [BleData.toByteArray]
  * only when you need a mutable copy for protocol parsing.
  *

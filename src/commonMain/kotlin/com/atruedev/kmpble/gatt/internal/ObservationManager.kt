@@ -88,7 +88,7 @@ internal class ObservationManager(
      * Serial dispatcher for mutable state access. Defaults to [Dispatchers.Unconfined]
      * because ObservationManager is always owned by a Peripheral that already provides
      * serialization via its own `limitedParallelism(1)` dispatcher. The Unconfined
-     * dispatcher runs inline — no thread hop, no test dispatcher conflict.
+     * dispatcher runs inline - no thread hop, no test dispatcher conflict.
      */
     private val serialDispatcher: CoroutineDispatcher = dispatcher
     private val observations = mutableMapOf<ObservationKey, TrackedObservation>()
@@ -219,7 +219,7 @@ internal class ObservationManager(
 
     /**
      * Called on disconnect. Emits [ObservationEvent.Disconnected] to all active observations.
-     * Does NOT clear observations — they persist for reconnection.
+     * Does NOT clear observations - they persist for reconnection.
      *
      * Thread-safety: Reads from an immutable @Volatile snapshot.
      */

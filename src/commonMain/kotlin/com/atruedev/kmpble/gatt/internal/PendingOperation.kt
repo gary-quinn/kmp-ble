@@ -38,7 +38,7 @@ internal sealed interface PendingOp<T> {
  * Holds at most one [CompletableDeferred] per [PendingOp] type.
  *
  * Confined to the owning peripheral's serialized dispatcher
- * (`limitedParallelism(1)`) — no synchronization required.
+ * (`limitedParallelism(1)`) - no synchronization required.
  */
 internal class PendingOperations {
     private val slots = mutableMapOf<PendingOp<*>, CompletableDeferred<*>>()

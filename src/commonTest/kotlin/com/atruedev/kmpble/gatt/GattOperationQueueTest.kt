@@ -133,7 +133,7 @@ class GattOperationQueueTest {
             }
             yield()
 
-            // drain() closes the channel — victim gets NotConnectedException.
+            // drain() closes the channel - victim gets NotConnectedException.
             queue.drain()
             gate.complete(Unit)
 
