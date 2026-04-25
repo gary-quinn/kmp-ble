@@ -9,7 +9,7 @@ package com.atruedev.kmpble.dfu.internal
  * transfer. Consider an expect/actual with platform crypto if profiling shows a bottleneck.
  *
  * Allocation strategy: complete 64-byte blocks are processed directly from the source
- * array. Only the 1–2 padding tail blocks (max 128 bytes) are materialized in a
+ * array. Only the 1-2 padding tail blocks (max 128 bytes) are materialized in a
  * temporary buffer - no full-image copy regardless of firmware size.
  */
 @OptIn(ExperimentalUnsignedTypes::class)
