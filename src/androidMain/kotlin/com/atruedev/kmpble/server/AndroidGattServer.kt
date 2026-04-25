@@ -67,7 +67,7 @@ import kotlin.uuid.toKotlinUuid
  *
  * [close] follows the AndroidPeripheral pattern: set the closed flag,
  * close native resources synchronously (BluetoothGattServer.close() is
- * thread-safe), then cancel the scope. No runBlocking — safe to call
+ * thread-safe), then cancel the scope. No runBlocking - safe to call
  * from any context including handler callbacks.
  *
  * Thread-safe fields accessed from Binder threads:
@@ -161,7 +161,7 @@ internal class AndroidGattServer(
     // O(1) lookup cache: characteristic UUID -> native characteristic (built during open)
     private val characteristicCache = mutableMapOf<Uuid, BluetoothGattCharacteristic>()
 
-    // Per-device pending onNotificationSent — ConcurrentHashMap because
+    // Per-device pending onNotificationSent - ConcurrentHashMap because
     // onNotificationSent fires on a Binder thread and completes the deferred,
     // while notify/indicate write the entry from the serialized dispatcher.
     // Used for BOTH notifications and indications because Android's
@@ -169,14 +169,14 @@ internal class AndroidGattServer(
     // sending the next to the same device.
     private val pendingNotifySent = ConcurrentHashMap<String, CompletableDeferred<Int>>()
 
-    // Pending service addition — @Volatile because written on dispatcher, read on Binder thread
+    // Pending service addition - @Volatile because written on dispatcher, read on Binder thread
     @Volatile
     private var pendingServiceAdd: CompletableDeferred<Int>? = null
 
     // AtomicBoolean for atomic close (prevents double-close waste)
     private val isOpen = AtomicBoolean(false)
 
-    // Tracks whether close() has been called — prevents reopen after close
+    // Tracks whether close() has been called - prevents reopen after close
     private val isClosed = AtomicBoolean(false)
 
     private val callback =
@@ -457,7 +457,7 @@ internal class AndroidGattServer(
                 device: BluetoothDevice,
                 status: Int,
             ) {
-                // Called on Binder thread — ConcurrentHashMap + CompletableDeferred are both thread-safe
+                // Called on Binder thread - ConcurrentHashMap + CompletableDeferred are both thread-safe
                 pendingNotifySent.remove(device.address)?.complete(status)
             }
 
@@ -465,7 +465,7 @@ internal class AndroidGattServer(
                 status: Int,
                 service: BluetoothGattService,
             ) {
-                // Called on Binder thread — @Volatile + CompletableDeferred.complete is thread-safe
+                // Called on Binder thread - @Volatile + CompletableDeferred.complete is thread-safe
                 pendingServiceAdd?.complete(status)
             }
 
@@ -585,7 +585,7 @@ internal class AndroidGattServer(
 
             val targets =
                 if (device != null) {
-                    // Specific device — verify connected and subscribed
+                    // Specific device - verify connected and subscribed
                     val connected =
                         connectedDevices[device]
                             ?: throw ServerException.DeviceNotConnected("Device $device not connected")
@@ -596,7 +596,7 @@ internal class AndroidGattServer(
                     }
                     listOf(connected)
                 } else {
-                    // All subscribed devices for this characteristic — O(1) lookup via secondary index
+                    // All subscribed devices for this characteristic - O(1) lookup via secondary index
                     val subscribed = subscribersByChar[characteristicUuid] ?: emptySet()
                     subscribed.mapNotNull { connectedDevices[it] }
                 }
@@ -738,7 +738,7 @@ internal class AndroidGattServer(
      *
      * Follows the AndroidPeripheral pattern: set closed flag, release native
      * resources synchronously (BluetoothGattServer.close() is thread-safe),
-     * then cancel the scope. No runBlocking — no deadlock risk.
+     * then cancel the scope. No runBlocking - no deadlock risk.
      *
      * Uses [AtomicBoolean.compareAndSet] to ensure exactly one close executes
      * even under concurrent calls.
@@ -748,7 +748,7 @@ internal class AndroidGattServer(
         isClosed.set(true)
         logEvent(BleLogEvent.ServerLifecycle("closing"))
 
-        // Close native server first — stops all Binder callbacks
+        // Close native server first - stops all Binder callbacks
         try {
             nativeServer?.close()
         } catch (_: SecurityException) {
@@ -762,7 +762,7 @@ internal class AndroidGattServer(
         }
         pendingNotifySent.clear()
 
-        // Don't clear collections here — races with in-flight coroutines before cancellation.
+        // Don't clear collections here - races with in-flight coroutines before cancellation.
         scope.cancel()
         _connections.value = emptyList()
 
@@ -957,7 +957,7 @@ internal class AndroidGattServer(
         try {
             nativeServer?.sendResponse(device, requestId, status, offset, value)
         } catch (_: SecurityException) {
-            // Ignore — device disconnected or permission lost
+            // Ignore - device disconnected or permission lost
         }
     }
 
@@ -972,7 +972,7 @@ internal class AndroidGattServer(
         const val ATT_HEADER_SIZE = 3
         const val CONNECTION_WARNING_THRESHOLD = 7
 
-        // Global single-instance guard — Android supports one GATT server per app
+        // Global single-instance guard - Android supports one GATT server per app
         private val instanceLock = AtomicBoolean(false)
     }
 }

@@ -4,7 +4,7 @@ package com.atruedev.kmpble.gatt
  * An event emitted by [com.atruedev.kmpble.peripheral.Peripheral.observe] for a characteristic
  * notification or indication subscription.
  *
- * Observations survive disconnection — a [Disconnected] event is emitted on disconnect, and
+ * Observations survive disconnection - a [Disconnected] event is emitted on disconnect, and
  * [Value] events resume automatically when the peripheral reconnects and resubscribes.
  */
 public sealed interface Observation {

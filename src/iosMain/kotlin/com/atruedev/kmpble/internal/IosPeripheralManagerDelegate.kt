@@ -18,7 +18,7 @@ import kotlin.concurrent.Volatile
  * Unified [CBPeripheralManager] delegate handling server, advertising,
  * and subscription callbacks.
  *
- * Similar pattern to [KmpBleCentralDelegate] — a single delegate handles
+ * Similar pattern to [KmpBleCentralDelegate] - a single delegate handles
  * all CBPeripheralManager callbacks and routes to registered handlers.
  *
  * The delegate is set at CBPeripheralManager creation time (in
@@ -91,7 +91,7 @@ internal class IosPeripheralManagerDelegate :
     // K/N limitation: peripheralManager:central:didSubscribeToCharacteristic: and
     // peripheralManager:central:didUnsubscribeFromCharacteristic: share the same
     // Kotlin type signature (CBPeripheralManager, CBCentral, CBCharacteristic).
-    // Only one can be overridden — we choose subscribe since it's essential for
+    // Only one can be overridden - we choose subscribe since it's essential for
     // connection tracking. Unsubscribe events are not received.
     // See IosGattServer documentation for implications.
     override fun peripheralManager(

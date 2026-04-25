@@ -108,7 +108,7 @@ internal object StateMachine {
         }
 
     /**
-     * Wildcard transitions — apply from any non-Disconnected state.
+     * Wildcard transitions - apply from any non-Disconnected state.
      * Checked before the table. Order matters: AdapterOff and RemoteDisconnected
      * take precedence over state-specific transitions.
      */
@@ -139,13 +139,13 @@ internal object StateMachine {
             }
         }
 
-        // Look up in transition table — walk the state class hierarchy
+        // Look up in transition table - walk the state class hierarchy
         val resolver = findResolver(current, event)
         if (resolver != null) {
             return TransitionResult(resolver(current, event), valid = true)
         }
 
-        // No valid transition found — return current state, flag as invalid
+        // No valid transition found - return current state, flag as invalid
         return TransitionResult(current, valid = false)
     }
 

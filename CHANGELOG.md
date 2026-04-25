@@ -324,15 +324,15 @@ _No notable changes._
 ## [0.1.6] - 2026-03-19
 
 ### Changed
-- Repository-wide code review cleanup — improved consistency, removed dead code, tightened access modifiers
+- Repository-wide code review cleanup - improved consistency, removed dead code, tightened access modifiers
 
 ---
 
 ## [0.1.5] - 2026-03-18
 
 ### Added
-- **GATT Server (iOS)** — peripheral role using `CBPeripheralManager`. Define services, handle read/write requests, send notifications and indications
-- **Advertiser (iOS)** — BLE advertising via `CBPeripheralManager` with configurable name, service UUIDs, and manufacturer data
+- **GATT Server (iOS)** - peripheral role using `CBPeripheralManager`. Define services, handle read/write requests, send notifications and indications
+- **Advertiser (iOS)** - BLE advertising via `CBPeripheralManager` with configurable name, service UUIDs, and manufacturer data
 
 ### Changed
 - Use `BleData.slice` for zero-copy offset reads in server handlers
@@ -349,9 +349,9 @@ _No notable changes._
 ## [0.1.4] - 2026-03-18
 
 ### Added
-- **GATT Server (Android)** — peripheral role using `BluetoothGattServer`. DSL builder for defining services, characteristics, and descriptors with read/write/notify support
-- **Advertiser (Android)** — BLE advertising with configurable mode (LowPower, Balanced, LowLatency), TX power levels, service UUIDs, and manufacturer data
-- **FakeGattServer** and **FakeAdvertiser** — test doubles for server and advertiser code
+- **GATT Server (Android)** - peripheral role using `BluetoothGattServer`. DSL builder for defining services, characteristics, and descriptors with read/write/notify support
+- **Advertiser (Android)** - BLE advertising with configurable mode (LowPower, Balanced, LowLatency), TX power levels, service UUIDs, and manufacturer data
+- **FakeGattServer** and **FakeAdvertiser** - test doubles for server and advertiser code
 
 ### Changed
 - Configurable advertise mode and TX power included in `AdvertiseConfig` equals/hashCode/toString
@@ -367,8 +367,8 @@ _No notable changes._
 ## [0.1.3] - 2026-03-18
 
 ### Added
-- **L2CAP Channels (Android)** — high-throughput streaming via `BluetoothSocket`, bypassing GATT for bulk data and DFU transfers
-- **FakeL2capChannel** — test double for L2CAP channel code with socket abstraction
+- **L2CAP Channels (Android)** - high-throughput streaming via `BluetoothSocket`, bypassing GATT for bulk data and DFU transfers
+- **FakeL2capChannel** - test double for L2CAP channel code with socket abstraction
 
 ### Fixed
 - Removed dead partial-write loop in L2CAP channel implementation
@@ -378,7 +378,7 @@ _No notable changes._
 ## [0.1.2] - 2026-03-18
 
 ### Added
-- **L2CAP Channels (iOS)** — high-throughput streaming via `CBL2CAPChannel`, bypassing GATT for bulk data and DFU transfers
+- **L2CAP Channels (iOS)** - high-throughput streaming via `CBL2CAPChannel`, bypassing GATT for bulk data and DFU transfers
 
 ### Changed
 - Repository URLs migrated from `gary-quinn` to `atruedeveloper`
@@ -388,7 +388,7 @@ _No notable changes._
 ## [0.1.1] - 2026-03-17
 
 ### Added
-- **Device Quirk Registry** — internal registry for Android OEM-specific BLE workarounds (Samsung, Pixel, Xiaomi, OnePlus)
+- **Device Quirk Registry** - internal registry for Android OEM-specific BLE workarounds (Samsung, Pixel, Xiaomi, OnePlus)
 - Consumer ProGuard rules bundled in the AAR
 - CI: test suite runs on every push
 - CI: workflow to auto-update README on release
@@ -401,16 +401,16 @@ _No notable changes._
 ## [0.1.0] - 2026-03-17
 
 ### Added
-- **Scanning & Discovery** — filters (service UUID, name, manufacturer data, RSSI), emission policy (dedup/all), cold Flow API
-- **GATT Client** — read, write (with/without response), observe (notifications/indications), descriptors, MTU negotiation
-- **14-State State Machine** — exhaustive transition table with no invalid states, covering transport, authentication, discovery, service changes, and bonding changes
-- **Bonding & Pairing** — Just Works + Passkey Entry. Proactive or implicit bonding with bond state tracking
-- **Reconnection Strategies** — built-in `ExponentialBackoff` and `LinearBackoff`, configurable per-peripheral
-- **Observation Resilience** — `observe()` / `observeValues()` survive disconnects and auto-resubscribe to CCCD on reconnect
-- **Testing Infrastructure** — `FakePeripheral`, `FakeScanner` for full BLE simulation in unit tests without hardware
-- **Permissions** — cross-platform BLE permission checking API
-- **Logging** — structured BLE event logging with pluggable backends
-- **Distribution** — Maven Central (`com.atruedev:kmp-ble`) + Swift Package Manager (XCFramework)
+- **Scanning & Discovery** - filters (service UUID, name, manufacturer data, RSSI), emission policy (dedup/all), cold Flow API
+- **GATT Client** - read, write (with/without response), observe (notifications/indications), descriptors, MTU negotiation
+- **14-State State Machine** - exhaustive transition table with no invalid states, covering transport, authentication, discovery, service changes, and bonding changes
+- **Bonding & Pairing** - Just Works + Passkey Entry. Proactive or implicit bonding with bond state tracking
+- **Reconnection Strategies** - built-in `ExponentialBackoff` and `LinearBackoff`, configurable per-peripheral
+- **Observation Resilience** - `observe()` / `observeValues()` survive disconnects and auto-resubscribe to CCCD on reconnect
+- **Testing Infrastructure** - `FakePeripheral`, `FakeScanner` for full BLE simulation in unit tests without hardware
+- **Permissions** - cross-platform BLE permission checking API
+- **Logging** - structured BLE event logging with pluggable backends
+- **Distribution** - Maven Central (`com.atruedev:kmp-ble`) + Swift Package Manager (XCFramework)
 
 ### Changed
 - Renamed package to `com.atruedev.kmpble`, group to `com.atruedev`
@@ -430,12 +430,12 @@ _No notable changes._
 ## [0.1.0-alpha06] - 2026-03-17
 
 ### Added
-- Bonding — Just Works + Passkey Entry
+- Bonding - Just Works + Passkey Entry
 - `FakeScanner` + property-based state machine tests
 - Logging infrastructure + error model refinement
 - BLE permissions check API
 - Sample app with auto-init
-- Migration guide — API mapping and key differences from other BLE libraries
+- Migration guide - API mapping and key differences from other BLE libraries
 
 ### Fixed
 - iOS scanner initialization issue
@@ -445,7 +445,7 @@ _No notable changes._
 ## [0.1.0-alpha01] - 2026-03-15
 
 ### Added
-- Initial release — BLE scanning, connecting, GATT read/write/observe
+- Initial release - BLE scanning, connecting, GATT read/write/observe
 - Android and iOS platform support
 - CI/CD with GitHub Actions and Dependabot
 

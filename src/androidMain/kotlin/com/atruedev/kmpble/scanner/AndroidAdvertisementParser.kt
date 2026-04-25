@@ -54,7 +54,7 @@ private fun Int.toPhyOrNull(): Phy? =
         else -> null
     }
 
-/** Wraps ByteArray from ScanRecord — zero-copy (BleData wraps the reference). */
+/** Wraps ByteArray from ScanRecord - zero-copy (BleData wraps the reference). */
 private fun parseManufacturerData(record: android.bluetooth.le.ScanRecord?): Map<Int, BleData> {
     val sparse = record?.manufacturerSpecificData ?: return emptyMap()
     val result = mutableMapOf<Int, BleData>()

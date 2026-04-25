@@ -30,10 +30,10 @@ import kotlin.concurrent.AtomicInt
  *
  * [AdvertiseConfig] fields that don't map to iOS are silently ignored
  * with a log warning:
- * - [AdvertiseConfig.manufacturerData] — ignored (iOS foreground limitation)
- * - [AdvertiseConfig.includeTxPower] — ignored (iOS doesn't expose)
- * - [AdvertiseConfig.mode] — ignored (iOS controls interval)
- * - [AdvertiseConfig.txPower] — ignored (iOS controls power)
+ * - [AdvertiseConfig.manufacturerData] - ignored (iOS foreground limitation)
+ * - [AdvertiseConfig.includeTxPower] - ignored (iOS doesn't expose)
+ * - [AdvertiseConfig.mode] - ignored (iOS controls interval)
+ * - [AdvertiseConfig.txPower] - ignored (iOS controls power)
  */
 internal class IosAdvertiser(
     private val manager: CBPeripheralManager = PeripheralManagerProvider.manager,

@@ -60,7 +60,7 @@ internal class KmpBleCentralDelegate :
     private val _restoredPeripherals = MutableSharedFlow<List<CBPeripheral>>(replay = 1)
     internal val restoredPeripherals: SharedFlow<List<CBPeripheral>> = _restoredPeripherals.asSharedFlow()
 
-    // Copy-on-write map — reads from CoreBluetooth queue, writes from Kotlin coroutines.
+    // Copy-on-write map - reads from CoreBluetooth queue, writes from Kotlin coroutines.
     // @Volatile ensures visibility across threads. Mutation creates a new map instance.
     @Volatile
     private var connectionCallbacks = mapOf<String, (connected: Boolean, error: NSError?) -> Unit>()

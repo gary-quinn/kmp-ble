@@ -63,7 +63,7 @@ mavenPublishing {
 
     pom {
         name.set("kmp-ble-dfu")
-        description.set("DFU/OTA firmware update support for kmp-ble — Nordic DFU, L2CAP OTA, observable progress, resume")
+        description.set("DFU/OTA firmware update support for kmp-ble - Nordic DFU, L2CAP OTA, observable progress, resume")
         url.set("https://github.com/gary-quinn/kmp-ble")
         licenses {
             license {

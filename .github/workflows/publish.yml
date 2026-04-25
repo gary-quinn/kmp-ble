@@ -207,9 +207,9 @@ jobs:
             Automated PR to update project docs with the new release version.
 
             **Updated files:**
-            - `README.md` — dependency version
-            - `CHANGELOG.md` — auto-generated entries from merged PRs
-            - `llms.txt` — dependency version
+            - `README.md` - dependency version
+            - `CHANGELOG.md` - auto-generated entries from merged PRs
+            - `llms.txt` - dependency version
 
             Release: ${{ needs.publish.outputs.release_url }}
           branch: update-docs-${{ needs.publish.outputs.version }}

@@ -81,12 +81,12 @@ public enum class TransportType {
 public enum class PhyMask(
     public val value: Int,
 ) {
-    /** 1 Mbps PHY — universally supported. */
+    /** 1 Mbps PHY - universally supported. */
     LE_1M(1),
 
-    /** 2 Mbps PHY — double throughput, shorter range. */
+    /** 2 Mbps PHY - double throughput, shorter range. */
     LE_2M(2),
 
-    /** Coded PHY (Long Range) — lower throughput, extended range. */
+    /** Coded PHY (Long Range) - lower throughput, extended range. */
     LE_CODED(4),
 }

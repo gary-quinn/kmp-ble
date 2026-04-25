@@ -6,7 +6,7 @@ import kotlin.time.TimeSource
 
 /**
  * Collects latency samples and computes percentile statistics.
- * Not thread-safe — confine to a single coroutine or use external serialization.
+ * Not thread-safe - confine to a single coroutine or use external serialization.
  *
  * ```kotlin
  * val tracker = LatencyTracker()

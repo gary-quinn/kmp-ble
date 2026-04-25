@@ -209,7 +209,7 @@ public class FakePeripheral internal constructor(
             observeInternal(characteristic, backpressure) { event ->
                 when (event) {
                     is ObservationEvent.Value -> emit(event.data)
-                    // Transparent reconnection — ObservationManager re-subscribes on reconnect
+                    // Transparent reconnection - ObservationManager re-subscribes on reconnect
                     is ObservationEvent.Disconnected -> Unit
                     is ObservationEvent.PermanentlyDisconnected -> Unit
                 }
@@ -331,7 +331,7 @@ public class FakePeripheral internal constructor(
 
     /**
      * Simulate a disconnect event. This will emit [Observation.Disconnected] to all active
-     * observations but NOT complete them — they persist for reconnection.
+     * observations but NOT complete them - they persist for reconnection.
      */
     public suspend fun simulateDisconnect(error: BleError = ConnectionLost("Simulated disconnect")) {
         checkNotClosed()

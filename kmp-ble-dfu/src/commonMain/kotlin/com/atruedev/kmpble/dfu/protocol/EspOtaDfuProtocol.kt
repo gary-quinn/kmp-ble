@@ -56,7 +56,7 @@ public class EspOtaDfuProtocol : DfuProtocol {
         // Only the final (potentially shorter) chunk allocates a fresh array.
         val chunkBuffer = ByteArray(chunkSize)
 
-        // ESP OTA does not support resume — a fresh OTA Begin is required on
+        // ESP OTA does not support resume - a fresh OTA Begin is required on
         // each attempt because the device resets its OTA state on error.
         // The OTA End exchange (hash verification) is inside retry scope so
         // that a disconnect mid-verify retries the entire transfer from scratch.

@@ -82,9 +82,9 @@ No initialization needed. Add via SPM or use the XCFramework directly.
 |---------|---------|
 | Bond state | `peripheral.bondState: StateFlow<BondState>` |
 | Proactive bonding | `ConnectionOptions(bondingPreference = BondingPreference.Required)` |
-| Implicit bonding | Default — OS triggers when device requires encryption |
+| Implicit bonding | Default - OS triggers when device requires encryption |
 | Remove bond (Android) | `@OptIn(ExperimentalBleApi::class) peripheral.removeBond()` |
-| Remove bond (iOS) | Returns `BondRemovalResult.NotSupported` — use Settings |
+| Remove bond (iOS) | Returns `BondRemovalResult.NotSupported` - use Settings |
 
 ### Adapter State
 
@@ -146,16 +146,16 @@ val peripheral = FakePeripheral {
 
 ### Explicit WriteType
 
-kmp-ble requires an explicit `WriteType` on every write — no default. This prevents the common mistake of accidentally using fire-and-forget writes when acknowledged writes are needed.
+kmp-ble requires an explicit `WriteType` on every write - no default. This prevents the common mistake of accidentally using fire-and-forget writes when acknowledged writes are needed.
 
 ### Object Identity for Characteristics
 
-`Characteristic` and `Descriptor` use reference equality, not structural equality. Always get them from `peripheral.services` or `findCharacteristic()` after connecting — don't construct them manually.
+`Characteristic` and `Descriptor` use reference equality, not structural equality. Always get them from `peripheral.services` or `findCharacteristic()` after connecting - don't construct them manually.
 
 ### Close vs Disconnect
 
-- `disconnect()` — graceful, peripheral can reconnect
-- `close()` — terminal, releases all native resources, peripheral is unusable after
+- `disconnect()` - graceful, peripheral can reconnect
+- `close()` - terminal, releases all native resources, peripheral is unusable after
 
 Always call `close()` when done (e.g., `ViewModel.onCleared()`, `deinit`).
 

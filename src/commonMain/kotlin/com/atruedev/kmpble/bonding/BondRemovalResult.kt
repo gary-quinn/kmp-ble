@@ -3,7 +3,7 @@ package com.atruedev.kmpble.bonding
 /**
  * Result of a [com.atruedev.kmpble.peripheral.Peripheral.removeBond] operation.
  *
- * Bond removal is an Android-only capability — iOS will always return [NotSupported].
+ * Bond removal is an Android-only capability - iOS will always return [NotSupported].
  */
 public sealed interface BondRemovalResult {
     /** The bond was successfully removed. */

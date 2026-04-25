@@ -83,7 +83,7 @@ internal class ReconnectionHandler(
                         } else {
                             min(baseMs * multiplier, maxMs)
                         }
-                    // ±20% jitter. At sub-5ms delays, truncation to Long zeros out the jitter —
+                    // ±20% jitter. At sub-5ms delays, truncation to Long zeros out the jitter -
                     // acceptable since sub-5ms backoff is not a thundering-herd risk.
                     val jitter = (delayMs * 0.2 * (2.0 * random.nextDouble() - 1.0)).toLong()
                     (delayMs + jitter).coerceAtLeast(1).milliseconds

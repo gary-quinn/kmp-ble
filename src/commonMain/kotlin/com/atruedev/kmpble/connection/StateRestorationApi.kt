@@ -9,7 +9,7 @@ import com.atruedev.kmpble.ExperimentalBleApi
  * On iOS, this configures the CBCentralManager with a restoration identifier so
  * iOS can restore BLE connections after app termination.
  *
- * On Android, this is a no-op — Android handles BLE background differently
+ * On Android, this is a no-op - Android handles BLE background differently
  * (via foreground services).
  *
  * @param config Configuration specifying the restoration identifier.

@@ -10,7 +10,7 @@ public object BleQuirks {
     public val BondBeforeConnect: QuirkKey<Boolean> =
         QuirkKey("bondBeforeConnect", false) { v, _ -> if (v) "bond-before-connect" else null }
 
-    /** Pixel: GATT 133 on first attempt — retry after this delay. */
+    /** Pixel: GATT 133 on first attempt - retry after this delay. */
     public val GattRetryDelay: QuirkKey<Duration> =
         QuirkKey("gattRetryDelay", 300.milliseconds) { v, d -> if (v != d) "retry-delay=$v" else null }
 
@@ -18,7 +18,7 @@ public object BleQuirks {
     public val GattRetryCount: QuirkKey<Int> =
         QuirkKey("gattRetryCount", 1) { v, _ -> if (v > 1) "retry=${v}x" else null }
 
-    /** OnePlus/Xiaomi: cache stale services after bonding — refresh required. */
+    /** OnePlus/Xiaomi: cache stale services after bonding - refresh required. */
     public val RefreshServicesOnBond: QuirkKey<Boolean> =
         QuirkKey("refreshServicesOnBond", false) { v, _ -> if (v) "refresh-services-on-bond" else null }
 

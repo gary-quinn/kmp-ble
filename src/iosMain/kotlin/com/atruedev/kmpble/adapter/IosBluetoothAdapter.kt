@@ -17,6 +17,6 @@ public class IosBluetoothAdapter : BluetoothAdapter {
         }
 
     override fun close() {
-        // Delegates to singleton — no per-instance cleanup needed
+        // Delegates to singleton - no per-instance cleanup needed
     }
 }

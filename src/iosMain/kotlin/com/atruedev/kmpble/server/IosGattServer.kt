@@ -166,7 +166,7 @@ internal class IosGattServer(
             if (!instanceLock.compareAndSet(0, 1)) {
                 throw ServerException.OpenFailed(
                     "Another IosGattServer is already open. iOS uses a single " +
-                        "CBPeripheralManager — call close() on the existing server first.",
+                        "CBPeripheralManager - call close() on the existing server first.",
                 )
             }
 
@@ -184,7 +184,7 @@ internal class IosGattServer(
     private suspend fun openInternal() {
         setDelegateCallbacks(active = true)
 
-        // Force lazy CBPeripheralManager init — the constructor fires
+        // Force lazy CBPeripheralManager init - the constructor fires
         // peripheralManagerDidUpdateState on our delegate.
         manager
 
@@ -282,7 +282,7 @@ internal class IosGattServer(
      *
      * iOS doesn't distinguish notify vs indicate at the API level.
      * The characteristic property ([CBCharacteristicPropertyIndicate])
-     * determines the behavior — iOS handles confirmation transparently.
+     * determines the behavior - iOS handles confirmation transparently.
      * This method delegates to [notify] with the same underlying
      * `updateValue` call.
      */
@@ -305,7 +305,7 @@ internal class IosGattServer(
 
         logEvent(BleLogEvent.ServerLifecycle("closing"))
 
-        // Stop accepting new callbacks before cancelling scope — prevents
+        // Stop accepting new callbacks before cancelling scope - prevents
         // a GCD-queued callback from scope.launch-ing into a cancelled scope.
         setDelegateCallbacks(active = false)
 
@@ -313,7 +313,7 @@ internal class IosGattServer(
 
         readyToUpdate.cancel(kotlinx.coroutines.CancellationException("Server closed"))
 
-        // Don't clear collections here — races with in-flight coroutines before cancellation.
+        // Don't clear collections here - races with in-flight coroutines before cancellation.
         scope.cancel()
         _connections.value = emptyList()
 
@@ -569,7 +569,7 @@ internal class IosGattServer(
 
     // iOS silently truncates notification/indication payloads to the negotiated
     // ATT MTU. Unlike Android, there is no API to query the per-central MTU or
-    // receive a truncation warning — callers must size payloads conservatively
+    // receive a truncation warning - callers must size payloads conservatively
     // (typically ≤ 182 bytes for default MTU, or negotiate a larger MTU from
     // the central side).
     private suspend fun sendUpdate(
@@ -591,7 +591,7 @@ internal class IosGattServer(
                 }
             } catch (_: kotlinx.coroutines.TimeoutCancellationException) {
                 throw ServerException.NotifyFailed(
-                    "Transmit queue full — timeout waiting for ready (attempt ${attempt + 1}/$MAX_NOTIFY_RETRIES)",
+                    "Transmit queue full - timeout waiting for ready (attempt ${attempt + 1}/$MAX_NOTIFY_RETRIES)",
                 )
             }
         }

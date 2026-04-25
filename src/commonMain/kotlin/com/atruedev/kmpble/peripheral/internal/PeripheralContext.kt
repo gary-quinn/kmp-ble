@@ -52,7 +52,7 @@ internal class PeripheralContext(
 
     /**
      * Tracks when the current state was entered, for connection timeline logging.
-     * Confined to [dispatcher] — only read/written inside [processEvent].
+     * Confined to [dispatcher] - only read/written inside [processEvent].
      */
     private var stateEnteredAt: TimeSource.Monotonic.ValueTimeMark? = null
 
@@ -115,7 +115,7 @@ internal class PeripheralContext(
             _maximumWriteValueLength.value = (mtu - ATT_HEADER_SIZE).coerceAtLeast(DEFAULT_ATT_MTU - ATT_HEADER_SIZE)
         }
 
-    /** Terminal — non-suspend for ViewModel.onCleared() / deinit. Idempotent. */
+    /** Terminal - non-suspend for ViewModel.onCleared() / deinit. Idempotent. */
     fun close() {
         if (closed) return
         closed = true

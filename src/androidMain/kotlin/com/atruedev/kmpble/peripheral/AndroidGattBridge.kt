@@ -255,7 +255,7 @@ internal class AndroidGattBridge(
         gatt = null
     }
 
-    /** Terminal — release all resources including the callback thread. */
+    /** Terminal - release all resources including the callback thread. */
     internal fun close() {
         gatt?.close()
         gatt = null

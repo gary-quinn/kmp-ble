@@ -10,7 +10,7 @@ import kotlin.uuid.Uuid
  * completes. Use [properties] to determine which operations (read, write, notify, etc.) the
  * characteristic supports before performing GATT operations.
  *
- * **Identity:** This is a `class`, not a `data class` — it uses reference equality intentionally,
+ * **Identity:** This is a `class`, not a `data class` - it uses reference equality intentionally,
  * matching native platform behavior where each discovered characteristic is a unique handle even
  * if two share the same UUID.
  *

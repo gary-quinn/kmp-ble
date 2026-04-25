@@ -11,12 +11,12 @@ import kotlin.uuid.Uuid
  * Defaults are tuned for Nordic nRF5 SDK Secure DFU over GATT.
  *
  * @property prnInterval how many data packets to send before waiting for a
- *   receipt confirmation (Packet Receipt Notification). `0` disables PRNs —
+ *   receipt confirmation (Packet Receipt Notification). `0` disables PRNs -
  *   faster but removes flow control. Default `10`.
  * @property retryCount maximum attempts per DFU object before giving up
  * @property retryDelay pause between retry attempts
  * @property commandTimeout how long to wait for a response to a DFU command
- * @property transport BLE transport to use — [GATT][DfuTransportConfig.Gatt]
+ * @property transport BLE transport to use - [GATT][DfuTransportConfig.Gatt]
  *   (default) or [L2CAP][DfuTransportConfig.L2cap] for higher throughput
  */
 public data class DfuOptions(

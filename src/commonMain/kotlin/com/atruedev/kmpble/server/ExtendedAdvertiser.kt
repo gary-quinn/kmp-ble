@@ -6,7 +6,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlin.uuid.Uuid
 
 /**
- * BLE 5.0 extended advertiser — supports larger payloads, PHY selection,
+ * BLE 5.0 extended advertiser - supports larger payloads, PHY selection,
  * and multiple concurrent advertising sets.
  *
  * ## Platform Support

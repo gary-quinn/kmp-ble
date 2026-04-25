@@ -88,7 +88,7 @@ internal class IosL2capChannel(
 
                         when {
                             bytesRead > 0 -> dataChannel.send(buffer.copyOf(bytesRead))
-                            bytesRead < 0 -> return // Error or EOF — exit readLoop
+                            bytesRead < 0 -> return // Error or EOF - exit readLoop
                         }
                     }
                     consecutiveIdlePolls = 0

@@ -7,7 +7,7 @@ import kotlin.time.Duration.Companion.seconds
  * Strategy applied when a peripheral disconnects unexpectedly.
  *
  * Set via [ConnectionOptions.reconnectionStrategy]. The strategy only activates on
- * unintentional disconnects — calling [com.atruedev.kmpble.peripheral.Peripheral.disconnect]
+ * unintentional disconnects - calling [com.atruedev.kmpble.peripheral.Peripheral.disconnect]
  * explicitly will not trigger reconnection.
  */
 public sealed class ReconnectionStrategy {

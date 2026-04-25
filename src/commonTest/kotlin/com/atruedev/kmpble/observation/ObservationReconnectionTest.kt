@@ -78,7 +78,7 @@ class ObservationReconnectionTest {
                 assertContentEquals(byteArrayOf(0x01), awaitItem())
 
                 peripheral.simulateDisconnect()
-                // observeValues does not emit during disconnect — no awaitItem here
+                // observeValues does not emit during disconnect - no awaitItem here
 
                 peripheral.simulateReconnect()
                 peripheral.emitObservationValue(testServiceUuid, testCharUuid, byteArrayOf(0x02))
@@ -193,7 +193,7 @@ class ObservationReconnectionTest {
                     )
                 peripheral.simulateReconnect(newServices)
 
-                // Characteristic removed — emits final Disconnected then completes
+                // Characteristic removed - emits final Disconnected then completes
                 assertIs<Observation.Disconnected>(awaitItem())
                 awaitComplete()
             }
@@ -288,7 +288,7 @@ class ObservationReconnectionTest {
                 assertEquals(1, cccdBeforeValue.size)
                 assertTrue(cccdBeforeValue[0].enabled)
 
-                // Now emit — only possible after CCCD enable completed
+                // Now emit - only possible after CCCD enable completed
                 peripheral.emitObservationValue(testServiceUuid, testCharUuid, byteArrayOf(0x42))
                 val v = awaitItem()
                 assertIs<Observation.Value>(v)

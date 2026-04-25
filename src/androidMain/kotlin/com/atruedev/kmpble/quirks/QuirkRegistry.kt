@@ -7,10 +7,10 @@ import kotlin.concurrent.atomics.ExperimentalAtomicApi
 /**
  * Immutable registry that resolves device-specific BLE quirks.
  *
- * All values are pre-resolved at build time — [resolve] is O(1).
+ * All values are pre-resolved at build time - [resolve] is O(1).
  * Resolution priority: user overrides > providers > [QuirkKey.default].
  *
- * The registry is frozen after construction — all mutation happens through [Builder].
+ * The registry is frozen after construction - all mutation happens through [Builder].
  */
 public class QuirkRegistry private constructor(
     @PublishedApi internal val resolved: Map<QuirkKey<*>, Any>,
@@ -76,7 +76,7 @@ public class QuirkRegistry private constructor(
                     }
                 }
             val suffix = if (active.isEmpty()) "no device-specific quirks" else active.joinToString()
-            val description = "${device.manufacturer}/${device.model} — $suffix"
+            val description = "${device.manufacturer}/${device.model} - $suffix"
             return QuirkRegistry(resolved, description)
         }
 

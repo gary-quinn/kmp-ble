@@ -20,7 +20,7 @@ import kotlin.math.min
  * Transfers firmware in two phases: first the init packet (command object),
  * then the firmware binary split into data objects whose size is negotiated
  * with the peripheral. Each object is CRC32-verified before execution.
- * Supports partial resume — if the peripheral already has a valid prefix of
+ * Supports partial resume - if the peripheral already has a valid prefix of
  * an object, only the remaining bytes are sent.
  *
  * This is the default [DfuProtocol] used by [DfuController][com.atruedev.kmpble.dfu.DfuController].

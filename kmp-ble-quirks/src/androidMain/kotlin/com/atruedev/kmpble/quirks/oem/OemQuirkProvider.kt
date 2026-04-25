@@ -50,7 +50,7 @@ public class OemQuirkProvider : QuirkProvider {
                 "samsung:sm-a53",
             )
 
-        // Pixel devices often return GATT 133 on first attempt — retry after delay.
+        // Pixel devices often return GATT 133 on first attempt - retry after delay.
         val GATT_RETRY_DELAY: Map<String, Duration> =
             mapOf(
                 "google" to 1.seconds,

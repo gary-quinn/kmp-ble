@@ -12,7 +12,7 @@ import platform.CoreBluetooth.CBManagerAuthorizationRestricted
  * Checks `CBCentralManager.authorization` (iOS 13+).
  * The app must include `NSBluetoothAlwaysUsageDescription` in Info.plist.
  *
- * Note: this only checks authorization status — it does NOT trigger the
+ * Note: this only checks authorization status - it does NOT trigger the
  * permission prompt. The prompt appears when a CBCentralManager is first created.
  */
 public actual fun checkBlePermissions(): PermissionResult {

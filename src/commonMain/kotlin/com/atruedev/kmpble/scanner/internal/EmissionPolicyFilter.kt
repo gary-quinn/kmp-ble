@@ -32,7 +32,7 @@ private fun Flow<Advertisement>.firstThenChanges(rssiThreshold: Int): Flow<Adver
 
 /**
  * Lightweight snapshot for change detection. Uses BleData.hashCode() which is
- * content-based — no ByteArray allocation needed for comparison.
+ * content-based - no ByteArray allocation needed for comparison.
  */
 @OptIn(ExperimentalUuidApi::class)
 private data class AdvertisementSnapshot(

@@ -3,7 +3,7 @@ package com.atruedev.kmpble.scanner
 /**
  * Controls how scan results are deduplicated before emission.
  *
- * Default: [FirstThenChanges] — emits the first advertisement per device, then
+ * Default: [FirstThenChanges] - emits the first advertisement per device, then
  * re-emits only when data or RSSI changes significantly. This prevents flooding
  * the collector with 10+ identical advertisements per second per device.
  */

@@ -44,7 +44,7 @@ class FakeScannerTest {
     fun emptyScanner() =
         runTest {
             val scanner = FakeScanner {}
-            // No pre-configured ads — flow suspends waiting for dynamic emissions
+            // No pre-configured ads - flow suspends waiting for dynamic emissions
             scanner.close()
         }
 

@@ -41,7 +41,7 @@ import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.seconds
 
 /**
- * Minimal BLE quickstart — scan, connect, read the first characteristic.
+ * Minimal BLE quickstart - scan, connect, read the first characteristic.
  *
  * This is intentionally simple. For production patterns (reconnection,
  * error handling, profiles, DFU), see the full `sample/` module.
@@ -76,7 +76,7 @@ private fun ScanScreen(onDeviceSelected: (Advertisement) -> Unit) {
         Column(
             modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp),
         ) {
-            // Guard relies on recomposition timing — a rapid double-tap could
+            // Guard relies on recomposition timing - a rapid double-tap could
             // theoretically create two scanners. Acceptable for quickstart simplicity.
             Button(
                 onClick = {
@@ -153,7 +153,7 @@ private fun DeviceScreen(
     LaunchedEffect(peripheral) {
         try {
             peripheral.connect()
-            status = "Connected — discovering services..."
+            status = "Connected - discovering services..."
 
             val discoveredServices = peripheral.services.filterNotNull().first()
             val firstReadable: Characteristic? =

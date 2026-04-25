@@ -4,7 +4,7 @@ package com.atruedev.kmpble.error
  * Root of the composable BLE error hierarchy.
  *
  * Errors are organized into sealed sub-interfaces ([ConnectionError], [GattOperationError],
- * [AuthError], [OperationConstraintError]) that can be composed — e.g. [AuthenticationFailed]
+ * [AuthError], [OperationConstraintError]) that can be composed - e.g. [AuthenticationFailed]
  * implements both [AuthError] and [GattOperationError], allowing callers to pattern-match at
  * the granularity they need.
  */

@@ -62,14 +62,14 @@ jobs:
             // Extract the type prefix from the PR title
             const match = title.match(/^(\w+)(?:\(.+\))?!?:/);
             if (!match) {
-              core.info('PR title does not match conventional commit format — skipping label');
+              core.info('PR title does not match conventional commit format - skipping label');
               return;
             }
 
             const type = match[1].toLowerCase();
             const label = labelMap[type];
             if (!label) {
-              core.info(`No changelog label mapped for type "${type}" — skipping`);
+              core.info(`No changelog label mapped for type "${type}" - skipping`);
               return;
             }
 

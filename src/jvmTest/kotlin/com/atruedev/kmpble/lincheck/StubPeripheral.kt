@@ -21,7 +21,7 @@ import kotlin.uuid.Uuid
 
 /**
  * Minimal [Peripheral] stub for Lincheck tests.
- * Only [identifier] and [close] are functional — all other members
+ * Only [identifier] and [close] are functional - all other members
  * throw because Lincheck tests only exercise registry operations.
  */
 @OptIn(ExperimentalUuidApi::class)

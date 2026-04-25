@@ -1,6 +1,6 @@
 # kmp-ble
 
-> The complete BLE toolkit for Kotlin Multiplatform — Android & iOS from one codebase.
+> The complete BLE toolkit for Kotlin Multiplatform - Android & iOS from one codebase.
 
 ## What is kmp-ble?
 
@@ -17,7 +17,7 @@ Maven Central group: `com.atruedev`
 kotlin {
     sourceSets {
         commonMain.dependencies {
-            // Core — scan, connect, GATT client/server, advertise, L2CAP
+            // Core - scan, connect, GATT client/server, advertise, L2CAP
             implementation("com.atruedev:kmp-ble:0.4.2")
 
             // Optional modules
@@ -201,7 +201,7 @@ Built-in workarounds for BLE bugs on Samsung, Pixel, Xiaomi, OnePlus devices via
 ## Architecture
 
 - 14-state connection state machine with exhaustive transition table
-- Per-peripheral serial execution via limitedParallelism(1) — no locks
+- Per-peripheral serial execution via limitedParallelism(1) - no locks
 - Flow-based reactive APIs throughout
 - Zero-copy BleData on iOS (wraps NSData)
 - 460+ tests, CI on every push

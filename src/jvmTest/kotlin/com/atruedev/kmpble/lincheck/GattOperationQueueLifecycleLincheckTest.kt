@@ -16,7 +16,7 @@ import org.junit.Test
  * The suspend [GattOperationQueue.enqueue] is excluded because Lincheck
  * controls threads, not coroutine dispatchers.
  *
- * Uses [StressOptions] only — [ModelCheckingOptions] conflicts with the
+ * Uses [StressOptions] only - [ModelCheckingOptions] conflicts with the
  * coroutine launched inside [start].
  *
  * [Dispatchers.Unconfined] avoids spawning worker threads per scenario;

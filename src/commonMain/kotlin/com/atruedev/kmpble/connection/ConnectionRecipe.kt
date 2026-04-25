@@ -6,7 +6,7 @@ import kotlin.time.Duration.Companion.seconds
  * Pre-built [ConnectionOptions] for common BLE device categories.
  *
  * Each preset provides optimized MTU, reconnection strategy, and timeout
- * for its target use case. Use these as starting points — override individual
+ * for its target use case. Use these as starting points - override individual
  * fields with [ConnectionOptions.copy] if needed.
  *
  * ```
@@ -15,7 +15,7 @@ import kotlin.time.Duration.Companion.seconds
  * ```
  */
 public object ConnectionRecipe {
-    /** BLE 4.2 maximum ATT MTU — 251 bytes minus 4 bytes L2CAP header. */
+    /** BLE 4.2 maximum ATT MTU - 251 bytes minus 4 bytes L2CAP header. */
     private const val BLE_4_2_MAX_ATT_MTU = 247
 
     /**
@@ -24,8 +24,8 @@ public object ConnectionRecipe {
      *
      * Optimized for continuous background monitoring:
      * - High MTU for efficient data transfer
-     * - Aggressive reconnection (10 attempts) — data gaps are unacceptable
-     * - Long timeout — medical devices can be slow to respond (bonding, encryption)
+     * - Aggressive reconnection (10 attempts) - data gaps are unacceptable
+     * - Long timeout - medical devices can be slow to respond (bonding, encryption)
      */
     public val MEDICAL: ConnectionOptions =
         ConnectionOptions(
@@ -46,8 +46,8 @@ public object ConnectionRecipe {
      *
      * Optimized for workout sessions:
      * - High MTU for sensor data throughput
-     * - Fast reconnection — workout interruptions should be brief
-     * - Moderate timeout — fitness devices respond reasonably fast
+     * - Fast reconnection - workout interruptions should be brief
+     * - Moderate timeout - fitness devices respond reasonably fast
      */
     public val FITNESS: ConnectionOptions =
         ConnectionOptions(
@@ -67,9 +67,9 @@ public object ConnectionRecipe {
      * environmental monitors).
      *
      * Optimized for low-power constrained devices:
-     * - Default MTU — many IoT devices don't support MTU negotiation
-     * - Conservative reconnection — battery-constrained, don't hammer
-     * - Short timeout — if it doesn't connect quickly, it's probably off
+     * - Default MTU - many IoT devices don't support MTU negotiation
+     * - Conservative reconnection - battery-constrained, don't hammer
+     * - Short timeout - if it doesn't connect quickly, it's probably off
      */
     public val IOT: ConnectionOptions =
         ConnectionOptions(
@@ -89,8 +89,8 @@ public object ConnectionRecipe {
      *
      * Optimized for responsive first connection:
      * - High MTU for audio/HID data
-     * - Moderate reconnection — users will retry manually if needed
-     * - Short timeout — consumer devices should connect quickly
+     * - Moderate reconnection - users will retry manually if needed
+     * - Short timeout - consumer devices should connect quickly
      */
     public val CONSUMER: ConnectionOptions =
         ConnectionOptions(

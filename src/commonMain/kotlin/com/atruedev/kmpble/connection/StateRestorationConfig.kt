@@ -14,7 +14,7 @@ import com.atruedev.kmpble.ExperimentalBleApi
  * - The `bluetooth-central` background mode in your app's Info.plist
  * - The `UIBackgroundModes` key must include `bluetooth-central`
  *
- * On Android, this configuration is ignored — Android handles BLE background differently.
+ * On Android, this configuration is ignored - Android handles BLE background differently.
  *
  * Usage:
  * ```kotlin

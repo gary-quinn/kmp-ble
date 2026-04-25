@@ -35,14 +35,14 @@ public class DfuController(
 ) {
 
     // Abort signal shared between performDfu and abort(). CompletableDeferred
-    // is a coroutine primitive with thread-safe complete/isCompleted — no
+    // is a coroutine primitive with thread-safe complete/isCompleted - no
     // @Volatile or Mutex needed. A fresh signal is created per DFU invocation.
     private var abortSignal = CompletableDeferred<Unit>()
 
     /**
      * Start a firmware update and observe its progress.
      *
-     * Returns a **cold** [Flow] — the DFU begins when you call `collect`.
+     * Returns a **cold** [Flow] - the DFU begins when you call `collect`.
      *
      * @param firmware the firmware package to install
      * @param options DFU configuration

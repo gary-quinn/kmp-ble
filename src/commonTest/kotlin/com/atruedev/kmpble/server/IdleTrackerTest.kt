@@ -44,7 +44,7 @@ class IdleTrackerTest {
     fun trackOrRefresh_refreshes_activity_preventing_eviction() {
         tracker.trackOrRefresh("a", "centralA")
 
-        // Advance 4 minutes, refresh, advance 4 more — total 8 min but only 4 since refresh
+        // Advance 4 minutes, refresh, advance 4 more - total 8 min but only 4 since refresh
         timeSource += 4.minutes
         tracker.trackOrRefresh("a", "centralA")
         timeSource += 4.minutes

@@ -198,7 +198,7 @@ internal object Cbor {
 
 /**
  * Writes CBOR-encoded values directly into a pre-allocated ByteArray.
- * No intermediate buffers — every byte goes straight to the target.
+ * No intermediate buffers - every byte goes straight to the target.
  */
 private class CborWriter(private val target: ByteArray) {
     private var pos = 0

@@ -278,7 +278,7 @@ public class IosPeripheral(
                 is AppleCallbackEvent.DidDiscoverCharacteristics -> handleCharacteristicsDiscovered()
                 is AppleCallbackEvent.DidUpdateValueForCharacteristic -> {
                     // K/N may route both didUpdateValue and didWriteValue here (same
-                    // Kotlin type signature). The GATT queue serializes ops — at most
+                    // Kotlin type signature). The GATT queue serializes ops - at most
                     // one of read/write is pending. Check write first, then read, then notification.
                     val cbChar = event.characteristic
                     val error = event.error
@@ -381,7 +381,7 @@ public class IosPeripheral(
             if (char != null) {
                 enableNotifications(char)
             } else {
-                // Characteristic no longer exists — complete that observation
+                // Characteristic no longer exists - complete that observation
                 observationManager.completeObservation(key)
             }
         }
@@ -579,7 +579,7 @@ public class IosPeripheral(
 
     override suspend fun requestMtu(mtu: Int): Int {
         checkNotClosed()
-        // iOS negotiates MTU automatically — no explicit request API.
+        // iOS negotiates MTU automatically - no explicit request API.
         // Read the actual negotiated value from CoreBluetooth.
         val actualMtu =
             cbPeripheral
