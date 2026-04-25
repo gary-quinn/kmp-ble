@@ -384,6 +384,18 @@ Minimal ~150-line single-screen app: scan, tap, connect, read first characterist
 - iOS 15+
 - kotlinx-coroutines 1.10+
 
+## Contributing
+
+After cloning, enable the repo's pre-commit hooks once:
+
+```sh
+git config core.hooksPath .githooks
+```
+
+The hook blocks Unicode typography characters (em/en-dash, smart quotes,
+ellipsis, NBSP) in staged content. See [AGENTS.md](AGENTS.md) for the full list
+and the `typo-ok` bypass.
+
 ## License
 
 [Apache 2.0](LICENSE) - Copyright (C) 2026 Gary Quinn

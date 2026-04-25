@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# Block Unicode typography characters in staged content.
+# Per-line bypass: append `typo-ok` anywhere on the offending line.
+set -u
+
+files=()
+while IFS= read -r -d '' f; do
+  files+=("$f")
+done < <(git diff --cached --name-only -z --diff-filter=ACM)
+
+[ ${#files[@]} -eq 0 ] && exit 0
+
+# em-dash, en-dash, single curly quotes, double curly quotes, ellipsis, NBSP
+pattern='(*UTF)[\x{2013}\x{2014}\x{2018}\x{2019}\x{201C}\x{201D}\x{2026}\x{00A0}]'
+
+violations=$(git grep --cached -nP "$pattern" -- "${files[@]}" 2>/dev/null | grep -v 'typo-ok')
+
+if [ -n "$violations" ]; then
+  echo "Forbidden typography character (em/en-dash, smart quote, ellipsis, NBSP):" >&2
+  echo "$violations" >&2
+  echo >&2
+  echo "Use ASCII (-, ', \", ...) or append 'typo-ok' to the line to allow." >&2
+  exit 1
+fi
