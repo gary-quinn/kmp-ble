@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: gary-quinn/shared-actions/typography-check@da652cf908933a8f760fe35a4477ca59273ecd8c # PR #1; switch to @v1 after release
+      - uses: gary-quinn/shared-actions/typography-check@cd697d0da404a22dc157c6280d498f68a5bee6af # v1.0.1
 
   android:
     runs-on: ubuntu-latest
