@@ -15,7 +15,6 @@ import com.atruedev.kmpble.error.BleException
 import com.atruedev.kmpble.error.ConnectionFailed
 import com.atruedev.kmpble.error.ConnectionLost
 import com.atruedev.kmpble.error.GattError
-import com.atruedev.kmpble.error.GattStatus
 import com.atruedev.kmpble.error.OperationFailed
 import com.atruedev.kmpble.gatt.BackpressureStrategy
 import com.atruedev.kmpble.gatt.Characteristic
@@ -26,31 +25,32 @@ import com.atruedev.kmpble.gatt.WriteType
 import com.atruedev.kmpble.gatt.internal.GattResult
 import com.atruedev.kmpble.gatt.internal.LargeWriteHandler
 import com.atruedev.kmpble.gatt.internal.NotConnectedException
-import com.atruedev.kmpble.gatt.internal.ObservationEvent
 import com.atruedev.kmpble.gatt.internal.ObservationManager
 import com.atruedev.kmpble.gatt.internal.PendingOp
 import com.atruedev.kmpble.gatt.internal.PendingOperations
 import com.atruedev.kmpble.gatt.internal.PersistedObservation
-import com.atruedev.kmpble.gatt.internal.applyBackpressure
 import com.atruedev.kmpble.internal.CentralManagerProvider
 import com.atruedev.kmpble.internal.StateRestorationHandler
 import com.atruedev.kmpble.l2cap.DEFAULT_L2CAP_MTU
 import com.atruedev.kmpble.l2cap.IosL2capChannel
 import com.atruedev.kmpble.l2cap.L2capChannel
 import com.atruedev.kmpble.l2cap.L2capException
+import com.atruedev.kmpble.peripheral.internal.LifecycleSlots
+import com.atruedev.kmpble.peripheral.internal.ObservationToBytes
+import com.atruedev.kmpble.peripheral.internal.ObservationToObservation
 import com.atruedev.kmpble.peripheral.internal.PeripheralContext
 import com.atruedev.kmpble.peripheral.internal.PeripheralRegistry
+import com.atruedev.kmpble.peripheral.internal.awaitGatt
+import com.atruedev.kmpble.peripheral.internal.buildObservationFlow
+import com.atruedev.kmpble.peripheral.internal.findCharacteristic
+import com.atruedev.kmpble.peripheral.internal.findDescriptor
 import com.atruedev.kmpble.scanner.uuidFrom
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.FlowCollector
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.getAndUpdate
-import kotlinx.coroutines.flow.onCompletion
-import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -84,23 +84,13 @@ public class IosPeripheral(
     private val bridge = ApplePeripheralBridge(cbPeripheral)
     private val centralDelegate = CentralManagerProvider.scanDelegate
 
-    @Volatile
-    private var connectionComplete: CompletableDeferred<Unit>? = null
-
-    @Volatile
-    private var discoveryComplete: CompletableDeferred<List<DiscoveredService>>? = null
-
-    @Volatile
-    private var disconnectComplete: CompletableDeferred<Unit>? = null
     private val pendingOps = PendingOperations()
     private val observationManager = ObservationManager()
+    private val slots = LifecycleSlots()
 
-    // Map our Characteristic/Descriptor objects to native CBCharacteristic/CBDescriptor
     private val nativeCharMap = mutableMapOf<Characteristic, CBCharacteristic>()
     private val nativeDescMap = mutableMapOf<Descriptor, CBDescriptor>()
 
-    // L2CAP state
-    @Volatile
     private var pendingL2capChannel: CompletableDeferred<CBL2CAPChannel>? = null
     private val activeL2capChannels = MutableStateFlow<List<IosL2capChannel>>(emptyList())
 
@@ -112,7 +102,6 @@ public class IosPeripheral(
     @Volatile
     private var closed = false
 
-    // Safe: all callbacks dispatched to peripheralContext.scope (limitedParallelism(1))
     private var pendingCharacteristicDiscovery = 0
     private val reconnectionHandler =
         ReconnectionHandler(
@@ -129,7 +118,6 @@ public class IosPeripheral(
         centralDelegate.registerConnectionCallback(identifier.value) { connected, error ->
             handleConnectionCallback(connected, error)
         }
-        // Wire observation persistence for state restoration
         if (CentralManagerProvider.isStateRestorationEnabled) {
             observationManager.onObservationsChanged = { observations ->
                 StateRestorationHandler.default.persistObservations(identifier.value, observations)
@@ -144,23 +132,18 @@ public class IosPeripheral(
             peripheralContext.processEvent(ConnectionEvent.ConnectRequested)
             peripheralContext.gattQueue.start(options.gattOperationTimeout)
 
-            val deferred = CompletableDeferred<Unit>()
-            connectionComplete = deferred
+            val deferred = slots.armConnect()
             bridge.connect()
 
-            // didFailToConnectPeripheral is handled by the ObjC delegate proxy
-            // (KmpBleDelegateProxy) which routes through handleConnectionFailure.
             try {
-                withTimeout(options.timeout) {
-                    deferred.await()
-                }
+                withTimeout(options.timeout) { deferred.await() }
             } catch (_: TimeoutCancellationException) {
                 bridge.disconnect()
                 peripheralContext.processEvent(
                     ConnectionEvent.ConnectionLost(ConnectionFailed("Connection timeout")),
                 )
             } finally {
-                connectionComplete = null
+                slots.clearConnect()
             }
         }
     }
@@ -171,8 +154,7 @@ public class IosPeripheral(
         withContext(peripheralContext.dispatcher) {
             if (peripheralContext.state.value is State.Disconnected) return@withContext
             peripheralContext.processEvent(ConnectionEvent.DisconnectRequested)
-            val deferred = CompletableDeferred<Unit>()
-            disconnectComplete = deferred
+            val deferred = slots.armDisconnect()
             bridge.disconnect()
 
             try {
@@ -182,7 +164,7 @@ public class IosPeripheral(
                     ConnectionEvent.ConnectionLost(OperationFailed("Disconnect timeout")),
                 )
             } finally {
-                disconnectComplete = null
+                slots.clearDisconnect()
             }
         }
     }
@@ -210,13 +192,12 @@ public class IosPeripheral(
     override suspend fun refreshServices(): List<DiscoveredService> {
         checkNotClosed()
         return withContext(peripheralContext.dispatcher) {
-            val deferred = CompletableDeferred<List<DiscoveredService>>()
-            discoveryComplete = deferred
+            val deferred = slots.armDiscovery()
             bridge.discoverServices()
             try {
                 withTimeout(DISCOVERY_TIMEOUT) { deferred.await() }
             } finally {
-                discoveryComplete = null
+                slots.clearDiscovery()
             }
         }
     }
@@ -224,22 +205,13 @@ public class IosPeripheral(
     override fun findCharacteristic(
         serviceUuid: Uuid,
         characteristicUuid: Uuid,
-    ): Characteristic? =
-        services.value
-            ?.firstOrNull { it.uuid == serviceUuid }
-            ?.characteristics
-            ?.firstOrNull { it.uuid == characteristicUuid }
+    ): Characteristic? = services.value.findCharacteristic(serviceUuid, characteristicUuid)
 
     override fun findDescriptor(
         serviceUuid: Uuid,
         characteristicUuid: Uuid,
         descriptorUuid: Uuid,
-    ): Descriptor? {
-        val char = findCharacteristic(serviceUuid, characteristicUuid) ?: return null
-        return char.descriptors.firstOrNull { it.uuid == descriptorUuid }
-    }
-
-    // --- Central manager connection callbacks ---
+    ): Descriptor? = services.value.findDescriptor(serviceUuid, characteristicUuid, descriptorUuid)
 
     private fun handleConnectionCallback(
         connected: Boolean,
@@ -249,145 +221,134 @@ public class IosPeripheral(
             if (connected) {
                 peripheralContext.processEvent(ConnectionEvent.LinkEstablished)
                 bridge.discoverServices()
-            } else {
-                val bleError =
-                    if (error != null) {
-                        ConnectionFailed(error.localizedDescription, error.code.toInt())
-                    } else {
-                        ConnectionLost("Disconnected")
-                    }
-
-                if (peripheralContext.state.value is State.Disconnecting.Requested) {
-                    peripheralContext.processEvent(ConnectionEvent.ConnectionLost(bleError))
-                    disconnectComplete?.complete(Unit)
-                } else {
-                    peripheralContext.processEvent(ConnectionEvent.ConnectionLost(bleError))
-                }
-                onDisconnectCleanup()
-                connectionComplete?.complete(Unit)
+                return@launch
             }
+
+            val bleError =
+                if (error != null) {
+                    ConnectionFailed(error.localizedDescription, error.code.toInt())
+                } else {
+                    ConnectionLost("Disconnected")
+                }
+
+            if (peripheralContext.state.value is State.Disconnecting.Requested) {
+                peripheralContext.processEvent(ConnectionEvent.ConnectionLost(bleError))
+                slots.completeDisconnect()
+            } else {
+                peripheralContext.processEvent(ConnectionEvent.ConnectionLost(bleError))
+            }
+            onDisconnectCleanup()
+            slots.completeConnect()
         }
     }
-
-    // --- Peripheral delegate callbacks ---
 
     private fun handleBridgeEvent(event: AppleCallbackEvent) {
         peripheralContext.scope.launch {
             when (event) {
                 is AppleCallbackEvent.DidDiscoverServices -> handleServicesDiscovered(event)
                 is AppleCallbackEvent.DidDiscoverCharacteristics -> handleCharacteristicsDiscovered()
-                is AppleCallbackEvent.DidUpdateValueForCharacteristic -> {
-                    // K/N may route both didUpdateValue and didWriteValue here (same
-                    // Kotlin type signature). The GATT queue serializes ops - at most
-                    // one of read/write is pending. Check write first, then read, then notification.
-                    val cbChar = event.characteristic
-                    val error = event.error
-                    if (pendingOps.has(PendingOp.CharacteristicWrite)) {
-                        pendingOps.complete(PendingOp.CharacteristicWrite, error.toGattStatus())
-                    } else if (pendingOps.has(PendingOp.CharacteristicRead)) {
-                        val status = error.toGattStatus()
-                        val value = cbChar.value?.toByteArray() ?: byteArrayOf()
-                        pendingOps.complete(PendingOp.CharacteristicRead, GattResult(value, status))
-                    } else {
-                        val value = cbChar.value?.toByteArray() ?: return@launch
-                        val svcUuid = uuidFrom(cbChar.service?.UUID?.UUIDString ?: return@launch)
-                        val charUuid = uuidFrom(cbChar.UUID.UUIDString)
-                        observationManager.emitByUuid(svcUuid, charUuid, value)
-                    }
-                }
-                is AppleCallbackEvent.DidWriteValueForCharacteristic -> {
+                is AppleCallbackEvent.DidUpdateValueForCharacteristic -> handleCharacteristicValue(event)
+                is AppleCallbackEvent.DidWriteValueForCharacteristic ->
                     pendingOps.complete(PendingOp.CharacteristicWrite, event.error.toGattStatus())
-                }
-                is AppleCallbackEvent.DidUpdateValueForDescriptor -> {
-                    val error = event.error
-                    if (pendingOps.has(PendingOp.DescriptorWrite)) {
-                        pendingOps.complete(PendingOp.DescriptorWrite, error.toGattStatus())
-                    } else {
-                        val value = (event.descriptor.value as? NSData)?.toByteArray() ?: byteArrayOf()
-                        pendingOps.complete(PendingOp.DescriptorRead, GattResult(value, error.toGattStatus()))
-                    }
-                }
-                is AppleCallbackEvent.DidWriteValueForDescriptor -> {
+                is AppleCallbackEvent.DidUpdateValueForDescriptor -> handleDescriptorValue(event)
+                is AppleCallbackEvent.DidWriteValueForDescriptor ->
                     pendingOps.complete(PendingOp.DescriptorWrite, event.error.toGattStatus())
-                }
-                is AppleCallbackEvent.DidReadRSSI -> {
-                    if (event.error == null) {
-                        pendingOps.complete(PendingOp.RssiRead, event.rssi.intValue)
-                    } else {
-                        pendingOps.fail(
-                            PendingOp.RssiRead,
-                            BleException(GattError("readRssi", event.error.toGattStatus())),
-                        )
-                    }
-                }
-                is AppleCallbackEvent.DidOpenL2CAPChannel -> {
-                    handleDidOpenL2CAPChannel(event)
-                }
+                is AppleCallbackEvent.DidReadRSSI -> handleRssi(event)
+                is AppleCallbackEvent.DidOpenL2CAPChannel -> handleDidOpenL2CAPChannel(event)
             }
+        }
+    }
+
+    /**
+     * K/N maps both `didUpdateValue` (read response, notification) and `didWriteValue`
+     * (write response) to this single signature. Disambiguate by which slot is armed:
+     * the GATT queue ensures only one read/write is pending.
+     */
+    private fun handleCharacteristicValue(event: AppleCallbackEvent.DidUpdateValueForCharacteristic) {
+        val cbChar = event.characteristic
+        val error = event.error
+        when {
+            pendingOps.has(PendingOp.CharacteristicWrite) ->
+                pendingOps.complete(PendingOp.CharacteristicWrite, error.toGattStatus())
+            pendingOps.has(PendingOp.CharacteristicRead) -> {
+                val value = cbChar.value?.toByteArray() ?: byteArrayOf()
+                pendingOps.complete(PendingOp.CharacteristicRead, GattResult(value, error.toGattStatus()))
+            }
+            else -> {
+                val value = cbChar.value?.toByteArray() ?: return
+                val svcUuid = uuidFrom(cbChar.service?.UUID?.UUIDString ?: return)
+                val charUuid = uuidFrom(cbChar.UUID.UUIDString)
+                observationManager.emitByUuid(svcUuid, charUuid, value)
+            }
+        }
+    }
+
+    private fun handleDescriptorValue(event: AppleCallbackEvent.DidUpdateValueForDescriptor) {
+        val error = event.error
+        if (pendingOps.has(PendingOp.DescriptorWrite)) {
+            pendingOps.complete(PendingOp.DescriptorWrite, error.toGattStatus())
+        } else {
+            val value = (event.descriptor.value as? NSData)?.toByteArray() ?: byteArrayOf()
+            pendingOps.complete(PendingOp.DescriptorRead, GattResult(value, error.toGattStatus()))
+        }
+    }
+
+    private fun handleRssi(event: AppleCallbackEvent.DidReadRSSI) {
+        if (event.error == null) {
+            pendingOps.complete(PendingOp.RssiRead, event.rssi.intValue)
+        } else {
+            pendingOps.fail(
+                PendingOp.RssiRead,
+                BleException(GattError("readRssi", event.error.toGattStatus())),
+            )
         }
     }
 
     private suspend fun handleServicesDiscovered(event: AppleCallbackEvent.DidDiscoverServices) {
         if (event.error != null) {
-            peripheralContext.processEvent(
-                ConnectionEvent.DiscoveryFailed(
-                    GattError("discoverServices", event.error.toGattStatus()),
-                ),
-            )
-            connectionComplete?.complete(Unit)
-            discoveryComplete?.completeExceptionally(
-                BleException(GattError("discoverServices", event.error.toGattStatus())),
-            )
+            val status = event.error.toGattStatus()
+            peripheralContext.processEvent(ConnectionEvent.DiscoveryFailed(GattError("discoverServices", status)))
+            slots.completeConnect()
+            slots.failDiscovery(BleException(GattError("discoverServices", status)))
             return
         }
 
-        val cbServices = cbPeripheral.services?.filterIsInstance<CBService>() ?: emptyList()
+        val cbServices = cbPeripheral.services?.filterIsInstance<CBService>().orEmpty()
         if (cbServices.isEmpty()) {
             finishDiscovery(emptyList())
             return
         }
 
-        // Discover characteristics for each service
         pendingCharacteristicDiscovery = cbServices.size
         cbServices.forEach { bridge.discoverCharacteristics(it) }
     }
 
     private suspend fun handleCharacteristicsDiscovered() {
         pendingCharacteristicDiscovery--
+        if (pendingCharacteristicDiscovery > 0) return
 
-        if (pendingCharacteristicDiscovery <= 0) {
-            val cbServices = cbPeripheral.services?.filterIsInstance<CBService>() ?: emptyList()
-            val discovered = cbServices.map { it.toDiscoveredService() }
-            finishDiscovery(discovered)
-        }
+        val discovered = cbPeripheral.services
+            ?.filterIsInstance<CBService>()
+            ?.map { it.toDiscoveredService() }
+            .orEmpty()
+        finishDiscovery(discovered)
     }
 
     private suspend fun finishDiscovery(discovered: List<DiscoveredService>) {
         peripheralContext.processEvent(ConnectionEvent.ServicesDiscovered)
         peripheralContext.updateServices(discovered)
-
-        // Re-enable notifications for any observations that survived the disconnect
         resubscribeObservations()
-
         peripheralContext.processEvent(ConnectionEvent.ConfigurationComplete)
-        connectionComplete?.complete(Unit)
-        discoveryComplete?.complete(discovered)
+        slots.completeConnect()
+        slots.completeDiscovery(discovered)
     }
 
     private suspend fun resubscribeObservations() {
-        val toResubscribe = observationManager.getObservationsToResubscribe()
-        for (key in toResubscribe) {
+        for (key in observationManager.getObservationsToResubscribe()) {
             val char = findCharacteristic(key.serviceUuid, key.charUuid)
-            if (char != null) {
-                enableNotifications(char)
-            } else {
-                // Characteristic no longer exists - complete that observation
-                observationManager.completeObservation(key)
-            }
+            if (char != null) enableNotifications(char) else observationManager.completeObservation(key)
         }
     }
-
-    // --- Service parsing ---
 
     private fun CBService.toDiscoveredService(): DiscoveredService {
         val serviceUuid = uuidFrom(UUID.UUIDString)
@@ -403,8 +364,7 @@ public class IosPeripheral(
                         properties =
                             Characteristic.Properties(
                                 read = (props and CBCharacteristicPropertyRead.toInt()) != 0,
-                                write =
-                                    (props and CBCharacteristicPropertyWrite.toInt()) != 0,
+                                write = (props and CBCharacteristicPropertyWrite.toInt()) != 0,
                                 writeWithoutResponse =
                                     (props and CBCharacteristicPropertyWriteWithoutResponse.toInt()) != 0,
                                 signedWrite =
@@ -421,20 +381,17 @@ public class IosPeripheral(
                     nativeDescMap[desc] = cbDesc
                 }
                 char
-            } ?: emptyList()
+            }.orEmpty()
 
         return DiscoveredService(uuid = serviceUuid, characteristics = chars)
     }
 
-    // --- GATT Operations ---
-
-    private fun requireNativeCbChar(characteristic: Characteristic): CBCharacteristic =
-        nativeCharMap[characteristic]
+    private fun requireNativeCbChar(c: Characteristic): CBCharacteristic =
+        nativeCharMap[c]
             ?: throw IllegalArgumentException("Characteristic not found. Re-acquire from services after connect.")
 
-    private fun requireNativeCbDesc(descriptor: Descriptor): CBDescriptor =
-        nativeDescMap[descriptor]
-            ?: throw IllegalArgumentException("Descriptor not found.")
+    private fun requireNativeCbDesc(d: Descriptor): CBDescriptor =
+        nativeDescMap[d] ?: throw IllegalArgumentException("Descriptor not found.")
 
     private fun ByteArray.toNSData(): NSData = BleData(this).nsData
 
@@ -444,10 +401,9 @@ public class IosPeripheral(
         checkNotClosed()
         return peripheralContext.gattQueue.enqueue {
             val native = requireNativeCbChar(characteristic)
-            val deferred = CompletableDeferred<GattResult>()
-            pendingOps.set(PendingOp.CharacteristicRead, deferred)
-            bridge.readCharacteristic(native)
-            val result = deferred.await()
+            val result = pendingOps.awaitGatt(PendingOp.CharacteristicRead, "read") {
+                bridge.readCharacteristic(native)
+            }
             if (!result.status.isSuccess()) throw BleException(GattError("read", result.status))
             result.value
         }
@@ -464,13 +420,13 @@ public class IosPeripheral(
         val native = requireNativeCbChar(characteristic)
         val withResponse = writeType == WriteType.WithResponse || writeType == WriteType.Signed
         val chunks = LargeWriteHandler.chunk(data, maximumWriteValueLength.value)
+
         peripheralContext.gattQueue.enqueue {
             for (chunk in chunks) {
                 if (withResponse) {
-                    val deferred = CompletableDeferred<GattStatus>()
-                    pendingOps.set(PendingOp.CharacteristicWrite, deferred)
-                    bridge.writeCharacteristic(native, chunk.toNSData(), withResponse = true)
-                    val status = deferred.await()
+                    val status = pendingOps.awaitGatt(PendingOp.CharacteristicWrite, "write") {
+                        bridge.writeCharacteristic(native, chunk.toNSData(), withResponse = true)
+                    }
                     if (!status.isSuccess()) throw BleException(GattError("write", status))
                 } else {
                     bridge.writeCharacteristic(native, chunk.toNSData(), withResponse = false)
@@ -482,55 +438,37 @@ public class IosPeripheral(
     override fun observe(
         characteristic: Characteristic,
         backpressure: BackpressureStrategy,
-    ): Flow<Observation> =
-        observeInternal(characteristic, backpressure) { event ->
-            when (event) {
-                is ObservationEvent.Value -> emit(Observation.Value(event.data))
-                is ObservationEvent.Disconnected -> emit(Observation.Disconnected)
-                is ObservationEvent.PermanentlyDisconnected -> emit(Observation.Disconnected)
-            }
-        }
+    ): Flow<Observation> {
+        checkNotClosed()
+        return buildObservationFlow(
+            characteristic = characteristic,
+            backpressure = backpressure,
+            observationManager = observationManager,
+            isReady = { peripheralContext.state.value is State.Connected.Ready },
+            enable = ::enableNotifications,
+            disable = ::disableNotifications,
+            mapper = ObservationToObservation,
+        )
+    }
 
     override fun observeValues(
         characteristic: Characteristic,
         backpressure: BackpressureStrategy,
-    ): Flow<ByteArray> =
-        observeInternal(characteristic, backpressure) { event ->
-            when (event) {
-                is ObservationEvent.Value -> emit(event.data)
-                is ObservationEvent.Disconnected -> Unit
-                is ObservationEvent.PermanentlyDisconnected -> Unit
-            }
-        }
-
-    private fun <T> observeInternal(
-        characteristic: Characteristic,
-        backpressure: BackpressureStrategy,
-        mapper: suspend FlowCollector<T>.(ObservationEvent) -> Unit,
-    ): Flow<T> {
+    ): Flow<ByteArray> {
         checkNotClosed()
-        val serviceUuid = characteristic.serviceUuid
-        val charUuid = characteristic.uuid
-
-        return flow {
-            val eventFlow = observationManager.subscribe(serviceUuid, charUuid, backpressure)
-            eventFlow.collect { event -> mapper(event) }
-        }.onStart {
-            if (peripheralContext.state.value is State.Connected.Ready) {
-                enableNotifications(characteristic)
-            }
-        }.applyBackpressure(backpressure)
-            .onCompletion {
-                val wasLastCollector = observationManager.unsubscribe(serviceUuid, charUuid)
-                if (wasLastCollector) {
-                    disableNotifications(characteristic)
-                }
-            }
+        return buildObservationFlow(
+            characteristic = characteristic,
+            backpressure = backpressure,
+            observationManager = observationManager,
+            isReady = { peripheralContext.state.value is State.Connected.Ready },
+            enable = ::enableNotifications,
+            disable = ::disableNotifications,
+            mapper = ObservationToBytes,
+        )
     }
 
     private fun enableNotifications(characteristic: Characteristic) {
-        val native = requireNativeCbChar(characteristic)
-        bridge.setNotifyValue(true, native)
+        bridge.setNotifyValue(true, requireNativeCbChar(characteristic))
     }
 
     private fun disableNotifications(characteristic: Characteristic) {
@@ -543,10 +481,9 @@ public class IosPeripheral(
         checkNotClosed()
         return peripheralContext.gattQueue.enqueue {
             val native = requireNativeCbDesc(descriptor)
-            val deferred = CompletableDeferred<GattResult>()
-            pendingOps.set(PendingOp.DescriptorRead, deferred)
-            bridge.readDescriptor(native)
-            val result = deferred.await()
+            val result = pendingOps.awaitGatt(PendingOp.DescriptorRead, "readDescriptor") {
+                bridge.readDescriptor(native)
+            }
             if (!result.status.isSuccess()) throw BleException(GattError("readDescriptor", result.status))
             result.value
         }
@@ -559,10 +496,9 @@ public class IosPeripheral(
         checkNotClosed()
         peripheralContext.gattQueue.enqueue {
             val native = requireNativeCbDesc(descriptor)
-            val deferred = CompletableDeferred<GattStatus>()
-            pendingOps.set(PendingOp.DescriptorWrite, deferred)
-            bridge.writeDescriptor(native, data.toNSData())
-            val status = deferred.await()
+            val status = pendingOps.awaitGatt(PendingOp.DescriptorWrite, "writeDescriptor") {
+                bridge.writeDescriptor(native, data.toNSData())
+            }
             if (!status.isSuccess()) throw BleException(GattError("writeDescriptor", status))
         }
     }
@@ -570,27 +506,19 @@ public class IosPeripheral(
     override suspend fun readRssi(): Int {
         checkNotClosed()
         return peripheralContext.gattQueue.enqueue {
-            val deferred = CompletableDeferred<Int>()
-            pendingOps.set(PendingOp.RssiRead, deferred)
-            bridge.readRSSI()
-            deferred.await()
+            pendingOps.awaitGatt(PendingOp.RssiRead, "readRssi") { bridge.readRSSI() }
         }
     }
 
     override suspend fun requestMtu(mtu: Int): Int {
         checkNotClosed()
-        // iOS negotiates MTU automatically - no explicit request API.
-        // Read the actual negotiated value from CoreBluetooth.
         val actualMtu =
             cbPeripheral
-                .maximumWriteValueLengthForType(
-                    CBCharacteristicWriteWithResponse,
-                ).toInt() + ATT_HEADER_SIZE
+                .maximumWriteValueLengthForType(CBCharacteristicWriteWithResponse)
+                .toInt() + ATT_HEADER_SIZE
         peripheralContext.updateMtu(actualMtu)
         return actualMtu
     }
-
-    // --- L2CAP ---
 
     override suspend fun openL2capChannel(
         psm: Int,
@@ -609,14 +537,10 @@ public class IosPeripheral(
             }
             val deferred = CompletableDeferred<CBL2CAPChannel>()
             pendingL2capChannel = deferred
-
             bridge.openL2CAPChannel(psm.toUShort())
 
             try {
-                val cbChannel =
-                    withTimeout(L2CAP_OPEN_TIMEOUT) {
-                        deferred.await()
-                    }
+                val cbChannel = withTimeout(L2CAP_OPEN_TIMEOUT) { deferred.await() }
                 val channel = IosL2capChannel(cbChannel, peripheralContext.scope, mtu ?: DEFAULT_L2CAP_MTU)
                 activeL2capChannels.update { it + channel }
                 channel
@@ -637,25 +561,24 @@ public class IosPeripheral(
         val deferred = pendingL2capChannel ?: return
         pendingL2capChannel = null
 
-        if (event.error != null) {
-            deferred.completeExceptionally(
-                L2capException.OpenFailed(
-                    psm = event.channel?.PSM?.toInt() ?: -1,
-                    message = event.error.localizedDescription,
-                ),
-            )
-        } else if (event.channel != null) {
-            deferred.complete(event.channel)
-        } else {
-            deferred.completeExceptionally(
-                L2capException.OpenFailed(psm = -1, message = "Channel is null with no error"),
-            )
+        when {
+            event.error != null ->
+                deferred.completeExceptionally(
+                    L2capException.OpenFailed(
+                        psm = event.channel?.PSM?.toInt() ?: -1,
+                        message = event.error.localizedDescription,
+                    ),
+                )
+            event.channel != null -> deferred.complete(event.channel)
+            else ->
+                deferred.completeExceptionally(
+                    L2capException.OpenFailed(psm = -1, message = "Channel is null with no error"),
+                )
         }
     }
 
     private fun closeL2capChannels() {
-        val channels = activeL2capChannels.getAndUpdate { emptyList() }
-        channels.forEach { it.close() }
+        activeL2capChannels.getAndUpdate { emptyList() }.forEach { it.close() }
     }
 
     private fun onDisconnectCleanup() {
@@ -669,60 +592,30 @@ public class IosPeripheral(
     /**
      * Restore this peripheral from iOS state restoration.
      *
-     * Called by [StateRestorationHandler] when iOS provides restored CBPeripherals
-     * after app relaunch. Re-populates observation subscriptions from persisted keys
-     * and triggers service discovery + observation re-subscription if the peripheral
-     * is already connected.
-     *
-     * State restoration flow:
-     * ```
-     * iOS restores CBPeripheral (may already be connected)
-     *     │
-     *     ├── cbPeripheral.state == Connected?
-     *     │   ├── YES → discover services → resubscribe observations
-     *     │   └── NO  → wait for connection callback → normal flow resumes
-     *     │
-     *     └── Restore persisted observation keys into ObservationManager
-     * ```
+     * Re-populates persisted observations and triggers discovery if iOS already
+     * delivered the peripheral as connected.
      */
     internal suspend fun restoreFromStateRestoration(savedObservations: Set<PersistedObservation>) {
         if (closed) return
 
         withContext(peripheralContext.dispatcher) {
-            // Pre-populate observation subscriptions from persisted entries.
-            // This ensures that when the peripheral reconnects and services are discovered,
-            // resubscribeObservations() will re-enable CCCD for these characteristics.
-            // The original backpressure strategy is restored from persistence.
             for (obs in savedObservations) {
-                observationManager.subscribe(
-                    obs.key.serviceUuid,
-                    obs.key.charUuid,
-                    obs.backpressure,
-                )
+                observationManager.subscribe(obs.key.serviceUuid, obs.key.charUuid, obs.backpressure)
             }
 
-            // If the peripheral is already connected (iOS maintained the connection),
-            // trigger service discovery to rebuild the native char/desc maps and
-            // re-enable notifications.
             if (cbPeripheral.state == CBPeripheralStateConnected) {
                 peripheralContext.processEvent(ConnectionEvent.ConnectRequested)
                 peripheralContext.gattQueue.start()
                 peripheralContext.processEvent(ConnectionEvent.LinkEstablished)
 
-                val deferred = CompletableDeferred<Unit>()
-                connectionComplete = deferred
+                val deferred = slots.armConnect()
                 bridge.discoverServices()
-
                 try {
-                    withTimeout(DISCOVERY_TIMEOUT) {
-                        deferred.await()
-                    }
+                    withTimeout(DISCOVERY_TIMEOUT) { deferred.await() }
                 } finally {
-                    connectionComplete = null
+                    slots.clearConnect()
                 }
             }
-            // If not connected, the normal connection callback flow will handle it
-            // when iOS reconnects the peripheral.
         }
     }
 
