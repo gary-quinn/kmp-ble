@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+# Block Unicode typography characters in staged content.
+#
+# Per-line bypass: append `typo-ok` anywhere on the offending line (matched
+#                  against content only, not file path).
+# Path-level bypass: edit EXCLUDE_PATHS below.
+#
+# Requires git compiled with PCRE2 (default on Apple Git, Homebrew git, and
+# most Linux distros).
+# No `-e`: git grep's exit code is part of normal control flow (1 = no matches).
+set -uo pipefail
+
+files=()
+while IFS= read -r -d '' f; do
+  files+=("$f")
+done < <(git diff --cached --name-only -z --diff-filter=ACM)
+
+[ ${#files[@]} -eq 0 ] && exit 0
+
+# em-dash, en-dash, single curly quotes, double curly quotes, ellipsis, NBSP
+pattern='(*UTF)[\x{2013}\x{2014}\x{2018}\x{2019}\x{201C}\x{201D}\x{2026}\x{00A0}]'
+
+EXCLUDE_PATHS=(
+  ':(glob,exclude)**/testdata/**'
+  ':(glob,exclude)**/*.fixture.*'
+)
+
+out=$(git grep --cached -nP "$pattern" -- "${files[@]}" "${EXCLUDE_PATHS[@]}")
+rc=$?
+case $rc in
+  0) ;;          # matches found; fall through to filter
+  1) exit 0 ;;   # no matches
+  *) echo "pre-commit: git grep failed (exit $rc)" >&2; exit $rc ;;
+esac
+
+# Strip `file:line:` prefix before checking for the pragma so it can't be
+# smuggled via filename or path.
+violations=$(printf '%s\n' "$out" | awk '{
+  s = $0
+  sub(/^[^:]+:[0-9]+:/, "", s)
+  if (s !~ /typo-ok/) print $0
+}')
+
+if [ -n "$violations" ]; then
+  echo "Forbidden typography character (em/en-dash, smart quote, ellipsis, NBSP):" >&2
+  echo "$violations" >&2
+  echo >&2
+  echo "Use ASCII (-, ', \", ...) or append 'typo-ok' to the line to allow." >&2
+  exit 1
+fi
