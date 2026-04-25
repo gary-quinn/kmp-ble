@@ -7,6 +7,7 @@
 #
 # Requires git compiled with PCRE2 (default on Apple Git, Homebrew git, and
 # most Linux distros).
+# No `-e`: git grep's exit code is part of normal control flow (1 = no matches).
 set -uo pipefail
 
 files=()
