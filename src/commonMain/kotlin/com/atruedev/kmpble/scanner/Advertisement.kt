@@ -11,7 +11,7 @@ import kotlin.uuid.Uuid
  *
  * [manufacturerData] and [serviceData] values are [BleData] - zero-copy on iOS
  * (wraps NSData), lightweight on Android (wraps ByteArray). Call [BleData.toByteArray]
- * only when you need a mutable copy for protocol parsing.
+ * only when a mutable copy is needed (e.g., for protocol parsing in consumer code).
  *
  * ## BLE 5.0 Extended Advertising
  *
@@ -20,9 +20,17 @@ import kotlin.uuid.Uuid
  * On iOS, CoreBluetooth receives extended advertisements transparently.
  *
  * Check [isLegacy] to distinguish legacy from extended advertisements.
+ *
+ * ## Raw advertising payload
+ *
+ * [rawAdvertising] holds the on-air AD record when the platform exposes it, or
+ * a faithful reconstruction otherwise. Always inspect the [RawAdvertising]
+ * variant before using the bytes for byte-exact comparisons. Use the parsed
+ * fields above for cross-platform code, [rawAdvertising] for diagnostics or
+ * vendor-specific AD types the library does not parse.
  */
 @OptIn(ExperimentalUuidApi::class)
-public class Advertisement(
+public data class Advertisement(
     public val identifier: Identifier,
     public val name: String?,
     public val rssi: Int,
@@ -38,51 +46,21 @@ public class Advertisement(
     public val advertisingSid: Int? = null,
     public val periodicAdvertisingInterval: Int? = null,
     public val dataStatus: DataStatus = DataStatus.Complete,
-    internal val platformContext: Any? = null,
+    public val rawAdvertising: RawAdvertising? = null,
 ) {
-    override fun equals(other: Any?): Boolean {
-        if (this === other) return true
-        if (other !is Advertisement) return false
-        return identifier == other.identifier &&
-            name == other.name &&
-            rssi == other.rssi &&
-            txPower == other.txPower &&
-            isConnectable == other.isConnectable &&
-            serviceUuids == other.serviceUuids &&
-            manufacturerData == other.manufacturerData &&
-            serviceData == other.serviceData &&
-            timestampNanos == other.timestampNanos &&
-            isLegacy == other.isLegacy &&
-            primaryPhy == other.primaryPhy &&
-            secondaryPhy == other.secondaryPhy &&
-            advertisingSid == other.advertisingSid &&
-            periodicAdvertisingInterval == other.periodicAdvertisingInterval &&
-            dataStatus == other.dataStatus
-    }
-
-    override fun hashCode(): Int {
-        var result = identifier.hashCode()
-        result = 31 * result + (name?.hashCode() ?: 0)
-        result = 31 * result + rssi
-        result = 31 * result + (txPower ?: 0)
-        result = 31 * result + isConnectable.hashCode()
-        result = 31 * result + serviceUuids.hashCode()
-        result = 31 * result + manufacturerData.hashCode()
-        result = 31 * result + serviceData.hashCode()
-        result = 31 * result + timestampNanos.hashCode()
-        result = 31 * result + isLegacy.hashCode()
-        result = 31 * result + primaryPhy.hashCode()
-        result = 31 * result + (secondaryPhy?.hashCode() ?: 0)
-        result = 31 * result + (advertisingSid ?: 0)
-        result = 31 * result + (periodicAdvertisingInterval ?: 0)
-        result = 31 * result + dataStatus.hashCode()
-        return result
-    }
+    internal var platformContext: Any? = null
 
     override fun toString(): String =
         "Advertisement(identifier=$identifier, name=$name, rssi=$rssi, " +
-            "serviceUuids=$serviceUuids, isLegacy=$isLegacy)"
+            "serviceUuids=$serviceUuids, isLegacy=$isLegacy, " +
+            "rawAdvertising=${rawAdvertising?.describe()})"
 }
+
+private fun RawAdvertising.describe(): String =
+    when (this) {
+        is RawAdvertising.OnAir -> "OnAir(${bytes.size}B)"
+        is RawAdvertising.Reconstructed -> "Reconstructed(${bytes.size}B)"
+    }
 
 /**
  * Whether the advertisement data is complete or truncated.

@@ -31,10 +31,8 @@ internal fun RawScanResult.toAdvertisement(): Advertisement {
         manufacturerData = parseManufacturerData(data),
         serviceData = parseServiceData(data),
         timestampNanos = (NSDate().timeIntervalSince1970 * 1_000_000_000).toLong(),
-        // CoreBluetooth receives extended advertisements transparently.
-        // PHY and advertising set fields are not exposed by the CoreBluetooth API.
-        platformContext = peripheral,
-    )
+        rawAdvertising = RawAdvertising.Reconstructed(reconstructAdvertisingBytes(data)),
+    ).also { it.platformContext = peripheral }
 }
 
 @OptIn(ExperimentalUuidApi::class)
