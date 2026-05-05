@@ -137,36 +137,41 @@ internal class ApplePeripheralBridge(
         CentralManagerProvider.manager.connectPeripheral(cbPeripheral, options = null)
     }
 
-    internal fun discoverServices() {
+    internal fun discoverServices(): Boolean {
         cbPeripheral.discoverServices(null)
+        return true
     }
 
     internal fun discoverCharacteristics(service: CBService) {
         cbPeripheral.discoverCharacteristics(null, service)
     }
 
-    internal fun readCharacteristic(characteristic: CBCharacteristic) {
+    internal fun readCharacteristic(characteristic: CBCharacteristic): Boolean {
         cbPeripheral.readValueForCharacteristic(characteristic)
+        return true
     }
 
     internal fun writeCharacteristic(
         characteristic: CBCharacteristic,
         data: NSData,
         withResponse: Boolean,
-    ) {
+    ): Boolean {
         val type = if (withResponse) CBCharacteristicWriteWithResponse else CBCharacteristicWriteWithoutResponse
         cbPeripheral.writeValue(data, characteristic, type)
+        return true
     }
 
-    internal fun readDescriptor(descriptor: CBDescriptor) {
+    internal fun readDescriptor(descriptor: CBDescriptor): Boolean {
         cbPeripheral.readValueForDescriptor(descriptor)
+        return true
     }
 
     internal fun writeDescriptor(
         descriptor: CBDescriptor,
         data: NSData,
-    ) {
+    ): Boolean {
         cbPeripheral.writeValue(data, descriptor)
+        return true
     }
 
     internal fun setNotifyValue(
@@ -176,8 +181,9 @@ internal class ApplePeripheralBridge(
         cbPeripheral.setNotifyValue(enabled, characteristic)
     }
 
-    internal fun readRSSI() {
+    internal fun readRSSI(): Boolean {
         cbPeripheral.readRSSI()
+        return true
     }
 
     internal fun openL2CAPChannel(psm: UShort) {
