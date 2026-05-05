@@ -11,6 +11,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+_Changes on `main` that have not yet been tagged for release._
+
+---
+
+## [0.5.0] - 2026-05-05
+
+### Added
+- feat(scanner): expose raw advertising payload via RawAdvertising
+
+### Changed
+- ci: add typography-check job
+- refactor(peripheral): confine lifecycle deferreds to serial dispatcher
+- build(dependabot): bump kotlin from 2.3.20 to 2.3.21
+- build(dependabot): bump agp from 9.1.1 to 9.2.0
+- build(dependabot): bump gradle-wrapper from 9.4.1 to 9.5.0
+- refactor(sample): restore working demo from v0.3.8 baseline
+
 ### Added
 - `Advertisement.rawAdvertising`: optional `RawAdvertising` exposing the on-air
   AD record. `RawAdvertising.OnAir` on Android (from `ScanRecord.getBytes()`);
@@ -476,7 +493,8 @@ _No notable changes._
 
 ---
 
-[Unreleased]: https://github.com/gary-quinn/kmp-ble/compare/v0.4.3...HEAD
+[Unreleased]: https://github.com/gary-quinn/kmp-ble/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/gary-quinn/kmp-ble/compare/v0.4.3...v0.5.0
 [0.4.3]: https://github.com/gary-quinn/kmp-ble/compare/v0.4.2...v0.4.3
 [0.4.2]: https://github.com/gary-quinn/kmp-ble/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/gary-quinn/kmp-ble/compare/v0.4.0...v0.4.1
