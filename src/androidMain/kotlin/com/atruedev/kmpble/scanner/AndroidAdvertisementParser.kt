@@ -35,8 +35,8 @@ internal fun ScanResult.toAdvertisement(): Advertisement {
                 ScanResult.DATA_COMPLETE -> DataStatus.Complete
                 else -> DataStatus.Truncated
             },
-        platformContext = this@toAdvertisement,
-    )
+        rawAdvertising = record?.bytes?.let { RawAdvertising.OnAir(BleData(it)) },
+    ).also { it.platformContext = this@toAdvertisement }
 }
 
 private fun Int.toPhy(): Phy =
@@ -54,7 +54,6 @@ private fun Int.toPhyOrNull(): Phy? =
         else -> null
     }
 
-/** Wraps ByteArray from ScanRecord - zero-copy (BleData wraps the reference). */
 private fun parseManufacturerData(record: android.bluetooth.le.ScanRecord?): Map<Int, BleData> {
     val sparse = record?.manufacturerSpecificData ?: return emptyMap()
     val result = mutableMapOf<Int, BleData>()
