@@ -327,10 +327,11 @@ public class IosPeripheral(
         pendingCharacteristicDiscovery--
         if (pendingCharacteristicDiscovery > 0) return
 
-        val discovered = cbPeripheral.services
-            ?.filterIsInstance<CBService>()
-            ?.map { it.toDiscoveredService() }
-            .orEmpty()
+        val discovered =
+            cbPeripheral.services
+                ?.filterIsInstance<CBService>()
+                ?.map { it.toDiscoveredService() }
+                .orEmpty()
         finishDiscovery(discovered)
     }
 
@@ -353,35 +354,37 @@ public class IosPeripheral(
     private fun CBService.toDiscoveredService(): DiscoveredService {
         val serviceUuid = uuidFrom(UUID.UUIDString)
         val chars =
-            characteristics?.filterIsInstance<CBCharacteristic>()?.map { cbChar ->
-                val charUuid = uuidFrom(cbChar.UUID.UUIDString)
-                val props = cbChar.properties.toInt()
-                val descs = mutableListOf<Descriptor>()
-                val char =
-                    Characteristic(
-                        serviceUuid = serviceUuid,
-                        uuid = charUuid,
-                        properties =
-                            Characteristic.Properties(
-                                read = (props and CBCharacteristicPropertyRead.toInt()) != 0,
-                                write = (props and CBCharacteristicPropertyWrite.toInt()) != 0,
-                                writeWithoutResponse =
-                                    (props and CBCharacteristicPropertyWriteWithoutResponse.toInt()) != 0,
-                                signedWrite =
-                                    (props and CBCharacteristicPropertyAuthenticatedSignedWrites.toInt()) != 0,
-                                notify = (props and CBCharacteristicPropertyNotify.toInt()) != 0,
-                                indicate = (props and CBCharacteristicPropertyIndicate.toInt()) != 0,
-                            ),
-                        descriptors = descs,
-                    )
-                nativeCharMap[char] = cbChar
-                cbChar.descriptors?.filterIsInstance<CBDescriptor>()?.forEach { cbDesc ->
-                    val desc = Descriptor(char, uuidFrom(cbDesc.UUID.UUIDString))
-                    descs.add(desc)
-                    nativeDescMap[desc] = cbDesc
-                }
-                char
-            }.orEmpty()
+            characteristics
+                ?.filterIsInstance<CBCharacteristic>()
+                ?.map { cbChar ->
+                    val charUuid = uuidFrom(cbChar.UUID.UUIDString)
+                    val props = cbChar.properties.toInt()
+                    val descs = mutableListOf<Descriptor>()
+                    val char =
+                        Characteristic(
+                            serviceUuid = serviceUuid,
+                            uuid = charUuid,
+                            properties =
+                                Characteristic.Properties(
+                                    read = (props and CBCharacteristicPropertyRead.toInt()) != 0,
+                                    write = (props and CBCharacteristicPropertyWrite.toInt()) != 0,
+                                    writeWithoutResponse =
+                                        (props and CBCharacteristicPropertyWriteWithoutResponse.toInt()) != 0,
+                                    signedWrite =
+                                        (props and CBCharacteristicPropertyAuthenticatedSignedWrites.toInt()) != 0,
+                                    notify = (props and CBCharacteristicPropertyNotify.toInt()) != 0,
+                                    indicate = (props and CBCharacteristicPropertyIndicate.toInt()) != 0,
+                                ),
+                            descriptors = descs,
+                        )
+                    nativeCharMap[char] = cbChar
+                    cbChar.descriptors?.filterIsInstance<CBDescriptor>()?.forEach { cbDesc ->
+                        val desc = Descriptor(char, uuidFrom(cbDesc.UUID.UUIDString))
+                        descs.add(desc)
+                        nativeDescMap[desc] = cbDesc
+                    }
+                    char
+                }.orEmpty()
 
         return DiscoveredService(uuid = serviceUuid, characteristics = chars)
     }
@@ -401,9 +404,10 @@ public class IosPeripheral(
         checkNotClosed()
         return peripheralContext.gattQueue.enqueue {
             val native = requireNativeCbChar(characteristic)
-            val result = pendingOps.awaitGatt(PendingOp.CharacteristicRead, "read") {
-                bridge.readCharacteristic(native)
-            }
+            val result =
+                pendingOps.awaitGatt(PendingOp.CharacteristicRead, "read") {
+                    bridge.readCharacteristic(native)
+                }
             if (!result.status.isSuccess()) throw BleException(GattError("read", result.status))
             result.value
         }
@@ -424,9 +428,10 @@ public class IosPeripheral(
         peripheralContext.gattQueue.enqueue {
             for (chunk in chunks) {
                 if (withResponse) {
-                    val status = pendingOps.awaitGatt(PendingOp.CharacteristicWrite, "write") {
-                        bridge.writeCharacteristic(native, chunk.toNSData(), withResponse = true)
-                    }
+                    val status =
+                        pendingOps.awaitGatt(PendingOp.CharacteristicWrite, "write") {
+                            bridge.writeCharacteristic(native, chunk.toNSData(), withResponse = true)
+                        }
                     if (!status.isSuccess()) throw BleException(GattError("write", status))
                 } else {
                     bridge.writeCharacteristic(native, chunk.toNSData(), withResponse = false)
@@ -481,9 +486,10 @@ public class IosPeripheral(
         checkNotClosed()
         return peripheralContext.gattQueue.enqueue {
             val native = requireNativeCbDesc(descriptor)
-            val result = pendingOps.awaitGatt(PendingOp.DescriptorRead, "readDescriptor") {
-                bridge.readDescriptor(native)
-            }
+            val result =
+                pendingOps.awaitGatt(PendingOp.DescriptorRead, "readDescriptor") {
+                    bridge.readDescriptor(native)
+                }
             if (!result.status.isSuccess()) throw BleException(GattError("readDescriptor", result.status))
             result.value
         }
@@ -496,9 +502,10 @@ public class IosPeripheral(
         checkNotClosed()
         peripheralContext.gattQueue.enqueue {
             val native = requireNativeCbDesc(descriptor)
-            val status = pendingOps.awaitGatt(PendingOp.DescriptorWrite, "writeDescriptor") {
-                bridge.writeDescriptor(native, data.toNSData())
-            }
+            val status =
+                pendingOps.awaitGatt(PendingOp.DescriptorWrite, "writeDescriptor") {
+                    bridge.writeDescriptor(native, data.toNSData())
+                }
             if (!status.isSuccess()) throw BleException(GattError("writeDescriptor", status))
         }
     }

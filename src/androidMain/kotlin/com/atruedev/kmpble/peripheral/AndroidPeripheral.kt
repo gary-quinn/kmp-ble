@@ -330,7 +330,11 @@ public class AndroidPeripheral internal constructor(
                     pendingOps.complete(PendingOp.CharacteristicWrite, event.status.toGattStatus())
                 is GattCallbackEvent.CharacteristicChanged -> {
                     val charUuid = Uuid.parse(event.characteristic.uuid.toString())
-                    val serviceUuid = Uuid.parse(event.characteristic.service.uuid.toString())
+                    val serviceUuid =
+                        Uuid.parse(
+                            event.characteristic.service.uuid
+                                .toString(),
+                        )
                     observationManager.emitByUuid(serviceUuid, charUuid, event.value)
                 }
                 is GattCallbackEvent.DescriptorRead ->
@@ -362,7 +366,10 @@ public class AndroidPeripheral internal constructor(
         }
     }
 
-    private suspend fun handleLinkUp(status: com.atruedev.kmpble.error.GattStatus, rawStatus: Int) {
+    private suspend fun handleLinkUp(
+        status: com.atruedev.kmpble.error.GattStatus,
+        rawStatus: Int,
+    ) {
         if (!status.isSuccess()) {
             peripheralContext.processEvent(
                 ConnectionEvent.ConnectionLost(ConnectionFailed("GATT status: $status", rawStatus)),
@@ -511,9 +518,10 @@ public class AndroidPeripheral internal constructor(
         checkNotClosed()
         return peripheralContext.gattQueue.enqueue {
             val native = requireNativeChar(characteristic)
-            val result = pendingOps.awaitGatt(PendingOp.CharacteristicRead, "read") {
-                bridge.readCharacteristic(native)
-            }
+            val result =
+                pendingOps.awaitGatt(PendingOp.CharacteristicRead, "read") {
+                    bridge.readCharacteristic(native)
+                }
             if (!result.status.isSuccess()) throw BleException(GattError("read", result.status))
             result.value
         }
@@ -533,9 +541,10 @@ public class AndroidPeripheral internal constructor(
 
         peripheralContext.gattQueue.enqueue {
             for (chunk in chunks) {
-                val status = pendingOps.awaitGatt(PendingOp.CharacteristicWrite, "write") {
-                    bridge.writeCharacteristic(native, chunk, androidWriteType)
-                }
+                val status =
+                    pendingOps.awaitGatt(PendingOp.CharacteristicWrite, "write") {
+                        bridge.writeCharacteristic(native, chunk, androidWriteType)
+                    }
                 if (!status.isSuccess()) throw BleException(GattError("write", status))
             }
         }
@@ -586,9 +595,10 @@ public class AndroidPeripheral internal constructor(
         val cccd = native.getDescriptor(UUID.fromString(CCCD_UUID.toString())) ?: return
         val value = if (characteristic.properties.indicate) ENABLE_INDICATION_VALUE else ENABLE_NOTIFICATION_VALUE
         peripheralContext.gattQueue.enqueue {
-            val status = pendingOps.awaitGatt(PendingOp.DescriptorWrite, "enableNotifications") {
-                bridge.writeDescriptor(cccd, value)
-            }
+            val status =
+                pendingOps.awaitGatt(PendingOp.DescriptorWrite, "enableNotifications") {
+                    bridge.writeDescriptor(cccd, value)
+                }
             if (!status.isSuccess()) throw BleException(GattError("enableNotifications", status))
         }
     }
@@ -619,9 +629,10 @@ public class AndroidPeripheral internal constructor(
         checkNotClosed()
         return peripheralContext.gattQueue.enqueue {
             val native = requireNativeDesc(descriptor)
-            val result = pendingOps.awaitGatt(PendingOp.DescriptorRead, "readDescriptor") {
-                bridge.readDescriptor(native)
-            }
+            val result =
+                pendingOps.awaitGatt(PendingOp.DescriptorRead, "readDescriptor") {
+                    bridge.readDescriptor(native)
+                }
             if (!result.status.isSuccess()) throw BleException(GattError("descriptorRead", result.status))
             result.value
         }
@@ -634,9 +645,10 @@ public class AndroidPeripheral internal constructor(
         checkNotClosed()
         peripheralContext.gattQueue.enqueue {
             val native = requireNativeDesc(descriptor)
-            val status = pendingOps.awaitGatt(PendingOp.DescriptorWrite, "writeDescriptor") {
-                bridge.writeDescriptor(native, data)
-            }
+            val status =
+                pendingOps.awaitGatt(PendingOp.DescriptorWrite, "writeDescriptor") {
+                    bridge.writeDescriptor(native, data)
+                }
             if (!status.isSuccess()) throw BleException(GattError("descriptorWrite", status))
         }
     }
