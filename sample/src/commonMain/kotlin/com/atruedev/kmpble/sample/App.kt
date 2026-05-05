@@ -51,7 +51,7 @@ sealed interface Screen {
 
 @Composable
 fun App() {
-    // enableStateRestoration() is intentionally omitted — it requires UIBackgroundModes
+    // enableStateRestoration() is intentionally omitted -- it requires UIBackgroundModes
     // bluetooth-central in Info.plist, which the sample app does not declare.
     // Apps that need background BLE must call enableStateRestoration() here, before
     // BluetoothAdapter(), to avoid a race with CBCentralManager lazy initialization.

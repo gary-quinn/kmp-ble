@@ -71,7 +71,7 @@ fun HeartRateDemoScreen(
         } catch (e: CancellationException) {
             throw e
         } catch (_: Exception) {
-            // GATT read failure — screen shows "No Heart Rate service" fallback
+            // GATT read failure -- screen shows "No Heart Rate service" fallback
         }
     }
 
@@ -98,7 +98,7 @@ fun HeartRateDemoScreen(
             Spacer(Modifier.height(32.dp))
 
             Text(
-                text = latestMeasurement?.heartRate?.toString() ?: "—",
+                text = latestMeasurement?.heartRate?.toString() ?: "--",
                 fontSize = 96.sp,
                 fontWeight = FontWeight.Thin,
                 color = MaterialTheme.colorScheme.primary,

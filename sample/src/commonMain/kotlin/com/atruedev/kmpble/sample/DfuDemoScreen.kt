@@ -154,7 +154,7 @@ private fun DfuProgressSection(progress: DfuProgress?) {
                 }
                 is DfuProgress.Transferring -> {
                     Text(
-                        "Object ${progress.currentObject}/${progress.totalObjects} — " +
+                        "Object ${progress.currentObject}/${progress.totalObjects} -- " +
                             "${formatBytes(progress.bytesSent)}/${formatBytes(progress.totalBytes)}",
                         style = MaterialTheme.typography.bodySmall,
                     )

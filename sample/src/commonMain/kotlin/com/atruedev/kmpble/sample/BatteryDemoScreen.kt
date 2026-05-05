@@ -89,7 +89,7 @@ fun BatteryDemoScreen(
             Spacer(Modifier.height(32.dp))
 
             Text(
-                text = displayLevel?.let { "$it%" } ?: "—",
+                text = displayLevel?.let { "$it%" } ?: "--",
                 fontSize = 72.sp,
                 fontWeight = FontWeight.Thin,
                 color = batteryColor(displayLevel),

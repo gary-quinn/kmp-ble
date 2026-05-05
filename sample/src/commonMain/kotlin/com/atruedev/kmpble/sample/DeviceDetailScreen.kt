@@ -370,7 +370,7 @@ private fun InfoSection(
             Text("Info", style = MaterialTheme.typography.titleSmall)
             Spacer(Modifier.height(8.dp))
 
-            Text("RSSI: ${rssi?.let { "$it dBm" } ?: "—"}", style = MaterialTheme.typography.bodySmall)
+            Text("RSSI: ${rssi?.let { "$it dBm" } ?: "--"}", style = MaterialTheme.typography.bodySmall)
             Text("MTU: $mtu", style = MaterialTheme.typography.bodySmall)
             Text("Max write length: $maxWriteLen", style = MaterialTheme.typography.bodySmall)
 

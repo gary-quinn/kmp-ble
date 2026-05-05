@@ -44,9 +44,9 @@ import kotlin.uuid.Uuid
  *
  * [Peripheral] is created once from the [Advertisement]; all BLE operations
  * are scoped to [viewModelScope]. [onCleared] calls [Peripheral.close] which
- * cancels coroutines and disconnects — without this, GATT connections leak.
+ * cancels coroutines and disconnects -- without this, GATT connections leak.
  *
- * NOTE: This is a sample-app convenience — a single ViewModel for all screens
+ * NOTE: This is a sample-app convenience -- a single ViewModel for all screens
  * sharing one Peripheral. In production, split by concern (e.g., separate DFU
  * orchestration, profile readers) to avoid accumulating responsibilities.
  */
@@ -256,7 +256,7 @@ class BleViewModel(
         releaseConnection()
     }
 
-    // Sample convenience — in production, prefer named ViewModel methods over exposing
+    // Sample convenience -- in production, prefer named ViewModel methods over exposing
     // a generic launcher, which bypasses operation serialization.
     fun launchWithErrorHandling(block: suspend () -> Unit) {
         viewModelScope.launch {
