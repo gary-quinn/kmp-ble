@@ -3,7 +3,7 @@ package com.atruedev.kmpble.profiles.codec
 /**
  * Decodes a BLE characteristic value (or framed stream payload) into a typed value.
  *
- * Returns `null` on parse failure — matches the convention used by the built-in
+ * Returns `null` on parse failure -- matches the convention used by the built-in
  * SIG profile parsers (e.g. heart rate, glucose).
  */
 public fun interface Decoder<out T> {
