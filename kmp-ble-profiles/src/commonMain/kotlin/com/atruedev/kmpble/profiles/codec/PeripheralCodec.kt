@@ -9,13 +9,32 @@ import kotlinx.coroutines.flow.mapNotNull
 import kotlin.uuid.Uuid
 
 /**
+ * Sealed root of failures raised by [readAs] / [writeAs] / [observeAs] that
+ * originate inside the codec layer (as opposed to the underlying BLE op).
+ *
+ * Match exhaustively when distinguishing codec failures from arbitrary BLE
+ * errors that may also surface via [Result.failure]:
+ *
+ * ```
+ * when (val cause = result.exceptionOrNull()) {
+ *     is PeripheralCodecException -> when (cause) {
+ *         is CharacteristicNotFoundException -> ...
+ *         is DecodeFailureException -> ...
+ *     }
+ *     else -> ... // BLE error, cancellation, etc.
+ * }
+ * ```
+ */
+public sealed class PeripheralCodecException(message: String) : RuntimeException(message)
+
+/**
  * Thrown when a service+characteristic UUID pair does not resolve against the
  * peripheral's discovered services.
  */
 public class CharacteristicNotFoundException(
     public val serviceUuid: Uuid,
     public val characteristicUuid: Uuid,
-) : RuntimeException("Characteristic $characteristicUuid not found in service $serviceUuid")
+) : PeripheralCodecException("Characteristic $characteristicUuid not found in service $serviceUuid")
 
 /**
  * Thrown when a [Decoder] returns `null` for a value read from a characteristic.
@@ -23,7 +42,7 @@ public class CharacteristicNotFoundException(
  */
 public class DecodeFailureException(
     public val bytes: ByteArray,
-) : RuntimeException("Decoder rejected ${bytes.size} bytes")
+) : PeripheralCodecException("Decoder rejected ${bytes.size} bytes")
 
 /**
  * Reads a characteristic and decodes the value with [decoder].
