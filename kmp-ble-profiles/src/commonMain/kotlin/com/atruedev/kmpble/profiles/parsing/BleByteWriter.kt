@@ -3,34 +3,38 @@ package com.atruedev.kmpble.profiles.parsing
 /**
  * Little-endian byte builder for constructing BLE characteristic payloads.
  *
- * Dual of [BleByteReader]. Designed to be created, written to linearly, and
+ * Symmetric counterpart to [BleByteReader]: same backing storage strategy
+ * (raw [ByteArray] + cursor), same little-endian semantics, same strict
+ * range validation. Designed to be created, written to linearly, and
  * finalized with [toByteArray] within a single pure encode function.
- * Not thread-safe - not intended to be shared.
  *
- * Range-validates every integer write and throws [IllegalArgumentException]
- * on overflow, matching the strictness of [BleByteReader].
+ * Not thread-safe.
  */
 public class BleByteWriter(initialCapacity: Int = 16) {
-    private val buffer: ArrayList<Byte> = ArrayList(initialCapacity)
+    private var buffer: ByteArray = ByteArray(initialCapacity.coerceAtLeast(1))
 
-    public val size: Int get() = buffer.size
+    public var size: Int = 0
+        private set
 
     public fun writeUInt8(value: Int): BleByteWriter {
         require(value in 0..0xFF) { "uint8 out of range: $value" }
-        buffer.add(value.toByte())
+        ensure(1)
+        buffer[size++] = value.toByte()
         return this
     }
 
     public fun writeInt8(value: Int): BleByteWriter {
         require(value in Byte.MIN_VALUE..Byte.MAX_VALUE) { "int8 out of range: $value" }
-        buffer.add(value.toByte())
+        ensure(1)
+        buffer[size++] = value.toByte()
         return this
     }
 
     public fun writeUInt16(value: Int): BleByteWriter {
         require(value in 0..0xFFFF) { "uint16 out of range: $value" }
-        buffer.add((value and 0xFF).toByte())
-        buffer.add(((value shr 8) and 0xFF).toByte())
+        ensure(2)
+        buffer[size++] = (value and 0xFF).toByte()
+        buffer[size++] = ((value shr 8) and 0xFF).toByte()
         return this
     }
 
@@ -42,21 +46,30 @@ public class BleByteWriter(initialCapacity: Int = 16) {
 
     public fun writeUInt32(value: Long): BleByteWriter {
         require(value in 0..0xFFFFFFFFL) { "uint32 out of range: $value" }
-        buffer.add((value and 0xFF).toByte())
-        buffer.add(((value shr 8) and 0xFF).toByte())
-        buffer.add(((value shr 16) and 0xFF).toByte())
-        buffer.add(((value shr 24) and 0xFF).toByte())
+        ensure(4)
+        buffer[size++] = (value and 0xFF).toByte()
+        buffer[size++] = ((value shr 8) and 0xFF).toByte()
+        buffer[size++] = ((value shr 16) and 0xFF).toByte()
+        buffer[size++] = ((value shr 24) and 0xFF).toByte()
         return this
     }
 
-    public fun writeUtf8(value: String): BleByteWriter {
-        return writeBytes(value.encodeToByteArray())
-    }
+    public fun writeUtf8(value: String): BleByteWriter = writeBytes(value.encodeToByteArray())
 
     public fun writeBytes(bytes: ByteArray): BleByteWriter {
-        for (b in bytes) buffer.add(b)
+        ensure(bytes.size)
+        bytes.copyInto(buffer, size)
+        size += bytes.size
         return this
     }
 
-    public fun toByteArray(): ByteArray = buffer.toByteArray()
+    public fun toByteArray(): ByteArray = buffer.copyOf(size)
+
+    private fun ensure(extra: Int) {
+        val needed = size + extra
+        if (needed <= buffer.size) return
+        var newCap = buffer.size
+        while (newCap < needed) newCap *= 2
+        buffer = buffer.copyOf(newCap)
+    }
 }

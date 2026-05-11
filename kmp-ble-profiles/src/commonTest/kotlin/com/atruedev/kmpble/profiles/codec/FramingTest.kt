@@ -131,4 +131,44 @@ class FramingTest {
             assertContentEquals(expected, actual)
         }
     }
+
+    @Test
+    fun pendingBytesReflectsBufferedTail() {
+        val framer = LengthPrefixFramer()
+        val unframer = framer.unframer()
+        assertEquals(0, unframer.pendingBytes())
+        unframer.feed(byteArrayOf(0x05, 0x00, 0x00, 0x00, 0x01, 0x02))
+        assertEquals(6, unframer.pendingBytes())
+        unframer.feed(byteArrayOf(0x03, 0x04, 0x05))
+        assertEquals(0, unframer.pendingBytes())
+    }
+
+    @Test
+    fun unframerHandles1ByteChunksForLargeFrameInLinearTime() {
+        val framer = LengthPrefixFramer(maxFrameSize = 200_000)
+        val payload = ByteArray(100_000) { (it and 0xFF).toByte() }
+        val framed = framer.frame(payload)
+        val unframer = framer.unframer()
+        var collected: ByteArray? = null
+        for (i in 0 until framed.size - 1) {
+            val out = unframer.feed(byteArrayOf(framed[i]))
+            if (out.isNotEmpty()) {
+                collected = out[0]
+                break
+            }
+        }
+        if (collected == null) {
+            val tail = unframer.feed(byteArrayOf(framed.last()))
+            collected = tail.single()
+        }
+        assertContentEquals(payload, collected)
+    }
+
+    @Test
+    fun defaultCapIs64KiB() {
+        assertEquals(64 * 1024, LengthPrefixFramer.DEFAULT_MAX_FRAME_SIZE)
+        val framer = LengthPrefixFramer()
+        framer.frame(ByteArray(64 * 1024))
+        assertFailsWith<IllegalArgumentException> { framer.frame(ByteArray(64 * 1024 + 1)) }
+    }
 }

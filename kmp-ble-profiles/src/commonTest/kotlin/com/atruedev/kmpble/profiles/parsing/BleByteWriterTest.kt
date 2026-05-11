@@ -109,6 +109,23 @@ class BleByteWriterTest {
     }
 
     @Test
+    fun growsBeyondInitialCapacity() {
+        val writer = BleByteWriter(initialCapacity = 4)
+        val big = ByteArray(1000) { (it and 0xFF).toByte() }
+        writer.writeBytes(big)
+        val out = writer.toByteArray()
+        assertEquals(1000, out.size)
+        assertContentEquals(big, out)
+    }
+
+    @Test
+    fun zeroInitialCapacityStillWorks() {
+        val writer = BleByteWriter(initialCapacity = 0)
+        writer.writeUInt8(0xAA)
+        assertContentEquals(byteArrayOf(0xAA.toByte()), writer.toByteArray())
+    }
+
+    @Test
     fun roundTripsThroughReader() {
         val original = BleByteWriter()
             .writeUInt8(0xAB)

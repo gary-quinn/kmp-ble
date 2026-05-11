@@ -39,6 +39,12 @@ class CodecsTest {
     }
 
     @Test
+    fun utf8DecodeReturnsNullOnInvalidSequence() {
+        val invalid = byteArrayOf(0xC3.toByte(), 0x28)
+        assertNull(Utf8StringCodec.decode(invalid))
+    }
+
+    @Test
     fun uint8RoundTrips() {
         for (v in 0..255) {
             val encoded = Uint8Codec.encode(v)
@@ -48,14 +54,36 @@ class CodecsTest {
     }
 
     @Test
-    fun uint8DecodeEmptyReturnsNull() {
+    fun uint8DecodeRejectsWrongSize() {
         assertNull(Uint8Codec.decode(byteArrayOf()))
+        assertNull(Uint8Codec.decode(byteArrayOf(0x01, 0x02)))
     }
 
     @Test
     fun uint8EncodeRejectsOutOfRange() {
         assertFails { Uint8Codec.encode(-1) }
         assertFails { Uint8Codec.encode(256) }
+    }
+
+    @Test
+    fun int8RoundTripsAcrossFullRange() {
+        for (v in -128..127) {
+            val encoded = Int8Codec.encode(v)
+            assertEquals(1, encoded.size)
+            assertEquals(v, Int8Codec.decode(encoded))
+        }
+    }
+
+    @Test
+    fun int8DecodeRejectsWrongSize() {
+        assertNull(Int8Codec.decode(byteArrayOf()))
+        assertNull(Int8Codec.decode(byteArrayOf(0x01, 0x02)))
+    }
+
+    @Test
+    fun int8EncodeRejectsOutOfRange() {
+        assertFails { Int8Codec.encode(-129) }
+        assertFails { Int8Codec.encode(128) }
     }
 
     @Test
@@ -68,25 +96,42 @@ class CodecsTest {
     }
 
     @Test
-    fun uint16IsLittleEndian() {
-        assertContentEquals(byteArrayOf(0x80.toByte(), 0x01), Uint16Codec.encode(384))
-    }
-
-    @Test
-    fun uint16DecodeShortReturnsNull() {
+    fun uint16DecodeRejectsWrongSize() {
         assertNull(Uint16Codec.decode(byteArrayOf()))
         assertNull(Uint16Codec.decode(byteArrayOf(0x01)))
-    }
-
-    @Test
-    fun uint16DecodeIgnoresExtraBytes() {
-        assertEquals(384, Uint16Codec.decode(byteArrayOf(0x80.toByte(), 0x01, 0xFF.toByte())))
+        assertNull(Uint16Codec.decode(byteArrayOf(0x01, 0x02, 0x03)))
     }
 
     @Test
     fun uint16EncodeRejectsOutOfRange() {
         assertFails { Uint16Codec.encode(-1) }
         assertFails { Uint16Codec.encode(0x10000) }
+    }
+
+    @Test
+    fun int16RoundTrips() {
+        for (v in listOf(Short.MIN_VALUE.toInt(), -1, 0, 1, Short.MAX_VALUE.toInt())) {
+            val encoded = Int16Codec.encode(v)
+            assertEquals(2, encoded.size)
+            assertEquals(v, Int16Codec.decode(encoded))
+        }
+    }
+
+    @Test
+    fun int16DecodeNegative() {
+        assertEquals(-1, Int16Codec.decode(byteArrayOf(0xFF.toByte(), 0xFF.toByte())))
+    }
+
+    @Test
+    fun int16DecodeRejectsWrongSize() {
+        assertNull(Int16Codec.decode(byteArrayOf(0x01)))
+        assertNull(Int16Codec.decode(byteArrayOf(0x01, 0x02, 0x03)))
+    }
+
+    @Test
+    fun int16EncodeRejectsOutOfRange() {
+        assertFails { Int16Codec.encode(-32769) }
+        assertFails { Int16Codec.encode(32768) }
     }
 
     @Test
@@ -99,13 +144,9 @@ class CodecsTest {
     }
 
     @Test
-    fun uint32IsLittleEndian() {
-        assertContentEquals(byteArrayOf(0x78, 0x56, 0x34, 0x12), Uint32Codec.encode(0x12345678L))
-    }
-
-    @Test
-    fun uint32DecodeShortReturnsNull() {
+    fun uint32DecodeRejectsWrongSize() {
         assertNull(Uint32Codec.decode(byteArrayOf(0x01, 0x02, 0x03)))
+        assertNull(Uint32Codec.decode(byteArrayOf(0x01, 0x02, 0x03, 0x04, 0x05)))
     }
 
     @Test
@@ -115,10 +156,21 @@ class CodecsTest {
     }
 
     @Test
-    fun samConversion() {
-        val decoder = Decoder { bytes -> bytes.size }
-        val encoder = Encoder<Int> { value -> ByteArray(value) }
-        assertEquals(3, decoder.decode(byteArrayOf(1, 2, 3)))
-        assertEquals(5, encoder.encode(5).size)
+    fun int32RoundTrips() {
+        for (v in listOf(Int.MIN_VALUE, -1, 0, 1, Int.MAX_VALUE)) {
+            val encoded = Int32Codec.encode(v)
+            assertEquals(4, encoded.size)
+            assertEquals(v, Int32Codec.decode(encoded))
+        }
+    }
+
+    @Test
+    fun int32IsLittleEndian() {
+        assertContentEquals(byteArrayOf(0x78, 0x56, 0x34, 0x12), Int32Codec.encode(0x12345678))
+    }
+
+    @Test
+    fun int32DecodeRejectsWrongSize() {
+        assertNull(Int32Codec.decode(byteArrayOf(0x01, 0x02, 0x03)))
     }
 }

@@ -10,20 +10,25 @@ public object RawBytesCodec : Codec<ByteArray> {
 }
 
 /**
- * UTF-8 string codec. [decode] always succeeds; invalid byte sequences are
- * replaced with the Unicode replacement character per [ByteArray.decodeToString].
+ * UTF-8 string codec. [decode] returns `null` on malformed UTF-8 byte sequences
+ * (honoring the [Decoder] contract); pair with a logger if you need to surface
+ * corrupted input.
  */
 public object Utf8StringCodec : Codec<String> {
     override fun encode(value: String): ByteArray = value.encodeToByteArray()
 
-    override fun decode(bytes: ByteArray): String = bytes.decodeToString()
+    override fun decode(bytes: ByteArray): String? = try {
+        bytes.decodeToString(throwOnInvalidSequence = true)
+    } catch (_: CharacterCodingException) {
+        null
+    }
 }
 
 /**
- * Single-byte unsigned integer codec (0..255). Common for level/enum characteristics
- * like Battery Level (0x2A19).
+ * Single-byte unsigned integer codec (0..255). Common for level/enum
+ * characteristics like Battery Level (0x2A19).
  *
- * [decode] returns `null` for empty input. [encode] throws if value is out of range.
+ * Strict size: [decode] returns `null` if input is not exactly 1 byte.
  */
 public object Uint8Codec : Codec<Int> {
     override fun encode(value: Int): ByteArray {
@@ -32,14 +37,22 @@ public object Uint8Codec : Codec<Int> {
     }
 
     override fun decode(bytes: ByteArray): Int? =
-        if (bytes.isEmpty()) null else bytes[0].toInt() and 0xFF
+        if (bytes.size != 1) null else bytes[0].toInt() and 0xFF
+}
+
+/** Single-byte signed integer codec (-128..127). Strict size on decode. */
+public object Int8Codec : Codec<Int> {
+    override fun encode(value: Int): ByteArray {
+        require(value in Byte.MIN_VALUE..Byte.MAX_VALUE) { "int8 out of range: $value" }
+        return byteArrayOf(value.toByte())
+    }
+
+    override fun decode(bytes: ByteArray): Int? =
+        if (bytes.size != 1) null else bytes[0].toInt()
 }
 
 /**
- * Little-endian unsigned 16-bit integer codec (0..65535).
- *
- * [decode] returns `null` if input has fewer than 2 bytes. Extra bytes beyond
- * the first two are ignored.
+ * Little-endian unsigned 16-bit integer codec (0..65535). Strict size on decode.
  */
 public object Uint16Codec : Codec<Int> {
     override fun encode(value: Int): ByteArray {
@@ -48,16 +61,28 @@ public object Uint16Codec : Codec<Int> {
     }
 
     override fun decode(bytes: ByteArray): Int? {
-        if (bytes.size < 2) return null
+        if (bytes.size != 2) return null
         return (bytes[0].toInt() and 0xFF) or ((bytes[1].toInt() and 0xFF) shl 8)
     }
 }
 
+/** Little-endian signed 16-bit integer codec (-32768..32767). Strict size on decode. */
+public object Int16Codec : Codec<Int> {
+    override fun encode(value: Int): ByteArray {
+        require(value in Short.MIN_VALUE..Short.MAX_VALUE) { "int16 out of range: $value" }
+        return BleByteWriter(2).writeInt16(value).toByteArray()
+    }
+
+    override fun decode(bytes: ByteArray): Int? {
+        if (bytes.size != 2) return null
+        val unsigned = (bytes[0].toInt() and 0xFF) or ((bytes[1].toInt() and 0xFF) shl 8)
+        return if (unsigned >= 0x8000) unsigned - 0x10000 else unsigned
+    }
+}
+
 /**
- * Little-endian unsigned 32-bit integer codec (0..4_294_967_295).
- *
- * [decode] returns `null` if input has fewer than 4 bytes. Extra bytes beyond
- * the first four are ignored.
+ * Little-endian unsigned 32-bit integer codec (0..4_294_967_295). Strict size
+ * on decode.
  */
 public object Uint32Codec : Codec<Long> {
     override fun encode(value: Long): ByteArray {
@@ -66,11 +91,27 @@ public object Uint32Codec : Codec<Long> {
     }
 
     override fun decode(bytes: ByteArray): Long? {
-        if (bytes.size < 4) return null
+        if (bytes.size != 4) return null
         val b0 = (bytes[0].toInt() and 0xFF).toLong()
         val b1 = (bytes[1].toInt() and 0xFF).toLong()
         val b2 = (bytes[2].toInt() and 0xFF).toLong()
         val b3 = (bytes[3].toInt() and 0xFF).toLong()
         return (b3 shl 24) or (b2 shl 16) or (b1 shl 8) or b0
+    }
+}
+
+/** Little-endian signed 32-bit integer codec. Strict size on decode. */
+public object Int32Codec : Codec<Int> {
+    override fun encode(value: Int): ByteArray {
+        val unsigned = value.toLong() and 0xFFFFFFFFL
+        return BleByteWriter(4).writeUInt32(unsigned).toByteArray()
+    }
+
+    override fun decode(bytes: ByteArray): Int? {
+        if (bytes.size != 4) return null
+        return (bytes[0].toInt() and 0xFF) or
+            ((bytes[1].toInt() and 0xFF) shl 8) or
+            ((bytes[2].toInt() and 0xFF) shl 16) or
+            ((bytes[3].toInt() and 0xFF) shl 24)
     }
 }
