@@ -36,11 +36,12 @@ import kotlinx.coroutines.flow.Flow
  */
 public interface L2capChannel : AutoCloseable {
     /**
-     * The MTU (Maximum Transmission Unit) for this channel.
+     * The MTU (Maximum Transmission Unit) for this L2CAP CoC channel.
      *
-     * Maximum payload size for a single write operation.
-     * Writes larger than this are segmented automatically by the OS.
-     * Typical values: 2KB-64KB depending on peripheral and connection.
+     * Maximum payload size for a single write operation. Writes larger than
+     * this are segmented automatically by the OS. Distinct from the GATT
+     * ATT_MTU (default 23, max 517) - this is the L2CAP SDU MTU, typically
+     * 2 KB to 64 KB depending on peripheral and connection.
      *
      * **Platform behavior:**
      * - **Android:** Queried from the socket via `maxTransmitPacketSize`, floored
