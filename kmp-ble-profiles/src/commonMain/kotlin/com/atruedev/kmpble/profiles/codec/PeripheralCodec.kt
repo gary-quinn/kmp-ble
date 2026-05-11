@@ -9,25 +9,51 @@ import kotlinx.coroutines.flow.mapNotNull
 import kotlin.uuid.Uuid
 
 /**
+ * Thrown when a service+characteristic UUID pair does not resolve against the
+ * peripheral's discovered services.
+ */
+public class CharacteristicNotFoundException(
+    public val serviceUuid: Uuid,
+    public val characteristicUuid: Uuid,
+) : RuntimeException("Characteristic $characteristicUuid not found in service $serviceUuid")
+
+/**
+ * Thrown when a [Decoder] returns `null` for a value read from a characteristic.
+ * The raw [bytes] are preserved so callers can log or inspect the malformed payload.
+ */
+public class DecodeFailureException(
+    public val bytes: ByteArray,
+) : RuntimeException("Decoder rejected ${bytes.size} bytes")
+
+/**
  * Reads a characteristic and decodes the value with [decoder].
  *
- * Returns `null` if the characteristic is not present after service discovery
- * or if [decoder] returns `null` for the read bytes.
+ * Returns a [Result] so callers can distinguish three outcomes:
+ * - success: decoded value
+ * - failure with [CharacteristicNotFoundException]: characteristic absent
+ * - failure with [DecodeFailureException]: payload rejected by [decoder]
+ * - failure with any other exception thrown by the underlying read (BLE error)
  */
 public suspend fun <T> Peripheral.readAs(
     serviceUuid: Uuid,
     characteristicUuid: Uuid,
     decoder: Decoder<T>,
-): T? {
-    val char = findCharacteristic(serviceUuid, characteristicUuid) ?: return null
-    return decoder.decode(read(char))
+): Result<T> {
+    val char = findCharacteristic(serviceUuid, characteristicUuid)
+        ?: return Result.failure(CharacteristicNotFoundException(serviceUuid, characteristicUuid))
+    return runCatching {
+        val bytes = read(char)
+        decoder.decode(bytes) ?: throw DecodeFailureException(bytes)
+    }
 }
 
 /**
  * Encodes [value] with [encoder] and writes it to a characteristic.
  *
- * Silently no-ops if the characteristic is not present after service discovery;
- * use [Peripheral.findCharacteristic] directly when presence matters to the caller.
+ * Accepts an [Encoder] (not a full [Codec]) because write paths never need a
+ * decoder. Returns [Result.failure] with [CharacteristicNotFoundException] if
+ * the characteristic is absent, or with any exception thrown by the underlying
+ * write (BLE error).
  */
 public suspend fun <T> Peripheral.writeAs(
     serviceUuid: Uuid,
@@ -35,24 +61,32 @@ public suspend fun <T> Peripheral.writeAs(
     value: T,
     encoder: Encoder<T>,
     writeType: WriteType = WriteType.WithResponse,
-) {
-    val char = findCharacteristic(serviceUuid, characteristicUuid) ?: return
-    write(char, encoder.encode(value), writeType)
+): Result<Unit> {
+    val char = findCharacteristic(serviceUuid, characteristicUuid)
+        ?: return Result.failure(CharacteristicNotFoundException(serviceUuid, characteristicUuid))
+    return runCatching { write(char, encoder.encode(value), writeType) }
 }
 
 /**
  * Observes notifications/indications from a characteristic, decoding each
- * payload with [decoder]. Values that fail to decode (decoder returns `null`)
- * are dropped from the stream.
+ * payload with [decoder]. Returns an empty flow if the characteristic is
+ * absent, matching the lenient convention used by built-in SIG profiles
+ * (see [com.atruedev.kmpble.profiles.heartrate.heartRateMeasurements]).
  *
- * Returns an empty flow if the characteristic is not present.
+ * Payloads that fail to decode are routed to [onDecodeFailure] (default no-op)
+ * and dropped from the output stream. Mirrors the [decodeFramed] error model.
  */
 public fun <T> Peripheral.observeAs(
     serviceUuid: Uuid,
     characteristicUuid: Uuid,
     decoder: Decoder<T>,
     backpressure: BackpressureStrategy = BackpressureStrategy.Latest,
+    onDecodeFailure: (ByteArray) -> Unit = {},
 ): Flow<T> {
     val char = findCharacteristic(serviceUuid, characteristicUuid) ?: return emptyFlow()
-    return observeValues(char, backpressure).mapNotNull { decoder.decode(it) }
+    return observeValues(char, backpressure).mapNotNull { bytes ->
+        val decoded = decoder.decode(bytes)
+        if (decoded == null) onDecodeFailure(bytes)
+        decoded
+    }
 }

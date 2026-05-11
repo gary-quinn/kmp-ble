@@ -5,14 +5,15 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
+import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
-import kotlin.test.assertNull
+import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
 class PeripheralCodecTest {
 
     @Test
-    fun readAsDecodesValue() = runTest {
+    fun readAsReturnsSuccessWithDecodedValue() = runTest {
         val peripheral = FakePeripheral {
             service("180f") {
                 characteristic("2a19") {
@@ -22,19 +23,23 @@ class PeripheralCodecTest {
             }
         }
         peripheral.connect()
-        val level = peripheral.readAs(uuid("180f"), uuid("2a19"), Uint8Codec)
-        assertEquals(0x55, level)
+        val result = peripheral.readAs(uuid("180f"), uuid("2a19"), Uint8Codec)
+        assertEquals(0x55, result.getOrThrow())
     }
 
     @Test
-    fun readAsReturnsNullWhenCharacteristicMissing() = runTest {
+    fun readAsFailsWithCharacteristicNotFoundWhenMissing() = runTest {
         val peripheral = FakePeripheral {}
         peripheral.connect()
-        assertNull(peripheral.readAs(uuid("180f"), uuid("2a19"), Uint8Codec))
+        val result = peripheral.readAs(uuid("180f"), uuid("2a19"), Uint8Codec)
+        val ex = result.exceptionOrNull()
+        assertIs<CharacteristicNotFoundException>(ex)
+        assertEquals(uuid("180f"), ex.serviceUuid)
+        assertEquals(uuid("2a19"), ex.characteristicUuid)
     }
 
     @Test
-    fun readAsReturnsNullWhenDecoderFails() = runTest {
+    fun readAsFailsWithDecodeFailureWhenDecoderReturnsNull() = runTest {
         val peripheral = FakePeripheral {
             service("180f") {
                 characteristic("2a19") {
@@ -44,11 +49,14 @@ class PeripheralCodecTest {
             }
         }
         peripheral.connect()
-        assertNull(peripheral.readAs(uuid("180f"), uuid("2a19"), Uint8Codec))
+        val result = peripheral.readAs(uuid("180f"), uuid("2a19"), Uint8Codec)
+        val ex = result.exceptionOrNull()
+        assertIs<DecodeFailureException>(ex)
+        assertEquals(0, ex.bytes.size)
     }
 
     @Test
-    fun writeAsEncodesAndWrites() = runTest {
+    fun writeAsReturnsSuccessAndEncodesValue() = runTest {
         var received: ByteArray? = null
         val peripheral = FakePeripheral {
             service("180f") {
@@ -59,15 +67,17 @@ class PeripheralCodecTest {
             }
         }
         peripheral.connect()
-        peripheral.writeAs(uuid("180f"), uuid("2a19"), 0xAB, Uint8Codec)
-        assertEquals(0xAB.toByte(), received?.get(0))
+        val result = peripheral.writeAs(uuid("180f"), uuid("2a19"), 0xAB, Uint8Codec)
+        assertTrue(result.isSuccess)
+        assertContentEquals(byteArrayOf(0xAB.toByte()), received)
     }
 
     @Test
-    fun writeAsNoOpsWhenCharacteristicMissing() = runTest {
+    fun writeAsFailsWithCharacteristicNotFoundWhenMissing() = runTest {
         val peripheral = FakePeripheral {}
         peripheral.connect()
-        peripheral.writeAs(uuid("180f"), uuid("2a19"), 0xAB, Uint8Codec)
+        val result = peripheral.writeAs(uuid("180f"), uuid("2a19"), 0xAB, Uint8Codec)
+        assertIs<CharacteristicNotFoundException>(result.exceptionOrNull())
     }
 
     @Test
@@ -86,7 +96,7 @@ class PeripheralCodecTest {
     }
 
     @Test
-    fun observeAsSkipsDecodeFailures() = runTest {
+    fun observeAsRoutesDecodeFailuresToCallback() = runTest {
         val peripheral = FakePeripheral {
             service("180f") {
                 characteristic("2a19") {
@@ -98,8 +108,19 @@ class PeripheralCodecTest {
             }
         }
         peripheral.connect()
-        val values = peripheral.observeAs(uuid("180f"), uuid("2a19"), Uint8Codec).toList()
+        val failures = mutableListOf<ByteArray>()
+        val values = peripheral
+            .observeAs(
+                uuid("180f"),
+                uuid("2a19"),
+                Uint8Codec,
+                backpressure = com.atruedev.kmpble.gatt.BackpressureStrategy.Unbounded,
+                onDecodeFailure = { failures.add(it) },
+            )
+            .toList()
         assertEquals(listOf(0x10, 0x20), values)
+        assertEquals(1, failures.size)
+        assertEquals(0, failures[0].size)
     }
 
     @Test
