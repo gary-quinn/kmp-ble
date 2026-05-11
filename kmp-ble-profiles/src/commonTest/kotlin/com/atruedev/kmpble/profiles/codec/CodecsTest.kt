@@ -69,7 +69,6 @@ class CodecsTest {
 
     @Test
     fun uint16IsLittleEndian() {
-        // 384 = 0x0180 → 0x80, 0x01
         assertContentEquals(byteArrayOf(0x80.toByte(), 0x01), Uint16Codec.encode(384))
     }
 
@@ -101,7 +100,6 @@ class CodecsTest {
 
     @Test
     fun uint32IsLittleEndian() {
-        // 0x12345678 → 0x78, 0x56, 0x34, 0x12
         assertContentEquals(byteArrayOf(0x78, 0x56, 0x34, 0x12), Uint32Codec.encode(0x12345678L))
     }
 
@@ -116,7 +114,6 @@ class CodecsTest {
         assertFails { Uint32Codec.encode(0x1_0000_0000L) }
     }
 
-    /** Sanity check: SAM conversions allow lambda construction. */
     @Test
     fun samConversion() {
         val decoder = Decoder { bytes -> bytes.size }

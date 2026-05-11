@@ -33,7 +33,6 @@ class BleByteWriterTest {
 
     @Test
     fun writeUInt16LittleEndian() {
-        // 384 = 0x0180 → 0x80, 0x01
         val bytes = BleByteWriter().writeUInt16(384).toByteArray()
         assertContentEquals(byteArrayOf(0x80.toByte(), 0x01), bytes)
     }
@@ -46,7 +45,6 @@ class BleByteWriterTest {
 
     @Test
     fun writeInt16Negative() {
-        // -1 → 0xFFFF → 0xFF, 0xFF
         val bytes = BleByteWriter().writeInt16(-1).toByteArray()
         assertContentEquals(byteArrayOf(0xFF.toByte(), 0xFF.toByte()), bytes)
     }
@@ -57,8 +55,6 @@ class BleByteWriterTest {
             .writeInt16(Short.MIN_VALUE.toInt())
             .writeInt16(Short.MAX_VALUE.toInt())
             .toByteArray()
-        // -32768 → 0x8000 → 0x00, 0x80
-        // 32767 → 0x7FFF → 0xFF, 0x7F
         assertContentEquals(
             byteArrayOf(0x00, 0x80.toByte(), 0xFF.toByte(), 0x7F),
             bytes,
@@ -67,7 +63,6 @@ class BleByteWriterTest {
 
     @Test
     fun writeUInt32LittleEndian() {
-        // 0x12345678 → 0x78, 0x56, 0x34, 0x12
         val bytes = BleByteWriter().writeUInt32(0x12345678L).toByteArray()
         assertContentEquals(byteArrayOf(0x78, 0x56, 0x34, 0x12), bytes)
     }

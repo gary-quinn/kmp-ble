@@ -11,7 +11,6 @@ class FramingTest {
     @Test
     fun frameEmptyPayload() {
         val framed = LengthPrefixFramer().frame(byteArrayOf())
-        // length=0 → 0x00 0x00 0x00 0x00, no payload
         assertContentEquals(byteArrayOf(0, 0, 0, 0), framed)
     }
 
@@ -19,7 +18,6 @@ class FramingTest {
     fun frameLengthIsLittleEndianUint32() {
         val payload = ByteArray(0x180) { it.toByte() }
         val framed = LengthPrefixFramer().frame(payload)
-        // length=0x180 → 0x80, 0x01, 0x00, 0x00
         assertEquals(0x80.toByte(), framed[0])
         assertEquals(0x01.toByte(), framed[1])
         assertEquals(0x00.toByte(), framed[2])
@@ -30,7 +28,7 @@ class FramingTest {
     @Test
     fun frameRejectsPayloadLargerThanCap() {
         val framer = LengthPrefixFramer(maxFrameSize = 4)
-        framer.frame(ByteArray(4))   // boundary OK
+        framer.frame(ByteArray(4))
         assertFailsWith<IllegalArgumentException> { framer.frame(ByteArray(5)) }
     }
 
@@ -59,7 +57,6 @@ class FramingTest {
         val framer = LengthPrefixFramer()
         val framed = framer.frame(byteArrayOf(0x42))
         val unframer = framer.unframer()
-        // Feed bytes one at a time
         for (i in 0 until framed.size - 1) {
             assertEquals(emptyList(), unframer.feed(byteArrayOf(framed[i])))
         }
@@ -73,7 +70,6 @@ class FramingTest {
         val framer = LengthPrefixFramer()
         val framed = framer.frame(byteArrayOf(0x01, 0x02, 0x03, 0x04, 0x05))
         val unframer = framer.unframer()
-        // Split after byte 6 (header + 2 payload bytes)
         assertEquals(emptyList(), unframer.feed(framed.copyOfRange(0, 6)))
         val frames = unframer.feed(framed.copyOfRange(6, framed.size))
         assertEquals(1, frames.size)
@@ -93,11 +89,9 @@ class FramingTest {
         val second = framer.frame(byteArrayOf(0x02, 0x03))
         val combined = first + second
         val unframer = framer.unframer()
-        // Feed first frame + 3 bytes of second frame's header
         val frames1 = unframer.feed(combined.copyOfRange(0, first.size + 3))
         assertEquals(1, frames1.size)
         assertContentEquals(byteArrayOf(0x01), frames1[0])
-        // Feed remaining bytes
         val frames2 = unframer.feed(combined.copyOfRange(first.size + 3, combined.size))
         assertEquals(1, frames2.size)
         assertContentEquals(byteArrayOf(0x02, 0x03), frames2[0])
@@ -106,7 +100,6 @@ class FramingTest {
     @Test
     fun unframerThrowsOnFrameLargerThanCap() {
         val framer = LengthPrefixFramer(maxFrameSize = 2)
-        // Manually craft a frame claiming length=3
         val bad = byteArrayOf(0x03, 0x00, 0x00, 0x00, 0xAA.toByte(), 0xBB.toByte(), 0xCC.toByte())
         val ex = assertFailsWith<FrameTooLargeException> { framer.unframer().feed(bad) }
         assertEquals(3L, ex.size)
