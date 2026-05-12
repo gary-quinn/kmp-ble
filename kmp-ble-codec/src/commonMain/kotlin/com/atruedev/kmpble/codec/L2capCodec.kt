@@ -21,6 +21,10 @@ public suspend fun <T> L2capChannel.write(value: T, encoder: BleEncoder<T>): Uni
  * for example continuous telemetry streams where the OS may coalesce or
  * split frames at the transport layer.
  *
+ * The framer configuration (especially `maxFrameSize`) must match the
+ * producer's; a sender that frames a 100 KiB payload against a receiver
+ * holding the default 64 KiB cap raises [FrameTooLargeException] here.
+ *
  * Decoder failures on individual frames are routed to [onDecodeFailure] and
  * dropped from the output stream. A malformed length prefix
  * ([FrameTooLargeException]) terminates the flow; wrap with `.catch { }` to
@@ -37,7 +41,8 @@ public fun <T> L2capChannel.framedIncoming(
  *
  * Pairs with [framedIncoming]. The framer prefixes the encoded payload with
  * a length header so the receiver can recover boundaries independent of how
- * the transport delivers chunks.
+ * the transport delivers chunks. Throws if the encoded payload exceeds the
+ * framer's `maxFrameSize`; no bytes are written in that case.
  */
 public suspend fun <T> L2capChannel.writeFramed(
     value: T,

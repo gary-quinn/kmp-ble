@@ -12,8 +12,8 @@ import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
-import kotlin.test.assertTrue
 
 class L2capCodecTest {
 
@@ -200,6 +200,20 @@ class L2capCodecTest {
         val decoded = receiver.framedIncoming(TestIntDecoder).toList()
         assertEquals(1, decoded.size)
         assertEquals(0x4242, decoded[0])
-        assertTrue(sender.getWrittenData()[0].size > 2, "framed payload includes length header")
+
+        val written = sender.getWrittenData()[0]
+        assertEquals(6, written.size)
+        assertContentEquals(byteArrayOf(0x02, 0x00, 0x00, 0x00), written.copyOfRange(0, 4))
+    }
+
+    @Test
+    fun writeFramedPropagatesOversizePayloadException() = runTest {
+        val channel = FakeL2capChannel(psm = 0x25)
+        val tinyFramer = LengthPrefixFramer(maxFrameSize = 2)
+
+        assertFailsWith<IllegalArgumentException> {
+            channel.writeFramed("too long for cap", TestStringEncoder, tinyFramer)
+        }
+        assertEquals(0, channel.getWrittenData().size)
     }
 }
