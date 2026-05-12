@@ -92,6 +92,11 @@ internal class IosL2capListener : L2capListener {
         // gave up, the callback still runs and unpublishes the PSM itself.
         // Otherwise the PSM would stay registered on CBPeripheralManager
         // until process exit.
+        //
+        // Degenerate case: if CoreBluetooth never delivers the callback at
+        // all (broken HW/OS state), this slot stays held and the next
+        // L2capListener.open() fails the require-check with InvalidState
+        // until the process exits.
         delegate.onPublishL2cap = { psmAssigned, error ->
             when {
                 error != null -> {
@@ -102,15 +107,15 @@ internal class IosL2capListener : L2capListener {
                             ),
                         )
                     }
-                    PeripheralManagerProvider.delegate.onPublishL2cap = null
+                    delegate.onPublishL2cap = null
                 }
                 closed -> {
                     // Late successful delivery after open() already gave up - clean up.
                     try {
-                        PeripheralManagerProvider.manager.unpublishL2CAPChannel(psmAssigned)
+                        manager.unpublishL2CAPChannel(psmAssigned)
                     } catch (_: Throwable) {
                     }
-                    PeripheralManagerProvider.delegate.onPublishL2cap = null
+                    delegate.onPublishL2cap = null
                 }
                 else -> {
                     publishedPsm = psmAssigned
@@ -144,7 +149,7 @@ internal class IosL2capListener : L2capListener {
                 // before we set closed=true, drop it ourselves.
                 if (publishedPsm != 0.toUShort()) {
                     try {
-                        PeripheralManagerProvider.manager.unpublishL2CAPChannel(publishedPsm)
+                        manager.unpublishL2CAPChannel(publishedPsm)
                     } catch (_: Throwable) {
                     }
                     publishedPsm = 0u
@@ -203,11 +208,12 @@ internal class IosL2capListener : L2capListener {
         _isOpen.value = false
 
         val delegate = PeripheralManagerProvider.delegate
+        val manager = PeripheralManagerProvider.manager
         delegate.onOpenL2capChannel = null
 
         if (publishedPsm != 0.toUShort()) {
             try {
-                PeripheralManagerProvider.manager.unpublishL2CAPChannel(publishedPsm)
+                manager.unpublishL2CAPChannel(publishedPsm)
             } catch (_: Throwable) {
             }
         }
