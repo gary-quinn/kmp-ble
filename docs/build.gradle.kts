@@ -15,6 +15,7 @@ dokka {
 dependencies {
     dokka(project(":"))
     dokka(project(":kmp-ble-codec"))
+    dokka(project(":kmp-ble-codec-serialization"))
     dokka(project(":kmp-ble-dfu"))
     dokka(project(":kmp-ble-profiles"))
     dokka(project(":kmp-ble-quirks"))
