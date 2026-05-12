@@ -257,7 +257,9 @@ The builder validates at construction time: duplicate UUIDs are rejected, read-e
 
 ## L2CAP Channels
 
-L2CAP Connection-Oriented Channels bypass GATT for high-throughput streaming (firmware updates, bulk data).
+L2CAP Connection-Oriented Channels bypass GATT for high-throughput streaming (firmware updates, bulk data, real-time event streams). kmp-ble supports both roles: a **central opens** a channel to a peripheral's PSM, and a **peripheral listens** for incoming channels from connected centrals.
+
+### Client side
 
 ```kotlin
 interface L2capChannel : AutoCloseable {
@@ -269,12 +271,114 @@ interface L2capChannel : AutoCloseable {
 }
 ```
 
-L2CAP channels are independent of the GATT queue - they're a separate transport with their own read/write coroutines.
+Opened from a connected `Peripheral`. The channel is independent of the GATT queue - it has its own read/write coroutines.
 
-| Platform | Implementation |
-|----------|---------------|
-| Android | `BluetoothDevice.createL2capChannel(psm)` → `BluetoothSocket` with streams |
-| iOS | `CBPeripheral.openL2CAPChannel(PSM:)` → `CBL2CAPChannel` (iOS 11+) |
+### Server side
+
+```kotlin
+interface L2capListener : AutoCloseable {
+    val psm: Int
+    val isOpen: StateFlow<Boolean>
+    val incoming: SharedFlow<L2capChannel>
+    suspend fun open(secure: Boolean = true, mtu: Int? = null)
+    override fun close()
+}
+```
+
+`L2capListener()` is a top-level factory, parallel to `Advertiser` and independent of `GattServer`. Call `open()` and the OS assigns a `psm`; expose that PSM (typically via a GATT characteristic) so centrals can connect. Each accepted channel is emitted on `incoming` for the server to handle in its own coroutine.
+
+### Platform Mapping
+
+| Platform | Client | Server |
+|----------|--------|--------|
+| Android | `BluetoothDevice.createL2capChannel(psm)` → `BluetoothSocket` | `BluetoothAdapter.listenUsingL2capChannel()` + accept loop |
+| iOS | `CBPeripheral.openL2CAPChannel(PSM:)` (iOS 11+) | `CBPeripheralManager.publishL2CAPChannel()` via shared manager |
+| JVM | n/a (throws `L2capException.NotSupported`) | n/a (throws `L2capException.NotSupported`) |
+
+### Single-Listener Constraint (iOS)
+
+`CBPeripheralManager` is process-global, so only one PSM can be published at a time per process. The iOS implementation enforces this with a require-check; calling `L2capListener()` while another is open throws. Degenerate case: if CoreBluetooth never delivers the publish callback, the delegate slot stays held until process exit.
+
+---
+
+## Typed Codec Layer
+
+`kmp-ble-codec` and `kmp-ble-codec-serialization` are optional modules that sit on top of the byte-oriented core, turning raw `ByteArray` traffic into typed values without forcing a serialization choice on every consumer.
+
+### Module Layout
+
+| Module | Purpose |
+|--------|---------|
+| `kmp-ble-codec` | Format-agnostic typed read/write. Defines `BleEncoder`/`BleDecoder`/`BleCodec`, framing, and GATT/L2CAP convenience extensions. No serialization-library dependency. |
+| `kmp-ble-codec-serialization` | Bridges `kotlinx-serialization` to `BleCodec`. Ships `CborCodec<T>` for `@Serializable` types. |
+
+The core `kmp-ble` module never depends on either - consumers pick what they want.
+
+### Codec Contract
+
+```kotlin
+fun interface BleEncoder<in T> { fun encode(value: T): ByteArray }
+fun interface BleDecoder<out T> { fun decode(data: ByteArray): T }
+interface BleCodec<T> : BleEncoder<T>, BleDecoder<T>
+```
+
+`BleDecoder.decode` **throws on parse failure**. Result-wrapping callers explicitly rethrow `CancellationException` first to stay cancellation-safe. "Absent or unparseable" is expressible as `BleDecoder<T?>`.
+
+### Framing
+
+L2CAP CoC is byte-oriented: the OS may split one logical payload across multiple chunks or coalesce small payloads. `Framer` separates "marshal payload onto stream" from "recover payloads from stream":
+
+```kotlin
+interface Framer {
+    fun frame(payload: ByteArray): ByteArray
+    fun unframer(): Unframer
+}
+
+interface Unframer {
+    fun feed(bytes: ByteArray): List<ByteArray>
+    fun pendingBytes(): Int
+}
+```
+
+`LengthPrefixFramer` is the default: `[uint32 LE length][payload]`. Default cap is **64 KiB per frame**, raisable. Oversize frames throw `FrameTooLargeException` rather than allow a hostile peer to force unbounded buffering.
+
+### L2CAP Convenience Extensions
+
+Composition over inheritance. Typed L2CAP read/write is two extension functions on `L2capChannel`, not a wrapped channel type:
+
+```kotlin
+fun <T> L2capChannel.framedIncoming(
+    decoder: BleDecoder<T>,
+    framer: Framer = LengthPrefixFramer(),
+    onDecodeFailure: (ByteArray) -> Unit = {},
+): Flow<T>
+
+suspend fun <T> L2capChannel.writeFramed(
+    value: T,
+    encoder: BleEncoder<T>,
+    framer: Framer = LengthPrefixFramer(),
+)
+```
+
+Both ends must agree on the framer config. Decode failures route to `onDecodeFailure` rather than terminating the flow, so a corrupt frame doesn't drop the connection.
+
+GATT-side extensions in the same module - `Peripheral.readAs<T>`, `writeAs`, `observeAs` - surface failures through `PeripheralCodecException`.
+
+### Serialization Adapter
+
+```kotlin
+class CborCodec<T>(serializer: KSerializer<T>, cbor: Cbor = Cbor.Default) : BleCodec<T>
+
+inline fun <reified T> cborCodec(cbor: Cbor = Cbor.Default): CborCodec<T>
+```
+
+Use with any `@Serializable` payload: `cborCodec<SensorReading>()` gives a ready-to-frame codec. `Cbor` is exposed as an `api` dependency so consumers can pass a custom instance without an extra import.
+
+### Why a Separate Layer?
+
+- Core lib stays serialization-agnostic. Apps shipping Protobuf, manual binary, or fixed-width SIG payloads pay nothing.
+- Framing isn't always needed - GATT writes are bounded by MTU; framing is for L2CAP and logical-record-over-notify-stream patterns.
+- `kotlinx-serialization` is heavy and opinionated; making it optional keeps the core dependency surface minimal.
 
 ---
 
@@ -289,6 +393,7 @@ Every major component has a Fake* counterpart for unit testing without hardware:
 | Platform GattServer | `FakeGattServer` | Simulate server operations |
 | Platform Advertiser | `FakeAdvertiser` | Simulate advertising lifecycle |
 | Platform L2capChannel | `FakeL2capChannel` | Simulate streaming |
+| Platform L2capListener | `FakeL2capListener` | Drive accept events for server-side tests |
 
 `FakePeripheral` supports the full observation resilience lifecycle:
 - `simulateDisconnect()` - emits `Observation.Disconnected` without clearing observations
