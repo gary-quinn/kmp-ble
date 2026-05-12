@@ -64,11 +64,13 @@ internal class IosL2capListener : L2capListener {
         val delegate = PeripheralManagerProvider.delegate
         val manager = PeripheralManagerProvider.manager
 
-        require(delegate.onPublishL2cap == null) {
-            "Another L2capListener is publishing; only one listener can publish at a time"
+        if (delegate.onPublishL2cap != null) {
+            throw L2capException.InvalidState(
+                "Another L2capListener is publishing; only one listener can publish at a time",
+            )
         }
-        require(delegate.onOpenL2capChannel == null) {
-            "Another L2capListener is accepting connections"
+        if (delegate.onOpenL2capChannel != null) {
+            throw L2capException.InvalidState("Another L2capListener is accepting connections")
         }
 
         val effectiveMtu = mtu ?: DEFAULT_L2CAP_MTU
@@ -84,15 +86,37 @@ internal class IosL2capListener : L2capListener {
             }
         }
 
+        // Callback survives the publish timeout window: if
+        // `publishL2CAPChannelWithEncryption` actually succeeded at the OS
+        // level but the assignment notification arrives after we already
+        // gave up, the callback still runs and unpublishes the PSM itself.
+        // Otherwise the PSM would stay registered on CBPeripheralManager
+        // until process exit.
         delegate.onPublishL2cap = { psmAssigned, error ->
-            if (error != null) {
-                publishResult.completeExceptionally(
-                    L2capException.PublishFailed(
-                        "CBPeripheralManager publishL2CAPChannel error: ${error.localizedDescription}",
-                    ),
-                )
-            } else {
-                publishResult.complete(psmAssigned)
+            when {
+                error != null -> {
+                    if (!publishResult.isCompleted) {
+                        publishResult.completeExceptionally(
+                            L2capException.PublishFailed(
+                                "CBPeripheralManager publishL2CAPChannel error: ${error.localizedDescription}",
+                            ),
+                        )
+                    }
+                    PeripheralManagerProvider.delegate.onPublishL2cap = null
+                }
+                closed -> {
+                    // Late successful delivery after open() already gave up - clean up.
+                    try {
+                        PeripheralManagerProvider.manager.unpublishL2CAPChannel(psmAssigned)
+                    } catch (_: Throwable) {
+                    }
+                    PeripheralManagerProvider.delegate.onPublishL2cap = null
+                }
+                else -> {
+                    publishedPsm = psmAssigned
+                    publishResult.complete(psmAssigned)
+                    // Success path clears the delegate slot explicitly below.
+                }
             }
         }
 
@@ -108,11 +132,23 @@ internal class IosL2capListener : L2capListener {
                     publishResult.await()
                 }
             } catch (e: Throwable) {
+                // Mark closed BEFORE giving up on the callback so that any
+                // late onPublishL2cap delivery sees `closed == true` and
+                // unpublishes the assigned PSM itself.
                 closed = true
                 delegate.onOpenL2capChannel = null
                 drainJob?.cancel()
                 drainJob = null
                 acceptedChannels.close()
+                // Defensive: if the callback raced ahead and stored the PSM
+                // before we set closed=true, drop it ourselves.
+                if (publishedPsm != 0.toUShort()) {
+                    try {
+                        PeripheralManagerProvider.manager.unpublishL2CAPChannel(publishedPsm)
+                    } catch (_: Throwable) {
+                    }
+                    publishedPsm = 0u
+                }
                 throw when (e) {
                     is L2capException -> e
                     is TimeoutCancellationException ->
@@ -122,9 +158,12 @@ internal class IosL2capListener : L2capListener {
                         )
                     else -> e
                 }
-            } finally {
-                delegate.onPublishL2cap = null
             }
+
+        // Clear the slot now so a subsequent listener's require-check sees a
+        // clean delegate. The success-path branch of the callback intentionally
+        // skips clearing to keep this single deterministic owner.
+        delegate.onPublishL2cap = null
 
         publishedPsm = assigned
         _psm = assigned.toInt()

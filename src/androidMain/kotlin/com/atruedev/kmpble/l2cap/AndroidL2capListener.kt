@@ -76,14 +76,18 @@ internal class AndroidL2capListener(
                 }
             }
 
+        val assignedPsm = socket.psm
         serverSocket = socket
-        _psm = socket.psm
+        _psm = assignedPsm
         _isOpen.value = true
 
-        acceptJob = scope.launch { acceptLoop(socket) }
+        acceptJob = scope.launch { acceptLoop(socket, assignedPsm) }
     }
 
-    private suspend fun acceptLoop(serverSocket: BluetoothServerSocket) {
+    private suspend fun acceptLoop(
+        serverSocket: BluetoothServerSocket,
+        assignedPsm: Int,
+    ) {
         try {
             while (coroutineContext[Job]?.isActive == true && !closed) {
                 val accepted =
@@ -105,7 +109,7 @@ internal class AndroidL2capListener(
                 val channel =
                     AndroidL2capChannel(
                         socket = BluetoothL2capSocket(accepted),
-                        psm = serverSocket.psm,
+                        psm = assignedPsm,
                         scope = channelScope,
                     )
                 channelScope.launch {

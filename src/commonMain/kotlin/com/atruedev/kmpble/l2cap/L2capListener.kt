@@ -19,7 +19,8 @@ import kotlinx.coroutines.flow.StateFlow
  * val psm = listener.psm
  *
  * // Expose PSM through a GATT characteristic so centrals can discover it
- * gattServer.notify(PSM_CHAR_UUID, null, BleData(psm.toUInt16LeBytes()))
+ * val psmBytes = byteArrayOf((psm and 0xFF).toByte(), ((psm shr 8) and 0xFF).toByte())
+ * gattServer.notify(PSM_CHAR_UUID, null, BleData(psmBytes))
  *
  * listener.incoming.collect { channel ->
  *     scope.launch {

@@ -104,9 +104,7 @@ internal class IosL2capChannel(
             }
         } finally {
             if (_isOpen.compareAndSet(expect = true, update = false)) {
-                closeStreams()
-                dataChannel.close()
-                closedSignal.complete(Unit)
+                finalizeClose()
             }
         }
     }
@@ -153,6 +151,10 @@ internal class IosL2capChannel(
     override fun close() {
         if (!_isOpen.compareAndSet(expect = true, update = false)) return
         readJob.cancel()
+        finalizeClose()
+    }
+
+    private fun finalizeClose() {
         closeStreams()
         dataChannel.close()
         closedSignal.complete(Unit)

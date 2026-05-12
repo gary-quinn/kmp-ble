@@ -163,7 +163,9 @@ class ServerViewModel : ViewModel() {
             l2capAcceptJob?.cancel()
             l2capAcceptJob =
                 viewModelScope.launch {
-                    listener.incoming.collect { channel -> handleL2capChannel(channel) }
+                    listener.incoming.collect { channel ->
+                        launch { handleL2capChannel(channel) }
+                    }
                 }
             listener.open(secure)
             _l2capPsm.value = listener.psm
@@ -202,7 +204,7 @@ class ServerViewModel : ViewModel() {
     }
 
     private fun appendL2capLog(msg: String) {
-        _l2capLog.value = (listOf(msg) + _l2capLog.value).take(20)
+        _l2capLog.update { (listOf(msg) + it).take(20) }
     }
 
     private var connectionEventJob: Job? = null
