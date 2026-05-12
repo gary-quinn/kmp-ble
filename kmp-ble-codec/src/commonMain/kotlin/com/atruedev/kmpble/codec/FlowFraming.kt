@@ -1,4 +1,4 @@
-package com.atruedev.kmpble.profiles.codec
+package com.atruedev.kmpble.codec
 
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -30,15 +30,18 @@ public fun Flow<ByteArray>.unframedBy(framer: Framer): Flow<ByteArray> = flow {
  * Combines unframing and decoding into one operator: byte chunks in, typed
  * values out.
  *
- * Frames that fail to decode (decoder returns `null`) are routed to
- * [onDecodeFailure] and dropped from the output stream. Default is a no-op;
- * pass a logger or metrics sink in production to surface corrupted payloads.
+ * A frame is sent through [decoder]. If the decoder throws (the
+ * [BleDecoder] contract for parse failure), the frame's raw bytes are
+ * routed to [onDecodeFailure] (default no-op) and dropped from the output
+ * stream. Pass a logger or metrics sink in production to surface corrupted
+ * payloads.
  *
- * A malformed length prefix throws [FrameTooLargeException] downstream, which
- * cancels the flow. Wrap with `.catch { }` to recover.
+ * A malformed length prefix is a different class of failure: it throws
+ * [FrameTooLargeException] downstream and cancels the flow. Wrap with
+ * `.catch { }` to recover.
  */
 public fun <T> Flow<ByteArray>.decodeFramed(
-    decoder: Decoder<T>,
+    decoder: BleDecoder<T>,
     framer: Framer = LengthPrefixFramer(),
     onDecodeFailure: (ByteArray) -> Unit = {},
 ): Flow<T> {
@@ -46,12 +49,13 @@ public fun <T> Flow<ByteArray>.decodeFramed(
     return flow {
         collect { chunk ->
             for (frame in unframer.feed(chunk)) {
-                val decoded = decoder.decode(frame)
-                if (decoded != null) {
-                    emit(decoded)
-                } else {
+                val decoded = try {
+                    decoder.decode(frame)
+                } catch (e: Exception) {
                     onDecodeFailure(frame)
+                    continue
                 }
+                emit(decoded)
             }
         }
     }

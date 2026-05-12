@@ -1,4 +1,4 @@
-package com.atruedev.kmpble.profiles.codec
+package com.atruedev.kmpble.codec
 
 import kotlin.test.Test
 import kotlin.test.assertContentEquals

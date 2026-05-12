@@ -1,10 +1,10 @@
-package com.atruedev.kmpble.profiles.codec
+package com.atruedev.kmpble.codec
 
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFails
-import kotlin.test.assertNull
+import kotlin.test.assertFailsWith
 
 class CodecsTest {
 
@@ -39,9 +39,9 @@ class CodecsTest {
     }
 
     @Test
-    fun utf8DecodeReturnsNullOnInvalidSequence() {
+    fun utf8DecodeThrowsOnInvalidSequence() {
         val invalid = byteArrayOf(0xC3.toByte(), 0x28)
-        assertNull(Utf8StringCodec.decode(invalid))
+        assertFails { Utf8StringCodec.decode(invalid) }
     }
 
     @Test
@@ -55,14 +55,14 @@ class CodecsTest {
 
     @Test
     fun uint8DecodeRejectsWrongSize() {
-        assertNull(Uint8Codec.decode(byteArrayOf()))
-        assertNull(Uint8Codec.decode(byteArrayOf(0x01, 0x02)))
+        assertFailsWith<IllegalArgumentException> { Uint8Codec.decode(byteArrayOf()) }
+        assertFailsWith<IllegalArgumentException> { Uint8Codec.decode(byteArrayOf(0x01, 0x02)) }
     }
 
     @Test
     fun uint8EncodeRejectsOutOfRange() {
-        assertFails { Uint8Codec.encode(-1) }
-        assertFails { Uint8Codec.encode(256) }
+        assertFailsWith<IllegalArgumentException> { Uint8Codec.encode(-1) }
+        assertFailsWith<IllegalArgumentException> { Uint8Codec.encode(256) }
     }
 
     @Test
@@ -76,14 +76,14 @@ class CodecsTest {
 
     @Test
     fun int8DecodeRejectsWrongSize() {
-        assertNull(Int8Codec.decode(byteArrayOf()))
-        assertNull(Int8Codec.decode(byteArrayOf(0x01, 0x02)))
+        assertFailsWith<IllegalArgumentException> { Int8Codec.decode(byteArrayOf()) }
+        assertFailsWith<IllegalArgumentException> { Int8Codec.decode(byteArrayOf(0x01, 0x02)) }
     }
 
     @Test
     fun int8EncodeRejectsOutOfRange() {
-        assertFails { Int8Codec.encode(-129) }
-        assertFails { Int8Codec.encode(128) }
+        assertFailsWith<IllegalArgumentException> { Int8Codec.encode(-129) }
+        assertFailsWith<IllegalArgumentException> { Int8Codec.encode(128) }
     }
 
     @Test
@@ -96,16 +96,21 @@ class CodecsTest {
     }
 
     @Test
+    fun uint16IsLittleEndian() {
+        assertContentEquals(byteArrayOf(0x80.toByte(), 0x01), Uint16Codec.encode(384))
+    }
+
+    @Test
     fun uint16DecodeRejectsWrongSize() {
-        assertNull(Uint16Codec.decode(byteArrayOf()))
-        assertNull(Uint16Codec.decode(byteArrayOf(0x01)))
-        assertNull(Uint16Codec.decode(byteArrayOf(0x01, 0x02, 0x03)))
+        assertFailsWith<IllegalArgumentException> { Uint16Codec.decode(byteArrayOf()) }
+        assertFailsWith<IllegalArgumentException> { Uint16Codec.decode(byteArrayOf(0x01)) }
+        assertFailsWith<IllegalArgumentException> { Uint16Codec.decode(byteArrayOf(0x01, 0x02, 0x03)) }
     }
 
     @Test
     fun uint16EncodeRejectsOutOfRange() {
-        assertFails { Uint16Codec.encode(-1) }
-        assertFails { Uint16Codec.encode(0x10000) }
+        assertFailsWith<IllegalArgumentException> { Uint16Codec.encode(-1) }
+        assertFailsWith<IllegalArgumentException> { Uint16Codec.encode(0x10000) }
     }
 
     @Test
@@ -123,15 +128,9 @@ class CodecsTest {
     }
 
     @Test
-    fun int16DecodeRejectsWrongSize() {
-        assertNull(Int16Codec.decode(byteArrayOf(0x01)))
-        assertNull(Int16Codec.decode(byteArrayOf(0x01, 0x02, 0x03)))
-    }
-
-    @Test
     fun int16EncodeRejectsOutOfRange() {
-        assertFails { Int16Codec.encode(-32769) }
-        assertFails { Int16Codec.encode(32768) }
+        assertFailsWith<IllegalArgumentException> { Int16Codec.encode(-32769) }
+        assertFailsWith<IllegalArgumentException> { Int16Codec.encode(32768) }
     }
 
     @Test
@@ -144,15 +143,14 @@ class CodecsTest {
     }
 
     @Test
-    fun uint32DecodeRejectsWrongSize() {
-        assertNull(Uint32Codec.decode(byteArrayOf(0x01, 0x02, 0x03)))
-        assertNull(Uint32Codec.decode(byteArrayOf(0x01, 0x02, 0x03, 0x04, 0x05)))
+    fun uint32IsLittleEndian() {
+        assertContentEquals(byteArrayOf(0x78, 0x56, 0x34, 0x12), Uint32Codec.encode(0x12345678L))
     }
 
     @Test
     fun uint32EncodeRejectsOutOfRange() {
-        assertFails { Uint32Codec.encode(-1L) }
-        assertFails { Uint32Codec.encode(0x1_0000_0000L) }
+        assertFailsWith<IllegalArgumentException> { Uint32Codec.encode(-1L) }
+        assertFailsWith<IllegalArgumentException> { Uint32Codec.encode(0x1_0000_0000L) }
     }
 
     @Test
@@ -171,6 +169,6 @@ class CodecsTest {
 
     @Test
     fun int32DecodeRejectsWrongSize() {
-        assertNull(Int32Codec.decode(byteArrayOf(0x01, 0x02, 0x03)))
+        assertFailsWith<IllegalArgumentException> { Int32Codec.decode(byteArrayOf(0x01, 0x02, 0x03)) }
     }
 }

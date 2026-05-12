@@ -1,5 +1,7 @@
-package com.atruedev.kmpble.profiles.codec
+package com.atruedev.kmpble.codec
 
+import com.atruedev.kmpble.gatt.BackpressureStrategy
+import com.atruedev.kmpble.scanner.uuidFrom
 import com.atruedev.kmpble.testing.FakePeripheral
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.toList
@@ -10,7 +12,9 @@ import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
-class PeripheralCodecTest {
+class PeripheralCodecExtensionsTest {
+    private val svc = uuidFrom("180f")
+    private val char = uuidFrom("2a19")
 
     @Test
     fun readAsReturnsSuccessWithDecodedValue() = runTest {
@@ -23,7 +27,7 @@ class PeripheralCodecTest {
             }
         }
         peripheral.connect()
-        val result = peripheral.readAs(uuid("180f"), uuid("2a19"), Uint8Codec)
+        val result = peripheral.readAs(svc, char, Uint8Codec)
         assertEquals(0x55, result.getOrThrow())
     }
 
@@ -31,15 +35,15 @@ class PeripheralCodecTest {
     fun readAsFailsWithCharacteristicNotFoundWhenMissing() = runTest {
         val peripheral = FakePeripheral {}
         peripheral.connect()
-        val result = peripheral.readAs(uuid("180f"), uuid("2a19"), Uint8Codec)
+        val result = peripheral.readAs(svc, char, Uint8Codec)
         val ex = result.exceptionOrNull()
         assertIs<CharacteristicNotFoundException>(ex)
-        assertEquals(uuid("180f"), ex.serviceUuid)
-        assertEquals(uuid("2a19"), ex.characteristicUuid)
+        assertEquals(svc, ex.serviceUuid)
+        assertEquals(char, ex.characteristicUuid)
     }
 
     @Test
-    fun readAsFailsWithDecodeFailureWhenDecoderReturnsNull() = runTest {
+    fun readAsFailsWithDecodeFailureWhenDecoderThrows() = runTest {
         val peripheral = FakePeripheral {
             service("180f") {
                 characteristic("2a19") {
@@ -49,7 +53,7 @@ class PeripheralCodecTest {
             }
         }
         peripheral.connect()
-        val result = peripheral.readAs(uuid("180f"), uuid("2a19"), Uint8Codec)
+        val result = peripheral.readAs(svc, char, Uint8Codec)
         val ex = result.exceptionOrNull()
         assertIs<DecodeFailureException>(ex)
         assertEquals(0, ex.bytes.size)
@@ -67,7 +71,7 @@ class PeripheralCodecTest {
             }
         }
         peripheral.connect()
-        val result = peripheral.writeAs(uuid("180f"), uuid("2a19"), 0xAB, Uint8Codec)
+        val result = peripheral.writeAs(svc, char, 0xAB, Uint8Codec)
         assertTrue(result.isSuccess)
         assertContentEquals(byteArrayOf(0xAB.toByte()), received)
     }
@@ -76,7 +80,7 @@ class PeripheralCodecTest {
     fun writeAsFailsWithCharacteristicNotFoundWhenMissing() = runTest {
         val peripheral = FakePeripheral {}
         peripheral.connect()
-        val result = peripheral.writeAs(uuid("180f"), uuid("2a19"), 0xAB, Uint8Codec)
+        val result = peripheral.writeAs(svc, char, 0xAB, Uint8Codec)
         assertIs<CharacteristicNotFoundException>(result.exceptionOrNull())
     }
 
@@ -91,7 +95,7 @@ class PeripheralCodecTest {
             }
         }
         peripheral.connect()
-        val values = peripheral.observeAs(uuid("180f"), uuid("2a19"), Uint8Codec).toList()
+        val values = peripheral.observeAs(svc, char, Uint8Codec).toList()
         assertEquals(listOf(0x10, 0x20), values)
     }
 
@@ -111,10 +115,10 @@ class PeripheralCodecTest {
         val failures = mutableListOf<ByteArray>()
         val values = peripheral
             .observeAs(
-                uuid("180f"),
-                uuid("2a19"),
+                svc,
+                char,
                 Uint8Codec,
-                backpressure = com.atruedev.kmpble.gatt.BackpressureStrategy.Unbounded,
+                backpressure = BackpressureStrategy.Unbounded,
                 onDecodeFailure = { failures.add(it) },
             )
             .toList()
@@ -127,9 +131,7 @@ class PeripheralCodecTest {
     fun observeAsReturnsEmptyWhenCharacteristicMissing() = runTest {
         val peripheral = FakePeripheral {}
         peripheral.connect()
-        val values = peripheral.observeAs(uuid("180f"), uuid("2a19"), Uint8Codec).toList()
+        val values = peripheral.observeAs(svc, char, Uint8Codec).toList()
         assertTrue(values.isEmpty())
     }
 }
-
-private fun uuid(s: String) = com.atruedev.kmpble.scanner.uuidFrom(s)
