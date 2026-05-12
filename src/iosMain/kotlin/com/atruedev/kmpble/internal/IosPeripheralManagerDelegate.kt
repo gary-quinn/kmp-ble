@@ -1,6 +1,5 @@
 package com.atruedev.kmpble.internal
 
-import kotlinx.cinterop.ObjCSignatureOverride
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -115,7 +114,6 @@ internal class IosPeripheralManagerDelegate :
         onReadyToUpdate?.invoke()
     }
 
-    @ObjCSignatureOverride
     override fun peripheralManager(
         peripheral: CBPeripheralManager,
         didPublishL2CAPChannel: CBL2CAPPSM,

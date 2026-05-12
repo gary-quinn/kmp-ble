@@ -173,7 +173,15 @@ internal class IosL2capListener : L2capListener {
             }
         }
 
+        // Drain buffered handoff queue before cancelling the scope, otherwise
+        // the drainer can be cancelled at a suspension point with cbChannels
+        // still in the buffer (input/output streams open, never closed).
         acceptedChannels.close()
+        while (true) {
+            val orphan = acceptedChannels.tryReceive().getOrNull() ?: break
+            orphan.inputStream?.close()
+            orphan.outputStream?.close()
+        }
         scope.cancel()
     }
 

@@ -70,12 +70,13 @@ class FakeL2capListenerTest {
         }
 
     @Test
-    fun simulateIncomingBeforeOpenThrows() {
-        val listener = FakeL2capListener()
-        assertFailsWith<IllegalStateException> {
-            listener.simulateIncoming(StubChannel(psm = 1))
+    fun simulateIncomingBeforeOpenThrows() =
+        runTest {
+            val listener = FakeL2capListener()
+            assertFailsWith<IllegalStateException> {
+                listener.simulateIncoming(StubChannel(psm = 1))
+            }
         }
-    }
 
     @Test
     fun closeIsIdempotent() =

@@ -3,7 +3,6 @@ package com.atruedev.kmpble.testing
 import com.atruedev.kmpble.l2cap.L2capChannel
 import com.atruedev.kmpble.l2cap.L2capException
 import com.atruedev.kmpble.l2cap.L2capListener
-import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -30,7 +29,6 @@ public class FakeL2capListener(
         MutableSharedFlow<L2capChannel>(
             replay = 0,
             extraBufferCapacity = 16,
-            onBufferOverflow = BufferOverflow.DROP_OLDEST,
         )
     override val incoming: SharedFlow<L2capChannel> = _incoming.asSharedFlow()
 
@@ -51,9 +49,13 @@ public class FakeL2capListener(
         _isOpen.value = false
     }
 
-    /** Test helper: emit an accepted [channel] to subscribers of [incoming]. */
-    public fun simulateIncoming(channel: L2capChannel) {
+    /**
+     * Test helper: emit an accepted [channel] to subscribers of [incoming].
+     * Suspends with the same backpressure semantics as production listeners,
+     * so tests cannot accidentally paper over a slow-consumer leak.
+     */
+    public suspend fun simulateIncoming(channel: L2capChannel) {
         check(_isOpen.value) { "Cannot simulate incoming on a closed listener" }
-        _incoming.tryEmit(channel)
+        _incoming.emit(channel)
     }
 }
