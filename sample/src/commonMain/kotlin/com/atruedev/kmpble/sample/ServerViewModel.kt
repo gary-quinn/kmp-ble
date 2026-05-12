@@ -19,6 +19,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 private val HEART_RATE_SERVICE = uuidFrom("180D")
@@ -152,7 +153,7 @@ class ServerViewModel : ViewModel() {
 
     private var l2capListener: L2capListener? = null
     private var l2capAcceptJob: Job? = null
-    private val l2capChannels = mutableListOf<L2capChannel>()
+    private val _l2capChannels = MutableStateFlow<List<L2capChannel>>(emptyList())
 
     fun openL2capServer(secure: Boolean = true) {
         launchWithErrorHandling {
@@ -160,9 +161,10 @@ class ServerViewModel : ViewModel() {
             val listener = L2capListener()
             l2capListener = listener
             l2capAcceptJob?.cancel()
-            l2capAcceptJob = viewModelScope.launch {
-                listener.incoming.collect { channel -> handleL2capChannel(channel) }
-            }
+            l2capAcceptJob =
+                viewModelScope.launch {
+                    listener.incoming.collect { channel -> handleL2capChannel(channel) }
+                }
             listener.open(secure)
             _l2capPsm.value = listener.psm
             _l2capOpen.value = true
@@ -175,15 +177,14 @@ class ServerViewModel : ViewModel() {
         l2capAcceptJob = null
         l2capListener?.close()
         l2capListener = null
-        l2capChannels.forEach { it.close() }
-        l2capChannels.clear()
+        _l2capChannels.value.forEach { it.close() }
+        _l2capChannels.value = emptyList()
         _l2capOpen.value = false
-        _l2capPsm.value = 0
         appendL2capLog("Listener closed")
     }
 
     private suspend fun handleL2capChannel(channel: L2capChannel) {
-        l2capChannels.add(channel)
+        _l2capChannels.update { it + channel }
         appendL2capLog("Channel accepted (mtu=${channel.mtu})")
         try {
             channel.incoming.collect { bytes ->
@@ -195,7 +196,7 @@ class ServerViewModel : ViewModel() {
                 }
             }
         } finally {
-            l2capChannels.remove(channel)
+            _l2capChannels.update { it - channel }
             appendL2capLog("Channel closed")
         }
     }

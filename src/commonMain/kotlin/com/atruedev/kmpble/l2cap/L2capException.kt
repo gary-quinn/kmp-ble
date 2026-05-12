@@ -46,12 +46,13 @@ public sealed class L2capException(
     ) : L2capException(message)
 
     /**
-     * Failed to publish an L2CAP listener (server side).
+     * Failed to publish an L2CAP listener (server side). The [message]
+     * is used verbatim; callers should phrase it as a complete sentence.
      */
     public class PublishFailed(
         message: String,
         cause: Throwable? = null,
-    ) : L2capException("Failed to publish L2CAP listener: $message", cause)
+    ) : L2capException(message, cause)
 
     /**
      * Listener is in the wrong state for the requested operation

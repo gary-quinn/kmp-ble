@@ -4,9 +4,9 @@ import com.atruedev.kmpble.l2cap.L2capChannel
 import com.atruedev.kmpble.l2cap.L2capException
 import com.atruedev.kmpble.l2cap.L2capListener
 import kotlinx.coroutines.channels.BufferOverflow
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -26,16 +26,20 @@ public class FakeL2capListener(
     private var _psm: Int = 0
     override val psm: Int get() = _psm
 
-    private val _incoming = MutableSharedFlow<L2capChannel>(
-        replay = 0,
-        extraBufferCapacity = 16,
-        onBufferOverflow = BufferOverflow.DROP_OLDEST,
-    )
-    override val incoming: Flow<L2capChannel> = _incoming.asSharedFlow()
+    private val _incoming =
+        MutableSharedFlow<L2capChannel>(
+            replay = 0,
+            extraBufferCapacity = 16,
+            onBufferOverflow = BufferOverflow.DROP_OLDEST,
+        )
+    override val incoming: SharedFlow<L2capChannel> = _incoming.asSharedFlow()
 
     private var closed = false
 
-    override suspend fun open(secure: Boolean) {
+    override suspend fun open(
+        secure: Boolean,
+        mtu: Int?,
+    ) {
         if (closed) throw L2capException.InvalidState("Listener has been closed")
         if (_isOpen.value) throw L2capException.InvalidState("Listener already open")
         _psm = assignedPsm

@@ -1,6 +1,6 @@
 package com.atruedev.kmpble.l2cap
 
-import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 
 /**
@@ -66,13 +66,20 @@ public interface L2capListener : AutoCloseable {
     public val isOpen: StateFlow<Boolean>
 
     /**
-     * Flow of newly-accepted L2CAP channels.
+     * Hot stream of newly-accepted L2CAP channels.
      *
-     * Buffered: up to 16 unconsumed connections are retained; older ones
-     * are dropped if the buffer is full. Start collecting before calling
-     * [open] to avoid missing early connections.
+     * Buffered: up to 16 unconsumed connections are retained. When the
+     * buffer is full, the accept loop applies backpressure to the platform
+     * source (Android) or drops the incoming connection and closes its
+     * streams (iOS) - in either case, no in-flight channel is silently
+     * leaked. Start collecting before calling [open] to avoid missing
+     * early connections.
+     *
+     * Exposed as [SharedFlow] (not plain [kotlinx.coroutines.flow.Flow])
+     * so consumers can inspect `subscriptionCount` and use `onSubscription`
+     * for race-free wiring.
      */
-    public val incoming: Flow<L2capChannel>
+    public val incoming: SharedFlow<L2capChannel>
 
     /**
      * Open the listener and request a PSM from the OS.
@@ -81,11 +88,21 @@ public interface L2capListener : AutoCloseable {
      *   - Android: uses `BluetoothAdapter.listenUsingL2capChannel()` (encrypted)
      *     when true, `listenUsingInsecureL2capChannel()` when false.
      *   - iOS: passes the flag to `CBPeripheralManager.publishL2CAPChannel(withEncryption:)`.
+     * @param mtu Optional MTU hint propagated to each accepted channel.
+     *   - Android: ignored; the MTU is queried from the underlying socket.
+     *   - iOS: used as the `L2capChannel.mtu` value for accepted channels
+     *     (CoreBluetooth does not expose the negotiated MTU). When `null`,
+     *     a conservative platform default applies.
      * @throws L2capException.PublishFailed if the OS rejects the publish request
-     * @throws L2capException.InvalidState if already open
+     *   or the publish times out
+     * @throws L2capException.InvalidState if already open or another listener
+     *   is currently publishing on the shared platform handle (iOS)
      * @throws L2capException.NotSupported if L2CAP server is unavailable
      */
-    public suspend fun open(secure: Boolean = true)
+    public suspend fun open(
+        secure: Boolean = true,
+        mtu: Int? = null,
+    )
 
     /**
      * Stop accepting connections and release the PSM.

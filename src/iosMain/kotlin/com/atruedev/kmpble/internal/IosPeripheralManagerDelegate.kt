@@ -1,5 +1,6 @@
 package com.atruedev.kmpble.internal
 
+import kotlinx.cinterop.ObjCSignatureOverride
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -15,7 +16,6 @@ import platform.CoreBluetooth.CBService
 import platform.Foundation.NSError
 import platform.darwin.NSObject
 import kotlin.concurrent.Volatile
-import kotlinx.cinterop.ObjCSignatureOverride
 
 /**
  * Unified [CBPeripheralManager] delegate handling server, advertising,
@@ -54,15 +54,11 @@ internal class IosPeripheralManagerDelegate :
     @Volatile
     internal var onStartAdvertising: ((NSError?) -> Unit)? = null
 
-    // Callbacks set by IosL2capListener
     @Volatile
     internal var onPublishL2cap: ((CBL2CAPPSM, NSError?) -> Unit)? = null
 
     @Volatile
     internal var onOpenL2capChannel: ((CBL2CAPChannel?, NSError?) -> Unit)? = null
-
-    @Volatile
-    internal var onUnpublishL2cap: ((CBL2CAPPSM, NSError?) -> Unit)? = null
 
     // --- Required delegate method ---
 
@@ -134,14 +130,5 @@ internal class IosPeripheralManagerDelegate :
         error: NSError?,
     ) {
         onOpenL2capChannel?.invoke(didOpenL2CAPChannel, error)
-    }
-
-    @ObjCSignatureOverride
-    override fun peripheralManager(
-        peripheral: CBPeripheralManager,
-        didUnpublishL2CAPChannel: CBL2CAPPSM,
-        error: NSError?,
-    ) {
-        onUnpublishL2cap?.invoke(didUnpublishL2CAPChannel, error)
     }
 }
