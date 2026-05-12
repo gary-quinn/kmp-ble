@@ -6,6 +6,7 @@ import com.atruedev.kmpble.peripheral.Peripheral
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flow
+import kotlin.coroutines.cancellation.CancellationException
 import kotlin.uuid.Uuid
 
 /**
@@ -58,11 +59,20 @@ public class DecodeFailureException(
  * - failure with [DecodeFailureException]: read succeeded but [decoder]
  *   threw on the raw bytes
  * - failure with any other exception thrown by the underlying read (BLE
- *   error, cancellation propagation, etc.)
+ *   error, etc.)
  *
- * Use the [Peripheral.read] overload that takes a [com.atruedev.kmpble.gatt.Characteristic]
- * directly when you already hold a reference and prefer raw exception
- * propagation.
+ * [kotlin.coroutines.cancellation.CancellationException] is always propagated
+ * to the caller, never wrapped into [Result.failure] - structured concurrency
+ * stays intact.
+ *
+ * Note: a `null` from `findCharacteristic` becomes [CharacteristicNotFoundException]
+ * here, but `findCharacteristic` also returns `null` when service discovery
+ * has not finished yet. Make sure the peripheral is fully connected before
+ * relying on this distinction (e.g. await `Peripheral.state == State.Connected.Ready`).
+ *
+ * Use the [Peripheral.read] overload that takes a
+ * [com.atruedev.kmpble.gatt.Characteristic] directly when you already hold a
+ * reference and prefer raw exception propagation.
  */
 public suspend fun <T> Peripheral.readAs(
     serviceUuid: Uuid,
@@ -71,13 +81,20 @@ public suspend fun <T> Peripheral.readAs(
 ): Result<T> {
     val char = findCharacteristic(serviceUuid, characteristicUuid)
         ?: return Result.failure(CharacteristicNotFoundException(serviceUuid, characteristicUuid))
-    return runCatching {
+    return try {
         val bytes = read(char)
-        try {
+        val decoded = try {
             decoder.decode(bytes)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             throw DecodeFailureException(bytes, e)
         }
+        Result.success(decoded)
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Throwable) {
+        Result.failure(e)
     }
 }
 
@@ -89,6 +106,10 @@ public suspend fun <T> Peripheral.readAs(
  * need a decoder. Returns [Result.failure] with [CharacteristicNotFoundException]
  * if the characteristic is absent, or with any exception thrown by the
  * underlying write.
+ *
+ * [kotlin.coroutines.cancellation.CancellationException] is always propagated
+ * to the caller, never wrapped into [Result.failure] - structured concurrency
+ * stays intact.
  */
 public suspend fun <T> Peripheral.writeAs(
     serviceUuid: Uuid,
@@ -99,7 +120,14 @@ public suspend fun <T> Peripheral.writeAs(
 ): Result<Unit> {
     val char = findCharacteristic(serviceUuid, characteristicUuid)
         ?: return Result.failure(CharacteristicNotFoundException(serviceUuid, characteristicUuid))
-    return runCatching { write(char, encoder.encode(value), writeType) }
+    return try {
+        write(char, encoder.encode(value), writeType)
+        Result.success(Unit)
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Throwable) {
+        Result.failure(e)
+    }
 }
 
 /**
@@ -123,6 +151,8 @@ public fun <T> Peripheral.observeAs(
         observeValues(char, backpressure).collect { bytes ->
             val decoded = try {
                 decoder.decode(bytes)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 onDecodeFailure(bytes)
                 return@collect

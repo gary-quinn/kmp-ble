@@ -8,9 +8,11 @@ public object RawBytesCodec : BleCodec<ByteArray> {
 }
 
 /**
- * UTF-8 string codec. [decode] throws [IllegalArgumentException] on malformed
- * UTF-8 byte sequences (via [ByteArray.decodeToString] with
- * `throwOnInvalidSequence = true`).
+ * UTF-8 string codec. [decode] throws on malformed UTF-8 byte sequences via
+ * [ByteArray.decodeToString] with `throwOnInvalidSequence = true`. The exact
+ * exception type is platform-dependent (`CharacterCodingException` on JVM,
+ * `kotlin.io.CharacterCodingException` on Native); treat as a generic decode
+ * failure.
  */
 public object Utf8StringCodec : BleCodec<String> {
     override fun encode(value: String): ByteArray = value.encodeToByteArray()

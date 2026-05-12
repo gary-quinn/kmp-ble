@@ -2,6 +2,7 @@ package com.atruedev.kmpble.codec
 
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlin.coroutines.cancellation.CancellationException
 
 /**
  * Adapts a stream of byte chunks (e.g. from an L2CAP CoC `incoming` flow) into
@@ -51,6 +52,8 @@ public fun <T> Flow<ByteArray>.decodeFramed(
             for (frame in unframer.feed(chunk)) {
                 val decoded = try {
                     decoder.decode(frame)
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     onDecodeFailure(frame)
                     continue
