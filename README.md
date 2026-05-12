@@ -16,6 +16,7 @@ Kotlin Multiplatform BLE library for Android and iOS.
 | **kmp-ble-profiles** | `com.atruedev:kmp-ble-profiles` | Type-safe GATT profile parsing (Heart Rate, Battery, Device Info, Blood Pressure, Glucose, CSC) |
 | **kmp-ble-dfu** | `com.atruedev:kmp-ble-dfu` | Firmware updates - Nordic Secure DFU, MCUboot SMP, Espressif ESP OTA - with auto-detection and progress tracking |
 | **kmp-ble-codec** | `com.atruedev:kmp-ble-codec` | Format-agnostic typed read/write via composable `BleEncoder`/`BleDecoder` |
+| **kmp-ble-codec-serialization** | `com.atruedev:kmp-ble-codec-serialization` | `kotlinx-serialization` adapters (CBOR) bridging `@Serializable` types to `BleCodec` |
 
 ## Setup
 
@@ -31,6 +32,7 @@ kotlin {
             implementation("com.atruedev:kmp-ble-profiles:0.5.0")
             implementation("com.atruedev:kmp-ble-dfu:0.5.0")
             implementation("com.atruedev:kmp-ble-codec:0.5.0")
+            implementation("com.atruedev:kmp-ble-codec-serialization:0.5.0")
         }
     }
 }
@@ -175,6 +177,23 @@ peripheral.observeValues(characteristic, TemperatureDecoder).collect { celsius -
 
 // Decoder composition
 val FormattedTemp = TemperatureDecoder.map { "%.1f°C".format(it) }
+```
+
+### Serialization codec (kmp-ble-codec-serialization)
+
+CBOR adapters via `kotlinx-serialization`. Bridge `@Serializable` types to the
+`BleCodec` surface so they slot into framed L2CAP streams or characteristic
+read/write paths without writing a hand-rolled decoder:
+
+```kotlin
+@Serializable
+data class Reading(val timestampMs: Long, val celsius: Double)
+
+val codec = cborCodec<Reading>()
+
+// Framed L2CAP stream of typed values
+l2cap.writeFramed(Reading(1_700_000_000_000, 21.5), codec)
+l2cap.framedIncoming(codec).collect { reading -> render(reading) }
 ```
 
 ### DFU (kmp-ble-dfu)

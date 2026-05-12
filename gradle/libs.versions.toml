@@ -12,6 +12,7 @@ androidxActivityCompose = "1.13.0"
 androidxTestCore = "1.7.0"
 androidxTestRunner = "1.7.0"
 robolectric = "4.16.1"
+kotlinxSerialization = "1.11.0"
 androidMinSdk = "33"
 androidCompileSdk = "36"
 androidTargetSdk = "36"
@@ -41,9 +42,12 @@ lincheck = { module = "org.jetbrains.lincheck:lincheck", version.ref = "lincheck
 turbine = { module = "app.cash.turbine:turbine", version.ref = "turbine" }
 lifecycle-viewmodel-compose = { module = "org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "androidxLifecycle" }
 lifecycle-runtime-compose = { module = "org.jetbrains.androidx.lifecycle:lifecycle-runtime-compose", version.ref = "androidxLifecycle" }
+kotlinx-serialization-core = { module = "org.jetbrains.kotlinx:kotlinx-serialization-core", version.ref = "kotlinxSerialization" }
+kotlinx-serialization-cbor = { module = "org.jetbrains.kotlinx:kotlinx-serialization-cbor", version.ref = "kotlinxSerialization" }
 
 [plugins]
 kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 android-library = { id = "com.android.kotlin.multiplatform.library", version.ref = "agp" }
 android-application = { id = "com.android.application", version.ref = "agp" }
 compose-multiplatform = { id = "org.jetbrains.compose", version.ref = "composeMultiplatform" }
