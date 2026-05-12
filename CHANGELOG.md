@@ -15,6 +15,26 @@ _Changes on `main` that have not yet been tagged for release._
 
 ---
 
+## [0.6.0] - 2026-05-12
+
+### Added
+- feat(profiles): add typed Codec API with length-prefix framing
+- feat(l2cap): add server-side L2capListener for peripheral mode
+- feat(codec): add framed L2CAP convenience extensions
+- feat(codec): add kmp-ble-codec-serialization with CBOR adapter
+- feat(sample): replace L2CAP echo demo with CBOR-framed sensor stream
+
+### Changed
+- build(dependabot): bump coroutines from 1.10.2 to 1.11.0
+- build(dependabot): bump agp from 9.2.0 to 9.2.1
+- refactor: consolidate Phase 0 codec into kmp-ble-codec module
+
+### Fixed
+- fix(deps): bump netty to 4.1.133.Final to fix CVE-2026-41417
+
+
+---
+
 ## [0.5.0] - 2026-05-05
 
 ### Added
@@ -493,7 +513,8 @@ _No notable changes._
 
 ---
 
-[Unreleased]: https://github.com/gary-quinn/kmp-ble/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/gary-quinn/kmp-ble/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/gary-quinn/kmp-ble/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/gary-quinn/kmp-ble/compare/v0.4.3...v0.5.0
 [0.4.3]: https://github.com/gary-quinn/kmp-ble/compare/v0.4.2...v0.4.3
 [0.4.2]: https://github.com/gary-quinn/kmp-ble/compare/v0.4.1...v0.4.2
