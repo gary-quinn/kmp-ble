@@ -1,4 +1,4 @@
-package com.atruedev.kmpble.profiles.codec
+package com.atruedev.kmpble.codec
 
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.flow
@@ -38,7 +38,7 @@ class FlowFramingTest {
     }
 
     @Test
-    fun decodeFramedRoutesFailuresToCallback() = runTest {
+    fun decodeFramedRoutesDecoderThrowsToCallback() = runTest {
         val framer = LengthPrefixFramer()
         val good = framer.frame(Uint16Codec.encode(7))
         val malformed = framer.frame(byteArrayOf(0x01))

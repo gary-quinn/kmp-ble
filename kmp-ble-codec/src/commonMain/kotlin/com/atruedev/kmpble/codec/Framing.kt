@@ -1,6 +1,4 @@
-package com.atruedev.kmpble.profiles.codec
-
-import com.atruedev.kmpble.profiles.parsing.BleByteWriter
+package com.atruedev.kmpble.codec
 
 /**
  * Wraps and recovers payloads on a stream transport (L2CAP CoC, an MTU-spanning
@@ -68,10 +66,14 @@ public class LengthPrefixFramer(
         require(payload.size <= maxFrameSize) {
             "payload too large: ${payload.size} > $maxFrameSize"
         }
-        return BleByteWriter(initialCapacity = payload.size + HEADER_SIZE)
-            .writeUInt32(payload.size.toLong())
-            .writeBytes(payload)
-            .toByteArray()
+        val out = ByteArray(HEADER_SIZE + payload.size)
+        val length = payload.size
+        out[0] = (length and 0xFF).toByte()
+        out[1] = ((length shr 8) and 0xFF).toByte()
+        out[2] = ((length shr 16) and 0xFF).toByte()
+        out[3] = ((length shr 24) and 0xFF).toByte()
+        payload.copyInto(out, HEADER_SIZE)
+        return out
     }
 
     override fun unframer(): Unframer = LengthPrefixUnframer(maxFrameSize)
