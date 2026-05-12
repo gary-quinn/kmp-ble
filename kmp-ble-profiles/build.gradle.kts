@@ -30,6 +30,7 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             api(project(":"))
+            api(project(":kmp-ble-codec"))
             implementation(libs.kotlinx.coroutines.core)
         }
         commonTest.dependencies {

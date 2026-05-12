@@ -11,6 +11,10 @@ version = providers.environmentVariable("VERSION").getOrElse("0.0.0-local")
 kotlin {
     explicitApi()
 
+    compilerOptions {
+        freeCompilerArgs.add("-opt-in=kotlin.uuid.ExperimentalUuidApi")
+    }
+
     android {
         namespace = "com.atruedev.kmpble.codec"
         compileSdk = libs.versions.androidCompileSdk.get().toInt()
