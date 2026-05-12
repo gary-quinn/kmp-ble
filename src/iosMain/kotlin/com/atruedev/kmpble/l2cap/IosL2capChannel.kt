@@ -6,6 +6,7 @@ import kotlinx.cinterop.UByteVar
 import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.reinterpret
 import kotlinx.cinterop.usePinned
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -39,7 +40,11 @@ internal class IosL2capChannel(
     private val dataChannel = Channel<ByteArray>(Channel.BUFFERED)
     override val incoming: Flow<ByteArray> = dataChannel.receiveAsFlow()
 
+    private val closedSignal = CompletableDeferred<Unit>()
+
     private val readJob: Job
+
+    internal suspend fun awaitClosed() = closedSignal.await()
 
     init {
         val inputOk = cbChannel.inputStream?.streamStatus == NSStreamStatusOpen
@@ -99,8 +104,7 @@ internal class IosL2capChannel(
             }
         } finally {
             if (_isOpen.compareAndSet(expect = true, update = false)) {
-                closeStreams()
-                dataChannel.close()
+                finalizeClose()
             }
         }
     }
@@ -147,8 +151,13 @@ internal class IosL2capChannel(
     override fun close() {
         if (!_isOpen.compareAndSet(expect = true, update = false)) return
         readJob.cancel()
+        finalizeClose()
+    }
+
+    private fun finalizeClose() {
         closeStreams()
         dataChannel.close()
+        closedSignal.complete(Unit)
     }
 
     private fun closeStreams() {

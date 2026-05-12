@@ -44,4 +44,21 @@ public sealed class L2capException(
     public class NotSupported(
         message: String = "L2CAP channels are not supported",
     ) : L2capException(message)
+
+    /**
+     * Failed to publish an L2CAP listener (server side). The [message]
+     * is used verbatim; callers should phrase it as a complete sentence.
+     */
+    public class PublishFailed(
+        message: String,
+        cause: Throwable? = null,
+    ) : L2capException(message, cause)
+
+    /**
+     * Listener is in the wrong state for the requested operation
+     * (e.g. opening an already-open listener, or accepting on a closed one).
+     */
+    public class InvalidState(
+        message: String,
+    ) : L2capException(message)
 }

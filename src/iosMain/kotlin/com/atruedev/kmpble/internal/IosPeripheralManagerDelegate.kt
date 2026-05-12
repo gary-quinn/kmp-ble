@@ -6,6 +6,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import platform.CoreBluetooth.CBATTRequest
 import platform.CoreBluetooth.CBCentral
 import platform.CoreBluetooth.CBCharacteristic
+import platform.CoreBluetooth.CBL2CAPChannel
+import platform.CoreBluetooth.CBL2CAPPSM
 import platform.CoreBluetooth.CBPeripheralManager
 import platform.CoreBluetooth.CBPeripheralManagerDelegateProtocol
 import platform.CoreBluetooth.CBPeripheralManagerStateUnknown
@@ -50,6 +52,12 @@ internal class IosPeripheralManagerDelegate :
     // Callback set by IosAdvertiser
     @Volatile
     internal var onStartAdvertising: ((NSError?) -> Unit)? = null
+
+    @Volatile
+    internal var onPublishL2cap: ((CBL2CAPPSM, NSError?) -> Unit)? = null
+
+    @Volatile
+    internal var onOpenL2capChannel: ((CBL2CAPChannel?, NSError?) -> Unit)? = null
 
     // --- Required delegate method ---
 
@@ -104,5 +112,21 @@ internal class IosPeripheralManagerDelegate :
 
     override fun peripheralManagerIsReadyToUpdateSubscribers(peripheral: CBPeripheralManager) {
         onReadyToUpdate?.invoke()
+    }
+
+    override fun peripheralManager(
+        peripheral: CBPeripheralManager,
+        didPublishL2CAPChannel: CBL2CAPPSM,
+        error: NSError?,
+    ) {
+        onPublishL2cap?.invoke(didPublishL2CAPChannel, error)
+    }
+
+    override fun peripheralManager(
+        peripheral: CBPeripheralManager,
+        didOpenL2CAPChannel: CBL2CAPChannel?,
+        error: NSError?,
+    ) {
+        onOpenL2capChannel?.invoke(didOpenL2CAPChannel, error)
     }
 }
