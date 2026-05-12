@@ -281,7 +281,6 @@ interface L2capListener : AutoCloseable {
     val isOpen: StateFlow<Boolean>
     val incoming: SharedFlow<L2capChannel>
     suspend fun open(secure: Boolean = true, mtu: Int? = null)
-    override fun close()
 }
 ```
 
@@ -292,7 +291,7 @@ interface L2capListener : AutoCloseable {
 | Platform | Client | Server |
 |----------|--------|--------|
 | Android | `BluetoothDevice.createL2capChannel(psm)` → `BluetoothSocket` | `BluetoothAdapter.listenUsingL2capChannel()` + accept loop |
-| iOS | `CBPeripheral.openL2CAPChannel(PSM:)` (iOS 11+) | `CBPeripheralManager.publishL2CAPChannel()` via shared manager |
+| iOS | `CBPeripheral.openL2CAPChannel(PSM:)` (iOS 11+) | `CBPeripheralManager.publishL2CAPChannelWithEncryption(_:)` via shared manager |
 | JVM | n/a (throws `L2capException.NotSupported`) | n/a (throws `L2capException.NotSupported`) |
 
 ### Single-Listener Constraint (iOS)
@@ -372,7 +371,7 @@ class CborCodec<T>(serializer: KSerializer<T>, cbor: Cbor = Cbor.Default) : BleC
 inline fun <reified T> cborCodec(cbor: Cbor = Cbor.Default): CborCodec<T>
 ```
 
-Use with any `@Serializable` payload: `cborCodec<SensorReading>()` gives a ready-to-frame codec. `Cbor` is exposed as an `api` dependency so consumers can pass a custom instance without an extra import.
+Use with any `@Serializable` payload: given `@Serializable data class MyEvent(...)`, `cborCodec<MyEvent>()` returns a ready-to-frame codec. `Cbor` is exposed as an `api` dependency so consumers can pass a custom instance without an extra import.
 
 ### Why a Separate Layer?
 
