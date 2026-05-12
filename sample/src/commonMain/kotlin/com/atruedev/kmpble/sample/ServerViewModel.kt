@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.atruedev.kmpble.BleData
 import com.atruedev.kmpble.ExperimentalBleApi
+import com.atruedev.kmpble.codec.writeFramed
 import com.atruedev.kmpble.connection.Phy
 import com.atruedev.kmpble.l2cap.L2capChannel
 import com.atruedev.kmpble.l2cap.L2capListener
@@ -16,14 +17,18 @@ import com.atruedev.kmpble.server.ExtendedAdvertiser
 import com.atruedev.kmpble.server.GattServer
 import com.atruedev.kmpble.server.ServerConnectionEvent
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlin.random.Random
+import kotlin.time.TimeSource
 
 private val HEART_RATE_SERVICE = uuidFrom("180D")
 private val HEART_RATE_MEASUREMENT = uuidFrom("2A37")
+private const val STREAM_INTERVAL_MS = 100L
 
 @OptIn(ExperimentalBleApi::class)
 class ServerViewModel : ViewModel() {
@@ -140,7 +145,11 @@ class ServerViewModel : ViewModel() {
         _error.value = null
     }
 
-    // --- L2CAP echo server ---
+    // --- L2CAP typed sensor stream ---
+    //
+    // On each accepted L2CAP channel, the server produces a SensorReading
+    // every 100ms (CBOR-encoded, length-prefix framed) until the channel
+    // closes. The matching consumer side is L2capController.readings.
 
     private val _l2capOpen = MutableStateFlow(false)
     val l2capOpen: StateFlow<Boolean> = _l2capOpen.asStateFlow()
@@ -150,6 +159,9 @@ class ServerViewModel : ViewModel() {
 
     private val _l2capLog = MutableStateFlow(emptyList<String>())
     val l2capLog: StateFlow<List<String>> = _l2capLog.asStateFlow()
+
+    private val _l2capStreamedCount = MutableStateFlow(0)
+    val l2capStreamedCount: StateFlow<Int> = _l2capStreamedCount.asStateFlow()
 
     private var l2capListener: L2capListener? = null
     private var l2capAcceptJob: Job? = null
@@ -164,7 +176,7 @@ class ServerViewModel : ViewModel() {
             l2capAcceptJob =
                 viewModelScope.launch {
                     listener.incoming.collect { channel ->
-                        launch { handleL2capChannel(channel) }
+                        launch { streamReadings(channel) }
                     }
                 }
             listener.open(secure)
@@ -182,20 +194,29 @@ class ServerViewModel : ViewModel() {
         _l2capChannels.value.forEach { it.close() }
         _l2capChannels.value = emptyList()
         _l2capOpen.value = false
+        _l2capStreamedCount.value = 0
         appendL2capLog("Listener closed")
     }
 
-    private suspend fun handleL2capChannel(channel: L2capChannel) {
+    private suspend fun streamReadings(channel: L2capChannel) {
         _l2capChannels.update { it + channel }
-        appendL2capLog("Channel accepted (mtu=${channel.mtu})")
+        appendL2capLog("Channel accepted (mtu=${channel.mtu}); streaming SensorReading")
+        val start = TimeSource.Monotonic.markNow()
         try {
-            channel.incoming.collect { bytes ->
-                appendL2capLog("RX ${bytes.size} bytes; echoing")
+            while (channel.isOpen) {
+                val reading =
+                    SensorReading(
+                        timestampMs = start.elapsedNow().inWholeMilliseconds,
+                        celsius = 20.0 + Random.nextDouble(-2.0, 2.0),
+                    )
                 try {
-                    channel.write(bytes)
+                    channel.writeFramed(reading, SensorReadingCodec)
+                    _l2capStreamedCount.update { it + 1 }
                 } catch (e: Exception) {
-                    appendL2capLog("Echo failed: ${e.message}")
+                    appendL2capLog("Stream write failed: ${e.message}")
+                    break
                 }
+                delay(STREAM_INTERVAL_MS)
             }
         } finally {
             _l2capChannels.update { it - channel }

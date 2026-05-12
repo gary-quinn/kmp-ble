@@ -39,6 +39,7 @@ kotlin {
             implementation(project(":kmp-ble-profiles"))
             implementation(project(":kmp-ble-dfu"))
             implementation(project(":kmp-ble-codec"))
+            implementation(project(":kmp-ble-codec-serialization"))
             @Suppress("DEPRECATION")
             implementation(compose.runtime)
             @Suppress("DEPRECATION")

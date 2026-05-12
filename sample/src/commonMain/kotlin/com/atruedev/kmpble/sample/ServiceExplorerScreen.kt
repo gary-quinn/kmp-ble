@@ -62,6 +62,7 @@ fun ServiceExplorerScreen(
     val benchmarkResult by vm.benchmarkResult.collectAsState()
     val l2capChannel by vm.l2cap.channel.collectAsState()
     val l2capLog by vm.l2cap.log.collectAsState()
+    val l2capReadings by vm.l2cap.readings.collectAsState()
 
     Scaffold(
         topBar = {
@@ -97,7 +98,7 @@ fun ServiceExplorerScreen(
             }
 
             item { BenchmarkSection(state, services, benchmarkResult, vm) }
-            item { L2capSection(state, l2capChannel != null, l2capLog, vm) }
+            item { L2capSection(state, l2capChannel != null, l2capLog, l2capReadings, vm) }
             item { Spacer(Modifier.height(16.dp)) }
         }
     }
@@ -336,6 +337,7 @@ private fun L2capSection(
     state: State,
     isOpen: Boolean,
     log: List<String>,
+    readings: List<SensorReading>,
     vm: BleViewModel,
 ) {
     var psmInput by remember { mutableStateOf("") }
@@ -347,7 +349,9 @@ private fun L2capSection(
             Spacer(Modifier.height(8.dp))
 
             Text(
-                "High-throughput streaming bypassing GATT. Requires a device with an open PSM endpoint.",
+                "High-throughput streaming bypassing GATT. The sample server publishes a " +
+                    "CBOR-framed SensorReading stream; decoded values appear below when the " +
+                    "channel is open.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -410,6 +414,16 @@ private fun L2capSection(
                         },
                     ) { Text("Send") }
                 }
+            }
+
+            if (isOpen && readings.isNotEmpty()) {
+                Spacer(Modifier.height(8.dp))
+                val latest = readings.last()
+                val celsiusStr = ((latest.celsius * 100.0).toLong() / 100.0).toString()
+                Text(
+                    "Latest: $celsiusStr C at t=${latest.timestampMs}ms (received: ${readings.size})",
+                    style = MaterialTheme.typography.bodySmall,
+                )
             }
 
             if (log.isNotEmpty()) {
