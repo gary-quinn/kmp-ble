@@ -53,6 +53,7 @@ fun ServerScreen(onBack: () -> Unit) {
     val l2capOpen by vm.l2capOpen.collectAsState()
     val l2capPsm by vm.l2capPsm.collectAsState()
     val l2capLog by vm.l2capLog.collectAsState()
+    val l2capStreamedCount by vm.l2capStreamedCount.collectAsState()
 
     LaunchedEffect(error) {
         error?.let {
@@ -82,7 +83,7 @@ fun ServerScreen(onBack: () -> Unit) {
             if (serverOpen) {
                 item { ClientPreviewCard(heartRate, connectionLog.size) }
             }
-            item { L2capServerCard(l2capOpen, l2capPsm, l2capLog, vm) }
+            item { L2capServerCard(l2capOpen, l2capPsm, l2capLog, l2capStreamedCount, vm) }
             item { LegacyAdvertiserCard(isAdvertising, vm) }
             item { ExtendedAdvertiserCard(activeSets, vm) }
             item { ConnectionLogCard(connectionLog) }
@@ -154,14 +155,16 @@ private fun L2capServerCard(
     open: Boolean,
     psm: Int,
     log: List<String>,
+    streamedCount: Int,
     vm: ServerViewModel,
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text("L2CAP Server (echo)", style = MaterialTheme.typography.titleSmall)
+            Text("L2CAP Sensor Stream", style = MaterialTheme.typography.titleSmall)
             Spacer(Modifier.height(8.dp))
             Text(
-                "Publishes an L2CAP CoC listener. Accepted channels echo any bytes received back to the client.",
+                "Publishes an L2CAP CoC listener. Each accepted channel receives a " +
+                    "SensorReading every 100ms, CBOR-encoded and length-prefix framed.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -175,6 +178,15 @@ private fun L2capServerCard(
                     Text(if (open) "Open (PSM=$psm)" else "Closed")
                 },
             )
+
+            if (open) {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "Frames streamed: $streamedCount",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
 
             Spacer(Modifier.height(8.dp))
 
