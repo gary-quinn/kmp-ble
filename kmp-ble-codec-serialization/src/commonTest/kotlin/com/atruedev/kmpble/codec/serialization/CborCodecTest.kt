@@ -9,7 +9,7 @@ import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
-import kotlin.test.assertNotEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 @Serializable
@@ -60,7 +60,7 @@ class CborCodecTest {
         val a = codec.encode(Tiny(1))
         val b = codec.encode(Tiny(2))
 
-        assertNotEquals(a.toList(), b.toList())
+        assertFalse(a.contentEquals(b))
     }
 
     @Test
@@ -81,15 +81,15 @@ class CborCodecTest {
     }
 
     @Test
-    fun honorsCustomCborConfiguration() {
-        val ignoringCodec =
+    fun acceptsCustomCborConfiguration() {
+        val customCodec =
             CborCodec(
                 Tiny.serializer(),
                 Cbor { ignoreUnknownKeys = true },
             )
-        val encoded = ignoringCodec.encode(Tiny(7))
+        val encoded = customCodec.encode(Tiny(7))
 
-        assertEquals(Tiny(7), ignoringCodec.decode(encoded))
+        assertEquals(Tiny(7), customCodec.decode(encoded))
     }
 
     @Test

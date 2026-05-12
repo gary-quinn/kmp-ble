@@ -32,6 +32,13 @@ import kotlinx.serialization.serializer
  * For ergonomics on `@Serializable` types, prefer the reified
  * [cborCodec] factory.
  *
+ * ## Opt-in
+ *
+ * `kotlinx.serialization.cbor.Cbor` is annotated
+ * `@ExperimentalSerializationApi`. Callers that construct a custom [Cbor]
+ * instance (`Cbor { ... }`) must add `@OptIn(ExperimentalSerializationApi::class)`
+ * at the call site; this module's surface itself does not require the opt-in.
+ *
  * ## Failure modes
  *
  * [decode] throws on malformed CBOR (kotlinx-serialization raises
@@ -42,8 +49,8 @@ import kotlinx.serialization.serializer
  * continues with the next frame.
  *
  * @property serializer the kotlinx-serialization [KSerializer] for [T].
- * @property cbor the [Cbor] instance controlling format options (tagged values,
- *   field names vs ids, etc.). Defaults to [Cbor.Default].
+ * @property cbor the [Cbor] instance controlling format options. Defaults
+ *   to [Cbor.Default].
  */
 public class CborCodec<T>(
     private val serializer: KSerializer<T>,

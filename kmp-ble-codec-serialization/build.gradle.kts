@@ -29,8 +29,7 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             api(project(":kmp-ble-codec"))
-            api(libs.kotlinx.serialization.core)
-            implementation(libs.kotlinx.serialization.cbor)
+            api(libs.kotlinx.serialization.cbor)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
