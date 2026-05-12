@@ -5,6 +5,8 @@ import androidx.lifecycle.viewModelScope
 import com.atruedev.kmpble.BleData
 import com.atruedev.kmpble.ExperimentalBleApi
 import com.atruedev.kmpble.connection.Phy
+import com.atruedev.kmpble.l2cap.L2capChannel
+import com.atruedev.kmpble.l2cap.L2capListener
 import com.atruedev.kmpble.scanner.uuidFrom
 import com.atruedev.kmpble.server.AdvertiseConfig
 import com.atruedev.kmpble.server.AdvertiseInterval
@@ -137,6 +139,71 @@ class ServerViewModel : ViewModel() {
         _error.value = null
     }
 
+    // --- L2CAP echo server ---
+
+    private val _l2capOpen = MutableStateFlow(false)
+    val l2capOpen: StateFlow<Boolean> = _l2capOpen.asStateFlow()
+
+    private val _l2capPsm = MutableStateFlow(0)
+    val l2capPsm: StateFlow<Int> = _l2capPsm.asStateFlow()
+
+    private val _l2capLog = MutableStateFlow(emptyList<String>())
+    val l2capLog: StateFlow<List<String>> = _l2capLog.asStateFlow()
+
+    private var l2capListener: L2capListener? = null
+    private var l2capAcceptJob: Job? = null
+    private val l2capChannels = mutableListOf<L2capChannel>()
+
+    fun openL2capServer(secure: Boolean = true) {
+        launchWithErrorHandling {
+            l2capListener?.close()
+            val listener = L2capListener()
+            l2capListener = listener
+            l2capAcceptJob?.cancel()
+            l2capAcceptJob = viewModelScope.launch {
+                listener.incoming.collect { channel -> handleL2capChannel(channel) }
+            }
+            listener.open(secure)
+            _l2capPsm.value = listener.psm
+            _l2capOpen.value = true
+            appendL2capLog("Listener open (PSM=${listener.psm}, secure=$secure)")
+        }
+    }
+
+    fun closeL2capServer() {
+        l2capAcceptJob?.cancel()
+        l2capAcceptJob = null
+        l2capListener?.close()
+        l2capListener = null
+        l2capChannels.forEach { it.close() }
+        l2capChannels.clear()
+        _l2capOpen.value = false
+        _l2capPsm.value = 0
+        appendL2capLog("Listener closed")
+    }
+
+    private suspend fun handleL2capChannel(channel: L2capChannel) {
+        l2capChannels.add(channel)
+        appendL2capLog("Channel accepted (mtu=${channel.mtu})")
+        try {
+            channel.incoming.collect { bytes ->
+                appendL2capLog("RX ${bytes.size} bytes; echoing")
+                try {
+                    channel.write(bytes)
+                } catch (e: Exception) {
+                    appendL2capLog("Echo failed: ${e.message}")
+                }
+            }
+        } finally {
+            l2capChannels.remove(channel)
+            appendL2capLog("Channel closed")
+        }
+    }
+
+    private fun appendL2capLog(msg: String) {
+        _l2capLog.value = (listOf(msg) + _l2capLog.value).take(20)
+    }
+
     private var connectionEventJob: Job? = null
 
     // Called from openServer() which runs on Main via viewModelScope.launch.
@@ -156,6 +223,7 @@ class ServerViewModel : ViewModel() {
     }
 
     override fun onCleared() {
+        closeL2capServer()
         advertiser.close()
         extAdvertiser.close()
         server.close()
