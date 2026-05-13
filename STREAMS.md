@@ -20,9 +20,6 @@ inbound `Flow<T>` and a typed outbound `write(value: T)`. Per-channel
 unframer state is isolated so partial frames on one client never bleed
 into another's decoding.
 
-Source for the diagram lives at [`docs/images/typed-l2cap-streams.mmd`](docs/images/typed-l2cap-streams.mmd);
-regenerate with `mmdc -i docs/images/typed-l2cap-streams.mmd -o docs/images/typed-l2cap-streams.png --width 1400 --backgroundColor white`.
-
 ---
 
 ## 1. Define your payload
