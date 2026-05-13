@@ -4,9 +4,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.atruedev.kmpble.BleData
 import com.atruedev.kmpble.ExperimentalBleApi
-import com.atruedev.kmpble.codec.writeFramed
+import com.atruedev.kmpble.codec.TypedL2capChannel
+import com.atruedev.kmpble.codec.framedConnections
 import com.atruedev.kmpble.connection.Phy
-import com.atruedev.kmpble.l2cap.L2capChannel
 import com.atruedev.kmpble.l2cap.L2capListener
 import com.atruedev.kmpble.scanner.uuidFrom
 import com.atruedev.kmpble.server.AdvertiseConfig
@@ -165,7 +165,7 @@ class ServerViewModel : ViewModel() {
 
     private var l2capListener: L2capListener? = null
     private var l2capAcceptJob: Job? = null
-    private val _l2capChannels = MutableStateFlow<List<L2capChannel>>(emptyList())
+    private val _l2capChannels = MutableStateFlow<List<TypedL2capChannel<SensorReading>>>(emptyList())
 
     fun openL2capServer(secure: Boolean = true) {
         launchWithErrorHandling {
@@ -175,8 +175,8 @@ class ServerViewModel : ViewModel() {
             l2capAcceptJob?.cancel()
             l2capAcceptJob =
                 viewModelScope.launch {
-                    listener.incoming.collect { channel ->
-                        launch { streamReadings(channel) }
+                    listener.framedConnections(SensorReadingCodec).collect { typed ->
+                        launch { streamReadings(typed) }
                     }
                 }
             listener.open(secure)
@@ -198,19 +198,19 @@ class ServerViewModel : ViewModel() {
         appendL2capLog("Listener closed")
     }
 
-    private suspend fun streamReadings(channel: L2capChannel) {
-        _l2capChannels.update { it + channel }
-        appendL2capLog("Channel accepted (mtu=${channel.mtu}); streaming SensorReading")
+    private suspend fun streamReadings(typed: TypedL2capChannel<SensorReading>) {
+        _l2capChannels.update { it + typed }
+        appendL2capLog("Channel accepted (mtu=${typed.mtu}); streaming SensorReading")
         val start = TimeSource.Monotonic.markNow()
         try {
-            while (channel.isOpen) {
+            while (typed.isOpen) {
                 val reading =
                     SensorReading(
                         timestampMs = start.elapsedNow().inWholeMilliseconds,
                         celsius = 20.0 + Random.nextDouble(-2.0, 2.0),
                     )
                 try {
-                    channel.writeFramed(reading, SensorReadingCodec)
+                    typed.write(reading)
                     _l2capStreamedCount.update { it + 1 }
                 } catch (e: Exception) {
                     appendL2capLog("Stream write failed: ${e.message}")
@@ -219,7 +219,7 @@ class ServerViewModel : ViewModel() {
                 delay(STREAM_INTERVAL_MS)
             }
         } finally {
-            _l2capChannels.update { it - channel }
+            _l2capChannels.update { it - typed }
             appendL2capLog("Channel closed")
         }
     }
