@@ -1,6 +1,8 @@
 package com.atruedev.kmpble
 
 import com.atruedev.kmpble.adapter.BluetoothAdapter
+import com.atruedev.kmpble.l2cap.L2capException
+import com.atruedev.kmpble.l2cap.L2capListener
 import com.atruedev.kmpble.permissions.PermissionResult
 import com.atruedev.kmpble.permissions.checkBlePermissions
 import com.atruedev.kmpble.scanner.Scanner
@@ -29,6 +31,11 @@ class JvmStubTest {
     @Test
     fun bluetoothAdapterThrowsOnJvm() {
         assertFailsWith<UnsupportedOperationException> { BluetoothAdapter() }
+    }
+
+    @Test
+    fun l2capListenerThrowsNotSupportedOnJvm() {
+        assertFailsWith<L2capException.NotSupported> { L2capListener() }
     }
 
     @Test
