@@ -321,11 +321,11 @@ private fun ExtendedAdvertiserCard(
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(onClick = {
-                    vm.startExtendedSet(Phy.Le1M, Phy.Le2M, "kmp-ble Ext", AdvertiseInterval.Balanced)
+                    vm.startExtendedSet(Phy.Le1M, Phy.Le2M, "$SAMPLE_NAME_PREFIX Ext", AdvertiseInterval.Balanced)
                 }) { Text("Add Set (1M/2M)") }
 
                 Button(onClick = {
-                    vm.startExtendedSet(Phy.LeCoded, Phy.LeCoded, "kmp-ble LR", AdvertiseInterval.LowPower)
+                    vm.startExtendedSet(Phy.LeCoded, Phy.LeCoded, "$SAMPLE_NAME_PREFIX LR", AdvertiseInterval.LowPower)
                 }) { Text("Add Set (Coded)") }
             }
 

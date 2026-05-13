@@ -272,7 +272,7 @@ private fun DeviceCard(
                     shape = RoundedCornerShape(4.dp),
                 ) {
                     Text(
-                        text = "kmp-ble sample",
+                        text = "$SAMPLE_NAME_PREFIX sample",
                         style = MaterialTheme.typography.labelSmall,
                         modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
                     )
