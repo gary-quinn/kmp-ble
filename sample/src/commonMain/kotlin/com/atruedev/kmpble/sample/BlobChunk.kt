@@ -4,6 +4,7 @@ package com.atruedev.kmpble.sample
 
 import com.atruedev.kmpble.codec.serialization.cborCodec
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.cbor.ByteString
 
 /**
  * Fragment of a larger blob being streamed over a framed L2CAP channel.
@@ -26,7 +27,7 @@ data class BlobChunk(
     val seq: Int,
     val totalBytes: Long,
     val eof: Boolean,
-    val bytes: ByteArray,
+    @ByteString val bytes: ByteArray,
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
