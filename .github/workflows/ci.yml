@@ -18,6 +18,7 @@ jobs:
         with:
           extra_excludes: |
             :(glob,exclude)**/*.jar
+            :(glob,exclude)**/*.png
 
   android:
     runs-on: ubuntu-latest
