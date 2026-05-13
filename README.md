@@ -396,6 +396,10 @@ Minimal ~150-line single-screen app: scan, tap, connect, read first characterist
 - **Object identity:** `Characteristic` and `Descriptor` use reference equality, matching native API behavior
 - **Composable errors:** Sealed interfaces - `AuthError`, `GattOperationError`, `ConnectionError`
 
+See [ARCHITECTURE.md](ARCHITECTURE.md) for design details and
+[STREAMS.md](STREAMS.md) for an end-to-end recipe on typed L2CAP streams
+(codec + framing + accept loop).
+
 ## Requirements
 
 - Kotlin 2.3.0+
