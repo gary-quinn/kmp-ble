@@ -1,6 +1,7 @@
 package com.atruedev.kmpble.codec
 
 import com.atruedev.kmpble.l2cap.L2capChannel
+import com.atruedev.kmpble.l2cap.L2capListener
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -49,3 +50,34 @@ public suspend fun <T> L2capChannel.writeFramed(
     encoder: BleEncoder<T>,
     framer: Framer = LengthPrefixFramer(),
 ): Unit = write(framer.frame(encoder.encode(value)))
+
+/**
+ * Accept incoming L2CAP connections and pre-wrap each one as a
+ * [TypedL2capChannel] using the supplied [codec] and [framer].
+ *
+ * Symmetric server-side counterpart to client-side [framedIncoming] +
+ * [writeFramed]: instead of accepting raw [L2capChannel] connections from
+ * [L2capListener.incoming] and wiring framing manually for each, callers
+ * receive ready-to-use typed channels. Each accepted channel runs its own
+ * unframer; per-channel decoder failures route to [onDecodeFailure].
+ *
+ * Listener lifecycle is unchanged - this is a view over [L2capListener.incoming].
+ *
+ * Returns a plain [Flow], not the [kotlinx.coroutines.flow.SharedFlow] that
+ * [L2capListener.incoming] exposes. Callers that need `subscriptionCount`
+ * or `onSubscription` for race-free wiring should collect
+ * [L2capListener.incoming] directly and wrap each channel themselves.
+ */
+public fun <T> L2capListener.framedConnections(
+    codec: BleCodec<T>,
+    framer: Framer = LengthPrefixFramer(),
+    onDecodeFailure: (ByteArray) -> Unit = {},
+): Flow<TypedL2capChannel<T>> =
+    incoming.map { channel ->
+        TypedL2capChannel(
+            channel = channel,
+            incoming = channel.framedIncoming(codec, framer, onDecodeFailure),
+            codec = codec,
+            framer = framer,
+        )
+    }
