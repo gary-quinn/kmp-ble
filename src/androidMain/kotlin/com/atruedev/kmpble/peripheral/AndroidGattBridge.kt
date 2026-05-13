@@ -65,6 +65,12 @@ internal sealed interface GattCallbackEvent {
         val rssi: Int,
         val status: Int,
     ) : GattCallbackEvent
+
+    data class PhyUpdated(
+        val txPhy: Int,
+        val rxPhy: Int,
+        val status: Int,
+    ) : GattCallbackEvent
 }
 
 internal class AndroidGattBridge(
@@ -152,6 +158,15 @@ internal class AndroidGattBridge(
             ) {
                 onEvent?.invoke(GattCallbackEvent.ReadRemoteRssi(rssi, status))
             }
+
+            override fun onPhyUpdate(
+                gatt: BluetoothGatt,
+                txPhy: Int,
+                rxPhy: Int,
+                status: Int,
+            ) {
+                onEvent?.invoke(GattCallbackEvent.PhyUpdated(txPhy, rxPhy, status))
+            }
         }
 
     internal fun connect(options: ConnectionOptions): BluetoothGatt? {
@@ -182,6 +197,18 @@ internal class AndroidGattBridge(
     internal fun discoverServices(): Boolean = gatt?.discoverServices() ?: false
 
     internal fun requestMtu(mtu: Int): Boolean = gatt?.requestMtu(mtu) ?: false
+
+    internal fun requestConnectionPriority(priority: Int): Boolean = gatt?.requestConnectionPriority(priority) ?: false
+
+    internal fun setPreferredPhy(
+        txPhyMask: Int,
+        rxPhyMask: Int,
+        phyOptions: Int,
+    ): Boolean {
+        val g = gatt ?: return false
+        g.setPreferredPhy(txPhyMask, rxPhyMask, phyOptions)
+        return true
+    }
 
     internal fun readCharacteristic(characteristic: BluetoothGattCharacteristic): Boolean =
         gatt?.readCharacteristic(characteristic) ?: false

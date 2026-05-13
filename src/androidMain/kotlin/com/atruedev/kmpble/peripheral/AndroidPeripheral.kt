@@ -4,6 +4,7 @@ package com.atruedev.kmpble.peripheral
 
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothDevice
+import android.bluetooth.BluetoothGatt
 import android.bluetooth.BluetoothGattCharacteristic
 import android.bluetooth.BluetoothGattDescriptor
 import android.bluetooth.BluetoothProfile
@@ -14,6 +15,8 @@ import com.atruedev.kmpble.bonding.BondRemovalResult
 import com.atruedev.kmpble.bonding.BondState
 import com.atruedev.kmpble.connection.BondingPreference
 import com.atruedev.kmpble.connection.ConnectionOptions
+import com.atruedev.kmpble.connection.ConnectionPriority
+import com.atruedev.kmpble.connection.Phy
 import com.atruedev.kmpble.connection.ReconnectionStrategy
 import com.atruedev.kmpble.connection.State
 import com.atruedev.kmpble.connection.internal.ConnectionEvent
@@ -39,6 +42,7 @@ import com.atruedev.kmpble.gatt.internal.NotConnectedException
 import com.atruedev.kmpble.gatt.internal.ObservationManager
 import com.atruedev.kmpble.gatt.internal.PendingOp
 import com.atruedev.kmpble.gatt.internal.PendingOperations
+import com.atruedev.kmpble.gatt.internal.PhyUpdateResult
 import com.atruedev.kmpble.l2cap.AndroidL2capChannel
 import com.atruedev.kmpble.l2cap.BluetoothL2capSocket
 import com.atruedev.kmpble.l2cap.L2capChannel
@@ -345,7 +349,21 @@ public class AndroidPeripheral internal constructor(
                 is GattCallbackEvent.DescriptorWrite ->
                     pendingOps.complete(PendingOp.DescriptorWrite, event.status.toGattStatus())
                 is GattCallbackEvent.ReadRemoteRssi -> handleRssiResult(event)
+                is GattCallbackEvent.PhyUpdated -> handlePhyUpdated(event)
             }
+        }
+    }
+
+    private fun handlePhyUpdated(event: GattCallbackEvent.PhyUpdated) {
+        if (pendingOps.has(PendingOp.PhyUpdate)) {
+            pendingOps.complete(
+                PendingOp.PhyUpdate,
+                PhyUpdateResult(
+                    txPhyConstant = event.txPhy,
+                    rxPhyConstant = event.rxPhy,
+                    status = event.status.toGattStatus(),
+                ),
+            )
         }
     }
 
@@ -666,6 +684,59 @@ public class AndroidPeripheral internal constructor(
             pendingOps.awaitGatt(PendingOp.MtuRequest, "requestMtu") { bridge.requestMtu(mtu) }
         }
     }
+
+    @ExperimentalBleApi
+    override suspend fun requestConnectionPriority(priority: ConnectionPriority): Boolean {
+        checkNotClosed()
+        val androidPriority =
+            when (priority) {
+                ConnectionPriority.Balanced -> BluetoothGatt.CONNECTION_PRIORITY_BALANCED
+                ConnectionPriority.High -> BluetoothGatt.CONNECTION_PRIORITY_HIGH
+                ConnectionPriority.LowPower -> BluetoothGatt.CONNECTION_PRIORITY_LOW_POWER
+            }
+        return peripheralContext.gattQueue.enqueue {
+            bridge.requestConnectionPriority(androidPriority)
+        }
+    }
+
+    @ExperimentalBleApi
+    override suspend fun setPreferredPhy(
+        tx: Phy,
+        rx: Phy,
+    ): PhyResult? {
+        checkNotClosed()
+        val txMask = phyToMask(tx)
+        val rxMask = phyToMask(rx)
+        return peripheralContext.gattQueue.enqueue {
+            val result =
+                pendingOps.awaitGatt(PendingOp.PhyUpdate, "setPreferredPhy") {
+                    bridge.setPreferredPhy(
+                        txMask,
+                        rxMask,
+                        BluetoothDevice.PHY_OPTION_NO_PREFERRED,
+                    )
+                }
+            if (!result.status.isSuccess()) return@enqueue null
+            PhyResult(
+                tx = phyConstantToPhy(result.txPhyConstant),
+                rx = phyConstantToPhy(result.rxPhyConstant),
+            )
+        }
+    }
+
+    private fun phyToMask(phy: Phy): Int =
+        when (phy) {
+            Phy.Le1M -> BluetoothDevice.PHY_LE_1M_MASK
+            Phy.Le2M -> BluetoothDevice.PHY_LE_2M_MASK
+            Phy.LeCoded -> BluetoothDevice.PHY_LE_CODED_MASK
+        }
+
+    private fun phyConstantToPhy(value: Int): Phy =
+        when (value) {
+            BluetoothDevice.PHY_LE_2M -> Phy.Le2M
+            BluetoothDevice.PHY_LE_CODED -> Phy.LeCoded
+            else -> Phy.Le1M
+        }
 
     private val activeL2capChannels = MutableStateFlow<List<AndroidL2capChannel>>(emptyList())
 

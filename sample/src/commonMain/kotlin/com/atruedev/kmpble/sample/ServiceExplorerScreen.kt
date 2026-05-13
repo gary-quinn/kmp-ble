@@ -547,6 +547,21 @@ private fun BlobReceiveStatsBlock(stats: BlobL2capController.Stats) {
             "${stats.frameCount} frames  |  " +
                 "${stats.frameBytesMin}-${stats.frameBytesMax} B (encoded, incl. CBOR + length prefix)",
         )
+
+        Spacer(Modifier.height(6.dp))
+        Text("Connection tuning", style = MaterialTheme.typography.labelMedium)
+        LayerRow(
+            "Priority",
+            when {
+                !stats.priorityRequested -> "not requested"
+                stats.priorityApplied -> "HIGH (platform accepted)"
+                else -> "not supported"
+            },
+        )
+        LayerRow(
+            "PHY",
+            stats.phyApplied?.let { "tx=${it.tx} rx=${it.rx}" } ?: "not supported / 1M default",
+        )
     }
 }
 

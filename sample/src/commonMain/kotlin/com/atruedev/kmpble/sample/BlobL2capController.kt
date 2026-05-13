@@ -1,9 +1,13 @@
 package com.atruedev.kmpble.sample
 
+import com.atruedev.kmpble.ExperimentalBleApi
 import com.atruedev.kmpble.codec.LengthPrefixFramer
 import com.atruedev.kmpble.codec.unframedBy
+import com.atruedev.kmpble.connection.ConnectionPriority
+import com.atruedev.kmpble.connection.Phy
 import com.atruedev.kmpble.l2cap.L2capChannel
 import com.atruedev.kmpble.peripheral.Peripheral
+import com.atruedev.kmpble.peripheral.PhyResult
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -35,6 +39,7 @@ import kotlin.time.TimeSource
  * 3. **App frame size** = the size of each decoded [BlobChunk.bytes]
  *    payload, equal to the producer's `frameBytes` setting.
  */
+@OptIn(ExperimentalBleApi::class)
 class BlobL2capController(
     private val peripheral: Peripheral,
     private val scope: CoroutineScope,
@@ -53,6 +58,10 @@ class BlobL2capController(
         val osChunkBytesTotal: Long = 0,
         val elapsedMs: Long = 0,
         val done: Boolean = false,
+        val priorityRequested: Boolean = false,
+        val priorityApplied: Boolean = false,
+        val phyApplied: PhyResult? = null,
+        val phySupported: Boolean = false,
     ) {
         val progressFraction: Float
             get() = if (expectedBytes > 0) (receivedBytes.toFloat() / expectedBytes.toFloat()).coerceIn(0f, 1f) else 0f
@@ -76,14 +85,46 @@ class BlobL2capController(
     fun open(
         psm: Int,
         secure: Boolean = true,
+        tunePriority: Boolean = true,
+        tunePhy: Boolean = true,
     ) {
         openJob?.cancel()
         openJob =
             scope.launch {
                 try {
+                    val priorityApplied =
+                        if (tunePriority) {
+                            val ok = peripheral.requestConnectionPriority(ConnectionPriority.High)
+                            appendLog(if (ok) "Priority HIGH requested" else "Priority not supported")
+                            ok
+                        } else {
+                            false
+                        }
+
+                    val phyResult =
+                        if (tunePhy) {
+                            val res = peripheral.setPreferredPhy(Phy.Le2M, Phy.Le2M)
+                            if (res != null) {
+                                appendLog("PHY set tx=${res.tx} rx=${res.rx}")
+                            } else {
+                                appendLog("PHY not supported / no-op")
+                            }
+                            res
+                        } else {
+                            null
+                        }
+
                     val ch = peripheral.openL2capChannel(psm, secure)
                     channel = ch
-                    _stats.value = Stats(isOpen = true, mtu = ch.mtu)
+                    _stats.value =
+                        Stats(
+                            isOpen = true,
+                            mtu = ch.mtu,
+                            priorityRequested = tunePriority,
+                            priorityApplied = priorityApplied,
+                            phyApplied = phyResult,
+                            phySupported = phyResult != null,
+                        )
                     appendLog("Opened (PSM=$psm, mtu=${ch.mtu})")
                     consume(ch)
                 } catch (e: CancellationException) {
