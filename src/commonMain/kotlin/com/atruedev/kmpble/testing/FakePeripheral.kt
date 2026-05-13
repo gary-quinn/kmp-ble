@@ -2,6 +2,8 @@ package com.atruedev.kmpble.testing
 
 import com.atruedev.kmpble.Identifier
 import com.atruedev.kmpble.connection.ConnectionOptions
+import com.atruedev.kmpble.connection.ConnectionPriority
+import com.atruedev.kmpble.connection.Phy
 import com.atruedev.kmpble.connection.State
 import com.atruedev.kmpble.connection.internal.ConnectionEvent
 import com.atruedev.kmpble.error.BleError
@@ -23,6 +25,7 @@ import com.atruedev.kmpble.gatt.internal.applyBackpressure
 import com.atruedev.kmpble.l2cap.L2capChannel
 import com.atruedev.kmpble.l2cap.L2capException
 import com.atruedev.kmpble.peripheral.Peripheral
+import com.atruedev.kmpble.peripheral.PhyResult
 import com.atruedev.kmpble.peripheral.internal.PeripheralContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -282,6 +285,23 @@ public class FakePeripheral internal constructor(
         checkConnected()
         context.updateMtu(mtu)
         return mtu
+    }
+
+    @com.atruedev.kmpble.ExperimentalBleApi
+    override suspend fun requestConnectionPriority(priority: ConnectionPriority): Boolean {
+        checkNotClosed()
+        checkConnected()
+        return true
+    }
+
+    @com.atruedev.kmpble.ExperimentalBleApi
+    override suspend fun setPreferredPhy(
+        tx: Phy,
+        rx: Phy,
+    ): PhyResult? {
+        checkNotClosed()
+        checkConnected()
+        return PhyResult(tx, rx)
     }
 
     // --- Internal ---

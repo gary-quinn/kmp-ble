@@ -32,7 +32,15 @@ internal sealed interface PendingOp<T> {
     data object RssiRead : PendingOp<Int>
 
     data object MtuRequest : PendingOp<Int>
+
+    data object PhyUpdate : PendingOp<PhyUpdateResult>
 }
+
+internal data class PhyUpdateResult(
+    val txPhyConstant: Int,
+    val rxPhyConstant: Int,
+    val status: com.atruedev.kmpble.error.GattStatus,
+)
 
 /**
  * Holds at most one [CompletableDeferred] per [PendingOp] type.

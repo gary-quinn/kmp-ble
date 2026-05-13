@@ -4,6 +4,8 @@ import com.atruedev.kmpble.Identifier
 import com.atruedev.kmpble.bonding.BondRemovalResult
 import com.atruedev.kmpble.bonding.BondState
 import com.atruedev.kmpble.connection.ConnectionOptions
+import com.atruedev.kmpble.connection.ConnectionPriority
+import com.atruedev.kmpble.connection.Phy
 import com.atruedev.kmpble.connection.State
 import com.atruedev.kmpble.gatt.BackpressureStrategy
 import com.atruedev.kmpble.gatt.Characteristic
@@ -13,6 +15,7 @@ import com.atruedev.kmpble.gatt.Observation
 import com.atruedev.kmpble.gatt.WriteType
 import com.atruedev.kmpble.l2cap.L2capChannel
 import com.atruedev.kmpble.peripheral.Peripheral
+import com.atruedev.kmpble.peripheral.PhyResult
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -83,6 +86,15 @@ internal class StubPeripheral(
     override suspend fun readRssi(): Int = unsupported()
 
     override suspend fun requestMtu(mtu: Int): Int = unsupported()
+
+    @com.atruedev.kmpble.ExperimentalBleApi
+    override suspend fun requestConnectionPriority(priority: ConnectionPriority): Boolean = unsupported()
+
+    @com.atruedev.kmpble.ExperimentalBleApi
+    override suspend fun setPreferredPhy(
+        tx: Phy,
+        rx: Phy,
+    ): PhyResult? = unsupported()
 
     override suspend fun openL2capChannel(
         psm: Int,
