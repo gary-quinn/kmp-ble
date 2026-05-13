@@ -284,8 +284,9 @@ internal class AndroidGattServer(
                             ),
                         )
                         sendResponseSafe(device, requestId, BluetoothGatt.GATT_SUCCESS, offset, responseData)
-                    } catch (e: Exception) {
-                        if (e is CancellationException) throw e
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (_: Exception) {
                         logEvent(
                             BleLogEvent.ServerRequest(
                                 deviceId,
@@ -346,8 +347,9 @@ internal class AndroidGattServer(
                             val nativeStatus = status?.toAndroidGattStatus() ?: BluetoothGatt.GATT_SUCCESS
                             sendResponseSafe(device, requestId, nativeStatus, offset, null)
                         }
-                    } catch (e: Exception) {
-                        if (e is CancellationException) throw e
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (_: Exception) {
                         logEvent(
                             BleLogEvent.ServerRequest(
                                 deviceId,
