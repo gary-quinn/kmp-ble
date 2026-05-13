@@ -1,5 +1,6 @@
 package com.atruedev.kmpble.sample
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -14,12 +15,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -60,7 +64,10 @@ private data class ScannedDevice(
     val isLegacy: Boolean,
     val isConnectable: Boolean,
     val phyInfo: String?,
+    val isSample: Boolean,
 )
+
+private fun Advertisement.isSampleServer(): Boolean = name?.startsWith(SAMPLE_NAME_PREFIX) == true
 
 @OptIn(ExperimentalUuidApi::class)
 private fun Advertisement.toScannedDevice() =
@@ -79,6 +86,7 @@ private fun Advertisement.toScannedDevice() =
             } else {
                 null
             },
+        isSample = isSampleServer(),
     )
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -117,7 +125,12 @@ fun ScannerScreen(
                     val snapshot =
                         withContext(scanContext) {
                             deviceMap.entries.removeAll { it.value.second.elapsedNow() > 10.seconds }
-                            deviceMap.values.map { it.first }.sortedByDescending { it.rssi }
+                            deviceMap.values
+                                .map { it.first }
+                                .sortedWith(
+                                    compareByDescending<Advertisement> { it.isSampleServer() }
+                                        .thenByDescending { it.rssi },
+                                )
                         }
                     advertisementLookup.clear()
                     snapshot.forEach { advertisementLookup[it.identifier.value] = it }
@@ -234,10 +247,38 @@ private fun DeviceCard(
     device: ScannedDevice,
     onClick: () -> Unit,
 ) {
+    val cardColors =
+        if (device.isSample) {
+            CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+        } else {
+            CardDefaults.cardColors()
+        }
+    val cardBorder =
+        if (device.isSample) {
+            BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+        } else {
+            null
+        }
     Card(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+        colors = cardColors,
+        border = cardBorder,
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
+            if (device.isSample) {
+                Surface(
+                    color = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    shape = RoundedCornerShape(4.dp),
+                ) {
+                    Text(
+                        text = "$SAMPLE_NAME_PREFIX sample",
+                        style = MaterialTheme.typography.labelSmall,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                    )
+                }
+                Spacer(Modifier.height(6.dp))
+            }
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
