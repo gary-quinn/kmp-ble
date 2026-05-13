@@ -30,6 +30,12 @@ private val HEART_RATE_SERVICE = uuidFrom("180D")
 private val HEART_RATE_MEASUREMENT = uuidFrom("2A37")
 private const val STREAM_INTERVAL_MS = 100L
 
+/**
+ * Local name prefix used by every advertiser in this sample app so the
+ * scanner can pin matching devices to the top of the list.
+ */
+internal const val SAMPLE_NAME_PREFIX = "kmp-ble"
+
 @OptIn(ExperimentalBleApi::class)
 class ServerViewModel : ViewModel() {
     private val _heartRate = MutableStateFlow(72)
@@ -102,6 +108,7 @@ class ServerViewModel : ViewModel() {
         launchWithErrorHandling {
             advertiser.startAdvertising(
                 AdvertiseConfig(
+                    name = "$SAMPLE_NAME_PREFIX Sample",
                     serviceUuids = listOf(HEART_RATE_SERVICE),
                     connectable = true,
                 ),
