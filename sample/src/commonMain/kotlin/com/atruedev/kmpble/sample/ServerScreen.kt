@@ -16,6 +16,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
@@ -54,6 +55,12 @@ fun ServerScreen(onBack: () -> Unit) {
     val l2capPsm by vm.l2capPsm.collectAsState()
     val l2capLog by vm.l2capLog.collectAsState()
     val l2capStreamedCount by vm.l2capStreamedCount.collectAsState()
+    val blobOpen by vm.blobOpen.collectAsState()
+    val blobPsm by vm.blobPsm.collectAsState()
+    val blobLog by vm.blobLog.collectAsState()
+    val blobTotal by vm.blobTotalBytes.collectAsState()
+    val blobFrame by vm.blobFrameBytes.collectAsState()
+    val blobSendStats by vm.blobSendStats.collectAsState()
 
     LaunchedEffect(error) {
         error?.let {
@@ -84,6 +91,17 @@ fun ServerScreen(onBack: () -> Unit) {
                 item { ClientPreviewCard(heartRate, connectionLog.size) }
             }
             item { L2capServerCard(l2capOpen, l2capPsm, l2capLog, l2capStreamedCount, vm) }
+            item {
+                L2capBlobServerCard(
+                    open = blobOpen,
+                    psm = blobPsm,
+                    totalBytes = blobTotal,
+                    frameBytes = blobFrame,
+                    stats = blobSendStats,
+                    log = blobLog,
+                    vm = vm,
+                )
+            }
             item { LegacyAdvertiserCard(isAdvertising, vm) }
             item { ExtendedAdvertiserCard(activeSets, vm) }
             item { ConnectionLogCard(connectionLog) }
@@ -215,6 +233,138 @@ private fun L2capServerCard(
                 }
             }
         }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun L2capBlobServerCard(
+    open: Boolean,
+    psm: Int,
+    totalBytes: Long,
+    frameBytes: Int,
+    stats: BlobSendStats?,
+    log: List<String>,
+    vm: ServerViewModel,
+) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text("L2CAP Blob Stream", style = MaterialTheme.typography.titleSmall)
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "Generic large-payload demo. On each accepted L2CAP channel, the server pushes " +
+                    "a configurable total (default 5 MiB) as length-prefix-framed BlobChunk " +
+                    "messages of the chosen frame size. Receiver shows MTU, OS read chunks, and " +
+                    "app frames side by side.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            Spacer(Modifier.height(8.dp))
+
+            FilterChip(
+                selected = open,
+                onClick = {},
+                label = { Text(if (open) "Open (PSM=$psm)" else "Closed") },
+            )
+
+            Spacer(Modifier.height(8.dp))
+
+            Text("Total payload", style = MaterialTheme.typography.labelMedium)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                for (bytes in BLOB_TOTAL_OPTIONS) {
+                    FilterChip(
+                        selected = totalBytes == bytes,
+                        onClick = { vm.setBlobTotalBytes(bytes) },
+                        enabled = !open,
+                        label = { Text(humanBytes(bytes)) },
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(4.dp))
+
+            Text("Frame size (app)", style = MaterialTheme.typography.labelMedium)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                for (size in BLOB_FRAME_OPTIONS) {
+                    FilterChip(
+                        selected = frameBytes == size,
+                        onClick = { vm.setBlobFrameBytes(size) },
+                        enabled = !open,
+                        label = { Text(humanBytes(size.toLong())) },
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "Default LengthPrefixFramer caps frames at 64 KiB; CBOR overhead leaves ~60 KiB " +
+                    "usable. Larger frames need a custom LengthPrefixFramer(maxFrameSize) on both ends.",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            Spacer(Modifier.height(8.dp))
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    onClick = { vm.openBlobServer(secure = true) },
+                    enabled = !open,
+                ) { Text("Open Secure") }
+
+                OutlinedButton(
+                    onClick = { vm.closeBlobServer() },
+                    enabled = open,
+                ) { Text("Close") }
+            }
+
+            if (stats != null) {
+                Spacer(Modifier.height(8.dp))
+                BlobSendStatsBlock(stats)
+            }
+
+            if (log.isNotEmpty()) {
+                Spacer(Modifier.height(8.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    log.take(8).forEach { line ->
+                        Text(
+                            line,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun BlobSendStatsBlock(stats: BlobSendStats) {
+    val progress =
+        if (stats.totalBytes > 0) {
+            (stats.bytesSent.toFloat() / stats.totalBytes.toFloat()).coerceIn(0f, 1f)
+        } else {
+            0f
+        }
+    val throughputKbps =
+        if (stats.elapsedMs > 0) (stats.bytesSent * 1000.0 / stats.elapsedMs / 1024.0) else 0.0
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(
+            "Sent: ${humanBytes(stats.bytesSent)} / ${humanBytes(stats.totalBytes)} " +
+                "(${stats.framesSent} frames)",
+            style = MaterialTheme.typography.bodySmall,
+        )
+        LinearProgressIndicator(
+            progress = { progress },
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Text(
+            "Throughput: ${humanThroughput(throughputKbps)}  |  MTU: ${stats.mtu} B  |  " +
+                "Elapsed: ${stats.elapsedMs} ms  |  ${if (stats.done) "DONE" else "..."}",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 
