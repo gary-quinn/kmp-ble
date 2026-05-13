@@ -21,6 +21,7 @@ import com.atruedev.kmpble.logging.BleLogEvent
 import com.atruedev.kmpble.logging.logEvent
 import com.atruedev.kmpble.peripheral.toAndroidGattStatus
 import com.atruedev.kmpble.peripheral.toGattStatus
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineName
@@ -284,7 +285,7 @@ internal class AndroidGattServer(
                         )
                         sendResponseSafe(device, requestId, BluetoothGatt.GATT_SUCCESS, offset, responseData)
                     } catch (e: Exception) {
-                        if (e is kotlinx.coroutines.CancellationException) throw e
+                        if (e is CancellationException) throw e
                         logEvent(
                             BleLogEvent.ServerRequest(
                                 deviceId,
@@ -346,7 +347,7 @@ internal class AndroidGattServer(
                             sendResponseSafe(device, requestId, nativeStatus, offset, null)
                         }
                     } catch (e: Exception) {
-                        if (e is kotlinx.coroutines.CancellationException) throw e
+                        if (e is CancellationException) throw e
                         logEvent(
                             BleLogEvent.ServerRequest(
                                 deviceId,
