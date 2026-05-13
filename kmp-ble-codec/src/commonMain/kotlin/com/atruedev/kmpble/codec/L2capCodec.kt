@@ -62,8 +62,11 @@ public suspend fun <T> L2capChannel.writeFramed(
  * unframer; per-channel decoder failures route to [onDecodeFailure].
  *
  * Listener lifecycle is unchanged - this is a view over [L2capListener.incoming].
- * The returned flow re-emits as new clients are accepted; callers typically
- * launch a coroutine per typed channel to handle reads and writes.
+ *
+ * Returns a plain [Flow], not the [kotlinx.coroutines.flow.SharedFlow] that
+ * [L2capListener.incoming] exposes. Callers that need `subscriptionCount`
+ * or `onSubscription` for race-free wiring should collect
+ * [L2capListener.incoming] directly and wrap each channel themselves.
  */
 public fun <T> L2capListener.framedConnections(
     codec: BleCodec<T>,
