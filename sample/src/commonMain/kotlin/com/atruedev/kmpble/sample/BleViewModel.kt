@@ -71,6 +71,7 @@ class BleViewModel(
 
     val pairing = PairingCoordinator()
     val l2cap = L2capController(peripheral, viewModelScope)
+    val blob = BlobL2capController(peripheral, viewModelScope)
 
     private val _benchmarkResult = MutableStateFlow<String?>(null)
     val benchmarkResult: StateFlow<String?> = _benchmarkResult.asStateFlow()
@@ -249,6 +250,7 @@ class BleViewModel(
         dfuJob?.cancel()
         dfuController = null
         l2cap.close()
+        blob.close()
         peripheral.close()
     }
 

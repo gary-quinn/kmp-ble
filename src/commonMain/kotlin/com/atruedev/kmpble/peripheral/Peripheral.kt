@@ -5,6 +5,8 @@ import com.atruedev.kmpble.Identifier
 import com.atruedev.kmpble.bonding.BondRemovalResult
 import com.atruedev.kmpble.bonding.BondState
 import com.atruedev.kmpble.connection.ConnectionOptions
+import com.atruedev.kmpble.connection.ConnectionPriority
+import com.atruedev.kmpble.connection.Phy
 import com.atruedev.kmpble.connection.State
 import com.atruedev.kmpble.gatt.BackpressureStrategy
 import com.atruedev.kmpble.gatt.Characteristic
@@ -124,6 +126,54 @@ public interface Peripheral : AutoCloseable {
     public suspend fun readRssi(): Int
 
     public suspend fun requestMtu(mtu: Int): Int
+
+    /**
+     * Request a new connection priority (interval / latency / supervision timeout).
+     *
+     * On Android, maps to `BluetoothGatt.requestConnectionPriority`. Returns
+     * synchronously after the request is dispatched; the actual interval
+     * negotiation happens asynchronously and is not surfaced through this API.
+     *
+     * On iOS, this is a no-op and returns `false`. CoreBluetooth does not
+     * expose connection parameter negotiation through public API.
+     *
+     * Use [ConnectionPriority.High] before high-throughput operations
+     * (L2CAP bulk transfers, firmware updates) to drop the connection interval
+     * to ~11-15 ms. Reset to [ConnectionPriority.Balanced] when done to
+     * avoid sustained battery drain.
+     *
+     * @return `true` if the platform supports the request and it was dispatched
+     *         successfully; `false` on unsupported platforms or if the GATT
+     *         layer is not yet ready.
+     */
+    @ExperimentalBleApi
+    public suspend fun requestConnectionPriority(priority: ConnectionPriority): Boolean
+
+    /**
+     * Request preferred PHYs for the LE connection (BLE 5.0).
+     *
+     * On Android, maps to `BluetoothGatt.setPreferredPhy`. Suspends until the
+     * `onPhyUpdate` callback fires (or times out via `gattOperationTimeout`).
+     * The returned PHYs reflect the controller's choice, which may differ from
+     * what was requested.
+     *
+     * On iOS, this is a no-op and returns `null`. CoreBluetooth does not
+     * expose PHY negotiation through public API; the OS picks PHY based on
+     * device capability.
+     *
+     * Use `Phy.Le2M` for both directions to double over-the-air throughput on
+     * BLE 5.0 devices. Falls back to 1M silently on older devices.
+     *
+     * @param tx Preferred TX PHY.
+     * @param rx Preferred RX PHY.
+     * @return [PhyResult] reflecting the negotiated TX/RX PHYs, or `null` if
+     *         the platform does not support the operation.
+     */
+    @ExperimentalBleApi
+    public suspend fun setPreferredPhy(
+        tx: Phy,
+        rx: Phy,
+    ): PhyResult?
 
     public val maximumWriteValueLength: StateFlow<Int>
 

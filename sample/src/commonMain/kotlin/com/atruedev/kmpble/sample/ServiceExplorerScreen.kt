@@ -23,6 +23,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -63,6 +64,8 @@ fun ServiceExplorerScreen(
     val l2capChannel by vm.l2cap.channel.collectAsState()
     val l2capLog by vm.l2cap.log.collectAsState()
     val l2capReadings by vm.l2cap.readings.collectAsState()
+    val blobStats by vm.blob.stats.collectAsState()
+    val blobLog by vm.blob.log.collectAsState()
 
     Scaffold(
         topBar = {
@@ -99,6 +102,7 @@ fun ServiceExplorerScreen(
 
             item { BenchmarkSection(state, services, benchmarkResult, vm) }
             item { L2capSection(state, l2capChannel != null, l2capLog, l2capReadings, vm) }
+            item { L2capBlobSection(state, blobStats, blobLog, vm) }
             item { Spacer(Modifier.height(16.dp)) }
         }
     }
@@ -433,5 +437,149 @@ private fun L2capSection(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun L2capBlobSection(
+    state: State,
+    stats: BlobL2capController.Stats,
+    log: List<String>,
+    vm: BleViewModel,
+) {
+    var psmInput by remember { mutableStateOf("") }
+
+    CollapsibleCard("L2CAP Blob Stream") {
+        Column {
+            Spacer(Modifier.height(8.dp))
+
+            Text(
+                "Receives a multi-MiB stream from the server's L2CAP Blob listener. Stats split " +
+                    "into three layers: L2CAP SDU MTU (negotiated by controller), OS read chunk " +
+                    "size (channel.incoming ByteArray sizes), and app frame size (decoded " +
+                    "BlobChunk.bytes lengths).",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            Spacer(Modifier.height(8.dp))
+
+            FilterChip(
+                selected = stats.isOpen,
+                onClick = {},
+                label = { Text(if (stats.isOpen) "Open" else "Closed") },
+            )
+
+            Spacer(Modifier.height(8.dp))
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                OutlinedTextField(
+                    value = psmInput,
+                    onValueChange = { psmInput = it },
+                    label = { Text("PSM") },
+                    modifier = Modifier.width(80.dp),
+                    singleLine = true,
+                )
+                Button(
+                    onClick = { psmInput.toIntOrNull()?.let { vm.blob.open(it) } },
+                    enabled = state is State.Connected && !stats.isOpen,
+                ) { Text("Open") }
+                OutlinedButton(
+                    onClick = { vm.blob.close() },
+                    enabled = stats.isOpen,
+                ) { Text("Close") }
+            }
+
+            if (stats.frameCount > 0 || stats.osChunkCount > 0 || stats.isOpen) {
+                Spacer(Modifier.height(12.dp))
+                BlobReceiveStatsBlock(stats)
+            }
+
+            if (log.isNotEmpty()) {
+                Spacer(Modifier.height(8.dp))
+                for (entry in log.take(8)) {
+                    Text(
+                        entry,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun BlobReceiveStatsBlock(stats: BlobL2capController.Stats) {
+    val throughputKbps = stats.throughputBytesPerSec / 1024.0
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(
+            "Received: ${humanBytes(stats.receivedBytes)} / " +
+                "${if (stats.expectedBytes > 0) humanBytes(stats.expectedBytes) else "?"}  " +
+                "(${stats.frameCount} frames)",
+            style = MaterialTheme.typography.bodySmall,
+        )
+        LinearProgressIndicator(
+            progress = { stats.progressFraction },
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Text(
+            "Throughput: ${humanThroughput(throughputKbps)}  |  Elapsed: ${stats.elapsedMs} ms  |  " +
+                if (stats.done) "DONE" else "...",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        Spacer(Modifier.height(6.dp))
+        Text("Layer breakdown", style = MaterialTheme.typography.labelMedium)
+        LayerRow("L2CAP SDU MTU", "${stats.mtu} B (negotiated, channel.mtu)")
+        LayerRow(
+            "OS read chunks",
+            "${stats.osChunkCount} chunks  |  " +
+                "${stats.osChunkBytesMin}-${stats.osChunkBytesMax} B  |  " +
+                "avg ${roundOne(stats.osChunkBytesAvg)} B",
+        )
+        LayerRow(
+            "App frames",
+            "${stats.frameCount} frames  |  " +
+                "${stats.frameBytesMin}-${stats.frameBytesMax} B (encoded, incl. CBOR + length prefix)",
+        )
+
+        Spacer(Modifier.height(6.dp))
+        Text("Connection tuning", style = MaterialTheme.typography.labelMedium)
+        LayerRow(
+            "Priority",
+            when {
+                !stats.priorityRequested -> "not requested"
+                stats.priorityApplied -> "HIGH (platform accepted)"
+                else -> "not supported"
+            },
+        )
+        LayerRow(
+            "PHY",
+            stats.phyApplied?.let { "tx=${it.tx} rx=${it.rx}" } ?: "not supported / 1M default",
+        )
+    }
+}
+
+@Composable
+private fun LayerRow(
+    label: String,
+    value: String,
+) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            "$label:",
+            style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.width(120.dp),
+        )
+        Text(
+            value,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }

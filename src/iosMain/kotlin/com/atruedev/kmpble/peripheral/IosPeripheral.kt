@@ -7,6 +7,8 @@ import com.atruedev.kmpble.bleDataFromNSData
 import com.atruedev.kmpble.bonding.BondRemovalResult
 import com.atruedev.kmpble.bonding.BondState
 import com.atruedev.kmpble.connection.ConnectionOptions
+import com.atruedev.kmpble.connection.ConnectionPriority
+import com.atruedev.kmpble.connection.Phy
 import com.atruedev.kmpble.connection.ReconnectionStrategy
 import com.atruedev.kmpble.connection.State
 import com.atruedev.kmpble.connection.internal.ConnectionEvent
@@ -525,6 +527,21 @@ public class IosPeripheral(
                 .toInt() + ATT_HEADER_SIZE
         peripheralContext.updateMtu(actualMtu)
         return actualMtu
+    }
+
+    @ExperimentalBleApi
+    override suspend fun requestConnectionPriority(priority: ConnectionPriority): Boolean {
+        checkNotClosed()
+        return false
+    }
+
+    @ExperimentalBleApi
+    override suspend fun setPreferredPhy(
+        tx: Phy,
+        rx: Phy,
+    ): PhyResult? {
+        checkNotClosed()
+        return null
     }
 
     override suspend fun openL2capChannel(

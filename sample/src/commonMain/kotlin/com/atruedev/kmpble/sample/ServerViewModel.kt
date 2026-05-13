@@ -30,6 +30,22 @@ private val HEART_RATE_SERVICE = uuidFrom("180D")
 private val HEART_RATE_MEASUREMENT = uuidFrom("2A37")
 private const val STREAM_INTERVAL_MS = 100L
 
+private const val BLOB_DEFAULT_TOTAL_BYTES: Long = 5L * 1024 * 1024
+private const val BLOB_DEFAULT_FRAME_BYTES: Int = 4 * 1024
+const val BLOB_MAX_FRAME_BYTES: Int = 60 * 1024
+val BLOB_FRAME_OPTIONS: List<Int> = listOf(1024, 4 * 1024, 16 * 1024, BLOB_MAX_FRAME_BYTES)
+val BLOB_TOTAL_OPTIONS: List<Long> =
+    listOf(1L * 1024 * 1024, 5L * 1024 * 1024, 10L * 1024 * 1024, 25L * 1024 * 1024)
+
+data class BlobSendStats(
+    val bytesSent: Long,
+    val framesSent: Int,
+    val totalBytes: Long,
+    val mtu: Int,
+    val elapsedMs: Long,
+    val done: Boolean,
+)
+
 /**
  * Local name prefix used by every advertiser in this sample app so the
  * scanner can pin matching devices to the top of the list.
@@ -253,8 +269,128 @@ class ServerViewModel : ViewModel() {
             }
     }
 
+    // --- L2CAP blob stream (large transfer demo) ---
+    //
+    // On each accepted L2CAP channel, the server pushes a configurable total
+    // payload (default 5 MiB) as a sequence of length-prefix-framed BlobChunk
+    // messages of [_blobFrameBytes] each. The receiver (BlobL2capController)
+    // exposes the same stream split across three layers so the round-trip is
+    // observable: app frame size (this chunk size), OS read chunk size
+    // (channel.incoming ByteArray sizes), and L2CAP SDU MTU (channel.mtu).
+
+    private val _blobOpen = MutableStateFlow(false)
+    val blobOpen: StateFlow<Boolean> = _blobOpen.asStateFlow()
+
+    private val _blobPsm = MutableStateFlow(0)
+    val blobPsm: StateFlow<Int> = _blobPsm.asStateFlow()
+
+    private val _blobLog = MutableStateFlow(emptyList<String>())
+    val blobLog: StateFlow<List<String>> = _blobLog.asStateFlow()
+
+    private val _blobTotalBytes = MutableStateFlow(BLOB_DEFAULT_TOTAL_BYTES)
+    val blobTotalBytes: StateFlow<Long> = _blobTotalBytes.asStateFlow()
+
+    private val _blobFrameBytes = MutableStateFlow(BLOB_DEFAULT_FRAME_BYTES)
+    val blobFrameBytes: StateFlow<Int> = _blobFrameBytes.asStateFlow()
+
+    private val _blobSendStats = MutableStateFlow<BlobSendStats?>(null)
+    val blobSendStats: StateFlow<BlobSendStats?> = _blobSendStats.asStateFlow()
+
+    private var blobListener: L2capListener? = null
+    private var blobAcceptJob: Job? = null
+
+    fun setBlobTotalBytes(bytes: Long) {
+        _blobTotalBytes.value = bytes
+    }
+
+    fun setBlobFrameBytes(bytes: Int) {
+        _blobFrameBytes.value = bytes.coerceIn(64, BLOB_MAX_FRAME_BYTES)
+    }
+
+    fun openBlobServer(secure: Boolean = true) {
+        launchWithErrorHandling {
+            blobListener?.close()
+            val listener = L2capListener()
+            blobListener = listener
+            blobAcceptJob?.cancel()
+            blobAcceptJob =
+                viewModelScope.launch {
+                    listener.framedConnections(BlobChunkCodec).collect { typed ->
+                        launch { sendBlob(typed) }
+                    }
+                }
+            listener.open(secure)
+            _blobPsm.value = listener.psm
+            _blobOpen.value = true
+            appendBlobLog("Blob listener open (PSM=${listener.psm}, secure=$secure)")
+        }
+    }
+
+    fun closeBlobServer() {
+        blobAcceptJob?.cancel()
+        blobAcceptJob = null
+        blobListener?.close()
+        blobListener = null
+        _blobOpen.value = false
+        _blobSendStats.value = null
+        appendBlobLog("Blob listener closed")
+    }
+
+    private suspend fun sendBlob(typed: TypedL2capChannel<BlobChunk>) {
+        val totalBytes = _blobTotalBytes.value
+        val frameBytes = _blobFrameBytes.value
+        val pattern = ByteArray(frameBytes) { (it and 0xFF).toByte() }
+        val totalFrames = ((totalBytes + frameBytes - 1) / frameBytes).toInt()
+
+        appendBlobLog(
+            "Accepted (mtu=${typed.mtu}); sending ${totalBytes / 1024} KiB in " +
+                "$totalFrames frames of ${frameBytes / 1024} KiB",
+        )
+
+        val mark = TimeSource.Monotonic.markNow()
+        var bytesSent = 0L
+        var framesSent = 0
+        _blobSendStats.value = BlobSendStats(0, 0, totalBytes, typed.mtu, 0, false)
+
+        try {
+            while (typed.isOpen && bytesSent < totalBytes) {
+                val remaining = (totalBytes - bytesSent).toInt().coerceAtMost(frameBytes)
+                val chunk = if (remaining == frameBytes) pattern else pattern.copyOfRange(0, remaining)
+                val eof = bytesSent + chunk.size >= totalBytes
+                try {
+                    typed.write(BlobChunk(framesSent, totalBytes, eof, chunk))
+                } catch (e: Exception) {
+                    appendBlobLog("Send failed @ seq=$framesSent: ${e.message}")
+                    break
+                }
+                bytesSent += chunk.size
+                framesSent++
+                _blobSendStats.value =
+                    BlobSendStats(
+                        bytesSent = bytesSent,
+                        framesSent = framesSent,
+                        totalBytes = totalBytes,
+                        mtu = typed.mtu,
+                        elapsedMs = mark.elapsedNow().inWholeMilliseconds,
+                        done = eof,
+                    )
+            }
+            appendBlobLog(
+                "Send done: ${bytesSent}B in $framesSent frames over " +
+                    "${mark.elapsedNow().inWholeMilliseconds}ms",
+            )
+        } finally {
+            typed.close()
+        }
+    }
+
+    private fun appendBlobLog(msg: String) {
+        _blobLog.update { (listOf(msg) + it).take(20) }
+    }
+
     override fun onCleared() {
         closeL2capServer()
+        closeBlobServer()
         advertiser.close()
         extAdvertiser.close()
         server.close()

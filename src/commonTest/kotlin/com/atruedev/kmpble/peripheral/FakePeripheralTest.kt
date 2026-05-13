@@ -1,5 +1,8 @@
 package com.atruedev.kmpble.peripheral
 
+import com.atruedev.kmpble.ExperimentalBleApi
+import com.atruedev.kmpble.connection.ConnectionPriority
+import com.atruedev.kmpble.connection.Phy
 import com.atruedev.kmpble.connection.State
 import com.atruedev.kmpble.connection.internal.ConnectionEvent
 import com.atruedev.kmpble.error.ConnectionLost
@@ -12,6 +15,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import kotlin.uuid.ExperimentalUuidApi
 
 @OptIn(ExperimentalUuidApi::class)
@@ -177,5 +181,27 @@ class FakePeripheralTest {
 
             val s = peripheral.simulateEvent(ConnectionEvent.AdapterOff)
             assertIs<State.Disconnected.BySystemEvent>(s)
+        }
+
+    @OptIn(ExperimentalBleApi::class)
+    @Test
+    fun requestConnectionPriorityReturnsTrueWhenConnected() =
+        runTest {
+            val peripheral = createPeripheral()
+            peripheral.connect()
+            assertTrue(peripheral.requestConnectionPriority(ConnectionPriority.High))
+        }
+
+    @OptIn(ExperimentalBleApi::class)
+    @Test
+    fun setPreferredPhyEchoesRequestedPhys() =
+        runTest {
+            val peripheral = createPeripheral()
+            peripheral.connect()
+
+            val result = peripheral.setPreferredPhy(Phy.Le2M, Phy.Le2M)
+            assertNotNull(result)
+            assertEquals(Phy.Le2M, result.tx)
+            assertEquals(Phy.Le2M, result.rx)
         }
 }
