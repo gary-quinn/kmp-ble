@@ -13,22 +13,15 @@ For an in-tree example, see the `SensorReading` stream in `sample`.
 
 ## What you build
 
-```
-[ peripheral ]                              [ central ]
-  L2capListener                               L2capChannel (client)
-      .open()                                     |
-      .framedConnections(codec)               peripheral.openL2capChannel(psm)
-          |                                       |
-          v                                       v
-  TypedL2capChannel<T>                        framedIncoming(codec): Flow<T>
-      typed.write(value)            <-->      writeFramed(value, codec)
-      typed.incoming: Flow<T>
-```
+![Typed L2CAP streams](docs/images/typed-l2cap-streams.png)
 
 Each accepted connection is its own `TypedL2capChannel<T>` carrying a typed
 inbound `Flow<T>` and a typed outbound `write(value: T)`. Per-channel
 unframer state is isolated so partial frames on one client never bleed
 into another's decoding.
+
+Source for the diagram lives at [`docs/images/typed-l2cap-streams.mmd`](docs/images/typed-l2cap-streams.mmd);
+regenerate with `mmdc -i docs/images/typed-l2cap-streams.mmd -o docs/images/typed-l2cap-streams.png --width 1400 --backgroundColor white`.
 
 ---
 
