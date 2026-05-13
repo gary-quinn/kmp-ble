@@ -31,6 +31,11 @@ public fun Flow<ByteArray>.unframedBy(framer: Framer): Flow<ByteArray> = flow {
  * Combines unframing and decoding into one operator: byte chunks in, typed
  * values out.
  *
+ * Each collection allocates its own fresh [Unframer] via [framer], so the
+ * same [Framer] instance is safe to share across multiple collectors and
+ * re-collecting the same returned [Flow] starts fresh (no leftover buffered
+ * tail from a prior collection).
+ *
  * A frame is sent through [decoder]. If the decoder throws (the
  * [BleDecoder] contract for parse failure), the frame's raw bytes are
  * routed to [onDecodeFailure] (default no-op) and dropped from the output
@@ -45,21 +50,19 @@ public fun <T> Flow<ByteArray>.decodeFramed(
     decoder: BleDecoder<T>,
     framer: Framer = LengthPrefixFramer(),
     onDecodeFailure: (ByteArray) -> Unit = {},
-): Flow<T> {
+): Flow<T> = flow {
     val unframer = framer.unframer()
-    return flow {
-        collect { chunk ->
-            for (frame in unframer.feed(chunk)) {
-                val decoded = try {
-                    decoder.decode(frame)
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    onDecodeFailure(frame)
-                    continue
-                }
-                emit(decoded)
+    collect { chunk ->
+        for (frame in unframer.feed(chunk)) {
+            val decoded = try {
+                decoder.decode(frame)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                onDecodeFailure(frame)
+                continue
             }
+            emit(decoded)
         }
     }
 }

@@ -113,4 +113,18 @@ class FlowFramingTest {
         assertContentEquals(byteArrayOf(0x77), first.single())
         assertContentEquals(byteArrayOf(0x77), second.single())
     }
+
+    @Test
+    fun decodeFramedAllocatesFreshUnframerPerCollection() = runTest {
+        val framer = LengthPrefixFramer()
+        val complete = framer.frame(Uint16Codec.encode(0xAAAA))
+        val dangling = byteArrayOf(0x10, 0x00)
+        val flow = flowOf(complete + dangling).decodeFramed(Uint16Codec, framer)
+
+        val first = flow.toList()
+        assertEquals(listOf(0xAAAA), first)
+
+        val second = flow.toList()
+        assertEquals(listOf(0xAAAA), second)
+    }
 }
