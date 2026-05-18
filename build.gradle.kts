@@ -13,6 +13,7 @@ val securityPatches: Action<DependencyResolveDetails> =
             "ch.qos.logback" -> useVersion(libs.versions.logback.get())
             "com.fasterxml.jackson.core" -> useVersion(libs.versions.jackson.get())
             "org.bouncycastle" -> useVersion(libs.versions.bouncycastle.get())
+            "io.opentelemetry" -> useVersion(libs.versions.opentelemetry.get())
         }
         when ("${requested.group}:${requested.name}") {
             "org.jdom:jdom2" -> useVersion(libs.versions.jdom2.get())
