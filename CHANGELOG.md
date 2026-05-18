@@ -15,6 +15,31 @@ _Changes on `main` that have not yet been tagged for release._
 
 ---
 
+## [0.7.0] - 2026-05-18
+
+### Added
+- feat(sample): pin and highlight kmp-ble servers in scanner
+- feat(codec): add L2capListener.framedConnections for typed server streams
+- feat(codec): distinguish PeripheralNotReady from CharacteristicNotFound
+- feat(sample): add L2CAP blob stream demo with 3-layer stats
+
+### Changed
+- build(dependabot): bump org.jetbrains.compose from 1.10.3 to 1.11.0
+- build(dependabot): bump gradle-wrapper from 9.5.0 to 9.5.1
+
+### Fixed
+- fix(ci): bump-docs regex matches multi-segment module suffixes
+- fix(sample): apply kotlinx-serialization plugin for CBOR codec
+- fix(server): re-throw CancellationException in Android GATT handlers
+- fix(deps): pin OpenTelemetry to 1.62.0 for CVE-2026-45292
+
+### Other
+- docs(architecture): document L2CAP server and typed codec layer
+- docs(streams): add HOWTO for typed L2CAP streams
+
+
+---
+
 ## [0.6.0] - 2026-05-12
 
 ### Added
@@ -513,7 +538,8 @@ _No notable changes._
 
 ---
 
-[Unreleased]: https://github.com/gary-quinn/kmp-ble/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/gary-quinn/kmp-ble/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/gary-quinn/kmp-ble/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/gary-quinn/kmp-ble/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/gary-quinn/kmp-ble/compare/v0.4.3...v0.5.0
 [0.4.3]: https://github.com/gary-quinn/kmp-ble/compare/v0.4.2...v0.4.3
