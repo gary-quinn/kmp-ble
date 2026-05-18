@@ -1,10 +1,13 @@
 package com.atruedev.kmpble.codec
 
+import com.atruedev.kmpble.connection.State
 import com.atruedev.kmpble.gatt.BackpressureStrategy
+import com.atruedev.kmpble.gatt.DiscoveredService
 import com.atruedev.kmpble.gatt.WriteType
 import com.atruedev.kmpble.peripheral.Peripheral
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.uuid.Uuid
@@ -20,18 +23,26 @@ import kotlin.uuid.Uuid
  * when (val cause = result.exceptionOrNull()) {
  *     is PeripheralCodecException -> when (cause) {
  *         is CharacteristicNotFoundException -> ...
+ *         is PeripheralNotReadyException -> ...
  *         is DecodeFailureException -> ...
  *     }
  *     else -> ... // BLE error, cancellation, etc.
  * }
  * ```
+ *
+ * Adding a subclass is a source-breaking change for callers using `when` as
+ * an expression that exhaustively matches the sealed subclasses without an
+ * `else` branch. Callers matching on the sealed root, or with an `else`
+ * branch, are unaffected at compile time.
  */
 public sealed class PeripheralCodecException(message: String, cause: Throwable? = null) :
     RuntimeException(message, cause)
 
 /**
- * Thrown when a service+characteristic UUID pair does not resolve against the
- * peripheral's discovered services.
+ * Raised when the peripheral is ready to resolve the characteristic and the
+ * characteristic is absent from the device's GATT database. Ready to resolve
+ * means [Peripheral.services] is populated and [Peripheral.state] is a stable
+ * [State.Connected] substate other than [State.Connected.ServiceChanged].
  */
 public class CharacteristicNotFoundException(
     public val serviceUuid: Uuid,
@@ -39,10 +50,26 @@ public class CharacteristicNotFoundException(
 ) : PeripheralCodecException("Characteristic $characteristicUuid not found in service $serviceUuid")
 
 /**
- * Thrown when a [BleDecoder] rejects a value read from a characteristic
- * (i.e. raises any exception during decoding). The raw [bytes] are preserved
- * so callers can log or inspect the malformed payload, and the underlying
- * decoder exception is preserved as the [cause].
+ * Raised when the peripheral is not ready to resolve the characteristic:
+ * discovery has not completed, the cached service list is pending
+ * invalidation ([State.Connected.ServiceChanged]), or the peripheral is
+ * disconnecting/disconnected. Retry after [Peripheral.state] reaches
+ * [State.Connected.Ready], reconnecting first if necessary. The
+ * [currentState] is captured at dispatch time for diagnostics.
+ */
+public class PeripheralNotReadyException(
+    public val serviceUuid: Uuid,
+    public val characteristicUuid: Uuid,
+    public val currentState: State,
+) : PeripheralCodecException(
+        "Peripheral not ready (state: $currentState) to resolve " +
+            "characteristic $characteristicUuid in service $serviceUuid",
+    )
+
+/**
+ * Raised when a [BleDecoder] rejects a value read from a characteristic. The
+ * raw [bytes] are preserved for logging or inspection of the malformed
+ * payload, and the underlying decoder exception is preserved as the [cause].
  */
 public class DecodeFailureException(
     public val bytes: ByteArray,
@@ -52,23 +79,19 @@ public class DecodeFailureException(
 /**
  * Reads a characteristic by service+characteristic UUID and decodes the value.
  *
- * Returns a [Result] so callers can distinguish three outcomes:
- * - success: decoded value
- * - failure with [CharacteristicNotFoundException]: characteristic absent
- *   after service discovery
- * - failure with [DecodeFailureException]: read succeeded but [decoder]
- *   threw on the raw bytes
- * - failure with any other exception thrown by the underlying read (BLE
- *   error, etc.)
+ * Failure cases:
+ * - [PeripheralNotReadyException]: the peripheral is not ready to resolve
+ *   the characteristic (discovery incomplete, service change pending, or
+ *   peripheral disconnecting/disconnected). Retry after
+ *   [State.Connected.Ready], reconnecting first if necessary.
+ * - [CharacteristicNotFoundException]: the peripheral was ready to resolve
+ *   and the characteristic is absent from the device's GATT database.
+ * - [DecodeFailureException]: read succeeded but [decoder] threw on the
+ *   raw bytes.
+ * - any other exception thrown by the underlying read.
  *
  * [kotlin.coroutines.cancellation.CancellationException] is always propagated
- * to the caller, never wrapped into [Result.failure] - structured concurrency
- * stays intact.
- *
- * Note: a `null` from `findCharacteristic` becomes [CharacteristicNotFoundException]
- * here, but `findCharacteristic` also returns `null` when service discovery
- * has not finished yet. Make sure the peripheral is fully connected before
- * relying on this distinction (e.g. await `Peripheral.state == State.Connected.Ready`).
+ * to the caller, never wrapped into [Result.failure].
  *
  * Use the [Peripheral.read] overload that takes a
  * [com.atruedev.kmpble.gatt.Characteristic] directly when you already hold a
@@ -80,7 +103,7 @@ public suspend fun <T> Peripheral.readAs(
     decoder: BleDecoder<T>,
 ): Result<T> {
     val char = findCharacteristic(serviceUuid, characteristicUuid)
-        ?: return Result.failure(CharacteristicNotFoundException(serviceUuid, characteristicUuid))
+        ?: return Result.failure(lookupFailure(serviceUuid, characteristicUuid))
     return try {
         val bytes = read(char)
         val decoded = try {
@@ -100,16 +123,13 @@ public suspend fun <T> Peripheral.readAs(
 
 /**
  * Encodes [value] with [encoder] and writes it to a characteristic addressed
- * by service+characteristic UUID.
- *
- * Accepts a [BleEncoder] (not a full [BleCodec]) because write paths never
- * need a decoder. Returns [Result.failure] with [CharacteristicNotFoundException]
- * if the characteristic is absent, or with any exception thrown by the
- * underlying write.
+ * by service+characteristic UUID. Failure cases mirror [readAs]:
+ * - [PeripheralNotReadyException]: peripheral not ready to resolve.
+ * - [CharacteristicNotFoundException]: ready to resolve, char absent.
+ * - any exception thrown by the underlying write.
  *
  * [kotlin.coroutines.cancellation.CancellationException] is always propagated
- * to the caller, never wrapped into [Result.failure] - structured concurrency
- * stays intact.
+ * to the caller, never wrapped into [Result.failure].
  */
 public suspend fun <T> Peripheral.writeAs(
     serviceUuid: Uuid,
@@ -119,7 +139,7 @@ public suspend fun <T> Peripheral.writeAs(
     writeType: WriteType = WriteType.WithResponse,
 ): Result<Unit> {
     val char = findCharacteristic(serviceUuid, characteristicUuid)
-        ?: return Result.failure(CharacteristicNotFoundException(serviceUuid, characteristicUuid))
+        ?: return Result.failure(lookupFailure(serviceUuid, characteristicUuid))
     return try {
         write(char, encoder.encode(value), writeType)
         Result.success(Unit)
@@ -134,10 +154,16 @@ public suspend fun <T> Peripheral.writeAs(
  * Observes notifications/indications from a characteristic addressed by
  * service+characteristic UUID, decoding each payload with [decoder].
  *
- * Returns an empty flow if the characteristic is absent, matching the lenient
- * convention used by built-in SIG profiles. Payloads that fail to decode
- * (the decoder throws) are routed to [onDecodeFailure] (default no-op) and
- * dropped from the output stream.
+ * Resolution is deferred until the peripheral is ready to resolve (services
+ * populated and state is a stable [State.Connected] substate other than
+ * [State.Connected.ServiceChanged]), matching the readiness predicate used
+ * by [readAs] and [writeAs]. When the characteristic is absent from the
+ * resolved service list, the flow completes empty, matching the lenient
+ * SIG-profile convention. Payloads that fail to decode are routed to
+ * [onDecodeFailure] and dropped from the output stream.
+ *
+ * The flow may be collected before [Peripheral.connect]; it will suspend
+ * until the readiness predicate first becomes true.
  */
 public fun <T> Peripheral.observeAs(
     serviceUuid: Uuid,
@@ -145,19 +171,48 @@ public fun <T> Peripheral.observeAs(
     decoder: BleDecoder<T>,
     backpressure: BackpressureStrategy = BackpressureStrategy.Latest,
     onDecodeFailure: (ByteArray) -> Unit = {},
-): Flow<T> {
-    val char = findCharacteristic(serviceUuid, characteristicUuid) ?: return emptyFlow()
-    return flow {
-        observeValues(char, backpressure).collect { bytes ->
-            val decoded = try {
-                decoder.decode(bytes)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                onDecodeFailure(bytes)
-                return@collect
-            }
-            emit(decoded)
+): Flow<T> = flow {
+    awaitReadyToResolve()
+    val char = findCharacteristic(serviceUuid, characteristicUuid) ?: return@flow
+    observeValues(char, backpressure).collect { bytes ->
+        val decoded = try {
+            decoder.decode(bytes)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            onDecodeFailure(bytes)
+            return@collect
         }
+        emit(decoded)
     }
 }
+
+private suspend fun Peripheral.awaitReadyToResolve() {
+    combine(state, services, ::Pair).first { (s, sv) -> isReadyToResolve(s, sv) }
+}
+
+private fun Peripheral.lookupFailure(
+    serviceUuid: Uuid,
+    characteristicUuid: Uuid,
+): PeripheralCodecException =
+    dispatchLookupFailure(state.value, services.value, serviceUuid, characteristicUuid)
+
+internal fun dispatchLookupFailure(
+    state: State,
+    services: List<DiscoveredService>?,
+    serviceUuid: Uuid,
+    characteristicUuid: Uuid,
+): PeripheralCodecException =
+    if (isReadyToResolve(state, services)) {
+        CharacteristicNotFoundException(serviceUuid, characteristicUuid)
+    } else {
+        PeripheralNotReadyException(serviceUuid, characteristicUuid, state)
+    }
+
+private fun isReadyToResolve(
+    state: State,
+    services: List<DiscoveredService>?,
+): Boolean =
+    services != null &&
+        state is State.Connected &&
+        state !is State.Connected.ServiceChanged
