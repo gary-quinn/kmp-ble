@@ -91,6 +91,34 @@ public class FakePeripheral internal constructor(
         return context.processEvent(event)
     }
 
+    /**
+     * Drives the state machine from [State.Connected.Ready] to
+     * [State.Connected.BondingChange].
+     */
+    public suspend fun simulateBondStateChange() {
+        checkNotClosed()
+        context.processEvent(ConnectionEvent.BondStateChanged)
+    }
+
+    /**
+     * Drives the state machine from [State.Connected.Ready] to
+     * [State.Connected.ServiceChanged]. Services remain populated (now stale)
+     * until rediscovery completes.
+     */
+    public suspend fun simulateServiceChangedIndication() {
+        checkNotClosed()
+        context.processEvent(ConnectionEvent.ServiceChangedIndication)
+    }
+
+    /**
+     * Drives the state machine from [State.Connected.ServiceChanged] back to
+     * [State.Connected.Ready].
+     */
+    public suspend fun simulateRediscoverySucceeded() {
+        checkNotClosed()
+        context.processEvent(ConnectionEvent.RediscoverySucceeded)
+    }
+
     override suspend fun disconnect() {
         checkNotClosed()
         if (context.state.value is State.Disconnected) return
