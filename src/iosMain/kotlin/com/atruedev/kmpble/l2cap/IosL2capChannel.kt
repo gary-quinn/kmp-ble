@@ -22,7 +22,6 @@ import platform.CoreBluetooth.CBL2CAPChannel
 import platform.Foundation.NSStreamStatusAtEnd
 import platform.Foundation.NSStreamStatusClosed
 import platform.Foundation.NSStreamStatusError
-import platform.Foundation.NSStreamStatusOpen
 import kotlin.coroutines.coroutineContext
 
 internal const val DEFAULT_L2CAP_MTU = 2048
@@ -47,11 +46,28 @@ internal class IosL2capChannel(
     internal suspend fun awaitClosed() = closedSignal.await()
 
     init {
-        val inputOk = cbChannel.inputStream?.streamStatus == NSStreamStatusOpen
-        val outputOk = cbChannel.outputStream?.streamStatus == NSStreamStatusOpen
-        if (!inputOk || !outputOk) {
+        // CoreBluetooth hands a CBL2CAPChannel to the central via
+        // peripheral(_:didOpen:error:) with its input and output NSStreams in
+        // NSStreamStatusNotOpen. Apple's BLE programming guide states the
+        // streams "must be opened by the application" before they become
+        // usable; CoreBluetooth itself does not open them, regardless of
+        // iOS version. Without this, the previous status check
+        // (streamStatus == NSStreamStatusOpen) always failed at init,
+        // closed the data channel, and made every L2CAP session emit zero
+        // bytes before reporting "channel ended".
+        //
+        // We don't schedule the streams in a run loop because readLoop polls
+        // hasBytesAvailable instead of relying on NSStreamDelegate events.
+        // Status transitions are observed via readLoop's existing
+        // AtEnd/Closed/Error checks.
+        val inputStream = cbChannel.inputStream
+        val outputStream = cbChannel.outputStream
+        if (inputStream == null || outputStream == null) {
             _isOpen.value = false
             dataChannel.close()
+        } else {
+            inputStream.open()
+            outputStream.open()
         }
 
         readJob =
