@@ -15,6 +15,14 @@ _Changes on `main` that have not yet been tagged for release._
 
 ---
 
+## [0.7.1] - 2026-05-19
+
+### Fixed
+- fix(ios): open NSStreams before reading from L2CAP channel
+
+
+---
+
 ## [0.7.0] - 2026-05-18
 
 ### Added
@@ -538,7 +546,8 @@ _No notable changes._
 
 ---
 
-[Unreleased]: https://github.com/gary-quinn/kmp-ble/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/gary-quinn/kmp-ble/compare/v0.7.1...HEAD
+[0.7.1]: https://github.com/gary-quinn/kmp-ble/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/gary-quinn/kmp-ble/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/gary-quinn/kmp-ble/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/gary-quinn/kmp-ble/compare/v0.4.3...v0.5.0
