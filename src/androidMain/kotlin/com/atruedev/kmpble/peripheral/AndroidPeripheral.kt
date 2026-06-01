@@ -295,6 +295,12 @@ public class AndroidPeripheral internal constructor(
     override suspend fun refreshServices(): List<DiscoveredService> {
         checkNotClosed()
         return withContext(peripheralContext.dispatcher) {
+            // Invalidate the Android GATT cache before discovery so the platform
+            // performs a fresh radio-level service discovery instead of returning
+            // cached data instantly. Best-effort: refreshDeviceCache() uses
+            // reflection on the hidden BluetoothGatt.refresh() method and may
+            // fail silently on some OEMs.
+            bridge.refreshDeviceCache()
             val deferred = slots.armDiscovery()
             if (!bridge.discoverServices()) {
                 slots.clearDiscovery()
