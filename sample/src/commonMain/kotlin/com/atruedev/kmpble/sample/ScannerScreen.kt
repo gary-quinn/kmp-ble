@@ -43,10 +43,10 @@ import com.atruedev.kmpble.Identifier
 import com.atruedev.kmpble.ServiceUuid
 import com.atruedev.kmpble.scanner.Advertisement
 import com.atruedev.kmpble.scanner.EmissionPolicy
+import com.atruedev.kmpble.scanner.ScanEvent
 import com.atruedev.kmpble.scanner.Scanner
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -96,6 +96,7 @@ fun ScannerScreen(
     onServerTapped: () -> Unit = {},
 ) {
     var devices by remember { mutableStateOf(emptyList<ScannedDevice>()) }
+    var scanError by remember { mutableStateOf<String?>(null) }
     // Safe without synchronization: both writer (snapshot coroutine) and reader (click handler)
     // run on Main dispatcher via rememberCoroutineScope / Compose click callback.
     val advertisementLookup = remember { HashMap<String, Advertisement>() }
@@ -116,8 +117,16 @@ fun ScannerScreen(
         val job =
             scope.launch {
                 launch(scanContext) {
-                    scanner.advertisements.conflate().collect {
-                        deviceMap[it.identifier] = it to TimeSource.Monotonic.markNow()
+                    scanner.scanEvents.collect { event ->
+                        when (event) {
+                            is ScanEvent.Found -> {
+                                deviceMap[event.advertisement.identifier] =
+                                    event.advertisement to TimeSource.Monotonic.markNow()
+                            }
+                            is ScanEvent.Failed -> {
+                                scanError = "Scan failed (code ${event.error.errorCode})"
+                            }
+                        }
                     }
                 }
                 while (isActive) {
@@ -192,6 +201,20 @@ fun ScannerScreen(
                         selected = serviceFilter == name,
                         onClick = { serviceFilter = if (serviceFilter == name) null else name },
                         label = { Text(name, style = MaterialTheme.typography.labelSmall) },
+                    )
+                }
+            }
+
+            scanError?.let { error ->
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                ) {
+                    Text(
+                        text = error,
+                        modifier = Modifier.padding(12.dp),
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                        style = MaterialTheme.typography.bodyMedium,
                     )
                 }
             }

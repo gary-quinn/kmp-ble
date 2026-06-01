@@ -59,8 +59,11 @@ val scanner = Scanner {
         match { serviceUuid(ServiceUuid.HEART_RATE) }
     }
 }
-scanner.advertisements.collect { ad ->
-    println("Found: ${ad.name} rssi=${ad.rssi}")
+scanner.scanEvents.collect { event ->
+    when (event) {
+        is ScanEvent.Found -> println("Found: ${event.advertisement.name} rssi=${event.advertisement.rssi}")
+        is ScanEvent.Failed -> println("Scan failed: ${event.error.message}")
+    }
 }
 ```
 

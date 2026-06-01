@@ -9,7 +9,7 @@ package com.atruedev.kmpble.permissions
  *
  * ```kotlin
  * when (val result = checkBlePermissions()) {
- *     is PermissionResult.Granted -> scanner.advertisements.collect { ... }
+ *     is PermissionResult.Granted -> scanner.scanEvents.collect { ... }
  *     is PermissionResult.Denied -> showPermissionRationale(result.permissions)
  *     is PermissionResult.PermanentlyDenied -> showSettingsPrompt(result.permissions)
  * }

@@ -82,8 +82,14 @@ val scanner = Scanner {
     }
 }
 
-scanner.advertisements.collect { ad ->
-    println("Found: ${ad.name} (${ad.identifier}) rssi=${ad.rssi}")
+scanner.scanEvents.collect { event ->
+    when (event) {
+        is ScanEvent.Found -> {
+            val ad = event.advertisement
+            println("Found: ${ad.name} (${ad.identifier}) rssi=${ad.rssi}")
+        }
+        is ScanEvent.Failed -> println("Scan failed: ${event.error.message}")
+    }
 }
 
 scanner.close()

@@ -3,29 +3,37 @@ package com.atruedev.kmpble.scanner.internal
 import com.atruedev.kmpble.Identifier
 import com.atruedev.kmpble.scanner.Advertisement
 import com.atruedev.kmpble.scanner.EmissionPolicy
+import com.atruedev.kmpble.scanner.ScanEvent
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlin.math.abs
 import kotlin.uuid.ExperimentalUuidApi
 
 /**
- * Applies [EmissionPolicy] deduplication to an advertisement flow.
+ * Applies [EmissionPolicy] deduplication to a scan event flow.
+ * Only [ScanEvent.Found] events are deduplicated; [ScanEvent.Failed] events pass through unchanged.
  */
-internal fun Flow<Advertisement>.applyEmissionPolicy(policy: EmissionPolicy): Flow<Advertisement> =
+internal fun Flow<ScanEvent>.applyEmissionPolicy(policy: EmissionPolicy): Flow<ScanEvent> =
     when (policy) {
         is EmissionPolicy.All -> this
         is EmissionPolicy.FirstThenChanges -> firstThenChanges(policy.rssiThreshold)
     }
 
 @OptIn(ExperimentalUuidApi::class)
-private fun Flow<Advertisement>.firstThenChanges(rssiThreshold: Int): Flow<Advertisement> =
+private fun Flow<ScanEvent>.firstThenChanges(rssiThreshold: Int): Flow<ScanEvent> =
     flow {
         val seen = mutableMapOf<Identifier, AdvertisementSnapshot>()
-        collect { ad ->
-            val previous = seen[ad.identifier]
-            if (previous == null || hasChanged(previous, ad, rssiThreshold)) {
-                seen[ad.identifier] = ad.snapshot()
-                emit(ad)
+        collect { event ->
+            when (event) {
+                is ScanEvent.Found -> {
+                    val ad = event.advertisement
+                    val previous = seen[ad.identifier]
+                    if (previous == null || hasChanged(previous, ad, rssiThreshold)) {
+                        seen[ad.identifier] = ad.snapshot()
+                        emit(event)
+                    }
+                }
+                is ScanEvent.Failed -> emit(event)
             }
         }
     }
@@ -62,7 +70,6 @@ private fun hasChanged(
     if (previous.name != current.name) return true
     if (previous.serviceUuids != current.serviceUuids) return true
     if (abs(previous.rssi - current.rssi) > rssiThreshold) return true
-    // Check data content changes via hash
     val currentSnapshot = current.snapshot()
     if (previous.manufacturerDataHash != currentSnapshot.manufacturerDataHash) return true
     if (previous.serviceDataHash != currentSnapshot.serviceDataHash) return true

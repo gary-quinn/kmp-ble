@@ -8,20 +8,14 @@ import android.bluetooth.le.ScanResult
 import android.bluetooth.le.ScanSettings
 import android.content.Context
 import android.os.ParcelUuid
-import com.atruedev.kmpble.scanner.internal.applyEmissionPolicy
-import com.atruedev.kmpble.scanner.internal.matchesFilters
+import com.atruedev.kmpble.scanner.internal.toScanEvents
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.callbackFlow
-import kotlinx.coroutines.flow.filter
-import kotlinx.coroutines.flow.shareIn
-import kotlinx.coroutines.flow.takeWhile
-import kotlin.time.TimeSource
 import kotlin.uuid.ExperimentalUuidApi
 
 public class AndroidScanner(
@@ -31,25 +25,7 @@ public class AndroidScanner(
     private val config = ScannerConfig().apply(configure)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
-    private val sharedScanFlow =
-        createRawScanFlow()
-            .shareIn(scope, SharingStarted.WhileSubscribed(), replay = 0)
-
-    override val advertisements: Flow<Advertisement> =
-        run {
-            var flow: Flow<Advertisement> =
-                sharedScanFlow
-                    .filter { it.matchesFilters(config.filterGroups) }
-                    .applyEmissionPolicy(config.emission)
-
-            val timeout = config.timeout
-            if (timeout != null) {
-                val mark = TimeSource.Monotonic.markNow()
-                flow = flow.takeWhile { mark.elapsedNow() < timeout }
-            }
-
-            flow
-        }
+    override val scanEvents: Flow<ScanEvent> = createRawScanFlow().toScanEvents(config, scope)
 
     override fun close() {
         scope.cancel()
@@ -148,7 +124,3 @@ public class AndroidScanner(
         }
     }
 }
-
-public class ScanFailedException(
-    errorCode: Int,
-) : Exception("BLE scan failed with error code: $errorCode")
