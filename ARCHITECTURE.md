@@ -404,7 +404,9 @@ Every major component has a Fake* counterpart for unit testing without hardware:
 
 ## Scanner
 
-`Scanner.advertisements` is a **cold Flow**. Creating a `Scanner` starts nothing - no OS resources, no scanning. Scanning starts on first `collect()`, stops when the collector's coroutine is cancelled.
+`Scanner.scanEvents` is a **cold Flow**. Creating a `Scanner` starts nothing - no OS resources, no scanning. Scanning starts on first `collect()`, stops when the collector's coroutine is cancelled.
+
+Each emission is a [ScanEvent] - either `ScanEvent.Found` with a discovered advertisement or `ScanEvent.Failed` when the platform scan encounters a recoverable error. Consumers must handle both cases via exhaustive `when`.
 
 Multiple concurrent collectors share one underlying OS scan. This is standard structured concurrency - no `scanner.stop()` needed.
 

@@ -39,7 +39,7 @@ No initialization needed. Add via SPM or use the XCFramework directly.
 | Concept | kmp-ble |
 |---------|---------|
 | Create scanner | `Scanner { filters { match { serviceUuid("180d") } } }` |
-| Scan results | `scanner.advertisements: Flow<Advertisement>` |
+| Scan results | `scanner.scanEvents: Flow<ScanEvent>` |
 | Stop scanning | Cancel the collecting coroutine or call `scanner.close()` |
 | Filter by name | `match { name("HeartSensor") }` |
 | Filter by service UUID | `match { serviceUuid(ServiceUuid.HEART_RATE) }` |

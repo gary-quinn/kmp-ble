@@ -2,24 +2,18 @@ package com.atruedev.kmpble.scanner
 
 import com.atruedev.kmpble.adapter.BluetoothAdapterState
 import com.atruedev.kmpble.internal.CentralManagerProvider
-import com.atruedev.kmpble.scanner.internal.applyEmissionPolicy
-import com.atruedev.kmpble.scanner.internal.matchesFilters
+import com.atruedev.kmpble.scanner.internal.toScanEvents
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.callbackFlow
-import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.shareIn
-import kotlinx.coroutines.flow.takeWhile
 import kotlinx.coroutines.launch
 import platform.CoreBluetooth.CBCentralManagerScanOptionAllowDuplicatesKey
 import platform.CoreBluetooth.CBUUID
-import kotlin.time.TimeSource
 import kotlin.uuid.ExperimentalUuidApi
 
 public class IosScanner(
@@ -28,25 +22,7 @@ public class IosScanner(
     private val config: ScannerConfig = ScannerConfig().apply(configure)
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
-    private val sharedScanFlow: Flow<Advertisement> =
-        createRawScanFlow()
-            .shareIn(scope, SharingStarted.WhileSubscribed(), replay = 0)
-
-    override val advertisements: Flow<Advertisement> =
-        run {
-            var flow: Flow<Advertisement> =
-                sharedScanFlow
-                    .filter { it.matchesFilters(config.filterGroups) }
-                    .applyEmissionPolicy(config.emission)
-
-            val timeout = config.timeout
-            if (timeout != null) {
-                val mark = TimeSource.Monotonic.markNow()
-                flow = flow.takeWhile { mark.elapsedNow() < timeout }
-            }
-
-            flow
-        }
+    override val scanEvents: Flow<ScanEvent> = createRawScanFlow().toScanEvents(config, scope)
 
     override fun close() {
         scope.cancel()

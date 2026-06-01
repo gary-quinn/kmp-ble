@@ -5,6 +5,8 @@ import com.atruedev.kmpble.Identifier
 import com.atruedev.kmpble.connection.Phy
 import com.atruedev.kmpble.scanner.Advertisement
 import com.atruedev.kmpble.scanner.DataStatus
+import com.atruedev.kmpble.scanner.ScanEvent
+import com.atruedev.kmpble.scanner.ScanFailedException
 import com.atruedev.kmpble.scanner.Scanner
 import com.atruedev.kmpble.scanner.uuidFrom
 import kotlinx.coroutines.flow.Flow
@@ -30,26 +32,36 @@ import kotlin.uuid.Uuid
  *     }
  * }
  *
- * scanner.advertisements.collect { ad -> ... }
+ * scanner.scanEvents.collect { event ->
+ *     when (event) {
+ *         is ScanEvent.Found -> handleAd(event.advertisement)
+ *         is ScanEvent.Failed -> handleError(event.error)
+ *     }
+ * }
  * ```
  */
 @OptIn(ExperimentalUuidApi::class)
 public class FakeScanner internal constructor(
     private val fakeAdvertisements: List<Advertisement>,
 ) : Scanner {
-    private val dynamicAdvertisements = MutableSharedFlow<Advertisement>(extraBufferCapacity = 64)
+    private val dynamicEvents = MutableSharedFlow<ScanEvent>(replay = 2, extraBufferCapacity = 64)
 
-    override val advertisements: Flow<Advertisement> =
+    override val scanEvents: Flow<ScanEvent> =
         flow {
             for (ad in fakeAdvertisements) {
-                emit(ad)
+                emit(ScanEvent.Found(ad))
             }
-            dynamicAdvertisements.collect { emit(it) }
+            dynamicEvents.collect { emit(it) }
         }
 
     /** Emit an advertisement dynamically after construction. */
     public fun emit(advertisement: Advertisement) {
-        dynamicAdvertisements.tryEmit(advertisement)
+        dynamicEvents.tryEmit(ScanEvent.Found(advertisement))
+    }
+
+    /** Emit a scan failure for testing error handling paths. */
+    public fun emitScanFailed(errorCode: Int) {
+        dynamicEvents.tryEmit(ScanEvent.Failed(ScanFailedException(errorCode)))
     }
 
     override fun close() {

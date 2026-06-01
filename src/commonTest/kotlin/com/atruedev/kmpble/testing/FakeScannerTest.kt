@@ -2,7 +2,9 @@ package com.atruedev.kmpble.testing
 
 import com.atruedev.kmpble.connection.Phy
 import com.atruedev.kmpble.scanner.DataStatus
+import com.atruedev.kmpble.scanner.ScanEvent
 import com.atruedev.kmpble.scanner.uuidFrom
+import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
@@ -32,7 +34,11 @@ class FakeScannerTest {
                     }
                 }
 
-            val results = scanner.advertisements.take(2).toList()
+            val results =
+                scanner.scanEvents
+                    .mapNotNull { (it as? ScanEvent.Found)?.advertisement }
+                    .take(2)
+                    .toList()
             assertEquals(2, results.size)
             assertEquals("HeartSensor", results[0].name)
             assertEquals(-55, results[0].rssi)
@@ -57,7 +63,8 @@ class FakeScannerTest {
                 }
 
             val ad =
-                scanner.advertisements
+                scanner.scanEvents
+                    .mapNotNull { (it as? ScanEvent.Found)?.advertisement }
                     .take(1)
                     .toList()
                     .first()
@@ -78,7 +85,8 @@ class FakeScannerTest {
                 }
 
             val ad =
-                scanner.advertisements
+                scanner.scanEvents
+                    .mapNotNull { (it as? ScanEvent.Found)?.advertisement }
                     .take(1)
                     .toList()
                     .first()
@@ -100,7 +108,8 @@ class FakeScannerTest {
                 }
 
             val ad =
-                scanner.advertisements
+                scanner.scanEvents
+                    .mapNotNull { (it as? ScanEvent.Found)?.advertisement }
                     .take(1)
                     .toList()
                     .first()
@@ -115,7 +124,8 @@ class FakeScannerTest {
                     advertisement {}
                 }
             val ad =
-                scanner.advertisements
+                scanner.scanEvents
+                    .mapNotNull { (it as? ScanEvent.Found)?.advertisement }
                     .take(1)
                     .toList()
                     .first()
@@ -143,7 +153,8 @@ class FakeScannerTest {
                     }
                 }
             val ad =
-                scanner.advertisements
+                scanner.scanEvents
+                    .mapNotNull { (it as? ScanEvent.Found)?.advertisement }
                     .take(1)
                     .toList()
                     .first()
