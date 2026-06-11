@@ -4,6 +4,7 @@ import com.atruedev.kmpble.gatt.BackpressureStrategy
 import com.atruedev.kmpble.gatt.internal.ObservationKey
 import com.atruedev.kmpble.gatt.internal.ObservationManager
 import com.atruedev.kmpble.gatt.internal.PersistedObservation
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -25,7 +26,7 @@ class ObservationPersistenceCallbackTest {
     @Test
     fun `callback fires on subscribe with correct keys and backpressure`() =
         runTest {
-            val manager = ObservationManager()
+            val manager = ObservationManager(Dispatchers.Unconfined)
             val received = mutableListOf<Set<PersistedObservation>>()
             manager.onObservationsChanged = { obs -> received.add(obs) }
 
@@ -41,7 +42,7 @@ class ObservationPersistenceCallbackTest {
     @Test
     fun `callback preserves buffer backpressure strategy`() =
         runTest {
-            val manager = ObservationManager()
+            val manager = ObservationManager(Dispatchers.Unconfined)
             val received = mutableListOf<Set<PersistedObservation>>()
             manager.onObservationsChanged = { obs -> received.add(obs) }
 
@@ -55,7 +56,7 @@ class ObservationPersistenceCallbackTest {
     @Test
     fun `callback fires on unsubscribe`() =
         runTest {
-            val manager = ObservationManager()
+            val manager = ObservationManager(Dispatchers.Unconfined)
             val received = mutableListOf<Set<PersistedObservation>>()
 
             manager.subscribe(serviceUuid, charUuid, BackpressureStrategy.Latest)
@@ -70,7 +71,7 @@ class ObservationPersistenceCallbackTest {
     @Test
     fun `callback includes all active observations`() =
         runTest {
-            val manager = ObservationManager()
+            val manager = ObservationManager(Dispatchers.Unconfined)
             val received = mutableListOf<Set<PersistedObservation>>()
             manager.onObservationsChanged = { obs -> received.add(obs) }
 
@@ -90,7 +91,7 @@ class ObservationPersistenceCallbackTest {
     @Test
     fun `no callback when callback is null`() =
         runTest {
-            val manager = ObservationManager()
+            val manager = ObservationManager(Dispatchers.Unconfined)
             // Should not throw - callback is null by default
             manager.subscribe(serviceUuid, charUuid, BackpressureStrategy.Latest)
             manager.unsubscribe(serviceUuid, charUuid)
@@ -99,7 +100,7 @@ class ObservationPersistenceCallbackTest {
     @Test
     fun `no callback when key set unchanged on duplicate subscribe`() =
         runTest {
-            val manager = ObservationManager()
+            val manager = ObservationManager(Dispatchers.Unconfined)
             manager.subscribe(serviceUuid, charUuid, BackpressureStrategy.Latest)
 
             val received = mutableListOf<Set<PersistedObservation>>()

@@ -96,7 +96,7 @@ public class AndroidPeripheral internal constructor(
     private val bridge = AndroidGattBridge(device, context)
 
     private val pendingOps = PendingOperations()
-    private val observationManager = ObservationManager()
+    private val observationManager = ObservationManager(peripheralContext.dispatcher)
     private val slots = LifecycleSlots()
 
     private val nativeCharMap = mutableMapOf<Characteristic, BluetoothGattCharacteristic>()
