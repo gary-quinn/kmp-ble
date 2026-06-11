@@ -1,6 +1,6 @@
 # Getting Started in 5 Minutes
 
-This guide walks you through adding kmp-ble to a new project, scanning for a device, and blinking an LED over BLE — all in ~5 minutes.
+This guide walks you through adding kmp-ble to a new project, scanning for a device, and blinking an LED over BLE - all in ~5 minutes.
 
 ## Prerequisites
 
@@ -147,13 +147,13 @@ fun main() = runBlocking {
 
 ### 1. Add Package
 
-In Xcode: **File → Add Package Dependencies** → enter:
+In Xcode: **File > Add Package Dependencies** > enter:
 
 ```
 https://github.com/gary-quinn/kmp-ble
 ```
 
-Select **Up to Next Major Version** → `0.8.1` → add `KmpBle` to your target.
+Select **Up to Next Major Version** > `0.8.1` > add `KmpBle` to your target.
 
 ### 2. Info.plist Permissions
 
@@ -319,7 +319,7 @@ fun LedScreen(
             enabled = connected,
             modifier = Modifier.fillMaxWidth().height(56.dp)
         ) {
-            Text("Blink LED 3×", style = MaterialTheme.typography.titleMedium)
+            Text("Blink LED 3x", style = MaterialTheme.typography.titleMedium)
         }
     }
 }
@@ -343,7 +343,7 @@ struct LedView: View {
             Text("Status: \(status)")
             Text("Connected: \(connected ? "Yes" : "No")")
 
-            Button("Blink LED 3×") {
+            Button("Blink LED 3x") {
                 guard connected else { return }
                 status = "Blinking..."
                 Task {
@@ -373,7 +373,7 @@ struct LedView: View {
 2. **Run the scanner** first to verify it's discovered and note its UUIDs
 3. **Update the UUID constants** in `LedController` to match your device
 4. **Run the app** on Android (device/emulator with Bluetooth) or iOS (physical device only)
-5. **Tap "Blink LED 3×"** — the LED should toggle on/off
+5. **Tap "Blink LED 3x"** - the LED should toggle on/off
 
 ---
 
@@ -391,7 +391,7 @@ struct LedView: View {
 
 ## Next Steps
 
-- **Profiles**: Use `kmp-ble-profiles` for type-safe Heart Rate, Battery, Device Info — no manual UUIDs
+- **Profiles**: Use `kmp-ble-profiles` for type-safe Heart Rate, Battery, Device Info - no manual UUIDs
 - **Codec**: Use `kmp-ble-codec` for typed read/write with composable decoders
 - **DFU**: Use `kmp-ble-dfu` for Nordic/MCUboot/ESP firmware updates
 - **L2CAP**: High-throughput streaming via `peripheral.openL2capChannel(psm)`
