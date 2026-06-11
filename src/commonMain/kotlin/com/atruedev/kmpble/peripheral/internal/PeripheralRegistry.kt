@@ -25,7 +25,8 @@ internal object PeripheralRegistry {
             current[identifier]?.let {
                 try {
                     peripheral.close()
-                } catch (_: Exception) {
+                } catch (e: Exception) {
+                    if (e is kotlinx.coroutines.CancellationException) throw e
                 }
                 return it
             }
