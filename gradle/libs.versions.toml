@@ -14,7 +14,7 @@ androidxTestRunner = "1.7.0"
 robolectric = "4.16.1"
 kotlinxSerialization = "1.11.0"
 androidMinSdk = "33"
-androidCompileSdk = "36"
+androidCompileSdk = "37"
 androidTargetSdk = "36"
 # Minimum safe versions for transitive dependencies (see build.gradle.kts resolutionStrategy)
 netty = "4.1.133.Final"
