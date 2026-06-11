@@ -46,7 +46,8 @@ internal class ReconnectionHandler(
                         try {
                             connectAction(opts)
                             attempt = 0
-                        } catch (_: Exception) {
+                        } catch (e: Exception) {
+                            if (e is kotlinx.coroutines.CancellationException) throw e
                             // Will re-enter this collector on next Disconnected state
                         }
                     } else if (state is State.Connected.Ready) {
