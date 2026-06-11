@@ -87,7 +87,7 @@ public class IosPeripheral(
     private val centralDelegate = CentralManagerProvider.scanDelegate
 
     private val pendingOps = PendingOperations()
-    private val observationManager = ObservationManager()
+    private val observationManager = ObservationManager(peripheralContext.dispatcher)
     private val slots = LifecycleSlots()
 
     private val nativeCharMap = mutableMapOf<Characteristic, CBCharacteristic>()

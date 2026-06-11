@@ -2,7 +2,6 @@ package com.atruedev.kmpble.gatt.internal
 
 import com.atruedev.kmpble.gatt.BackpressureStrategy
 import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.channels.Channel
@@ -71,7 +70,7 @@ internal data class TrackedObservation(
  */
 @OptIn(ExperimentalUuidApi::class)
 internal class ObservationManager(
-    dispatcher: CoroutineDispatcher = Dispatchers.Unconfined,
+    dispatcher: CoroutineDispatcher,
 ) {
     /**
      * Optional callback invoked when the set of active observations changes.

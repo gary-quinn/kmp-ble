@@ -23,6 +23,7 @@ import com.atruedev.kmpble.gatt.internal.ObservationEvent
 import com.atruedev.kmpble.gatt.internal.ObservationManager
 import com.atruedev.kmpble.gatt.internal.applyBackpressure
 import com.atruedev.kmpble.l2cap.L2capChannel
+import kotlinx.coroutines.Dispatchers
 import com.atruedev.kmpble.l2cap.L2capException
 import com.atruedev.kmpble.peripheral.Peripheral
 import com.atruedev.kmpble.peripheral.PhyResult
@@ -51,7 +52,7 @@ public class FakePeripheral internal constructor(
     private val onL2capHandler: L2capHandler?,
 ) : Peripheral {
     private val context = PeripheralContext(identifier)
-    private val observationManager = ObservationManager()
+    private val observationManager = ObservationManager(Dispatchers.Default.limitedParallelism(1))
     private var closed = false
     private val cccdWritesState = MutableStateFlow(emptyList<CccdWrite>())
 
