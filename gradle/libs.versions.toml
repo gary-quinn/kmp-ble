@@ -14,7 +14,7 @@ androidxTestRunner = "1.7.0"
 robolectric = "4.16.1"
 kotlinxSerialization = "1.11.0"
 androidMinSdk = "33"
-androidCompileSdk = "36"
+androidCompileSdk = "37"
 androidTargetSdk = "36"
 # Minimum safe versions for transitive dependencies (see build.gradle.kts resolutionStrategy)
 netty = "4.1.133.Final"
@@ -28,7 +28,7 @@ bouncycastle = "1.84"
 opentelemetry = "1.62.0"
 
 [libraries]
-androidx-core = { module = "androidx.core:core-ktx", version = "1.18.0" }
+androidx-core = { module = "androidx.core:core-ktx", version = "1.19.0" }
 androidx-startup = { module = "androidx.startup:startup-runtime", version = "1.2.0" }
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidxActivityCompose" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
