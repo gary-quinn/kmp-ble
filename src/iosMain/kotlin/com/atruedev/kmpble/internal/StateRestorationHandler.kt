@@ -7,6 +7,7 @@ import com.atruedev.kmpble.logging.BleLogEvent
 import com.atruedev.kmpble.logging.logEvent
 import com.atruedev.kmpble.peripheral.IosPeripheral
 import com.atruedev.kmpble.peripheral.internal.PeripheralRegistry
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -101,6 +102,8 @@ internal class StateRestorationHandler(
                     try {
                         peripheral.restoreFromStateRestoration(savedObservations)
                         logEvent(BleLogEvent.StateRestoration(identifier, "restored successfully"))
+                    } catch (e: CancellationException) {
+                        throw e
                     } catch (e: Exception) {
                         logEvent(BleLogEvent.Error(identifier, "StateRestoration: failed to restore", e))
                     }
