@@ -2,6 +2,7 @@ package com.atruedev.kmpble.peripheral.internal
 
 import com.atruedev.kmpble.Identifier
 import com.atruedev.kmpble.peripheral.Peripheral
+import kotlinx.coroutines.CancellationException
 import kotlin.concurrent.atomics.AtomicReference
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 
@@ -26,7 +27,7 @@ internal object PeripheralRegistry {
                 try {
                     peripheral.close()
                 } catch (e: Exception) {
-                    if (e is kotlinx.coroutines.CancellationException) throw e
+                    if (e is CancellationException) throw e
                 }
                 return it
             }

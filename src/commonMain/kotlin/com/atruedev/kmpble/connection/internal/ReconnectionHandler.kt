@@ -3,6 +3,7 @@ package com.atruedev.kmpble.connection.internal
 import com.atruedev.kmpble.connection.ConnectionOptions
 import com.atruedev.kmpble.connection.ReconnectionStrategy
 import com.atruedev.kmpble.connection.State
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -47,7 +48,7 @@ internal class ReconnectionHandler(
                             connectAction(opts)
                             attempt = 0
                         } catch (e: Exception) {
-                            if (e is kotlinx.coroutines.CancellationException) throw e
+                            if (e is CancellationException) throw e
                             // Will re-enter this collector on next Disconnected state
                         }
                     } else if (state is State.Connected.Ready) {
