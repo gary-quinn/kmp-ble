@@ -29,14 +29,14 @@ import kotlin.uuid.Uuid
  * are set to empty/default values.
  */
 @OptIn(ExperimentalUuidApi::class)
-internal fun CBPeripheral.toRetrievedAdvertisement(): Advertisement =
+internal fun CBPeripheral.toRetrievedAdvertisement(serviceUuids: List<Uuid>): Advertisement =
     Advertisement(
         identifier = Identifier(identifier.UUIDString),
         name = name,
         rssi = 0,
         txPower = null,
         isConnectable = true,
-        serviceUuids = emptyList(),
+        serviceUuids = serviceUuids,
         manufacturerData = emptyMap(),
         serviceData = emptyMap(),
         timestampNanos = (NSDate().timeIntervalSince1970 * 1_000_000_000).toLong(),
