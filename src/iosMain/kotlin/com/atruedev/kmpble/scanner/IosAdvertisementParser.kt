@@ -23,7 +23,7 @@ import kotlin.uuid.Uuid
  * Creates a minimal [Advertisement] from a [CBPeripheral] retrieved via
  * [CBCentralManager.retrieveConnectedPeripheralsWithServices].
  *
- * Retrieved peripherals lack advertisement data and RSSI — the peripheral
+ * Retrieved peripherals lack advertisement data and RSSI -- the peripheral
  * is already connected (typically auto-connected by iOS for bonded devices)
  * and is no longer advertising. Fields that depend on advertisement data
  * are set to empty/default values.

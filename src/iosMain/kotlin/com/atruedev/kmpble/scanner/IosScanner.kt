@@ -56,7 +56,7 @@ public class IosScanner(
             //
             // retrieveConnectedPeripheralsWithServices(serviceUUIDs: List<*>): List<*>
             // accepts a non-null List in K/N. Pass null (silently cast) to retrieve
-            // peripherals for all services — CoreBluetooth handles nil correctly.
+            // peripherals for all services -- CoreBluetooth handles nil correctly.
             val retrievedIds = mutableSetOf<String>()
 
             @Suppress("UNCHECKED_CAST")
