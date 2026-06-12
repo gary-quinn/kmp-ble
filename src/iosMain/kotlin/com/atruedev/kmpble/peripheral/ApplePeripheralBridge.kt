@@ -134,19 +134,26 @@ internal class ApplePeripheralBridge(
     }
 
     internal fun connect() {
+        cbPeripheral.delegate = peripheralDelegate
         CentralManagerProvider.manager.connectPeripheral(cbPeripheral, options = null)
     }
 
     internal fun discoverServices(): Boolean {
+        // Re-affirm delegate before discoverServices — retrieved peripherals
+        // (retrieveConnectedPeripheralsWithServices) may carry a stale delegate
+        // reference that CoreBluetooth routes callbacks to incorrectly.
+        cbPeripheral.delegate = peripheralDelegate
         cbPeripheral.discoverServices(null)
         return true
     }
 
     internal fun discoverCharacteristics(service: CBService) {
+        cbPeripheral.delegate = peripheralDelegate
         cbPeripheral.discoverCharacteristics(null, service)
     }
 
     internal fun readCharacteristic(characteristic: CBCharacteristic): Boolean {
+        cbPeripheral.delegate = peripheralDelegate
         cbPeripheral.readValueForCharacteristic(characteristic)
         return true
     }
@@ -156,6 +163,7 @@ internal class ApplePeripheralBridge(
         data: NSData,
         withResponse: Boolean,
     ): Boolean {
+        cbPeripheral.delegate = peripheralDelegate
         val type = if (withResponse) CBCharacteristicWriteWithResponse else CBCharacteristicWriteWithoutResponse
         cbPeripheral.writeValue(data, characteristic, type)
         return true
