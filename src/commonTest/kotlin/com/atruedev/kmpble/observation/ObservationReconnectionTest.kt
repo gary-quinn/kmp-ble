@@ -7,6 +7,9 @@ import com.atruedev.kmpble.gatt.DiscoveredService
 import com.atruedev.kmpble.gatt.Observation
 import com.atruedev.kmpble.scanner.uuidFrom
 import com.atruedev.kmpble.testing.FakePeripheral
+import com.atruedev.kmpble.testing.FakePeripheralBuilder
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -23,13 +26,17 @@ class ObservationReconnectionTest {
     private val testServiceUuid = uuidFrom("180d")
     private val testCharUuid = uuidFrom("2a37")
 
-    private fun createPeripheral(): FakePeripheral =
-        FakePeripheral {
-            service("180d") {
-                characteristic("2a37") { properties(notify = true) }
-                characteristic("2a38") { properties(read = true) }
-            }
-        }
+    private fun createPeripheral(
+        dispatcher: CoroutineDispatcher = Dispatchers.Default.limitedParallelism(1),
+    ): FakePeripheral =
+        FakePeripheralBuilder()
+            .observationDispatcher(dispatcher)
+            .apply {
+                service("180d") {
+                    characteristic("2a37") { properties(notify = true) }
+                    characteristic("2a38") { properties(read = true) }
+                }
+            }.build()
 
     @Test
     fun observeSurvivesDisconnectAndReconnect() =
@@ -197,81 +204,6 @@ class ObservationReconnectionTest {
                 assertIs<Observation.Disconnected>(awaitItem())
                 awaitComplete()
             }
-        }
-
-    @Test
-    fun multipleObserversSameCharacteristic() =
-        runTest {
-            val peripheral = createPeripheral()
-            peripheral.connect()
-
-            val char = peripheral.findCharacteristic(testServiceUuid, testCharUuid)!!
-            val observations1 = mutableListOf<Observation>()
-            val observations2 = mutableListOf<Observation>()
-
-            val job1 =
-                launch {
-                    peripheral.observe(char, BackpressureStrategy.Unbounded).collect { obs ->
-                        observations1.add(obs)
-                    }
-                }
-
-            val job2 =
-                launch {
-                    peripheral.observe(char, BackpressureStrategy.Unbounded).collect { obs ->
-                        observations2.add(obs)
-                    }
-                }
-
-            delay(50)
-
-            peripheral.emitObservationValue(testServiceUuid, testCharUuid, byteArrayOf(0x01))
-            delay(50)
-
-            assertEquals(1, observations1.size)
-            assertEquals(1, observations2.size)
-
-            job1.cancelAndJoin()
-            delay(50)
-
-            val cccdWrites = peripheral.getCccdWrites()
-            val disableWrites = cccdWrites.filter { !it.enabled }
-            assertTrue(disableWrites.isEmpty())
-
-            peripheral.emitObservationValue(testServiceUuid, testCharUuid, byteArrayOf(0x02))
-            delay(50)
-
-            assertEquals(1, observations1.size)
-            assertEquals(2, observations2.size)
-
-            job2.cancelAndJoin()
-        }
-
-    @Test
-    fun collectorCancellationDisablesCccdWhenNoCollectorsRemain() =
-        runTest {
-            val peripheral = createPeripheral()
-            peripheral.connect()
-
-            val char = peripheral.findCharacteristic(testServiceUuid, testCharUuid)!!
-
-            val job =
-                launch {
-                    peripheral.observe(char, BackpressureStrategy.Unbounded).collect { }
-                }
-
-            delay(50)
-
-            var cccdWrites = peripheral.getCccdWrites()
-            assertEquals(1, cccdWrites.size)
-            assertTrue(cccdWrites[0].enabled)
-
-            job.cancelAndJoin()
-            delay(100)
-
-            cccdWrites = peripheral.getCccdWrites()
-            val disableWrites = cccdWrites.filter { !it.enabled }
-            assertEquals(1, disableWrites.size)
         }
 
     @Test

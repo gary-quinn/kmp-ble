@@ -16,7 +16,9 @@ internal class ObservationManager(
     /** Optional callback invoked when the set of active observations changes. */
     internal var onObservationsChanged: ((Set<PersistedObservation>) -> Unit)?
         get() = registry.onObservationsChanged
-        set(value) { registry.onObservationsChanged = value }
+        set(value) {
+            registry.onObservationsChanged = value
+        }
 
     /**
      * Subscribe to a characteristic's notifications/indications.
@@ -74,12 +76,10 @@ internal class ObservationManager(
     suspend fun onPermanentDisconnect() = registry.onPermanentDisconnect()
 
     /** Returns list of observation keys that need CCCD re-enabled on reconnect. */
-    suspend fun getObservationsToResubscribe(): List<ObservationKey> =
-        registry.getObservationsToResubscribe()
+    suspend fun getObservationsToResubscribe(): List<ObservationKey> = registry.getObservationsToResubscribe()
 
     /** Complete a specific observation (e.g., when characteristic no longer exists after reconnect). */
-    suspend fun completeObservation(key: ObservationKey) =
-        registry.completeObservation(key)
+    suspend fun completeObservation(key: ObservationKey) = registry.completeObservation(key)
 
     /** Check if there are any active collectors for a characteristic. */
     suspend fun hasCollectors(
