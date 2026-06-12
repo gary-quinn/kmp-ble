@@ -15,6 +15,29 @@ _Changes on `main` that have not yet been tagged for release._
 
 ---
 
+## [0.8.2] - 2026-06-12
+
+### Changed
+- ci(dependabot): bump actions/checkout from 6.0.2 to 6.0.3
+- build(dependabot): bump org.jetbrains.compose from 1.11.0 to 1.11.1
+- build(dependabot): bump kotlin from 2.3.21 to 2.4.0
+- build(dependabot): bump androidx.core:core-ktx from 1.18.0 to 1.19.0
+- refactor(testing): decompose FakePeripheral into FakeConnectionSimulator + FakeGattResponder
+- refactor(shared): decompose ObservationManager into ObservationRegistry + ObservationEmitter
+
+### Fixed
+- fix(shared): rethrow CancellationException in catch blocks
+- fix(shared): use import for CancellationException instead of qualified name
+- fix(shared): require serial dispatcher for ObservationManager
+- fix: move JVM-only virtual time tests to jvmTest source set
+- fix: retrieve bonded peripherals before scanning on iOS
+
+### Other
+- docs(getting-started): add comprehensive 5-minute onboarding guide
+
+
+---
+
 ## [0.8.1] - 2026-06-01
 
 ### Added
@@ -565,7 +588,8 @@ _No notable changes._
 
 ---
 
-[Unreleased]: https://github.com/gary-quinn/kmp-ble/compare/v0.8.1...HEAD
+[Unreleased]: https://github.com/gary-quinn/kmp-ble/compare/v0.8.2...HEAD
+[0.8.2]: https://github.com/gary-quinn/kmp-ble/compare/v0.8.1...v0.8.2
 [0.8.1]: https://github.com/gary-quinn/kmp-ble/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/gary-quinn/kmp-ble/compare/v0.7.1...v0.8.0
 [0.7.1]: https://github.com/gary-quinn/kmp-ble/compare/v0.7.0...v0.7.1
