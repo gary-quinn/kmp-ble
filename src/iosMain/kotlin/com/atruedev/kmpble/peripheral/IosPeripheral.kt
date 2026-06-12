@@ -18,6 +18,7 @@ import com.atruedev.kmpble.error.ConnectionFailed
 import com.atruedev.kmpble.error.ConnectionLost
 import com.atruedev.kmpble.error.GattError
 import com.atruedev.kmpble.error.OperationFailed
+import com.atruedev.kmpble.error.StaleGattHandle
 import com.atruedev.kmpble.gatt.BackpressureStrategy
 import com.atruedev.kmpble.gatt.Characteristic
 import com.atruedev.kmpble.gatt.Descriptor
@@ -47,6 +48,7 @@ import com.atruedev.kmpble.peripheral.internal.buildObservationFlow
 import com.atruedev.kmpble.peripheral.internal.findCharacteristic
 import com.atruedev.kmpble.peripheral.internal.findDescriptor
 import com.atruedev.kmpble.scanner.uuidFrom
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.flow.Flow
@@ -393,10 +395,10 @@ public class IosPeripheral(
 
     private fun requireNativeCbChar(c: Characteristic): CBCharacteristic =
         nativeCharMap[c]
-            ?: throw IllegalArgumentException("Characteristic not found. Re-acquire from services after connect.")
+            ?: throw BleException(StaleGattHandle("characteristic", c.uuid.toString()))
 
     private fun requireNativeCbDesc(d: Descriptor): CBDescriptor =
-        nativeDescMap[d] ?: throw IllegalArgumentException("Descriptor not found.")
+        nativeDescMap[d] ?: throw BleException(StaleGattHandle("descriptor", d.uuid.toString()))
 
     private fun ByteArray.toNSData(): NSData = BleData(this).nsData
 
@@ -572,6 +574,9 @@ public class IosPeripheral(
                 pendingL2capChannel = null
                 throw L2capException.OpenFailed(psm, "Timeout waiting for L2CAP channel")
             } catch (e: L2capException) {
+                pendingL2capChannel = null
+                throw e
+            } catch (e: CancellationException) {
                 pendingL2capChannel = null
                 throw e
             } catch (e: Exception) {

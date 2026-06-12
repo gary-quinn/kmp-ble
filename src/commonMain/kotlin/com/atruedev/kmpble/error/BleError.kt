@@ -68,6 +68,12 @@ public data class MtuExceeded(
     val maximum: Int,
 ) : OperationConstraintError
 
+/** A GATT characteristic or descriptor handle is stale — the peer disconnected or services were invalidated. */
+public data class StaleGattHandle(
+    val handleType: String,
+    val uuid: String,
+) : GattOperationError
+
 /** A catch-all for operation failures that don't fit a more specific category. */
 public data class OperationFailed(
     val message: String,

@@ -23,11 +23,11 @@ import com.atruedev.kmpble.gatt.internal.ObservationEvent
 import com.atruedev.kmpble.gatt.internal.ObservationManager
 import com.atruedev.kmpble.gatt.internal.applyBackpressure
 import com.atruedev.kmpble.l2cap.L2capChannel
-import kotlinx.coroutines.Dispatchers
 import com.atruedev.kmpble.l2cap.L2capException
 import com.atruedev.kmpble.peripheral.Peripheral
 import com.atruedev.kmpble.peripheral.PhyResult
 import com.atruedev.kmpble.peripheral.internal.PeripheralContext
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.FlowCollector
@@ -54,18 +54,35 @@ public class FakePeripheral internal constructor(
     private val context = PeripheralContext(identifier)
     private val observationManager = ObservationManager(Dispatchers.Default.limitedParallelism(1))
     private var closed = false
-    private val cccdWritesState = MutableStateFlow(emptyList<CccdWrite>())
+    private val cccdWritesState = MutableStateFlow<List<CccdWrite>>(emptyList())
 
-    override val state: StateFlow<State> get() = context.state
-    override val bondState: StateFlow<com.atruedev.kmpble.bonding.BondState> get() = context.bondState
-    override val services: StateFlow<List<DiscoveredService>?> get() = context.services
-    override val maximumWriteValueLength: StateFlow<Int> get() = context.maximumWriteValueLength
+    private val connectionSimulator = FakeConnectionSimulator(
+        context = context,
+        observationManager = observationManager,
+        fakeServices = fakeServices,
+        cccdWritesState = cccdWritesState,
+        closedFlag = { closed },
+    )
+
+    private val gattResponder = FakeGattResponder(
+        context = context,
+        observationManager = observationManager,
+        characteristicConfigs = characteristicConfigs,
+        onL2capHandler = onL2capHandler,
+        cccdWritesState = cccdWritesState,
+        closedFlag = { closed },
+    )
 
     public data class CccdWrite(
         val serviceUuid: Uuid,
         val charUuid: Uuid,
         val enabled: Boolean,
     )
+
+    override val state: StateFlow<State> get() = context.state
+    override val bondState: StateFlow<com.atruedev.kmpble.bonding.BondState> get() = context.bondState
+    override val services: StateFlow<List<DiscoveredService>?> get() = context.services
+    override val maximumWriteValueLength: StateFlow<Int> get() = context.maximumWriteValueLength
 
     override suspend fun connect(options: ConnectionOptions) {
         checkNotClosed()
@@ -88,8 +105,7 @@ public class FakePeripheral internal constructor(
     }
 
     internal suspend fun simulateEvent(event: ConnectionEvent): State {
-        checkNotClosed()
-        return context.processEvent(event)
+        return connectionSimulator.simulateEvent(event)
     }
 
     /**
@@ -97,8 +113,7 @@ public class FakePeripheral internal constructor(
      * [State.Connected.BondingChange].
      */
     public suspend fun simulateBondStateChange() {
-        checkNotClosed()
-        context.processEvent(ConnectionEvent.BondStateChanged)
+        connectionSimulator.simulateBondStateChange()
     }
 
     /**
@@ -107,8 +122,7 @@ public class FakePeripheral internal constructor(
      * until rediscovery completes.
      */
     public suspend fun simulateServiceChangedIndication() {
-        checkNotClosed()
-        context.processEvent(ConnectionEvent.ServiceChangedIndication)
+        connectionSimulator.simulateServiceChangedIndication()
     }
 
     /**
@@ -116,8 +130,7 @@ public class FakePeripheral internal constructor(
      * [State.Connected.Ready].
      */
     public suspend fun simulateRediscoverySucceeded() {
-        checkNotClosed()
-        context.processEvent(ConnectionEvent.RediscoverySucceeded)
+        connectionSimulator.simulateRediscoverySucceeded()
     }
 
     override suspend fun disconnect() {
@@ -164,228 +177,63 @@ public class FakePeripheral internal constructor(
         return char.descriptors.firstOrNull { it.uuid == descriptorUuid }
     }
 
-    // --- GATT Operations ---
+    // --- GATT Operations (delegated to FakeGattResponder) ---
 
-    override suspend fun read(characteristic: Characteristic): ByteArray {
-        checkNotClosed()
-        checkConnected()
-        val config = findConfig(characteristic)
-        applyDelay(config)
-        checkFailWith(config)
-        val handler =
-            config?.readHandler
-                ?: throw UnsupportedOperationException("No onRead handler for ${characteristic.uuid}")
-        return handler()
-    }
+    override suspend fun read(characteristic: Characteristic): ByteArray =
+        gattResponder.read(characteristic)
 
     override suspend fun write(
         characteristic: Characteristic,
         data: ByteArray,
         writeType: WriteType,
-    ) {
-        checkNotClosed()
-        checkConnected()
-        val config = findConfig(characteristic)
-        applyDelay(config)
-        checkFailWith(config)
-        val handler = config?.writeHandler
-        if (handler != null) {
-            handler(data, writeType)
-        } else {
-            val hasWriteProperty =
-                characteristic.properties.write ||
-                    characteristic.properties.writeWithoutResponse ||
-                    characteristic.properties.signedWrite
-            if (!hasWriteProperty) {
-                throw BleException(
-                    GattError("write", GattStatus.WriteNotPermitted),
-                )
-            }
-        }
-    }
+    ): Unit = gattResponder.write(characteristic, data, writeType)
 
     override fun observe(
         characteristic: Characteristic,
         backpressure: BackpressureStrategy,
-    ): Flow<Observation> {
-        checkNotClosed()
-        val config = findConfig(characteristic)
-        failWithFlow<Observation>(config)?.let { return it }
-        val handler = config?.observeHandler
-        return if (handler != null) {
-            handler()
-                .map<ByteArray, Observation> { Observation.Value(it) }
-                .applyBackpressure(backpressure)
-        } else {
-            observeInternal(characteristic, backpressure) { event ->
-                when (event) {
-                    is ObservationEvent.Value -> emit(Observation.Value(event.data))
-                    is ObservationEvent.Disconnected -> emit(Observation.Disconnected)
-                    is ObservationEvent.PermanentlyDisconnected -> emit(Observation.Disconnected)
-                }
-            }
-        }
-    }
+    ): Flow<Observation> = gattResponder.observe(characteristic, backpressure)
 
     override fun observeValues(
         characteristic: Characteristic,
         backpressure: BackpressureStrategy,
-    ): Flow<ByteArray> {
-        checkNotClosed()
-        val config = findConfig(characteristic)
-        failWithFlow<ByteArray>(config)?.let { return it }
-        val handler = config?.observeHandler
-        return if (handler != null) {
-            handler().applyBackpressure(backpressure)
-        } else {
-            observeInternal(characteristic, backpressure) { event ->
-                when (event) {
-                    is ObservationEvent.Value -> emit(event.data)
-                    // Transparent reconnection - ObservationManager re-subscribes on reconnect
-                    is ObservationEvent.Disconnected -> Unit
-                    is ObservationEvent.PermanentlyDisconnected -> Unit
-                }
-            }
-        }
-    }
+    ): Flow<ByteArray> = gattResponder.observeValues(characteristic, backpressure)
 
-    private fun <T> observeInternal(
-        characteristic: Characteristic,
-        backpressure: BackpressureStrategy,
-        mapper: suspend FlowCollector<T>.(ObservationEvent) -> Unit,
-    ): Flow<T> {
-        val serviceUuid = characteristic.serviceUuid
-        val charUuid = characteristic.uuid
-
-        return flow {
-            val eventFlow = observationManager.subscribe(serviceUuid, charUuid, backpressure)
-            eventFlow.collect { event -> mapper(event) }
-        }.onStart {
-            if (context.state.value is State.Connected.Ready) {
-                recordCccdWrite(serviceUuid, charUuid, enabled = true)
-            }
-        }.applyBackpressure(backpressure)
-            .onCompletion {
-                val wasLastCollector = observationManager.unsubscribe(serviceUuid, charUuid)
-                if (wasLastCollector && context.state.value is State.Connected) {
-                    recordCccdWrite(serviceUuid, charUuid, enabled = false)
-                }
-            }
-    }
-
-    override suspend fun readDescriptor(descriptor: Descriptor): ByteArray {
-        checkNotClosed()
-        checkConnected()
-        return byteArrayOf()
-    }
+    override suspend fun readDescriptor(descriptor: Descriptor): ByteArray =
+        gattResponder.readDescriptor(descriptor)
 
     override suspend fun writeDescriptor(
         descriptor: Descriptor,
         data: ByteArray,
-    ) {
-        checkNotClosed()
-        checkConnected()
-    }
+    ): Unit = gattResponder.writeDescriptor(descriptor, data)
 
     override suspend fun openL2capChannel(
         psm: Int,
         secure: Boolean,
         mtu: Int?,
-    ): L2capChannel {
-        checkNotClosed()
-        if (mtu != null) require(mtu > 0) { "mtu must be positive, was $mtu" }
-        if (context.state.value !is State.Connected) {
-            throw L2capException.NotConnected("Peripheral is not connected (state: ${context.state.value})")
-        }
-        val handler =
-            onL2capHandler
-                ?: throw L2capException.NotSupported("No onOpenL2capChannel handler configured")
-        return handler(psm, mtu)
-    }
+    ): L2capChannel = gattResponder.openL2capChannel(psm, secure, mtu)
 
-    override suspend fun readRssi(): Int {
-        checkNotClosed()
-        checkConnected()
-        return -50
-    }
+    override suspend fun readRssi(): Int = gattResponder.readRssi()
 
-    override suspend fun requestMtu(mtu: Int): Int {
-        checkNotClosed()
-        checkConnected()
-        context.updateMtu(mtu)
-        return mtu
-    }
+    override suspend fun requestMtu(mtu: Int): Int = gattResponder.requestMtu(mtu)
 
     @com.atruedev.kmpble.ExperimentalBleApi
-    override suspend fun requestConnectionPriority(priority: ConnectionPriority): Boolean {
-        checkNotClosed()
-        checkConnected()
-        return true
-    }
+    override suspend fun requestConnectionPriority(priority: ConnectionPriority): Boolean =
+        gattResponder.requestConnectionPriority(priority)
 
     @com.atruedev.kmpble.ExperimentalBleApi
     override suspend fun setPreferredPhy(
         tx: Phy,
         rx: Phy,
-    ): PhyResult? {
-        checkNotClosed()
-        checkConnected()
-        return PhyResult(tx, rx)
-    }
+    ): PhyResult? = gattResponder.setPreferredPhy(tx, rx)
 
-    // --- Internal ---
-
-    private suspend fun applyDelay(config: FakeCharacteristicConfig?) {
-        val duration = config?.respondAfterDuration ?: return
-        if (duration > Duration.ZERO) {
-            delay(duration)
-        }
-    }
-
-    private fun checkFailWith(config: FakeCharacteristicConfig?) {
-        val error = config?.failWithError ?: return
-        throw BleException(error)
-    }
-
-    private fun <T> failWithFlow(config: FakeCharacteristicConfig?): Flow<T>? {
-        val error = config?.failWithError ?: return null
-        return flow { throw BleException(error) }
-    }
-
-    private fun findConfig(characteristic: Characteristic): FakeCharacteristicConfig? =
-        characteristicConfigs.firstOrNull {
-            it.characteristic.serviceUuid == characteristic.serviceUuid &&
-                it.characteristic.uuid == characteristic.uuid
-        }
-
-    private fun recordCccdWrite(
-        serviceUuid: Uuid,
-        charUuid: Uuid,
-        enabled: Boolean,
-    ) {
-        cccdWritesState.update { it + CccdWrite(serviceUuid, charUuid, enabled) }
-    }
-
-    private fun checkNotClosed() {
-        check(!closed) { "Peripheral is closed" }
-    }
-
-    private fun checkConnected() {
-        check(context.state.value is State.Connected) {
-            "Peripheral is not connected (state: ${context.state.value})"
-        }
-    }
-
-    // --- Test Simulation Methods ---
+    // --- Test Simulation Methods (delegated to FakeConnectionSimulator) ---
 
     /**
      * Simulate a disconnect event. This will emit [Observation.Disconnected] to all active
      * observations but NOT complete them - they persist for reconnection.
      */
     public suspend fun simulateDisconnect(error: BleError = ConnectionLost("Simulated disconnect")) {
-        checkNotClosed()
-        context.processEvent(ConnectionEvent.ConnectionLost(error))
-        observationManager.onDisconnect()
+        connectionSimulator.simulateDisconnect(error)
     }
 
     /**
@@ -395,32 +243,7 @@ public class FakePeripheral internal constructor(
      * 3. Re-enable CCCD for all active observations
      */
     public suspend fun simulateReconnect(newServices: List<DiscoveredService>? = null) {
-        checkNotClosed()
-        if (newServices != null) {
-            fakeServices = newServices
-        }
-
-        context.processEvent(ConnectionEvent.ConnectRequested)
-        context.gattQueue.start()
-        context.processEvent(ConnectionEvent.LinkEstablished)
-        context.processEvent(ConnectionEvent.ServicesDiscovered)
-        context.updateServices(fakeServices)
-
-        resubscribeObservations()
-
-        context.processEvent(ConnectionEvent.ConfigurationComplete)
-    }
-
-    private suspend fun resubscribeObservations() {
-        val toResubscribe = observationManager.getObservationsToResubscribe()
-        for (key in toResubscribe) {
-            val char = findCharacteristic(key.serviceUuid, key.charUuid)
-            if (char != null) {
-                recordCccdWrite(key.serviceUuid, key.charUuid, enabled = true)
-            } else {
-                observationManager.completeObservation(key)
-            }
-        }
+        connectionSimulator.simulateReconnect(newServices)
     }
 
     /**
@@ -428,9 +251,7 @@ public class FakePeripheral internal constructor(
      * This will complete all observation flows.
      */
     public suspend fun simulatePermanentDisconnect() {
-        checkNotClosed()
-        context.processEvent(ConnectionEvent.ConnectionLost(ConnectionLost("Max attempts exhausted")))
-        observationManager.onPermanentDisconnect()
+        connectionSimulator.simulatePermanentDisconnect()
     }
 
     /** Simulate a characteristic notification by emitting [value] to active observers. */
@@ -439,8 +260,7 @@ public class FakePeripheral internal constructor(
         charUuid: Uuid,
         value: ByteArray,
     ) {
-        checkNotClosed()
-        observationManager.emitValue(serviceUuid, charUuid, value)
+        connectionSimulator.emitObservationValue(serviceUuid, charUuid, value)
     }
 
     /** Convenience overload accepting short or full UUID strings. */
@@ -449,13 +269,7 @@ public class FakePeripheral internal constructor(
         charUuid: String,
         value: ByteArray,
     ) {
-        emitObservationValue(
-            com.atruedev.kmpble.scanner
-                .uuidFrom(serviceUuid),
-            com.atruedev.kmpble.scanner
-                .uuidFrom(charUuid),
-            value,
-        )
+        connectionSimulator.emitObservationValue(serviceUuid, charUuid, value)
     }
 
     /** Returns all CCCD writes recorded during observation setup/teardown. */
@@ -470,5 +284,9 @@ public class FakePeripheral internal constructor(
     public suspend fun hasCollectors(
         serviceUuid: Uuid,
         charUuid: Uuid,
-    ): Boolean = observationManager.hasCollectors(serviceUuid, charUuid)
+    ): Boolean = connectionSimulator.hasCollectors(serviceUuid, charUuid)
+
+    private fun checkNotClosed() {
+        check(!closed) { "Peripheral is closed" }
+    }
 }

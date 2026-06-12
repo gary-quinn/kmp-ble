@@ -26,6 +26,7 @@ import com.atruedev.kmpble.error.ConnectionFailed
 import com.atruedev.kmpble.error.ConnectionLost
 import com.atruedev.kmpble.error.GattError
 import com.atruedev.kmpble.error.OperationFailed
+import com.atruedev.kmpble.error.StaleGattHandle
 import com.atruedev.kmpble.gatt.BackpressureStrategy
 import com.atruedev.kmpble.gatt.Characteristic
 import com.atruedev.kmpble.gatt.Descriptor
@@ -531,12 +532,10 @@ public class AndroidPeripheral internal constructor(
 
     private fun requireNativeChar(c: Characteristic): BluetoothGattCharacteristic =
         nativeCharMap[c]
-            ?: throw IllegalArgumentException(
-                "Characteristic not found in current GATT profile. Re-acquire from services after connect.",
-            )
+            ?: throw BleException(StaleGattHandle("characteristic", c.uuid.toString()))
 
     private fun requireNativeDesc(d: Descriptor): BluetoothGattDescriptor =
-        nativeDescMap[d] ?: throw IllegalArgumentException("Descriptor not found in current GATT profile.")
+        nativeDescMap[d] ?: throw BleException(StaleGattHandle("descriptor", d.uuid.toString()))
 
     override suspend fun read(characteristic: Characteristic): ByteArray {
         checkNotClosed()
@@ -824,7 +823,7 @@ public class AndroidPeripheral internal constructor(
                 throw e
             } catch (e: CancellationException) {
                 socket.closeQuietly()
-                throw L2capException.OpenFailed(psm, "Connection timed out", e)
+                throw e
             } catch (e: IOException) {
                 socket.closeQuietly()
                 throw L2capException.OpenFailed(psm, e.message ?: "Unknown error", e)
