@@ -107,17 +107,14 @@ public class IosScanner(
             emit: (Advertisement) -> Unit,
         ) {
             // retrieveConnectedPeripheralsWithServices expects a non-null
-            // List<*> in Kotlin/Native, but CoreBluetooth accepts nil for
-            // "all services". When serviceUuids is null we want to retrieve
-            // peripherals for all services. We pass null via an unsafe cast
-            // -- the ObjC bridge handles nil correctly at runtime.
+            // List<*> in Kotlin/Native. CoreBluetooth accepts nil for "all
+            // services", but K/N bridge crashes (NPE) when converting a null
+            // List to NSArray. Until a K/N-safe nil-passing mechanism is
+            // available, we skip retrieval when no service filter is set.
+            if (serviceUuids == null) return
             @Suppress("UNCHECKED_CAST")
-            val connectedPeripherals: List<*> =
-                if (serviceUuids != null) {
-                    manager.retrieveConnectedPeripheralsWithServices(serviceUuids as List<*>)
-                } else {
-                    manager.retrieveConnectedPeripheralsWithServices(null as List<*>)
-                }
+            val connectedPeripherals =
+                manager.retrieveConnectedPeripheralsWithServices(serviceUuids as List<*>)
             for (peripheral in connectedPeripherals) {
                 val cbPeripheral = peripheral as? CBPeripheral ?: continue
                 val id = cbPeripheral.identifier.UUIDString
