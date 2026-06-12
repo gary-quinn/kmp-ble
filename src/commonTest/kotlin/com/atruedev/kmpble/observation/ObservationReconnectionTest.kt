@@ -202,6 +202,7 @@ class ObservationReconnectionTest {
         }
 
     @Test
+    @OptIn(ExperimentalCoroutinesApi::class)
     fun multipleObserversSameCharacteristic() =
         runTest {
             val peripheral = createPeripheral()
@@ -234,7 +235,7 @@ class ObservationReconnectionTest {
             assertEquals(1, observations2.size)
 
             job1.cancelAndJoin()
-            delay(50)
+            advanceUntilIdle()
 
             val cccdWrites = peripheral.getCccdWrites()
             val disableWrites = cccdWrites.filter { !it.enabled }
@@ -247,6 +248,7 @@ class ObservationReconnectionTest {
             assertEquals(2, observations2.size)
 
             job2.cancelAndJoin()
+            advanceUntilIdle()
         }
 
     @Test
