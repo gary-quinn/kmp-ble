@@ -1,5 +1,6 @@
 package com.atruedev.kmpble.observation
 
+import app.cash.turbine.test
 import com.atruedev.kmpble.gatt.BackpressureStrategy
 import com.atruedev.kmpble.gatt.Characteristic
 import com.atruedev.kmpble.gatt.DiscoveredService
@@ -11,17 +12,15 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.test.TestDispatcher
-import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
-import app.cash.turbine.test
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import kotlin.uuid.ExperimentalUuidApi
-import kotlinx.coroutines.ExperimentalCoroutinesApi
+
 @OptIn(ExperimentalUuidApi::class)
 class ObservationReconnectionTest {
     private val testServiceUuid = uuidFrom("180d")
@@ -205,87 +204,7 @@ class ObservationReconnectionTest {
                 assertIs<Observation.Disconnected>(awaitItem())
                 awaitComplete()
             }
-        }
-
-    @Test
-    @Ignore("JVM-only: uses virtual time (runTest/advanceUntilIdle) not supported on Kotlin Native")
-    @OptIn(ExperimentalCoroutinesApi::class)
-    fun multipleObserversSameCharacteristic() =
-        runTest { testScope ->
-            val peripheral = createPeripheral(testScope.testDispatcher)
-            peripheral.connect()
-
-            val char = peripheral.findCharacteristic(testServiceUuid, testCharUuid)!!
-            val observations1 = mutableListOf<Observation>()
-            val observations2 = mutableListOf<Observation>()
-
-            val job1 =
-                launch {
-                    peripheral.observe(char, BackpressureStrategy.Unbounded).collect { obs ->
-                        observations1.add(obs)
-                    }
-                }
-
-            val job2 =
-                launch {
-                    peripheral.observe(char, BackpressureStrategy.Unbounded).collect { obs ->
-                        observations2.add(obs)
-                    }
-                }
-
-            delay(50)
-
-            peripheral.emitObservationValue(testServiceUuid, testCharUuid, byteArrayOf(0x01))
-            delay(50)
-
-            assertEquals(1, observations1.size)
-            assertEquals(1, observations2.size)
-
-            job1.cancelAndJoin()
-            advanceUntilIdle()
-
-            val cccdWrites = peripheral.getCccdWrites()
-            val disableWrites = cccdWrites.filter { !it.enabled }
-            assertTrue(disableWrites.isEmpty())
-
-            peripheral.emitObservationValue(testServiceUuid, testCharUuid, byteArrayOf(0x02))
-            delay(50)
-
-            assertEquals(1, observations1.size)
-            assertEquals(2, observations2.size)
-
-            job2.cancelAndJoin()
-            advanceUntilIdle()
-        }
-
-    @Test
-    @Ignore("JVM-only: uses virtual time (runTest/advanceUntilIdle) not supported on Kotlin Native")
-    @OptIn(ExperimentalCoroutinesApi::class)
-    fun collectorCancellationDisablesCccdWhenNoCollectorsRemain() =
-        runTest { testScope ->
-            val peripheral = createPeripheral(testScope.testDispatcher)
-            peripheral.connect()
-
-            val char = peripheral.findCharacteristic(testServiceUuid, testCharUuid)!!
-
-            val job =
-                launch {
-                    peripheral.observe(char, BackpressureStrategy.Unbounded).collect { }
-                }
-
-            delay(50)
-
-            var cccdWrites = peripheral.getCccdWrites()
-            assertEquals(1, cccdWrites.size)
-            assertTrue(cccdWrites[0].enabled)
-
-            job.cancelAndJoin()
-            advanceUntilIdle() // Ensure all pending coroutines (including CCCD disable) complete
-
-            cccdWrites = peripheral.getCccdWrites()
-            val disableWrites = cccdWrites.filter { !it.enabled }
-            assertEquals(1, disableWrites.size)
-        }
+            }
 
     @Test
     fun cccdWriteCompletesBeforeFirstValue() =
