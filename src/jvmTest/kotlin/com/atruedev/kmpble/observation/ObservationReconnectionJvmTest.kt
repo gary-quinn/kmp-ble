@@ -36,10 +36,9 @@ class ObservationReconnectionJvmTest {
             }.build()
 
     @Test
-    fun multipleObserversSameCharacteristic() =
-        runTest {
-            val peripheral = createPeripheral(this as CoroutineDispatcher)
-            peripheral.connect()
+    fun multipleObserversSameCharacteristic() = runTest {
+        val peripheral = createPeripheral()
+        peripheral.connect()
 
             val char = peripheral.findCharacteristic(testServiceUuid, testCharUuid)!!
             val observations1 = mutableListOf<Observation>()
@@ -85,10 +84,9 @@ class ObservationReconnectionJvmTest {
         }
 
     @Test
-    fun collectorCancellationDisablesCccdWhenNoCollectorsRemain() =
-        runTest {
-            val peripheral = createPeripheral(this as CoroutineDispatcher)
-            peripheral.connect()
+    fun collectorCancellationDisablesCccdWhenNoCollectorsRemain() = runTest {
+        val peripheral = createPeripheral()
+        peripheral.connect()
 
             val char = peripheral.findCharacteristic(testServiceUuid, testCharUuid)!!
 
