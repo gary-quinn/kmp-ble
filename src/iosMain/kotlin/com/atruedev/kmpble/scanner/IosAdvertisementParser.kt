@@ -10,6 +10,7 @@ import platform.CoreBluetooth.CBAdvertisementDataManufacturerDataKey
 import platform.CoreBluetooth.CBAdvertisementDataServiceDataKey
 import platform.CoreBluetooth.CBAdvertisementDataServiceUUIDsKey
 import platform.CoreBluetooth.CBAdvertisementDataTxPowerLevelKey
+import platform.CoreBluetooth.CBPeripheral
 import platform.CoreBluetooth.CBUUID
 import platform.Foundation.NSData
 import platform.Foundation.NSDate
@@ -17,6 +18,30 @@ import platform.Foundation.NSNumber
 import platform.Foundation.timeIntervalSince1970
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
+
+/**
+ * Creates a minimal [Advertisement] from a [CBPeripheral] retrieved via
+ * [CBCentralManager.retrieveConnectedPeripheralsWithServices].
+ *
+ * Retrieved peripherals lack advertisement data and RSSI — the peripheral
+ * is already connected (typically auto-connected by iOS for bonded devices)
+ * and is no longer advertising. Fields that depend on advertisement data
+ * are set to empty/default values.
+ */
+@OptIn(ExperimentalUuidApi::class)
+internal fun CBPeripheral.toRetrievedAdvertisement(): Advertisement =
+    Advertisement(
+        identifier = Identifier(identifier.UUIDString),
+        name = name,
+        rssi = 0,
+        txPower = null,
+        isConnectable = true,
+        serviceUuids = emptyList(),
+        manufacturerData = emptyMap(),
+        serviceData = emptyMap(),
+        timestampNanos = (NSDate().timeIntervalSince1970 * 1_000_000_000).toLong(),
+        rawAdvertising = null,
+    ).also { it.platformContext = this }
 
 @OptIn(ExperimentalUuidApi::class)
 internal fun RawScanResult.toAdvertisement(): Advertisement {

@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import platform.CoreBluetooth.CBCentralManagerScanOptionAllowDuplicatesKey
+import platform.CoreBluetooth.CBPeripheral
 import platform.CoreBluetooth.CBUUID
 import kotlin.uuid.ExperimentalUuidApi
 
@@ -48,6 +49,27 @@ public class IosScanner(
                             .map { CBUUID.UUIDWithString(it.uuid.toString()) }
                     }.distinct()
                     .ifEmpty { null }
+
+            // Emit already-connected peripherals that iOS may have auto-connected
+            // in the background (bonded devices). These peripherals have stopped
+            // advertising, so scanForPeripheralsWithServices alone would miss them.
+            //
+            // retrieveConnectedPeripheralsWithServices(serviceUUIDs: List<*>): List<*>
+            // accepts a non-null List in K/N. Pass null (silently cast) to retrieve
+            // peripherals for all services — CoreBluetooth handles nil correctly.
+            val retrievedIds = mutableSetOf<String>()
+            @Suppress("UNCHECKED_CAST")
+            val connectedPeripherals =
+                manager.retrieveConnectedPeripheralsWithServices(
+                    (serviceUuids ?: (null as List<*>?)) as List<*>,
+                )
+            for (peripheral in connectedPeripherals) {
+                val cbPeripheral = peripheral as? CBPeripheral ?: continue
+                val id = cbPeripheral.identifier.UUIDString
+                if (retrievedIds.add(id)) {
+                    trySend(cbPeripheral.toRetrievedAdvertisement())
+                }
+            }
 
             val collectJob =
                 this@callbackFlow.launch {
