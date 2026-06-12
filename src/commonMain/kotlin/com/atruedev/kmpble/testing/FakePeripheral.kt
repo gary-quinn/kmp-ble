@@ -36,9 +36,13 @@ public class FakePeripheral internal constructor(
     private val onConnectHandler: suspend () -> Result<Unit>,
     private val onDisconnectHandler: suspend () -> Result<Unit>,
     private val onL2capHandler: L2capHandler?,
+    private val observationDispatcher: kotlinx.coroutines.CoroutineDispatcher =
+        Dispatchers.Default.limitedParallelism(
+            1,
+        ),
 ) : Peripheral {
     private val context = PeripheralContext(identifier)
-    private val observationManager = ObservationManager(Dispatchers.Default.limitedParallelism(1))
+    private val observationManager = ObservationManager(observationDispatcher)
     private var closed = false
     private val cccdWritesState = MutableStateFlow<List<CccdWrite>>(emptyList())
 

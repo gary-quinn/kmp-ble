@@ -7,6 +7,8 @@ import com.atruedev.kmpble.gatt.DiscoveredService
 import com.atruedev.kmpble.gatt.WriteType
 import com.atruedev.kmpble.l2cap.L2capChannel
 import com.atruedev.kmpble.scanner.uuidFrom
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlin.time.Duration
 import kotlin.uuid.ExperimentalUuidApi
@@ -35,6 +37,7 @@ public class FakePeripheralBuilder {
     private var disconnectHandler: suspend () -> Result<Unit> = { Result.success(Unit) }
     internal var l2capHandler: L2capHandler? = null
     public var identifier: Identifier = Identifier("fake-peripheral")
+    internal var observationDispatcher: CoroutineDispatcher = Dispatchers.Default.limitedParallelism(1)
 
     public fun service(
         uuid: String,
@@ -69,6 +72,12 @@ public class FakePeripheralBuilder {
         l2capHandler = handler
     }
 
+    /** Set the dispatcher for the ObservationManager. Useful for testing with TestDispatcher. */
+    public fun observationDispatcher(dispatcher: CoroutineDispatcher): FakePeripheralBuilder {
+        observationDispatcher = dispatcher
+        return this
+    }
+
     internal fun build(): FakePeripheral =
         FakePeripheral(
             identifier = identifier,
@@ -77,6 +86,7 @@ public class FakePeripheralBuilder {
             onConnectHandler = connectHandler,
             onDisconnectHandler = disconnectHandler,
             onL2capHandler = l2capHandler,
+            observationDispatcher = observationDispatcher,
         )
 }
 
