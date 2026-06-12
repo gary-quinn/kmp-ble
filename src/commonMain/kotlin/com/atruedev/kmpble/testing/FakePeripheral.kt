@@ -34,10 +34,6 @@ import kotlinx.coroutines.flow.FlowCollector
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.onCompletion
-import kotlinx.coroutines.flow.onStart
-import kotlinx.coroutines.flow.update
 import kotlin.time.Duration
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
@@ -104,9 +100,8 @@ public class FakePeripheral internal constructor(
         }
     }
 
-    internal suspend fun simulateEvent(event: ConnectionEvent): State {
-        return connectionSimulator.simulateEvent(event)
-    }
+    internal suspend fun simulateEvent(event: ConnectionEvent): State =
+        connectionSimulator.simulateEvent(event)
 
     /**
      * Drives the state machine from [State.Connected.Ready] to
@@ -179,8 +174,7 @@ public class FakePeripheral internal constructor(
 
     // --- GATT Operations (delegated to FakeGattResponder) ---
 
-    override suspend fun read(characteristic: Characteristic): ByteArray =
-        gattResponder.read(characteristic)
+    override suspend fun read(characteristic: Characteristic): ByteArray = gattResponder.read(characteristic)
 
     override suspend fun write(
         characteristic: Characteristic,
@@ -198,8 +192,7 @@ public class FakePeripheral internal constructor(
         backpressure: BackpressureStrategy,
     ): Flow<ByteArray> = gattResponder.observeValues(characteristic, backpressure)
 
-    override suspend fun readDescriptor(descriptor: Descriptor): ByteArray =
-        gattResponder.readDescriptor(descriptor)
+    override suspend fun readDescriptor(descriptor: Descriptor): ByteArray = gattResponder.readDescriptor(descriptor)
 
     override suspend fun writeDescriptor(
         descriptor: Descriptor,
