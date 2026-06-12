@@ -11,10 +11,9 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.testDispatcher
+import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -39,8 +38,8 @@ class ObservationReconnectionJvmTest {
 
     @Test
     fun multipleObserversSameCharacteristic() =
-        runTest { scope: TestScope ->
-            val peripheral = createPeripheral(scope.testDispatcher)
+        runTest {
+            val peripheral = createPeripheral(StandardTestDispatcher())
             peripheral.connect()
 
             val char = peripheral.findCharacteristic(testServiceUuid, testCharUuid)!!
@@ -88,8 +87,8 @@ class ObservationReconnectionJvmTest {
 
     @Test
     fun collectorCancellationDisablesCccdWhenNoCollectorsRemain() =
-        runTest { scope: TestScope ->
-            val peripheral = createPeripheral(scope.testDispatcher)
+        runTest {
+            val peripheral = createPeripheral(this.testDispatcher)
             peripheral.connect()
 
             val char = peripheral.findCharacteristic(testServiceUuid, testCharUuid)!!
