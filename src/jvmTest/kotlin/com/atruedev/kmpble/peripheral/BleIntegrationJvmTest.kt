@@ -8,13 +8,14 @@ import com.atruedev.kmpble.gatt.Observation
 import com.atruedev.kmpble.scanner.ScanEvent
 import com.atruedev.kmpble.testing.FakePeripheralBuilder
 import com.atruedev.kmpble.testing.IntegrationTestFixtures
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
+import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
@@ -24,7 +25,7 @@ import kotlin.uuid.ExperimentalUuidApi
 class BleIntegrationJvmTest {
     @Test
     fun integrationFullScanConnectDiscoverReadObserveDisconnectFlow() =
-        runBlocking {
+        runTest {
             val peripheral =
                 FakePeripheralBuilder()
                     .apply {
@@ -34,13 +35,6 @@ class BleIntegrationJvmTest {
                                 // Heart Rate Measurement
                                 properties(notify = true, read = true)
                                 onRead { byteArrayOf(0x06, 0x42, 0x00) } // HR = 66 bpm
-                                onObserve {
-                                    kotlinx.coroutines.flow.flow {
-                                        emit(byteArrayOf(0x06, 0x42, 0x00)) // 66 bpm
-                                        emit(byteArrayOf(0x06, 0x4A, 0x00)) // 74 bpm
-                                        emit(byteArrayOf(0x06, 0x50, 0x00)) // 80 bpm
-                                    }
-                                }
                             }
                             characteristic("2a39") {
                                 // Heart Rate Control Point
@@ -55,7 +49,7 @@ class BleIntegrationJvmTest {
                 IntegrationTestFixtures.scanner.scanEvents
                     .mapNotNull { it as? ScanEvent.Found }
                     .take(1)
-                    .first()
+                    .firstOrNull()!!
             assertEquals("IntegrationTestDevice", found.advertisement.name)
             assertEquals("AA:BB:CC:DD:EE:FF", found.advertisement.identifier.value)
 
@@ -87,22 +81,22 @@ class BleIntegrationJvmTest {
                         .collect { observations.add(it) }
                 }
 
-            delay(10) // Wait for observation to be registered (CCCD enabled)
+            advanceUntilIdle() // Wait for observation to be registered (CCCD enabled)
 
             // Emit simulated heart rate notifications
             peripheral.emitObservationValue("180d", "2a37", byteArrayOf(0x06, 0x42, 0x00))
             peripheral.emitObservationValue("180d", "2a37", byteArrayOf(0x06, 0x4A, 0x00))
             peripheral.emitObservationValue("180d", "2a37", byteArrayOf(0x06, 0x50, 0x00))
 
-            delay(50)
+            advanceUntilIdle()
             observeJob.cancel()
 
             // Verify observations received
             val valueObservations = observations.filterIsInstance<Observation.Value>()
             assertEquals(3, valueObservations.size)
-            assertEquals(byteArrayOf(0x06, 0x42, 0x00), valueObservations[0].data)
-            assertEquals(byteArrayOf(0x06, 0x4A, 0x00), valueObservations[1].data)
-            assertEquals(byteArrayOf(0x06, 0x50, 0x00), valueObservations[2].data)
+            assertContentEquals(byteArrayOf(0x06, 0x42, 0x00), valueObservations[0].data)
+            assertContentEquals(byteArrayOf(0x06, 0x4A, 0x00), valueObservations[1].data)
+            assertContentEquals(byteArrayOf(0x06, 0x50, 0x00), valueObservations[2].data)
 
             // === STEP 6: DISCONNECT ===
             peripheral.disconnect()

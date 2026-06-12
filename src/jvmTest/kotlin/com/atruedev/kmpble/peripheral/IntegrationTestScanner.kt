@@ -16,4 +16,3 @@ val integrationTestScanner: FakeScanner =
             }
         }
         .build()
-
