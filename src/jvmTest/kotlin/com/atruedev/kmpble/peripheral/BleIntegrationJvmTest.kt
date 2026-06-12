@@ -9,6 +9,7 @@ import com.atruedev.kmpble.scanner.ScanEvent
 import com.atruedev.kmpble.testing.FakePeripheralBuilder
 import com.atruedev.kmpble.testing.IntegrationTestFixtures
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.launch
@@ -111,7 +112,7 @@ class BleIntegrationJvmTest {
 
     @Test
     fun integrationReconnectionReEnablesCccdForActiveObservations() =
-        runBlocking {
+        runTest {
             val scanner =
                 com.atruedev.kmpble.testing.FakeScanner {
                     advertisement {
@@ -130,11 +131,6 @@ class BleIntegrationJvmTest {
                             characteristic("2a29") {
                                 // Manufacturer Name
                                 properties(notify = true)
-                                onObserve {
-                                    kotlinx.coroutines.flow.flow {
-                                        emit("AcmeCorp".encodeToByteArray())
-                                    }
-                                }
                             }
                         }
                     }.build()
@@ -144,7 +140,7 @@ class BleIntegrationJvmTest {
                 scanner.scanEvents
                     .mapNotNull { it as? ScanEvent.Found }
                     .take(1)
-                    .first()
+                    .firstOrNull()!!
             assertEquals("ReconnectDevice", found.advertisement.name)
 
             peripheral.connect(ConnectionOptions())
@@ -152,7 +148,7 @@ class BleIntegrationJvmTest {
                 peripheral.services.value!!
                     .first { it.uuid.toString() == "0000180a-0000-1000-8000-00805f9b34fb" }
                     .characteristics
-                    .first { it.uuid.toString() == "00002a29-0000-1000-8000-00805f9b34fb" }
+                    .first { it.uuid.toString() == "00002a29-0000-1000-1000-00805f9b34fb" }
 
             // Start observing
             val observations = mutableListOf<Observation>()
@@ -162,15 +158,15 @@ class BleIntegrationJvmTest {
                         .observe(char, BackpressureStrategy.Unbounded)
                         .collect { observations.add(it) }
                 }
-            delay(10)
+            advanceUntilIdle()
 
             // First notification
             peripheral.emitObservationValue("180a", "2a29", "AcmeCorp".encodeToByteArray())
-            delay(20)
+            advanceUntilIdle()
 
             // Simulate disconnect (simulated, not permanent)
             peripheral.simulateDisconnect()
-            delay(20)
+            advanceUntilIdle()
 
             // Verify observation got Disconnected event but not completed
             val disconnectedEvents = observations.filterIsInstance<Observation.Disconnected>()
@@ -178,16 +174,16 @@ class BleIntegrationJvmTest {
 
             // Simulate reconnect
             peripheral.simulateReconnect()
-            delay(20)
+            advanceUntilIdle()
 
             // Emit another notification after reconnect
             peripheral.emitObservationValue("180a", "2a29", "AcmeCorp V2".encodeToByteArray())
-            delay(20)
+            advanceUntilIdle()
 
             val valueObservations = observations.filterIsInstance<Observation.Value>()
             assertEquals(2, valueObservations.size)
-            assertEquals("AcmeCorp".encodeToByteArray(), valueObservations[0].data)
-            assertEquals("AcmeCorp V2".encodeToByteArray(), valueObservations[1].data)
+            assertContentEquals("AcmeCorp".encodeToByteArray(), valueObservations[0].data)
+            assertContentEquals("AcmeCorp V2".encodeToByteArray(), valueObservations[1].data)
 
             observeJob.cancel()
             scanner.close()

@@ -14,5 +14,4 @@ val integrationTestScanner: FakeScanner =
                 rssi(-55)
                 serviceUuids("180d")
             }
-        }
-        .build()
+        }.build()

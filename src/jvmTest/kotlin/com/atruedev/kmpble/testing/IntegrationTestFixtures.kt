@@ -15,6 +15,5 @@ object IntegrationTestFixtures {
                     rssi(-55)
                     serviceUuids("180d")
                 }
-            }
-            .build()
+            }.build()
 }
