@@ -139,7 +139,7 @@ internal class ApplePeripheralBridge(
     }
 
     internal fun discoverServices(): Boolean {
-        // Re-affirm delegate before discoverServices — retrieved peripherals
+        // Re-affirm delegate before discoverServices - retrieved peripherals
         // (retrieveConnectedPeripheralsWithServices) may carry a stale delegate
         // reference that CoreBluetooth routes callbacks to incorrectly.
         cbPeripheral.delegate = peripheralDelegate
