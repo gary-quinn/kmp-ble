@@ -3,6 +3,7 @@ package com.atruedev.kmpble.scanner
 import com.atruedev.kmpble.adapter.BluetoothAdapterState
 import com.atruedev.kmpble.internal.CentralManagerProvider
 import com.atruedev.kmpble.scanner.internal.toScanEvents
+import com.atruedev.kmpble.uuidFrom
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -115,11 +116,14 @@ public class IosScanner(
             @Suppress("UNCHECKED_CAST")
             val connectedPeripherals =
                 manager.retrieveConnectedPeripheralsWithServices(serviceUuids as List<*>)
+            // Convert CBUUIDs to Uuids so the retrieved Advertisement carries
+            // service UUIDs — required for scan filter matching downstream.
+            val uuids = serviceUuids.mapNotNull { uuidFrom(it.UUIDString) }
             for (peripheral in connectedPeripherals) {
                 val cbPeripheral = peripheral as? CBPeripheral ?: continue
                 val id = cbPeripheral.identifier.UUIDString
                 if (retrievedIds.add(id)) {
-                    emit(cbPeripheral.toRetrievedAdvertisement())
+                    emit(cbPeripheral.toRetrievedAdvertisement(uuids))
                 }
             }
         }
