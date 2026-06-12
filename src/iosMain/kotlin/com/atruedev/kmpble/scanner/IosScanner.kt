@@ -116,7 +116,7 @@ public class IosScanner(
             val connectedPeripherals =
                 manager.retrieveConnectedPeripheralsWithServices(serviceUuids as List<*>)
             // Convert CBUUIDs to Uuids so the retrieved Advertisement carries
-            // service UUIDs — required for scan filter matching downstream.
+            // service UUIDs - required for scan filter matching downstream.
             val uuids = serviceUuids.map { uuidFrom(it.UUIDString) }
             for (peripheral in connectedPeripherals) {
                 val cbPeripheral = peripheral as? CBPeripheral ?: continue
