@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import platform.CoreBluetooth.CBCentralManager
 import platform.CoreBluetooth.CBCentralManagerScanOptionAllowDuplicatesKey
 import platform.CoreBluetooth.CBPeripheral
 import platform.CoreBluetooth.CBUUID
@@ -35,47 +36,32 @@ public class IosScanner(
             val manager = CentralManagerProvider.manager
             val delegate = CentralManagerProvider.scanDelegate
 
-            // Wait for CBCentralManager to reach poweredOn before scanning.
-            // Without this, scanForPeripheralsWithServices is silently ignored
-            // and CoreBluetooth logs "API MISUSE: can only accept this command
-            // while in the powered on state".
             CentralManagerProvider.adapterStateFlow.first { it == BluetoothAdapterState.On }
 
-            val serviceUuids =
-                config.filterGroups
-                    .flatMap { andGroup ->
-                        andGroup
-                            .filterIsInstance<ScanPredicate.ServiceUuid>()
-                            .map { CBUUID.UUIDWithString(it.uuid.toString()) }
-                    }.distinct()
-                    .ifEmpty { null }
+            val serviceUuids = buildServiceUuidList()
 
             // Emit already-connected peripherals that iOS may have auto-connected
             // in the background (bonded devices). These peripherals have stopped
             // advertising, so scanForPeripheralsWithServices alone would miss them.
             //
-            // retrieveConnectedPeripheralsWithServices(serviceUUIDs: List<*>): List<*>
-            // accepts a non-null List in K/N. Pass null (silently cast) to retrieve
-            // peripherals for all services -- CoreBluetooth handles nil correctly.
+            // Track retrieved identifiers so the first scan result for a
+            // retrieved peripheral is skipped (avoid double-emitting the same
+            // peripheral -- once with RSSI=0 from retrieve, once with real RSSI
+            // from scan).
             val retrievedIds = mutableSetOf<String>()
-
-            @Suppress("UNCHECKED_CAST")
-            val connectedPeripherals =
-                manager.retrieveConnectedPeripheralsWithServices(
-                    (serviceUuids ?: (null as List<*>?)) as List<*>,
-                )
-            for (peripheral in connectedPeripherals) {
-                val cbPeripheral = peripheral as? CBPeripheral ?: continue
-                val id = cbPeripheral.identifier.UUIDString
-                if (retrievedIds.add(id)) {
-                    trySend(cbPeripheral.toRetrievedAdvertisement())
-                }
+            emitRetrievedPeripherals(manager, serviceUuids, retrievedIds) { ad ->
+                trySend(ad)
             }
 
             val collectJob =
                 this@callbackFlow.launch {
                     delegate.scanResults.collect { rawResult ->
-                        trySend(rawResult.toAdvertisement())
+                        val id = rawResult.peripheral.identifier.UUIDString
+                        if (id !in retrievedIds) {
+                            trySend(rawResult.toAdvertisement())
+                        }
+                        // Remove so subsequent RSSI updates still flow through.
+                        retrievedIds -= id
                     }
                 }
 
@@ -92,4 +78,53 @@ public class IosScanner(
                 collectJob.cancel()
             }
         }
+
+    @OptIn(ExperimentalUuidApi::class)
+    private fun buildServiceUuidList(): List<CBUUID>? =
+        config.filterGroups
+            .flatMap { andGroup ->
+                andGroup
+                    .filterIsInstance<ScanPredicate.ServiceUuid>()
+                    .map { CBUUID.UUIDWithString(it.uuid.toString()) }
+            }.distinct()
+            .ifEmpty { null }
+
+    internal companion object {
+        /**
+         * Calls [CBCentralManager.retrieveConnectedPeripheralsWithServices]
+         * and emits a synthetic [Advertisement] for each connected peripheral.
+         *
+         * [retrievedIds] is populated so the scan collector can skip the first
+         * scan result for the same peripheral (avoid double emission).
+         *
+         * Extracted into a static function so tests can verify the
+         * CoreBluetooth call without spinning up an [IosScanner].
+         */
+        internal fun emitRetrievedPeripherals(
+            manager: CBCentralManager,
+            serviceUuids: List<CBUUID>?,
+            retrievedIds: MutableSet<String>,
+            emit: (Advertisement) -> Unit,
+        ) {
+            // retrieveConnectedPeripheralsWithServices expects a non-null
+            // List<*> in Kotlin/Native, but CoreBluetooth accepts nil for
+            // "all services". When serviceUuids is null we want to retrieve
+            // peripherals for all services. We pass null via an unsafe cast
+            // -- the ObjC bridge handles nil correctly at runtime.
+            @Suppress("UNCHECKED_CAST")
+            val connectedPeripherals: List<*> =
+                if (serviceUuids != null) {
+                    manager.retrieveConnectedPeripheralsWithServices(serviceUuids as List<*>)
+                } else {
+                    manager.retrieveConnectedPeripheralsWithServices(null as List<*>)
+                }
+            for (peripheral in connectedPeripherals) {
+                val cbPeripheral = peripheral as? CBPeripheral ?: continue
+                val id = cbPeripheral.identifier.UUIDString
+                if (retrievedIds.add(id)) {
+                    emit(cbPeripheral.toRetrievedAdvertisement())
+                }
+            }
+        }
+    }
 }
