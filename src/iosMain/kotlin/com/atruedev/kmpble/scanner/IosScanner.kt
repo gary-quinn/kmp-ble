@@ -3,7 +3,6 @@ package com.atruedev.kmpble.scanner
 import com.atruedev.kmpble.adapter.BluetoothAdapterState
 import com.atruedev.kmpble.internal.CentralManagerProvider
 import com.atruedev.kmpble.scanner.internal.toScanEvents
-import com.atruedev.kmpble.uuidFrom
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
