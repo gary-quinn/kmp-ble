@@ -28,7 +28,7 @@ buildscript {
     configurations.all {
         resolutionStrategy.eachDependency {
             when (requested.group) {
-                "io.netty" -> useVersion("4.1.132.Final")
+                "io.netty" -> useVersion("4.1.135.Final")
                 "ch.qos.logback" -> useVersion("1.5.25")
                 "com.fasterxml.jackson.core" -> useVersion("2.18.6")
                 "org.bouncycastle" -> useVersion("1.84")
