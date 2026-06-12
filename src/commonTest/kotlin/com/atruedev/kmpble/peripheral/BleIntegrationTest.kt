@@ -138,7 +138,7 @@ class BleIntegrationTest {
                                 properties(notify = true)
                                 onObserve {
                                     kotlinx.coroutines.flow.flow {
-                                        emit("AcmeCorp".toByteArray())
+                                        emit("AcmeCorp".encodeToByteArray())
                                     }
                                 }
                             }
@@ -171,7 +171,7 @@ class BleIntegrationTest {
             delay(10)
 
             // First notification
-            peripheral.emitObservationValue("180a", "2a29", "AcmeCorp".toByteArray())
+            peripheral.emitObservationValue("180a", "2a29", "AcmeCorp".encodeToByteArray())
             delay(20)
 
             // Simulate disconnect (simulated, not permanent)
@@ -187,13 +187,13 @@ class BleIntegrationTest {
             delay(20)
 
             // Emit another notification after reconnect
-            peripheral.emitObservationValue("180a", "2a29", "AcmeCorp V2".toByteArray())
+            peripheral.emitObservationValue("180a", "2a29", "AcmeCorp V2".encodeToByteArray())
             delay(20)
 
             val valueObservations = observations.filterIsInstance<Observation.Value>()
             assertEquals(2, valueObservations.size)
-            assertEquals("AcmeCorp".toByteArray(), valueObservations[0].data)
-            assertEquals("AcmeCorp V2".toByteArray(), valueObservations[1].data)
+            assertEquals("AcmeCorp".encodeToByteArray(), valueObservations[0].data)
+            assertEquals("AcmeCorp V2".encodeToByteArray(), valueObservations[1].data)
 
             observeJob.cancel()
             scanner.close()
