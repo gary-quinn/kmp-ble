@@ -21,7 +21,7 @@ import kotlin.test.assertNotNull
 import kotlin.uuid.ExperimentalUuidApi
 
 @OptIn(ExperimentalUuidApi::class)
-class BleIntegrationTest {
+class BleIntegrationJvmTest {
     @Test
     fun integrationFullScanConnectDiscoverReadObserveDisconnectFlow() =
         runBlocking {

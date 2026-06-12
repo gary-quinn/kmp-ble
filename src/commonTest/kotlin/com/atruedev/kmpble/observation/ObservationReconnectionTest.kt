@@ -204,7 +204,7 @@ class ObservationReconnectionTest {
                 assertIs<Observation.Disconnected>(awaitItem())
                 awaitComplete()
             }
-            }
+        }
 
     @Test
     fun cccdWriteCompletesBeforeFirstValue() =
