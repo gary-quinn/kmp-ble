@@ -85,8 +85,9 @@ internal class FakeGattResponder(
         val config = findConfig(characteristic)
         applyDelay(config)
         checkFailWith(config)
-        val handler = config?.readHandler
-            ?: throw UnsupportedOperationException("No onRead handler for ${characteristic.uuid}")
+        val handler =
+            config?.readHandler
+                ?: throw UnsupportedOperationException("No onRead handler for ${characteristic.uuid}")
         return handler()
     }
 
@@ -209,8 +210,9 @@ internal class FakeGattResponder(
         if (context.state.value !is State.Connected) {
             throw L2capException.NotConnected("Peripheral is not connected (state: ${context.state.value})")
         }
-        val handler = onL2capHandler
-            ?: throw L2capException.NotSupported("No onOpenL2capChannel handler configured")
+        val handler =
+            onL2capHandler
+                ?: throw L2capException.NotSupported("No onOpenL2capChannel handler configured")
         return handler(psm, mtu)
     }
 
@@ -227,9 +229,7 @@ internal class FakeGattResponder(
         return mtu
     }
 
-    suspend fun requestConnectionPriority(
-        priority: ConnectionPriority,
-    ): Boolean {
+    suspend fun requestConnectionPriority(priority: ConnectionPriority): Boolean {
         checkNotClosed()
         checkConnected()
         return true

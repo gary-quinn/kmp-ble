@@ -116,7 +116,7 @@ internal class FakeConnectionSimulator(
     public suspend fun simulatePermanentDisconnect() {
         checkNotClosed()
         context.processEvent(
-            ConnectionEvent.ConnectionLost(ConnectionLost("Max attempts exhausted"))
+            ConnectionEvent.ConnectionLost(ConnectionLost("Max attempts exhausted")),
         )
         observationManager.onPermanentDisconnect()
     }
