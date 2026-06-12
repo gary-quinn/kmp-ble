@@ -274,6 +274,10 @@ public class FakePeripheral internal constructor(
         charUuid: Uuid,
     ): Boolean = connectionSimulator.hasCollectors(serviceUuid, charUuid)
 
+    /** Expose ObservationManager for test debugging. */
+    internal fun getObservationManagerForTest(): com.atruedev.kmpble.gatt.internal.ObservationManager =
+        observationManager
+
     private fun checkNotClosed() {
         check(!closed) { "Peripheral is closed" }
     }

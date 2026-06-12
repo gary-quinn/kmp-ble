@@ -8,6 +8,7 @@ import com.atruedev.kmpble.gatt.Observation
 import com.atruedev.kmpble.scanner.ScanEvent
 import com.atruedev.kmpble.testing.FakePeripheralBuilder
 import com.atruedev.kmpble.testing.IntegrationTestFixtures
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.mapNotNull
@@ -22,13 +23,16 @@ import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.uuid.ExperimentalUuidApi
 
-@OptIn(ExperimentalUuidApi::class)
+@OptIn(ExperimentalUuidApi::class, ExperimentalCoroutinesApi::class)
 class BleIntegrationJvmTest {
     @Test
-    fun integrationFullScanConnectDiscoverReadObserveDisconnectFlow() =
-        runTest {
+    fun integrationFullScanConnectDiscoverReadObserveDisconnectFlow() {
+        val scheduler = kotlinx.coroutines.test.TestCoroutineScheduler()
+        val dispatcher = kotlinx.coroutines.test.StandardTestDispatcher(scheduler)
+        kotlinx.coroutines.test.runTest(scheduler) {
             val peripheral =
                 FakePeripheralBuilder()
+                    .observationDispatcher(dispatcher)
                     .apply {
                         identifier = Identifier("AA:BB:CC:DD:EE:FF")
                         service("180d") {
@@ -109,10 +113,13 @@ class BleIntegrationJvmTest {
             IntegrationTestFixtures.scanner.close()
             peripheral.close()
         }
+    }
 
     @Test
-    fun integrationReconnectionReEnablesCccdForActiveObservations() =
-        runTest {
+    fun integrationReconnectionReEnablesCccdForActiveObservations() {
+        val scheduler = kotlinx.coroutines.test.TestCoroutineScheduler()
+        val dispatcher = kotlinx.coroutines.test.StandardTestDispatcher(scheduler)
+        kotlinx.coroutines.test.runTest(scheduler) {
             val scanner =
                 com.atruedev.kmpble.testing.FakeScanner {
                     advertisement {
@@ -123,8 +130,17 @@ class BleIntegrationJvmTest {
                     }
                 }
 
+            // Test scanner first
+            val found =
+                scanner.scanEvents
+                    .mapNotNull { (it as? ScanEvent.Found)?.advertisement }
+                    .take(1)
+                    .first()
+            assertEquals("ReconnectDevice", found.name)
+
             val peripheral =
                 FakePeripheralBuilder()
+                    .observationDispatcher(dispatcher)
                     .apply {
                         identifier = Identifier("11:22:33:44:55:66")
                         service("180a") {
@@ -135,20 +151,12 @@ class BleIntegrationJvmTest {
                         }
                     }.build()
 
-            // Scan and connect
-            val found =
-                scanner.scanEvents
-                    .mapNotNull { it as? ScanEvent.Found }
-                    .take(1)
-                    .firstOrNull()!!
-            assertEquals("ReconnectDevice", found.advertisement.name)
-
             peripheral.connect(ConnectionOptions())
             val char =
                 peripheral.services.value!!
                     .first { it.uuid.toString() == "0000180a-0000-1000-8000-00805f9b34fb" }
                     .characteristics
-                    .first { it.uuid.toString() == "00002a29-0000-1000-1000-00805f9b34fb" }
+                    .first { it.uuid.toString() == "00002a29-0000-1000-8000-00805f9b34fb" }
 
             // Start observing
             val observations = mutableListOf<Observation>()
@@ -189,4 +197,5 @@ class BleIntegrationJvmTest {
             scanner.close()
             peripheral.close()
         }
+    }
 }

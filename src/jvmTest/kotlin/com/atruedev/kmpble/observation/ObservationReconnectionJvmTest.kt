@@ -6,11 +6,11 @@ import com.atruedev.kmpble.scanner.uuidFrom
 import com.atruedev.kmpble.testing.FakePeripheral
 import com.atruedev.kmpble.testing.FakePeripheralBuilder
 import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancelAndJoin
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestCoroutineScheduler
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
@@ -23,9 +23,7 @@ class ObservationReconnectionJvmTest {
     private val testServiceUuid = uuidFrom("180d")
     private val testCharUuid = uuidFrom("2a37")
 
-    private fun createPeripheral(
-        dispatcher: CoroutineDispatcher = Dispatchers.Default.limitedParallelism(1),
-    ): FakePeripheral =
+    private fun createPeripheral(dispatcher: CoroutineDispatcher): FakePeripheral =
         FakePeripheralBuilder()
             .observationDispatcher(dispatcher)
             .apply {
@@ -36,9 +34,11 @@ class ObservationReconnectionJvmTest {
             }.build()
 
     @Test
-    fun multipleObserversSameCharacteristic() =
-        runTest {
-            val peripheral = createPeripheral()
+    fun multipleObserversSameCharacteristic() {
+        val scheduler = TestCoroutineScheduler()
+        val dispatcher = StandardTestDispatcher(scheduler)
+        runTest(scheduler) {
+            val peripheral = createPeripheral(dispatcher)
             peripheral.connect()
 
             val char = peripheral.findCharacteristic(testServiceUuid, testCharUuid)!!
@@ -59,10 +59,10 @@ class ObservationReconnectionJvmTest {
                     }
                 }
 
-            delay(50)
+            advanceUntilIdle()
 
             peripheral.emitObservationValue(testServiceUuid, testCharUuid, byteArrayOf(0x01))
-            delay(50)
+            advanceUntilIdle()
 
             assertEquals(1, observations1.size)
             assertEquals(1, observations2.size)
@@ -75,7 +75,7 @@ class ObservationReconnectionJvmTest {
             assertTrue(disableWrites.isEmpty())
 
             peripheral.emitObservationValue(testServiceUuid, testCharUuid, byteArrayOf(0x02))
-            delay(50)
+            advanceUntilIdle()
 
             assertEquals(1, observations1.size)
             assertEquals(2, observations2.size)
@@ -83,11 +83,14 @@ class ObservationReconnectionJvmTest {
             job2.cancelAndJoin()
             advanceUntilIdle()
         }
+    }
 
     @Test
-    fun collectorCancellationDisablesCccdWhenNoCollectorsRemain() =
-        runTest {
-            val peripheral = createPeripheral()
+    fun collectorCancellationDisablesCccdWhenNoCollectorsRemain() {
+        val scheduler = TestCoroutineScheduler()
+        val dispatcher = StandardTestDispatcher(scheduler)
+        runTest(scheduler) {
+            val peripheral = createPeripheral(dispatcher)
             peripheral.connect()
 
             val char = peripheral.findCharacteristic(testServiceUuid, testCharUuid)!!
@@ -97,7 +100,7 @@ class ObservationReconnectionJvmTest {
                     peripheral.observe(char, BackpressureStrategy.Unbounded).collect { }
                 }
 
-            delay(50)
+            advanceUntilIdle()
 
             var cccdWrites = peripheral.getCccdWrites()
             assertEquals(1, cccdWrites.size)
@@ -110,4 +113,5 @@ class ObservationReconnectionJvmTest {
             val disableWrites = cccdWrites.filter { !it.enabled }
             assertEquals(1, disableWrites.size)
         }
+    }
 }

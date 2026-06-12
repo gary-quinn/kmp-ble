@@ -18,6 +18,8 @@ import com.atruedev.kmpble.l2cap.L2capChannel
 import com.atruedev.kmpble.l2cap.L2capException
 import com.atruedev.kmpble.peripheral.PhyResult
 import com.atruedev.kmpble.peripheral.internal.PeripheralContext
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.FlowCollector
@@ -27,6 +29,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import kotlin.time.Duration
 import kotlin.uuid.Uuid
 
@@ -178,10 +181,16 @@ internal class FakeGattResponder(
                 recordCccdWrite(serviceUuid, charUuid, enabled = true)
             }
         }.applyBackpressure(backpressure)
-            .onCompletion {
-                val wasLastCollector = observationManager.unsubscribe(serviceUuid, charUuid)
-                if (wasLastCollector && context.state.value is State.Connected) {
-                    recordCccdWrite(serviceUuid, charUuid, enabled = false)
+            .onCompletion { cause ->
+                // onCompletion runs in the collector's context which may be cancelled.
+                // Launch cleanup in NonCancellable to ensure unsubscribe runs to completion.
+                coroutineScope {
+                    launch(NonCancellable) {
+                        val wasLastCollector = observationManager.unsubscribe(serviceUuid, charUuid)
+                        if (wasLastCollector && context.state.value is State.Connected) {
+                            recordCccdWrite(serviceUuid, charUuid, enabled = false)
+                        }
+                    }
                 }
             }
     }

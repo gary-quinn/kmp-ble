@@ -7,6 +7,8 @@ import com.atruedev.kmpble.scanner.uuidFrom
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestCoroutineScheduler
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -53,6 +55,30 @@ class FakeScannerTest {
             // No pre-configured ads - flow suspends waiting for dynamic emissions
             scanner.close()
         }
+
+    @Test
+    fun emitsWithCustomScheduler() {
+        val scheduler = TestCoroutineScheduler()
+        val dispatcher = StandardTestDispatcher(scheduler)
+        runTest(scheduler) {
+            val scanner =
+                FakeScanner {
+                    advertisement {
+                        identifier("11:22:33:44:55:66")
+                        name("TestDevice")
+                        rssi(-60)
+                        serviceUuids("180a")
+                    }
+                }
+            val found =
+                scanner.scanEvents
+                    .mapNotNull { (it as? ScanEvent.Found)?.advertisement }
+                    .take(1)
+                    .toList()
+                    .first()
+            assertEquals("TestDevice", found.name)
+        }
+    }
 
     @Test
     fun advertisementDefaults() =
