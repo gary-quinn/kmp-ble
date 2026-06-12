@@ -1,0 +1,17 @@
+package com.atruedev.kmpble.peripheral
+
+import com.atruedev.kmpble.testing.FakeScanner
+import com.atruedev.kmpble.testing.FakeScannerBuilder
+import kotlin.uuid.ExperimentalUuidApi
+
+@OptIn(ExperimentalUuidApi::class)
+val integrationTestScanner: FakeScanner =
+    FakeScannerBuilder()
+        .apply {
+            advertisement {
+                identifier("AA:BB:CC:DD:EE:FF")
+                name("IntegrationTestDevice")
+                rssi(-55)
+                serviceUuids("180d")
+            }
+        }.build()

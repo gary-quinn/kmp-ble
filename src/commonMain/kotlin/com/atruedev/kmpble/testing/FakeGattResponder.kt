@@ -1,16 +1,14 @@
 package com.atruedev.kmpble.testing
 
-import com.atruedev.kmpble.connection.State
 import com.atruedev.kmpble.connection.ConnectionPriority
 import com.atruedev.kmpble.connection.Phy
-import com.atruedev.kmpble.error.BleError
+import com.atruedev.kmpble.connection.State
 import com.atruedev.kmpble.error.BleException
 import com.atruedev.kmpble.error.GattError
 import com.atruedev.kmpble.error.GattStatus
 import com.atruedev.kmpble.gatt.BackpressureStrategy
 import com.atruedev.kmpble.gatt.Characteristic
 import com.atruedev.kmpble.gatt.Descriptor
-import com.atruedev.kmpble.gatt.DiscoveredService
 import com.atruedev.kmpble.gatt.Observation
 import com.atruedev.kmpble.gatt.WriteType
 import com.atruedev.kmpble.gatt.internal.ObservationEvent
@@ -87,8 +85,9 @@ internal class FakeGattResponder(
         val config = findConfig(characteristic)
         applyDelay(config)
         checkFailWith(config)
-        val handler = config?.readHandler
-            ?: throw UnsupportedOperationException("No onRead handler for ${characteristic.uuid}")
+        val handler =
+            config?.readHandler
+                ?: throw UnsupportedOperationException("No onRead handler for ${characteristic.uuid}")
         return handler()
     }
 
@@ -211,8 +210,9 @@ internal class FakeGattResponder(
         if (context.state.value !is State.Connected) {
             throw L2capException.NotConnected("Peripheral is not connected (state: ${context.state.value})")
         }
-        val handler = onL2capHandler
-            ?: throw L2capException.NotSupported("No onOpenL2capChannel handler configured")
+        val handler =
+            onL2capHandler
+                ?: throw L2capException.NotSupported("No onOpenL2capChannel handler configured")
         return handler(psm, mtu)
     }
 
@@ -229,9 +229,7 @@ internal class FakeGattResponder(
         return mtu
     }
 
-    suspend fun requestConnectionPriority(
-        priority: ConnectionPriority,
-    ): Boolean {
+    suspend fun requestConnectionPriority(priority: ConnectionPriority): Boolean {
         checkNotClosed()
         checkConnected()
         return true

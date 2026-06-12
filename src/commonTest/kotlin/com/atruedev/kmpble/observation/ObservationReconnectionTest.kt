@@ -10,7 +10,9 @@ import com.atruedev.kmpble.testing.FakePeripheral
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
@@ -200,6 +202,7 @@ class ObservationReconnectionTest {
         }
 
     @Test
+    @OptIn(ExperimentalCoroutinesApi::class)
     fun multipleObserversSameCharacteristic() =
         runTest {
             val peripheral = createPeripheral()
@@ -232,7 +235,7 @@ class ObservationReconnectionTest {
             assertEquals(1, observations2.size)
 
             job1.cancelAndJoin()
-            delay(50)
+            advanceUntilIdle()
 
             val cccdWrites = peripheral.getCccdWrites()
             val disableWrites = cccdWrites.filter { !it.enabled }
@@ -245,9 +248,11 @@ class ObservationReconnectionTest {
             assertEquals(2, observations2.size)
 
             job2.cancelAndJoin()
+            advanceUntilIdle()
         }
 
     @Test
+    @OptIn(ExperimentalCoroutinesApi::class)
     fun collectorCancellationDisablesCccdWhenNoCollectorsRemain() =
         runTest {
             val peripheral = createPeripheral()
@@ -267,7 +272,7 @@ class ObservationReconnectionTest {
             assertTrue(cccdWrites[0].enabled)
 
             job.cancelAndJoin()
-            delay(100)
+            advanceUntilIdle() // Ensure all pending coroutines (including CCCD disable) complete
 
             cccdWrites = peripheral.getCccdWrites()
             val disableWrites = cccdWrites.filter { !it.enabled }

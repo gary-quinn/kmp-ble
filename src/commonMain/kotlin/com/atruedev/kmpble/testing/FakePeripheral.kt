@@ -7,11 +7,8 @@ import com.atruedev.kmpble.connection.Phy
 import com.atruedev.kmpble.connection.State
 import com.atruedev.kmpble.connection.internal.ConnectionEvent
 import com.atruedev.kmpble.error.BleError
-import com.atruedev.kmpble.error.BleException
 import com.atruedev.kmpble.error.ConnectionFailed
 import com.atruedev.kmpble.error.ConnectionLost
-import com.atruedev.kmpble.error.GattError
-import com.atruedev.kmpble.error.GattStatus
 import com.atruedev.kmpble.error.OperationFailed
 import com.atruedev.kmpble.gatt.BackpressureStrategy
 import com.atruedev.kmpble.gatt.Characteristic
@@ -19,26 +16,15 @@ import com.atruedev.kmpble.gatt.Descriptor
 import com.atruedev.kmpble.gatt.DiscoveredService
 import com.atruedev.kmpble.gatt.Observation
 import com.atruedev.kmpble.gatt.WriteType
-import com.atruedev.kmpble.gatt.internal.ObservationEvent
 import com.atruedev.kmpble.gatt.internal.ObservationManager
-import com.atruedev.kmpble.gatt.internal.applyBackpressure
 import com.atruedev.kmpble.l2cap.L2capChannel
-import com.atruedev.kmpble.l2cap.L2capException
 import com.atruedev.kmpble.peripheral.Peripheral
 import com.atruedev.kmpble.peripheral.PhyResult
 import com.atruedev.kmpble.peripheral.internal.PeripheralContext
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.FlowCollector
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.onCompletion
-import kotlinx.coroutines.flow.onStart
-import kotlinx.coroutines.flow.update
-import kotlin.time.Duration
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
@@ -56,22 +42,24 @@ public class FakePeripheral internal constructor(
     private var closed = false
     private val cccdWritesState = MutableStateFlow<List<CccdWrite>>(emptyList())
 
-    private val connectionSimulator = FakeConnectionSimulator(
-        context = context,
-        observationManager = observationManager,
-        fakeServices = fakeServices,
-        cccdWritesState = cccdWritesState,
-        closedFlag = { closed },
-    )
+    private val connectionSimulator =
+        FakeConnectionSimulator(
+            context = context,
+            observationManager = observationManager,
+            fakeServices = fakeServices,
+            cccdWritesState = cccdWritesState,
+            closedFlag = { closed },
+        )
 
-    private val gattResponder = FakeGattResponder(
-        context = context,
-        observationManager = observationManager,
-        characteristicConfigs = characteristicConfigs,
-        onL2capHandler = onL2capHandler,
-        cccdWritesState = cccdWritesState,
-        closedFlag = { closed },
-    )
+    private val gattResponder =
+        FakeGattResponder(
+            context = context,
+            observationManager = observationManager,
+            characteristicConfigs = characteristicConfigs,
+            onL2capHandler = onL2capHandler,
+            cccdWritesState = cccdWritesState,
+            closedFlag = { closed },
+        )
 
     public data class CccdWrite(
         val serviceUuid: Uuid,
@@ -104,9 +92,7 @@ public class FakePeripheral internal constructor(
         }
     }
 
-    internal suspend fun simulateEvent(event: ConnectionEvent): State {
-        return connectionSimulator.simulateEvent(event)
-    }
+    internal suspend fun simulateEvent(event: ConnectionEvent): State = connectionSimulator.simulateEvent(event)
 
     /**
      * Drives the state machine from [State.Connected.Ready] to
@@ -179,8 +165,7 @@ public class FakePeripheral internal constructor(
 
     // --- GATT Operations (delegated to FakeGattResponder) ---
 
-    override suspend fun read(characteristic: Characteristic): ByteArray =
-        gattResponder.read(characteristic)
+    override suspend fun read(characteristic: Characteristic): ByteArray = gattResponder.read(characteristic)
 
     override suspend fun write(
         characteristic: Characteristic,
@@ -198,8 +183,7 @@ public class FakePeripheral internal constructor(
         backpressure: BackpressureStrategy,
     ): Flow<ByteArray> = gattResponder.observeValues(characteristic, backpressure)
 
-    override suspend fun readDescriptor(descriptor: Descriptor): ByteArray =
-        gattResponder.readDescriptor(descriptor)
+    override suspend fun readDescriptor(descriptor: Descriptor): ByteArray = gattResponder.readDescriptor(descriptor)
 
     override suspend fun writeDescriptor(
         descriptor: Descriptor,

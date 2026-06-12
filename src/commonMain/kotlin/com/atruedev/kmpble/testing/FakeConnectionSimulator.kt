@@ -7,14 +7,8 @@ import com.atruedev.kmpble.error.ConnectionLost
 import com.atruedev.kmpble.gatt.DiscoveredService
 import com.atruedev.kmpble.gatt.internal.ObservationManager
 import com.atruedev.kmpble.peripheral.internal.PeripheralContext
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.FlowCollector
+import com.atruedev.kmpble.scanner.uuidFrom
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.onCompletion
-import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.update
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
@@ -122,7 +116,7 @@ internal class FakeConnectionSimulator(
     public suspend fun simulatePermanentDisconnect() {
         checkNotClosed()
         context.processEvent(
-            ConnectionEvent.ConnectionLost(ConnectionLost("Max attempts exhausted"))
+            ConnectionEvent.ConnectionLost(ConnectionLost("Max attempts exhausted")),
         )
         observationManager.onPermanentDisconnect()
     }
@@ -144,8 +138,8 @@ internal class FakeConnectionSimulator(
         value: ByteArray,
     ) {
         emitObservationValue(
-            com.atruedev.kmpble.scanner.uuidFrom(serviceUuid),
-            com.atruedev.kmpble.scanner.uuidFrom(charUuid),
+            uuidFrom(serviceUuid),
+            uuidFrom(charUuid),
             value,
         )
     }
