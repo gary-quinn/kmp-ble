@@ -9,6 +9,7 @@ import com.atruedev.kmpble.scanner.ScanEvent
 import com.atruedev.kmpble.testing.FakePeripheralBuilder
 import com.atruedev.kmpble.testing.IntegrationTestFixtures
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.launch
@@ -21,31 +22,33 @@ import kotlin.uuid.ExperimentalUuidApi
 
 @OptIn(ExperimentalUuidApi::class)
 class BleIntegrationTest {
-
     @Test
     fun integrationFullScanConnectDiscoverReadObserveDisconnectFlow() =
         runBlocking {
             val peripheral =
-                FakePeripheralBuilder().apply {
-                    identifier = Identifier("AA:BB:CC:DD:EE:FF")
-                    service("180d") {
-                        characteristic("2a37") { // Heart Rate Measurement
-                            properties(notify = true, read = true)
-                            onRead { byteArrayOf(0x06, 0x42, 0x00) } // HR = 66 bpm
-                            onObserve {
-                                kotlinx.coroutines.flow.flow {
-                                    emit(byteArrayOf(0x06, 0x42, 0x00)) // 66 bpm
-                                    emit(byteArrayOf(0x06, 0x4A, 0x00)) // 74 bpm
-                                    emit(byteArrayOf(0x06, 0x50, 0x00)) // 80 bpm
+                FakePeripheralBuilder()
+                    .apply {
+                        identifier = Identifier("AA:BB:CC:DD:EE:FF")
+                        service("180d") {
+                            characteristic("2a37") {
+                                // Heart Rate Measurement
+                                properties(notify = true, read = true)
+                                onRead { byteArrayOf(0x06, 0x42, 0x00) } // HR = 66 bpm
+                                onObserve {
+                                    kotlinx.coroutines.flow.flow {
+                                        emit(byteArrayOf(0x06, 0x42, 0x00)) // 66 bpm
+                                        emit(byteArrayOf(0x06, 0x4A, 0x00)) // 74 bpm
+                                        emit(byteArrayOf(0x06, 0x50, 0x00)) // 80 bpm
+                                    }
                                 }
                             }
+                            characteristic("2a39") {
+                                // Heart Rate Control Point
+                                properties(write = true)
+                                onWrite { data, _ -> }
+                            }
                         }
-                        characteristic("2a39") { // Heart Rate Control Point
-                            properties(write = true)
-                            onWrite { data, _ -> }
-                        }
-                    }
-                }.build()
+                    }.build()
 
             // === STEP 1: SCAN ===
             val found =
@@ -77,10 +80,12 @@ class BleIntegrationTest {
 
             // === STEP 5: OBSERVE NOTIFICATIONS ===
             val observations = mutableListOf<Observation>()
-            val observeJob = launch {
-                peripheral.observe(hrChar, BackpressureStrategy.Unbounded)
-                    .collect { observations.add(it) }
-            }
+            val observeJob =
+                launch {
+                    peripheral
+                        .observe(hrChar, BackpressureStrategy.Unbounded)
+                        .collect { observations.add(it) }
+                }
 
             delay(10) // Wait for observation to be registered (CCCD enabled)
 
@@ -111,77 +116,87 @@ class BleIntegrationTest {
         }
 
     @Test
-    fun integrationReconnectionReEnablesCccdForActiveObservations() = runBlocking {
-        val scanner = com.atruedev.kmpble.testing.FakeScanner {
-            advertisement {
-                identifier("11:22:33:44:55:66")
-                name("ReconnectDevice")
-                rssi(-60)
-                serviceUuids("180a")
-            }
-        }
-
-        val peripheral = FakePeripheralBuilder().apply {
-            identifier = Identifier("11:22:33:44:55:66")
-            service("180a") {
-                characteristic("2a29") { // Manufacturer Name
-                    properties(notify = true)
-                    onObserve {
-                        kotlinx.coroutines.flow.flow {
-                            emit("AcmeCorp".toByteArray())
-                        }
+    fun integrationReconnectionReEnablesCccdForActiveObservations() =
+        runBlocking {
+            val scanner =
+                com.atruedev.kmpble.testing.FakeScanner {
+                    advertisement {
+                        identifier("11:22:33:44:55:66")
+                        name("ReconnectDevice")
+                        rssi(-60)
+                        serviceUuids("180a")
                     }
                 }
-            }
-        }.build()
 
-        // Scan and connect
-        val found = scanner.scanEvents
-            .mapNotNull { it as? ScanEvent.Found }
-            .take(1)
-            .first()
-        assertEquals("ReconnectDevice", found.advertisement.name)
+            val peripheral =
+                FakePeripheralBuilder()
+                    .apply {
+                        identifier = Identifier("11:22:33:44:55:66")
+                        service("180a") {
+                            characteristic("2a29") {
+                                // Manufacturer Name
+                                properties(notify = true)
+                                onObserve {
+                                    kotlinx.coroutines.flow.flow {
+                                        emit("AcmeCorp".toByteArray())
+                                    }
+                                }
+                            }
+                        }
+                    }.build()
 
-        peripheral.connect(ConnectionOptions())
-        val char = peripheral.services.value!!
-            .first { it.uuid.toString() == "0000180a-0000-1000-8000-00805f9b34fb" }
-            .characteristics.first { it.uuid.toString() == "00002a29-0000-1000-8000-00805f9b34fb" }
+            // Scan and connect
+            val found =
+                scanner.scanEvents
+                    .mapNotNull { it as? ScanEvent.Found }
+                    .take(1)
+                    .first()
+            assertEquals("ReconnectDevice", found.advertisement.name)
 
-        // Start observing
-        val observations = mutableListOf<Observation>()
-        val observeJob = launch {
-            peripheral.observe(char, BackpressureStrategy.Unbounded)
-                .collect { observations.add(it) }
+            peripheral.connect(ConnectionOptions())
+            val char =
+                peripheral.services.value!!
+                    .first { it.uuid.toString() == "0000180a-0000-1000-8000-00805f9b34fb" }
+                    .characteristics
+                    .first { it.uuid.toString() == "00002a29-0000-1000-8000-00805f9b34fb" }
+
+            // Start observing
+            val observations = mutableListOf<Observation>()
+            val observeJob =
+                launch {
+                    peripheral
+                        .observe(char, BackpressureStrategy.Unbounded)
+                        .collect { observations.add(it) }
+                }
+            delay(10)
+
+            // First notification
+            peripheral.emitObservationValue("180a", "2a29", "AcmeCorp".toByteArray())
+            delay(20)
+
+            // Simulate disconnect (simulated, not permanent)
+            peripheral.simulateDisconnect()
+            delay(20)
+
+            // Verify observation got Disconnected event but not completed
+            val disconnectedEvents = observations.filterIsInstance<Observation.Disconnected>()
+            assertEquals(1, disconnectedEvents.size)
+
+            // Simulate reconnect
+            peripheral.simulateReconnect()
+            delay(20)
+
+            // Emit another notification after reconnect
+            peripheral.emitObservationValue("180a", "2a29", "AcmeCorp V2".toByteArray())
+            delay(20)
+
+            val valueObservations = observations.filterIsInstance<Observation.Value>()
+            assertEquals(2, valueObservations.size)
+            assertEquals("AcmeCorp".toByteArray(), valueObservations[0].data)
+            assertEquals("AcmeCorp V2".toByteArray(), valueObservations[1].data)
+
+            observeJob.cancel()
+            scanner.close()
+            peripheral.close()
         }
-        delay(10)
-
-        // First notification
-        peripheral.emitObservationValue("180a", "2a29", "AcmeCorp".toByteArray())
-        delay(20)
-
-        // Simulate disconnect (simulated, not permanent)
-        peripheral.simulateDisconnect()
-        delay(20)
-
-        // Verify observation got Disconnected event but not completed
-        val disconnectedEvents = observations.filterIsInstance<Observation.Disconnected>()
-        assertEquals(1, disconnectedEvents.size)
-
-        // Simulate reconnect
-        peripheral.simulateReconnect()
-        delay(20)
-
-        // Emit another notification after reconnect
-        peripheral.emitObservationValue("180a", "2a29", "AcmeCorp V2".toByteArray())
-        delay(20)
-
-        val valueObservations = observations.filterIsInstance<Observation.Value>()
-        assertEquals(2, valueObservations.size)
-        assertEquals("AcmeCorp".toByteArray(), valueObservations[0].data)
-        assertEquals("AcmeCorp V2".toByteArray(), valueObservations[1].data)
-
-        observeJob.cancel()
-        scanner.close()
-        peripheral.close()
-    }
 }

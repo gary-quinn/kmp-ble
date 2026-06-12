@@ -6,12 +6,12 @@ import kotlin.uuid.ExperimentalUuidApi
 
 @OptIn(ExperimentalUuidApi::class)
 val integrationTestScanner: FakeScanner =
-    FakeScannerBuilder().apply {
-        advertisement {
-            identifier("AA:BB:CC:DD:EE:FF")
-            name("IntegrationTestDevice")
-            rssi(-55)
-            serviceUuids("180d")
-        }
-    }
-    .build()
+    FakeScannerBuilder()
+        .apply {
+            advertisement {
+                identifier("AA:BB:CC:DD:EE:FF")
+                name("IntegrationTestDevice")
+                rssi(-55)
+                serviceUuids("180d")
+            }
+        }.build()

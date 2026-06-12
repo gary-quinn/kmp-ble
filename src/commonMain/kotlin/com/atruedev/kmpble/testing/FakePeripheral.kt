@@ -18,7 +18,6 @@ import com.atruedev.kmpble.gatt.Observation
 import com.atruedev.kmpble.gatt.WriteType
 import com.atruedev.kmpble.gatt.internal.ObservationManager
 import com.atruedev.kmpble.l2cap.L2capChannel
-import com.atruedev.kmpble.l2cap.L2capHandler
 import com.atruedev.kmpble.peripheral.Peripheral
 import com.atruedev.kmpble.peripheral.PhyResult
 import com.atruedev.kmpble.peripheral.internal.PeripheralContext
