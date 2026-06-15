@@ -15,6 +15,17 @@ _Changes on `main` that have not yet been tagged for release._
 
 ---
 
+## [0.8.3] - 2026-06-15
+
+### Changed
+- ci(dependabot): bump gradle/actions from 6.1.0 to 6.2.0
+
+### Fixed
+- fix: pass null to scanForPeripheralsWithServices, not service filter UUIDs
+
+
+---
+
 ## [0.8.2] - 2026-06-12
 
 ### Changed
@@ -588,7 +599,8 @@ _No notable changes._
 
 ---
 
-[Unreleased]: https://github.com/gary-quinn/kmp-ble/compare/v0.8.2...HEAD
+[Unreleased]: https://github.com/gary-quinn/kmp-ble/compare/v0.8.3...HEAD
+[0.8.3]: https://github.com/gary-quinn/kmp-ble/compare/v0.8.2...v0.8.3
 [0.8.2]: https://github.com/gary-quinn/kmp-ble/compare/v0.8.1...v0.8.2
 [0.8.1]: https://github.com/gary-quinn/kmp-ble/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/gary-quinn/kmp-ble/compare/v0.7.1...v0.8.0
