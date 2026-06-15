@@ -66,7 +66,7 @@ public class IosScanner(
                 }
 
             manager.scanForPeripheralsWithServices(
-                serviceUUIDs = serviceUuids,
+                serviceUUIDs = null,
                 options =
                     mapOf<Any?, Any?>(
                         CBCentralManagerScanOptionAllowDuplicatesKey to true,
