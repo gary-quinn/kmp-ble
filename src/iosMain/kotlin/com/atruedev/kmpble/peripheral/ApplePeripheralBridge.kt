@@ -21,7 +21,7 @@ internal sealed interface AppleCallbackEvent {
     ) : AppleCallbackEvent
 
     data class DidDiscoverCharacteristics(
-        val service: CBService,
+        val serviceUuid: String,
         val error: NSError?,
     ) : AppleCallbackEvent
 
@@ -83,7 +83,10 @@ internal class ApplePeripheralBridge(
                 error: NSError?,
             ) {
                 onEvent?.invoke(
-                    AppleCallbackEvent.DidDiscoverCharacteristics(didDiscoverCharacteristicsForService, error),
+                    AppleCallbackEvent.DidDiscoverCharacteristics(
+                        didDiscoverCharacteristicsForService.UUID.UUIDString,
+                        error,
+                    ),
                 )
             }
 
@@ -147,9 +150,12 @@ internal class ApplePeripheralBridge(
         return true
     }
 
-    internal fun discoverCharacteristics(service: CBService) {
+    internal fun discoverCharacteristics(serviceUuid: String) {
         cbPeripheral.delegate = peripheralDelegate
-        cbPeripheral.discoverCharacteristics(null, service)
+        val cbServices =
+            cbPeripheral.services?.filterIsInstance<CBService>()?.filter { it.UUID.UUIDString == serviceUuid }
+                ?: emptyList()
+        cbServices.firstOrNull()?.let { cbPeripheral.discoverCharacteristics(null, it) }
     }
 
     internal fun readCharacteristic(characteristic: CBCharacteristic): Boolean {

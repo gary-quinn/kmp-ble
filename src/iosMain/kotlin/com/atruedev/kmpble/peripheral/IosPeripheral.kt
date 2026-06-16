@@ -79,6 +79,13 @@ import kotlin.time.Duration.Companion.seconds
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
+/** State for a single service discovery cycle, confined to the peripheral's serial dispatcher. */
+private data class DiscoveryCycle(
+    val generation: Int,
+    val pendingServices: Set<String>,
+    val discoveredServices: MutableList<DiscoveredService> = mutableListOf(),
+)
+
 @OptIn(ExperimentalUuidApi::class)
 public class IosPeripheral(
     private val cbPeripheral: CBPeripheral,
@@ -106,7 +113,13 @@ public class IosPeripheral(
     @Volatile
     private var closed = false
 
-    private var pendingCharacteristicDiscovery = 0
+    /** Discovery generation counter - increments on each new discovery cycle to detect stale callbacks. */
+    @Volatile
+    private var discoveryGeneration = 0
+
+    /** Current discovery cycle state, confined to peripheralContext.dispatcher. */
+    private var currentDiscovery: DiscoveryCycle? = null
+
     private val reconnectionHandler =
         ReconnectionHandler(
             scope = peripheralContext.scope,
@@ -185,7 +198,17 @@ public class IosPeripheral(
         reconnectionHandler.stop()
         closeL2capChannels()
         centralDelegate.unregisterConnectionCallback(identifier.value)
-        bridge.close()
+
+        // Quiesce pending CoreBluetooth operations to prevent callbacks on reused CBPeripheral.
+        // Increment generation to discard any in-flight discovery cycle callbacks.
+        discoveryGeneration++
+        currentDiscovery = null
+        // Give CoreBluetooth a moment to drain any queued callbacks before tearing down the delegate.
+        peripheralContext.scope.launch {
+            kotlinx.coroutines.delay(50) // Minimal quiesce window
+            bridge.close()
+        }
+
         observationManager.onObservationsChanged = null
         observationManager.clear()
         StateRestorationHandler.default.clearPersistedObservations(identifier.value)
@@ -197,6 +220,11 @@ public class IosPeripheral(
         checkNotClosed()
         return withContext(peripheralContext.dispatcher) {
             val deferred = slots.armDiscovery()
+            // New discovery cycle: increment generation to invalidate stale callbacks
+            discoveryGeneration++
+            // Clear stale native handle mappings from previous cycle
+            nativeCharMap.clear()
+            nativeDescMap.clear()
             bridge.discoverServices()
             try {
                 withTimeout(DISCOVERY_TIMEOUT) { deferred.await() }
@@ -224,6 +252,10 @@ public class IosPeripheral(
         peripheralContext.scope.launch {
             if (connected) {
                 peripheralContext.processEvent(ConnectionEvent.LinkEstablished)
+                // New discovery cycle on connect: increment generation and clear stale handles
+                discoveryGeneration++
+                nativeCharMap.clear()
+                nativeDescMap.clear()
                 bridge.discoverServices()
                 return@launch
             }
@@ -250,7 +282,7 @@ public class IosPeripheral(
         peripheralContext.scope.launch {
             when (event) {
                 is AppleCallbackEvent.DidDiscoverServices -> handleServicesDiscovered(event)
-                is AppleCallbackEvent.DidDiscoverCharacteristics -> handleCharacteristicsDiscovered()
+                is AppleCallbackEvent.DidDiscoverCharacteristics -> handleCharacteristicsDiscovered(event)
                 is AppleCallbackEvent.DidUpdateValueForCharacteristic -> handleCharacteristicValue(event)
                 is AppleCallbackEvent.DidWriteValueForCharacteristic ->
                     pendingOps.complete(PendingOp.CharacteristicWrite, event.error.toGattStatus())
@@ -314,29 +346,54 @@ public class IosPeripheral(
             peripheralContext.processEvent(ConnectionEvent.DiscoveryFailed(GattError("discoverServices", status)))
             slots.completeConnect()
             slots.failDiscovery(BleException(GattError("discoverServices", status)))
+            currentDiscovery = null
             return
         }
 
         val cbServices = cbPeripheral.services?.filterIsInstance<CBService>().orEmpty()
         if (cbServices.isEmpty()) {
             finishDiscovery(emptyList())
+            currentDiscovery = null
             return
         }
 
-        pendingCharacteristicDiscovery = cbServices.size
-        cbServices.forEach { bridge.discoverCharacteristics(it) }
+        val generation = discoveryGeneration
+        val pending = cbServices.map { it.UUID.UUIDString }.toSet()
+        currentDiscovery = DiscoveryCycle(generation = generation, pendingServices = pending)
+
+        cbServices.forEach { bridge.discoverCharacteristics(it.UUID.UUIDString) }
     }
 
-    private suspend fun handleCharacteristicsDiscovered() {
-        pendingCharacteristicDiscovery--
-        if (pendingCharacteristicDiscovery > 0) return
+    private suspend fun handleCharacteristicsDiscovered(event: AppleCallbackEvent.DidDiscoverCharacteristics) {
+        val cycle = currentDiscovery
+        if (cycle == null) return // No active discovery cycle (discarded or completed)
 
+        // Ignore stale callbacks from previous discovery generations
+        if (cycle.generation != discoveryGeneration) return
+
+        (cycle.pendingServices as MutableSet<String>).remove(event.serviceUuid)
+
+        if (event.error != null) {
+            val status = event.error.toGattStatus()
+            peripheralContext.processEvent(
+                ConnectionEvent.DiscoveryFailed(GattError("discoverCharacteristics", status)),
+            )
+            currentDiscovery = null
+            slots.completeConnect()
+            slots.failDiscovery(BleException(GattError("discoverCharacteristics", status)))
+            return
+        }
+
+        if (cycle.pendingServices.isNotEmpty()) return
+
+        // All services' characteristics discovered - build final service list
         val discovered =
             cbPeripheral.services
                 ?.filterIsInstance<CBService>()
                 ?.map { it.toDiscoveredService() }
                 .orEmpty()
         finishDiscovery(discovered)
+        currentDiscovery = null
     }
 
     private suspend fun finishDiscovery(discovered: List<DiscoveredService>) {
