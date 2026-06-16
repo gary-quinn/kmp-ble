@@ -199,15 +199,10 @@ public class IosPeripheral(
         closeL2capChannels()
         centralDelegate.unregisterConnectionCallback(identifier.value)
 
-        // Quiesce pending CoreBluetooth operations to prevent callbacks on reused CBPeripheral.
-        // Increment generation to discard any in-flight discovery cycle callbacks.
+        // Invalidate in-flight discovery cycle callbacks before teardown.
         discoveryGeneration++
         currentDiscovery = null
-        // Give CoreBluetooth a moment to drain any queued callbacks before tearing down the delegate.
-        peripheralContext.scope.launch {
-            kotlinx.coroutines.delay(50) // Minimal quiesce window
-            bridge.close()
-        }
+        bridge.close()
 
         observationManager.onObservationsChanged = null
         observationManager.clear()
