@@ -15,6 +15,14 @@ _Changes on `main` that have not yet been tagged for release._
 
 ---
 
+## [0.8.4] - 2026-06-16
+
+### Fixed
+- fix(ios): prevent CoreBluetooth crash on repeated service discovery
+
+
+---
+
 ## [0.8.3] - 2026-06-15
 
 ### Changed
@@ -599,7 +607,8 @@ _No notable changes._
 
 ---
 
-[Unreleased]: https://github.com/gary-quinn/kmp-ble/compare/v0.8.3...HEAD
+[Unreleased]: https://github.com/gary-quinn/kmp-ble/compare/v0.8.4...HEAD
+[0.8.4]: https://github.com/gary-quinn/kmp-ble/compare/v0.8.3...v0.8.4
 [0.8.3]: https://github.com/gary-quinn/kmp-ble/compare/v0.8.2...v0.8.3
 [0.8.2]: https://github.com/gary-quinn/kmp-ble/compare/v0.8.1...v0.8.2
 [0.8.1]: https://github.com/gary-quinn/kmp-ble/compare/v0.8.0...v0.8.1
