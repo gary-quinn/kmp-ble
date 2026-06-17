@@ -8,34 +8,76 @@ import com.atruedev.kmpble.logging.BleLogEvent
 import com.atruedev.kmpble.logging.logEvent
 import kotlinx.coroutines.flow.StateFlow
 import platform.CoreBluetooth.CBCentralManager
+import platform.CoreBluetooth.CBCentralManagerDelegateProtocol
 import platform.CoreBluetooth.CBCentralManagerOptionRestoreIdentifierKey
 import platform.darwin.dispatch_queue_create
 import kotlin.concurrent.Volatile
 
 internal object CentralManagerProvider {
     private val queue = dispatch_queue_create("com.atruedev.kmpble", null)
-    private val delegate = KmpBleCentralDelegate()
 
-    // ObjC proxy handles didFailToConnectPeripheral (K/N can't override it due to
-    // signature collision with didDisconnectPeripheral). All other delegate methods
-    // forward to the Kotlin delegate via ObjC message forwarding.
-    private val delegateProxy =
-        KmpBleDelegateProxy(target = delegate).apply {
-            onConnectionFailure = { peripheral, error ->
-                val id = peripheral?.identifier?.UUIDString
-                if (id != null) {
-                    delegate.handleConnectionFailure(id, error)
-                } else {
-                    logEvent(
-                        BleLogEvent.Error(
-                            identifier = null,
-                            message = "didFailToConnectPeripheral fired with null peripheral",
-                            cause = null,
-                        ),
-                    )
+    // Lazily initialized when manager is first accessed.
+    // The delegate type depends on whether state restoration is enabled.
+    private var _delegate: CentralDelegate? = null
+    private var _objCDelegate: CBCentralManagerDelegateProtocol? = null
+    private var _delegateProxy: KmpBleDelegateProxy? = null
+
+    private val delegate: CentralDelegate
+        get() {
+            if (_delegate == null) {
+                createDelegateAndProxy()
+            }
+            return _delegate!!
+        }
+
+    private val objCDelegate: CBCentralManagerDelegateProtocol
+        get() {
+            if (_objCDelegate == null) {
+                createDelegateAndProxy()
+            }
+            return _objCDelegate!!
+        }
+
+    private val delegateProxy: KmpBleDelegateProxy
+        get() {
+            if (_delegateProxy == null) {
+                createDelegateAndProxy()
+            }
+            return _delegateProxy!!
+        }
+
+    private fun createDelegateAndProxy() {
+        val impl =
+            if (restoreIdentifier != null) {
+                CentralDelegateImpl(isRestorationEnabled = true)
+            } else {
+                CentralDelegateImpl()
+            }
+        _delegate = impl
+        _objCDelegate =
+            if (restoreIdentifier != null) {
+                KmpBleCentralDelegateWithRestorationObjC(impl)
+            } else {
+                KmpBleCentralDelegateObjC(impl)
+            }
+        _delegateProxy =
+            KmpBleDelegateProxy(target = objCDelegate).apply {
+                onConnectionFailure = { peripheral, error ->
+                    val id = peripheral?.identifier?.UUIDString
+                    if (id != null) {
+                        impl.handleConnectionFailure(id, error)
+                    } else {
+                        logEvent(
+                            BleLogEvent.Error(
+                                identifier = null,
+                                message = "didFailToConnectPeripheral fired with null peripheral",
+                                cause = null,
+                            ),
+                        )
+                    }
                 }
             }
-        }
+    }
 
     /**
      * State restoration identifier. Set via [enableStateRestoration] before
@@ -50,11 +92,13 @@ internal object CentralManagerProvider {
     internal var managerFactory: (() -> CBCentralManager)? = null
 
     internal val manager: CBCentralManager by lazy {
+        // Access delegateProxy to trigger delegate creation with correct type
+        val dp = delegateProxy
         managerFactory?.invoke() ?: run {
             val restoreId = restoreIdentifier
             if (restoreId != null) {
                 CBCentralManager(
-                    delegate = delegateProxy,
+                    delegate = dp,
                     queue = queue,
                     options =
                         mapOf<Any?, Any?>(
@@ -63,7 +107,7 @@ internal object CentralManagerProvider {
                 )
             } else {
                 CBCentralManager(
-                    delegate = delegateProxy,
+                    delegate = dp,
                     queue = queue,
                 )
             }
@@ -73,7 +117,7 @@ internal object CentralManagerProvider {
     internal val adapterStateFlow: StateFlow<BluetoothAdapterState>
         get() = delegate.adapterStateFlow
 
-    internal val scanDelegate: KmpBleCentralDelegate
+    internal val scanDelegate: CentralDelegate
         get() = delegate
 
     /** Whether state restoration is enabled. */

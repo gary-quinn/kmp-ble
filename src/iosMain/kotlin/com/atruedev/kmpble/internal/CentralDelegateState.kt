@@ -8,8 +8,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import platform.CoreBluetooth.CBCentralManager
-import platform.CoreBluetooth.CBCentralManagerDelegateProtocol
-import platform.CoreBluetooth.CBCentralManagerRestoredStatePeripheralsKey
 import platform.CoreBluetooth.CBCentralManagerStatePoweredOff
 import platform.CoreBluetooth.CBCentralManagerStatePoweredOn
 import platform.CoreBluetooth.CBCentralManagerStateResetting
@@ -19,33 +17,13 @@ import platform.CoreBluetooth.CBCentralManagerStateUnsupported
 import platform.CoreBluetooth.CBPeripheral
 import platform.Foundation.NSError
 import platform.Foundation.NSNumber
-import platform.darwin.NSObject
 import kotlin.concurrent.Volatile
 
 /**
- * Raw scan result from CoreBluetooth delegate callback.
+ * Shared state and logic for CBCentralManager delegates.
+ * Extracted to avoid Kotlin/Native restriction on subclassing Objective-C classes.
  */
-internal data class RawScanResult(
-    val peripheral: CBPeripheral,
-    val advertisementData: Map<Any?, *>,
-    val rssi: NSNumber,
-)
-
-/**
- * Unified CBCentralManager delegate handling adapter state, scan results,
- * and state restoration.
- *
- * State restoration flow:
- * 1. iOS terminates the app (low memory, etc.)
- * 2. A BLE event occurs (peripheral reconnects, data arrives)
- * 3. iOS relaunches the app in the background
- * 4. [centralManager:willRestoreState:] is called with previously connected peripherals
- * 5. [centralManagerDidUpdateState:] follows with current adapter state
- * 6. kmp-ble reconstructs Peripheral wrappers and re-subscribes observations
- */
-internal class KmpBleCentralDelegate :
-    NSObject(),
-    CBCentralManagerDelegateProtocol {
+internal class CentralDelegateState {
     private val _adapterStateFlow = MutableStateFlow<BluetoothAdapterState>(BluetoothAdapterState.Unavailable)
     internal val adapterStateFlow: StateFlow<BluetoothAdapterState> = _adapterStateFlow.asStateFlow()
 
@@ -57,7 +35,7 @@ internal class KmpBleCentralDelegate :
      * Replay = 1 ensures the restoration event is not lost if observers register late
      * (after willRestoreState fires but before the consumer collects).
      */
-    private val _restoredPeripherals = MutableSharedFlow<List<CBPeripheral>>(replay = 1)
+    internal val _restoredPeripherals = MutableSharedFlow<List<CBPeripheral>>(replay = 1)
     internal val restoredPeripherals: SharedFlow<List<CBPeripheral>> = _restoredPeripherals.asSharedFlow()
 
     // Copy-on-write map - reads from CoreBluetooth queue, writes from Kotlin coroutines.
@@ -76,7 +54,7 @@ internal class KmpBleCentralDelegate :
         connectionCallbacks = connectionCallbacks - peripheralId
     }
 
-    override fun centralManagerDidUpdateState(central: CBCentralManager) {
+    internal fun handleAdapterStateUpdate(central: CBCentralManager) {
         _adapterStateFlow.value =
             when (central.state) {
                 CBCentralManagerStatePoweredOn -> BluetoothAdapterState.On
@@ -90,52 +68,30 @@ internal class KmpBleCentralDelegate :
             }
     }
 
-    /**
-     * Called by iOS during state restoration before [centralManagerDidUpdateState].
-     * Provides the list of CBPeripherals that were connected or pending connection
-     * at the time the app was terminated.
-     */
-    override fun centralManager(
-        central: CBCentralManager,
-        willRestoreState: Map<Any?, *>,
-    ) {
-        val peripherals =
-            (willRestoreState[CBCentralManagerRestoredStatePeripheralsKey] as? List<*>)
-                ?.filterIsInstance<CBPeripheral>()
-        if (!peripherals.isNullOrEmpty()) {
-            _restoredPeripherals.tryEmit(peripherals)
-        }
-    }
-
-    override fun centralManager(
-        central: CBCentralManager,
-        didDiscoverPeripheral: CBPeripheral,
+    internal fun handleScanResult(
+        cbPeripheral: CBPeripheral,
         advertisementData: Map<Any?, *>,
-        RSSI: NSNumber,
+        rssi: NSNumber,
     ) {
         _scanResults.tryEmit(
             RawScanResult(
-                peripheral = didDiscoverPeripheral,
+                peripheral = cbPeripheral,
                 advertisementData = advertisementData,
-                rssi = RSSI,
+                rssi = rssi,
             ),
         )
     }
 
-    override fun centralManager(
-        central: CBCentralManager,
-        didConnectPeripheral: CBPeripheral,
-    ) {
-        val id = didConnectPeripheral.identifier.UUIDString
+    internal fun handleConnect(cbPeripheral: CBPeripheral) {
+        val id = cbPeripheral.identifier.UUIDString
         connectionCallbacks[id]?.invoke(true, null)
     }
 
-    override fun centralManager(
-        central: CBCentralManager,
-        didDisconnectPeripheral: CBPeripheral,
+    internal fun handleDisconnect(
+        cbPeripheral: CBPeripheral,
         error: NSError?,
     ) {
-        val id = didDisconnectPeripheral.identifier.UUIDString
+        val id = cbPeripheral.identifier.UUIDString
         connectionCallbacks[id]?.invoke(false, error)
     }
 
@@ -149,4 +105,17 @@ internal class KmpBleCentralDelegate :
     ) {
         connectionCallbacks[peripheralId]?.invoke(false, error)
     }
+
+    internal fun handleRestoredPeripherals(peripherals: List<CBPeripheral>) {
+        _restoredPeripherals.tryEmit(peripherals)
+    }
 }
+
+/**
+ * Raw scan result from CoreBluetooth delegate callback.
+ */
+internal data class RawScanResult(
+    val peripheral: CBPeripheral,
+    val advertisementData: Map<Any?, *>,
+    val rssi: NSNumber,
+)
