@@ -29,7 +29,7 @@ internal class CentralDelegateImpl(
 
     override fun handleConnectionFailure(
         peripheralId: String,
-        error: platform.Foundation.NSError?,
+        error: NSError?,
     ) = state.handleConnectionFailure(peripheralId, error)
 
     internal fun handleAdapterStateUpdate(central: CBCentralManager) {

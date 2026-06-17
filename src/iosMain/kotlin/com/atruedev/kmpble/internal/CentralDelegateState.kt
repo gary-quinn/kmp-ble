@@ -101,7 +101,7 @@ internal class CentralDelegateState {
      */
     internal fun handleConnectionFailure(
         peripheralId: String,
-        error: platform.Foundation.NSError?,
+        error: NSError?,
     ) {
         connectionCallbacks[peripheralId]?.invoke(false, error)
     }
