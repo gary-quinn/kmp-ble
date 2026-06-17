@@ -117,6 +117,7 @@ internal class AndroidExtendedAdvertiser(
         }
 
     override fun close() {
+        // runBlocking safe — uses limitedParallelism(1) dispatcher, no circular wait
         runBlocking(serialDispatcher) {
             val advertiser =
                 try {
