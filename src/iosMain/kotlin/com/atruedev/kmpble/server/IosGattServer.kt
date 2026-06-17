@@ -10,12 +10,14 @@ import com.atruedev.kmpble.internal.PeripheralManagerProvider
 import com.atruedev.kmpble.logging.BleLogEvent
 import com.atruedev.kmpble.logging.logEvent
 import com.atruedev.kmpble.scanner.uuidFrom
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -192,7 +194,7 @@ internal class IosGattServer(
             withTimeout(POWER_ON_TIMEOUT_MS) {
                 delegate.managerState.first { it == CBPeripheralManagerStatePoweredOn }
             }
-        } catch (_: kotlinx.coroutines.TimeoutCancellationException) {
+        } catch (_: TimeoutCancellationException) {
             setDelegateCallbacks(active = false)
             throw ServerException.OpenFailed(
                 "Timeout waiting for Bluetooth to power on (state: ${delegate.managerState.value})",
@@ -220,7 +222,7 @@ internal class IosGattServer(
                         "addService failed for ${serviceDef.uuid}: ${error.localizedDescription}",
                     )
                 }
-            } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
+            } catch (e: TimeoutCancellationException) {
                 pendingServiceAdd = null
                 throw ServerException.OpenFailed(
                     "Timeout adding service ${serviceDef.uuid}",
@@ -311,7 +313,7 @@ internal class IosGattServer(
 
         manager.removeAllServices()
 
-        readyToUpdate.cancel(kotlinx.coroutines.CancellationException("Server closed"))
+        readyToUpdate.cancel(CancellationException("Server closed"))
 
         // Don't clear collections here - races with in-flight coroutines before cancellation.
         scope.cancel()
@@ -370,7 +372,7 @@ internal class IosGattServer(
                     ),
                 )
             } catch (e: Exception) {
-                if (e is kotlinx.coroutines.CancellationException) throw e
+                if (e is CancellationException) throw e
                 logEvent(
                     BleLogEvent.ServerRequest(
                         request.centralId,
@@ -450,7 +452,7 @@ internal class IosGattServer(
                 }
                 logEvent(BleLogEvent.ServerRequest(centralId, "write (${data.size}B)", charUuid, status))
             } catch (e: Exception) {
-                if (e is kotlinx.coroutines.CancellationException) throw e
+                if (e is CancellationException) throw e
                 logEvent(
                     BleLogEvent.ServerRequest(centralId, "write-failed (handler threw)", charUuid, GattStatus.Failure),
                 )
@@ -548,7 +550,7 @@ internal class IosGattServer(
             try {
                 evictIdleCentrals()
             } catch (e: Exception) {
-                if (e is kotlinx.coroutines.CancellationException) throw e
+                if (e is CancellationException) throw e
                 logEvent(BleLogEvent.Error(null, "central sweep failed", e))
             }
         }
@@ -589,7 +591,7 @@ internal class IosGattServer(
                 withTimeout(NOTIFY_TIMEOUT) {
                     readyToUpdate.await()
                 }
-            } catch (_: kotlinx.coroutines.TimeoutCancellationException) {
+            } catch (_: TimeoutCancellationException) {
                 throw ServerException.NotifyFailed(
                     "Transmit queue full - timeout waiting for ready (attempt ${attempt + 1}/$MAX_NOTIFY_RETRIES)",
                 )

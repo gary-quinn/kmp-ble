@@ -229,7 +229,7 @@ internal class AndroidGattServer(
                             // Cancel any pending notification/indication for this device
                             pendingNotifySent
                                 .remove(device.address)
-                                ?.cancel(kotlinx.coroutines.CancellationException("Device disconnected"))
+                                ?.cancel(CancellationException("Device disconnected"))
                             logEvent(BleLogEvent.ServerClientEvent(deviceId, "disconnected"))
                             if (!_connectionEvents.tryEmit(ServerConnectionEvent.Disconnected(deviceId))) {
                                 logEvent(
@@ -730,7 +730,7 @@ internal class AndroidGattServer(
 
         return try {
             withTimeout(NOTIFY_TIMEOUT_MS) { deferred.await() }
-        } catch (_: kotlinx.coroutines.TimeoutCancellationException) {
+        } catch (_: TimeoutCancellationException) {
             pendingNotifySent.remove(device.address)
             throw ServerException.NotifyFailed(
                 if (confirm) "Indication timed out" else "Notification timed out",
@@ -763,7 +763,7 @@ internal class AndroidGattServer(
 
         // Cancel all pending notifications/indications
         for ((_, deferred) in pendingNotifySent) {
-            deferred.cancel(kotlinx.coroutines.CancellationException("Server closed"))
+            deferred.cancel(CancellationException("Server closed"))
         }
         pendingNotifySent.clear()
 
@@ -936,7 +936,7 @@ internal class AndroidGattServer(
                     return BluetoothGatt.GATT_FAILURE
                 }
             } catch (e: Exception) {
-                if (e is kotlinx.coroutines.CancellationException) throw e
+                if (e is CancellationException) throw e
                 logEvent(
                     BleLogEvent.ServerRequest(
                         deviceId,

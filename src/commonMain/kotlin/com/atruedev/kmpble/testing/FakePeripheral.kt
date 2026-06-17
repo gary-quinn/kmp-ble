@@ -21,6 +21,7 @@ import com.atruedev.kmpble.l2cap.L2capChannel
 import com.atruedev.kmpble.peripheral.Peripheral
 import com.atruedev.kmpble.peripheral.PhyResult
 import com.atruedev.kmpble.peripheral.internal.PeripheralContext
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -36,7 +37,7 @@ public class FakePeripheral internal constructor(
     private val onConnectHandler: suspend () -> Result<Unit>,
     private val onDisconnectHandler: suspend () -> Result<Unit>,
     private val onL2capHandler: L2capHandler?,
-    private val observationDispatcher: kotlinx.coroutines.CoroutineDispatcher =
+    private val observationDispatcher: CoroutineDispatcher =
         Dispatchers.Default.limitedParallelism(
             1,
         ),
