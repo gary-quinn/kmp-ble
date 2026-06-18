@@ -1,6 +1,23 @@
 # kmp-ble Sample App
 
-Compose Multiplatform app (Android + iOS) exercising the full kmp-ble v0.2 API surface.
+Compose Multiplatform app (Android + iOS) exercising the full kmp-ble v0.8+ API surface.
+
+## Quickstart (Code Examples)
+
+For a self-contained code walkthrough without running the full app, see
+[BleQuickstart.kt](src/commonMain/kotlin/com/atruedev/kmpble/sample/BleQuickstart.kt).
+It demonstrates the complete BLE lifecycle:
+
+1. **Scan** for peripherals advertising a specific service
+2. **Connect** with configurable options
+3. **Discover** services and characteristics
+4. **Read** characteristic values
+5. **Observe** notifications with transparent reconnection
+6. **Disconnect** and clean up
+
+Two patterns are provided:
+- `bleQuickstartHeartRate()` — continuous monitoring with observations
+- `bleQuickstartReadOnce()` — scan, connect, read a single value, disconnect
 
 ## Navigation
 
