@@ -15,6 +15,7 @@ dependencyResolutionManagement {
 
 rootProject.name = "kmp-ble"
 
+include(":kmp-ble-benchmark")
 include(":kmp-ble-codec")
 include(":kmp-ble-codec-serialization")
 include(":kmp-ble-quirks")

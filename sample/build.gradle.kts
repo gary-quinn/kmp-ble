@@ -37,6 +37,7 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             implementation(project(":"))
+            implementation(project(":kmp-ble-benchmark"))
             implementation(project(":kmp-ble-profiles"))
             implementation(project(":kmp-ble-dfu"))
             implementation(project(":kmp-ble-codec"))
