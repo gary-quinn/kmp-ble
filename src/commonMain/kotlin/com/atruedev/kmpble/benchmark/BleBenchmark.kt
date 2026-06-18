@@ -63,21 +63,10 @@ public class BleBenchmark(
     public suspend fun benchmarkConnection(
         peripheral: Peripheral,
         options: ConnectionOptions = ConnectionOptions(),
-    ): BenchmarkResult {
-        val mark = timeSource.markNow()
-        return try {
+    ): BenchmarkResult =
+        benchmarkTimed("Connection failed") {
             peripheral.connect(options)
-            BenchmarkResult(elapsed = mark.elapsedNow(), success = true)
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            BenchmarkResult(
-                elapsed = mark.elapsedNow(),
-                success = false,
-                errorMessage = e.message ?: "Connection failed",
-            )
         }
-    }
 
     /**
      * Measure the round-trip time for a GATT read operation.
@@ -91,21 +80,10 @@ public class BleBenchmark(
     public suspend fun benchmarkGattRead(
         peripheral: Peripheral,
         characteristic: Characteristic,
-    ): BenchmarkResult {
-        val mark = timeSource.markNow()
-        return try {
+    ): BenchmarkResult =
+        benchmarkTimed("Read failed") {
             peripheral.read(characteristic)
-            BenchmarkResult(elapsed = mark.elapsedNow(), success = true)
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            BenchmarkResult(
-                elapsed = mark.elapsedNow(),
-                success = false,
-                errorMessage = e.message ?: "Read failed",
-            )
         }
-    }
 
     /**
      * Measure the round-trip time for a GATT write operation.
@@ -123,21 +101,10 @@ public class BleBenchmark(
         characteristic: Characteristic,
         data: ByteArray,
         writeType: WriteType = WriteType.WithResponse,
-    ): BenchmarkResult {
-        val mark = timeSource.markNow()
-        return try {
+    ): BenchmarkResult =
+        benchmarkTimed("Write failed") {
             peripheral.write(characteristic, data, writeType)
-            BenchmarkResult(elapsed = mark.elapsedNow(), success = true)
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            BenchmarkResult(
-                elapsed = mark.elapsedNow(),
-                success = false,
-                errorMessage = e.message ?: "Write failed",
-            )
         }
-    }
 
     /**
      * Measure the time to discover services after connection.
@@ -148,23 +115,36 @@ public class BleBenchmark(
      * @return Pair of [BenchmarkResult] and discovered services.
      */
     public suspend fun benchmarkDiscovery(peripheral: Peripheral): Pair<BenchmarkResult, List<DiscoveredService>> {
+        var services: List<DiscoveredService> = emptyList()
+        val result =
+            benchmarkTimed("Discovery failed") {
+                services = peripheral.refreshServices()
+            }
+        return Pair(result, services)
+    }
+
+    /**
+     * Time a suspend operation and produce a [BenchmarkResult].
+     *
+     * Rethrows [CancellationException] for structured concurrency.
+     * On other exceptions, returns a failure [BenchmarkResult]
+     * with the elapsed time and error message.
+     */
+    private suspend inline fun benchmarkTimed(
+        errorLabel: String,
+        crossinline operation: suspend () -> Unit,
+    ): BenchmarkResult {
         val mark = timeSource.markNow()
         return try {
-            val services = peripheral.refreshServices()
-            Pair(
-                BenchmarkResult(elapsed = mark.elapsedNow(), success = true),
-                services,
-            )
+            operation()
+            BenchmarkResult(elapsed = mark.elapsedNow(), success = true)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            Pair(
-                BenchmarkResult(
-                    elapsed = mark.elapsedNow(),
-                    success = false,
-                    errorMessage = e.message ?: "Discovery failed",
-                ),
-                emptyList(),
+            BenchmarkResult(
+                elapsed = mark.elapsedNow(),
+                success = false,
+                errorMessage = e.message ?: errorLabel,
             )
         }
     }
