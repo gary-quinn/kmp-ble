@@ -78,7 +78,7 @@ public class FakePeripheralBuilder {
         return this
     }
 
-    internal fun build(): FakePeripheral =
+    public fun build(): FakePeripheral =
         FakePeripheral(
             identifier = identifier,
             fakeServices = services.toList(),

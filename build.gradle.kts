@@ -222,6 +222,7 @@ dokka {
 }
 
 dependencies {
+    dokka(project(":kmp-ble-benchmark"))
     dokka(project(":kmp-ble-codec"))
     dokka(project(":kmp-ble-dfu"))
     dokka(project(":kmp-ble-profiles"))
