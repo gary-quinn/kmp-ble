@@ -15,10 +15,21 @@ _Changes on `main` that have not yet been tagged for release._
 
 ---
 
-## [0.8.4] - 2026-06-16
+## [0.8.4] - 2026-06-18
+
+### Added
+- feat(benchmark): add BleBenchmark utility for operation latency and throughput (#225)
+
+### Changed
+- fix(server): add WHY comments for runBlocking in close() methods (#224)
 
 ### Fixed
 - fix(ios): prevent CoreBluetooth crash on repeated service discovery
+- fix(ios): remove dead quiesce code in close() (#220)
+- fix(ios): conditionally implement willRestoreState only when state restoration enabled (#222)
+- fix(ios): replace qualified NSError with imported type in CentralDelegateImpl and CentralDelegateState
+- fix(kmp-314): replace qualified kotlinx.coroutines names with imports in AndroidGattServer, IosGattServer, FakePeripheral (#223)
+- fix: add missing TimeoutCancellationException import in AndroidGattServer
 
 
 ---
@@ -30,6 +41,7 @@ _Changes on `main` that have not yet been tagged for release._
 
 ### Fixed
 - fix: pass null to scanForPeripheralsWithServices, not service filter UUIDs
+- fix(test): resolve KMP-310/KMP-311 failing and flaky tests
 
 
 ---
