@@ -77,13 +77,6 @@ internal sealed interface GattCallbackEvent {
         val rxPhy: Int,
         val status: Int,
     ) : GattCallbackEvent
-
-    data class ConnectionUpdated(
-        val interval: Int,
-        val latency: Int,
-        val timeout: Int,
-        val status: Int,
-    ) : GattCallbackEvent
 }
 
 internal class AndroidGattBridge(
@@ -188,16 +181,6 @@ internal class AndroidGattBridge(
                 status: Int,
             ) {
                 onEvent?.invoke(GattCallbackEvent.PhyRead(txPhy, rxPhy, status))
-            }
-
-            override fun onConnectionUpdated(
-                gatt: BluetoothGatt,
-                interval: Int,
-                latency: Int,
-                timeout: Int,
-                status: Int,
-            ) {
-                onEvent?.invoke(GattCallbackEvent.ConnectionUpdated(interval, latency, timeout, status))
             }
         }
 

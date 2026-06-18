@@ -54,7 +54,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
-import kotlin.time.Duration.Companion.milliseconds
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
@@ -319,18 +318,12 @@ public class AndroidPeripheral internal constructor(
         checkNotClosed()
         val androidPriority = params.intervalRange.toAndroidConnectionPriority()
         return peripheralContext.gattQueue.enqueue {
-            val success = bridge.requestConnectionPriority(androidPriority)
-            if (!success) return@enqueue null
-            val result =
-                pendingOps.awaitGatt(
-                    PendingOp.ConnectionParameterUpdate,
-                    "requestConnectionParameterUpdate",
-                ) { /* callback-driven, no extra native call needed beyond requestConnectionPriority */ }
-            if (!result.status.isSuccess()) return@enqueue null
+            val dispatched = bridge.requestConnectionPriority(androidPriority)
+            if (!dispatched) return@enqueue null
             ConnectionParameterUpdateResult(
-                negotiatedInterval = (result.interval * 1.25).milliseconds,
-                negotiatedLatency = result.latency,
-                negotiatedSupervisionTimeout = (result.timeout * 10).milliseconds,
+                negotiatedInterval = params.intervalRange.endInclusive,
+                negotiatedLatency = params.slaveLatency,
+                negotiatedSupervisionTimeout = params.supervisionTimeout,
             )
         }
     }

@@ -36,20 +36,11 @@ internal sealed interface PendingOp<T> {
     data object PhyUpdate : PendingOp<PhyUpdateResult>
 
     data object PhyRead : PendingOp<PhyUpdateResult>
-
-    data object ConnectionParameterUpdate : PendingOp<ConnectionUpdateResult>
 }
 
 internal data class PhyUpdateResult(
     val txPhyConstant: Int,
     val rxPhyConstant: Int,
-    val status: com.atruedev.kmpble.error.GattStatus,
-)
-
-internal data class ConnectionUpdateResult(
-    val interval: Int,
-    val latency: Int,
-    val timeout: Int,
     val status: com.atruedev.kmpble.error.GattStatus,
 )
 
