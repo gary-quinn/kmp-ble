@@ -9,6 +9,7 @@ import android.bluetooth.le.AdvertisingSet
 import android.bluetooth.le.AdvertisingSetCallback
 import android.bluetooth.le.AdvertisingSetParameters
 import android.bluetooth.le.BluetoothLeAdvertiser
+import android.bluetooth.le.PeriodicAdvertisingParameters
 import android.content.Context
 import android.os.ParcelUuid
 import com.atruedev.kmpble.ExperimentalBleApi
@@ -54,6 +55,8 @@ internal class AndroidExtendedAdvertiser(
 
         val params = config.toParameters()
         val data = config.toAdvertiseData()
+        val periodicParams = config.periodicAdvertising?.toAndroidPeriodicParams()
+        val periodicData = if (config.periodicAdvertising != null) config.toPeriodicData() else null
 
         val setId = withContext(serialDispatcher) { ++nextSetId }
         lateinit var callbackRef: AdvertisingSetCallback
@@ -70,6 +73,28 @@ internal class AndroidExtendedAdvertiser(
                             advertisingSets[setId] = AdvertisingSetHandle(advertisingSet, callbackRef)
                             _activeSets.update { it + setId }
                             logEvent(BleLogEvent.ServerLifecycle("extended advertising set $setId started"))
+
+                            if (periodicParams != null && periodicData != null) {
+                                try {
+                                    advertisingSet.setPeriodicAdvertisingParameters(periodicParams)
+                                    advertisingSet.setPeriodicAdvertisingData(periodicData)
+                                    advertisingSet.setPeriodicAdvertisingEnabled(true)
+                                    logEvent(
+                                        BleLogEvent.ServerLifecycle(
+                                            "periodic advertising enabled for set $setId",
+                                        ),
+                                    )
+                                } catch (e: Exception) {
+                                    logEvent(
+                                        BleLogEvent.Error(
+                                            identifier = null,
+                                            message = "Failed to enable periodic advertising: ${e.message}",
+                                            cause = e,
+                                        ),
+                                    )
+                                }
+                            }
+
                             deferred.complete(setId)
                         } else {
                             deferred.completeExceptionally(
@@ -95,7 +120,7 @@ internal class AndroidExtendedAdvertiser(
         callbackRef = callback
 
         try {
-            advertiser.startAdvertisingSet(params, data, null, null, null, callback)
+            advertiser.startAdvertisingSet(params, data, null, periodicParams, periodicData, callback)
         } catch (e: SecurityException) {
             throw AdvertiserException.StartFailed("Missing BLUETOOTH_ADVERTISE permission", e)
         }
@@ -186,6 +211,31 @@ private fun ExtendedAdvertiseConfig.toAdvertiseData(): AdvertiseData {
         builder.addServiceData(ParcelUuid(uuid.toJavaUuid()), data)
     }
 
+    return builder.build()
+}
+
+@ExperimentalBleApi
+private fun ExtendedAdvertiseConfig.toPeriodicData(): AdvertiseData {
+    val builder = AdvertiseData.Builder()
+    for ((uuid, data) in serviceData) {
+        builder.addServiceData(ParcelUuid(uuid.toJavaUuid()), data)
+    }
+
+    val periodic = periodicAdvertising
+    if (periodic != null && periodic.includeTxPower) {
+        builder.setIncludeTxPower(true)
+    }
+
+    return builder.build()
+}
+
+@ExperimentalBleApi
+private fun PeriodicAdvertisingParameters.toAndroidPeriodicParams(): PeriodicAdvertisingParameters {
+    val builder =
+        PeriodicAdvertisingParameters
+            .Builder()
+            .setIncludeTxPower(includeTxPower)
+            .setInterval(interval.toAndroidInterval())
     return builder.build()
 }
 

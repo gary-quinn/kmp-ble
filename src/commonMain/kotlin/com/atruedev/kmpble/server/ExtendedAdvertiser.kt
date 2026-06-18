@@ -50,6 +50,29 @@ public interface ExtendedAdvertiser : AutoCloseable {
 }
 
 /**
+ * Parameters for BLE 5.0 periodic advertising.
+ *
+ * When set on [ExtendedAdvertiseConfig], the advertiser broadcasts on
+ * secondary advertising channels at a fixed interval after the initial
+ * extended advertising burst on primary channels (37/38/39).
+ *
+ * Scanners use `PeriodicAdvertisingSync` to receive periodic advertising
+ * reports without continuous scanning.
+ *
+ * ## Platform Support
+ *
+ * - **Android**: Full support via `AdvertisingSet` API (API 26+).
+ * - **iOS**: Not supported by CoreBluetooth; silently ignored with a log warning.
+ */
+@ExperimentalBleApi
+public data class PeriodicAdvertisingParameters(
+    /** Whether to include TX power in periodic advertising data. */
+    public val includeTxPower: Boolean = false,
+    /** Periodic advertising interval controlling discovery speed vs power. */
+    public val interval: AdvertiseInterval = AdvertiseInterval.Balanced,
+)
+
+/**
  * Configuration for a BLE 5.0 extended advertising set.
  */
 @ExperimentalBleApi
@@ -65,6 +88,8 @@ public class ExtendedAdvertiseConfig(
     public val secondaryPhy: Phy = Phy.Le1M,
     public val interval: AdvertiseInterval = AdvertiseInterval.Balanced,
     public val txPower: AdvertiseTxPower = AdvertiseTxPower.Medium,
+    /** Enable periodic advertising on secondary channels (BLE 5.0+). */
+    public val periodicAdvertising: PeriodicAdvertisingParameters? = null,
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -79,6 +104,7 @@ public class ExtendedAdvertiseConfig(
             secondaryPhy == other.secondaryPhy &&
             interval == other.interval &&
             txPower == other.txPower &&
+            periodicAdvertising == other.periodicAdvertising &&
             manufacturerData.keys == other.manufacturerData.keys &&
             manufacturerData.all { (k, v) -> other.manufacturerData[k]?.contentEquals(v) == true } &&
             serviceData.keys == other.serviceData.keys &&
@@ -103,12 +129,14 @@ public class ExtendedAdvertiseConfig(
         result = 31 * result + secondaryPhy.hashCode()
         result = 31 * result + interval.hashCode()
         result = 31 * result + txPower.hashCode()
+        result = 31 * result + (periodicAdvertising?.hashCode() ?: 0)
         return result
     }
 
     override fun toString(): String =
         "ExtendedAdvertiseConfig(name=$name, serviceUuids=$serviceUuids, " +
-            "connectable=$connectable, primaryPhy=$primaryPhy, secondaryPhy=$secondaryPhy)"
+            "connectable=$connectable, primaryPhy=$primaryPhy, secondaryPhy=$secondaryPhy, " +
+            "periodicAdvertising=$periodicAdvertising)"
 }
 
 /**
