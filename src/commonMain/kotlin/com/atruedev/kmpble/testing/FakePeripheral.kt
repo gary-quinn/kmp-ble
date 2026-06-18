@@ -4,6 +4,7 @@ import com.atruedev.kmpble.Identifier
 import com.atruedev.kmpble.connection.ConnectionOptions
 import com.atruedev.kmpble.connection.ConnectionPriority
 import com.atruedev.kmpble.connection.Phy
+import com.atruedev.kmpble.connection.PhyUpdate
 import com.atruedev.kmpble.connection.State
 import com.atruedev.kmpble.connection.internal.ConnectionEvent
 import com.atruedev.kmpble.error.BleError
@@ -215,6 +216,12 @@ public class FakePeripheral internal constructor(
         rx: Phy,
     ): PhyResult? = gattResponder.setPreferredPhy(tx, rx)
 
+    @com.atruedev.kmpble.ExperimentalBleApi
+    override suspend fun readPhy(): PhyResult? = gattResponder.readPhy()
+
+    @com.atruedev.kmpble.ExperimentalBleApi
+    override val phyUpdate: Flow<PhyUpdate> = gattResponder.phyUpdate
+
     // --- Test Simulation Methods (delegated to FakeConnectionSimulator) ---
 
     /**
@@ -259,6 +266,22 @@ public class FakePeripheral internal constructor(
         value: ByteArray,
     ) {
         connectionSimulator.emitObservationValue(serviceUuid, charUuid, value)
+    }
+
+    /** Configure the PHY values returned by [readPhy]. */
+    public fun configurePhy(
+        tx: Phy,
+        rx: Phy,
+    ) {
+        gattResponder.configurePhy(tx, rx)
+    }
+
+    /** Simulate a spontaneous PHY update, which emits to [phyUpdate]. */
+    public suspend fun emitPhyUpdate(
+        tx: Phy,
+        rx: Phy,
+    ) {
+        gattResponder.emitPhyUpdate(tx, rx)
     }
 
     /** Returns all CCCD writes recorded during observation setup/teardown. */

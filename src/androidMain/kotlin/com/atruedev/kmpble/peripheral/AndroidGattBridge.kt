@@ -71,6 +71,12 @@ internal sealed interface GattCallbackEvent {
         val rxPhy: Int,
         val status: Int,
     ) : GattCallbackEvent
+
+    data class PhyRead(
+        val txPhy: Int,
+        val rxPhy: Int,
+        val status: Int,
+    ) : GattCallbackEvent
 }
 
 internal class AndroidGattBridge(
@@ -167,6 +173,15 @@ internal class AndroidGattBridge(
             ) {
                 onEvent?.invoke(GattCallbackEvent.PhyUpdated(txPhy, rxPhy, status))
             }
+
+            override fun onPhyRead(
+                gatt: BluetoothGatt,
+                txPhy: Int,
+                rxPhy: Int,
+                status: Int,
+            ) {
+                onEvent?.invoke(GattCallbackEvent.PhyRead(txPhy, rxPhy, status))
+            }
         }
 
     internal fun connect(options: ConnectionOptions): BluetoothGatt? {
@@ -207,6 +222,12 @@ internal class AndroidGattBridge(
     ): Boolean {
         val g = gatt ?: return false
         g.setPreferredPhy(txPhyMask, rxPhyMask, phyOptions)
+        return true
+    }
+
+    internal fun readPhy(): Boolean {
+        val g = gatt ?: return false
+        g.readPhy()
         return true
     }
 

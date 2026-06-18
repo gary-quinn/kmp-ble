@@ -7,6 +7,7 @@ import com.atruedev.kmpble.bonding.BondState
 import com.atruedev.kmpble.connection.ConnectionOptions
 import com.atruedev.kmpble.connection.ConnectionPriority
 import com.atruedev.kmpble.connection.Phy
+import com.atruedev.kmpble.connection.PhyUpdate
 import com.atruedev.kmpble.connection.State
 import com.atruedev.kmpble.gatt.BackpressureStrategy
 import com.atruedev.kmpble.gatt.Characteristic
@@ -174,6 +175,37 @@ public interface Peripheral : AutoCloseable {
         tx: Phy,
         rx: Phy,
     ): PhyResult?
+
+    /**
+     * Actively read the current PHY for this connection.
+     *
+     * On Android, maps to [android.bluetooth.BluetoothGatt.readPhy] (API 26+).
+     * Suspends until the `onPhyRead` callback fires or times out.
+     *
+     * On iOS, returns `null`. CoreBluetooth does not expose PHY read-back
+     * through public API.
+     *
+     * @return [PhyResult] reflecting the current TX/RX PHYs, or `null` if
+     *         the platform does not support the operation.
+     */
+    @ExperimentalBleApi
+    public suspend fun readPhy(): PhyResult?
+
+    /**
+     * Flow of spontaneous PHY change events for this connection.
+     *
+     * Emits [PhyUpdate] when the controller negotiates a new PHY, whether
+     * triggered by a [setPreferredPhy] request or autonomously by the
+     * controller (e.g., range-based adaptation).
+     *
+     * The flow is **hot** -- it emits only while the peripheral is connected.
+     * Collectors will see no events during disconnects.
+     *
+     * On iOS, this flow never emits. CoreBluetooth does not expose PHY
+     * change notifications through public API.
+     */
+    @ExperimentalBleApi
+    public val phyUpdate: Flow<PhyUpdate>
 
     public val maximumWriteValueLength: StateFlow<Int>
 

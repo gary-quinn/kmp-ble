@@ -15,6 +15,7 @@ import com.atruedev.kmpble.bonding.BondState
 import com.atruedev.kmpble.connection.ConnectionOptions
 import com.atruedev.kmpble.connection.ConnectionPriority
 import com.atruedev.kmpble.connection.Phy
+import com.atruedev.kmpble.connection.PhyUpdate
 import com.atruedev.kmpble.connection.ReconnectionStrategy
 import com.atruedev.kmpble.connection.State
 import com.atruedev.kmpble.connection.internal.ReconnectionHandler
@@ -46,6 +47,7 @@ import com.atruedev.kmpble.peripheral.internal.findCharacteristic
 import com.atruedev.kmpble.peripheral.internal.findDescriptor
 import com.atruedev.kmpble.quirks.QuirkRegistry
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.withContext
@@ -72,6 +74,8 @@ public class AndroidPeripheral internal constructor(
 
     internal val nativeCharMap = mutableMapOf<Characteristic, BluetoothGattCharacteristic>()
     internal val nativeDescMap = mutableMapOf<Descriptor, BluetoothGattDescriptor>()
+
+    internal val _phyUpdate = MutableSharedFlow<PhyUpdate>(extraBufferCapacity = 16)
 
     internal val bondManager = AndroidBondManager(device, context, peripheralContext)
 
@@ -329,6 +333,25 @@ public class AndroidPeripheral internal constructor(
             )
         }
     }
+
+    @ExperimentalBleApi
+    override suspend fun readPhy(): PhyResult? {
+        checkNotClosed()
+        return peripheralContext.gattQueue.enqueue {
+            val result =
+                pendingOps.awaitGatt(PendingOp.PhyRead, "readPhy") {
+                    bridge.readPhy()
+                }
+            if (!result.status.isSuccess()) return@enqueue null
+            PhyResult(
+                tx = phyConstantToPhy(result.txPhyConstant),
+                rx = phyConstantToPhy(result.rxPhyConstant),
+            )
+        }
+    }
+
+    @ExperimentalBleApi
+    override val phyUpdate: Flow<PhyUpdate> = _phyUpdate
 
     override suspend fun openL2capChannel(
         psm: Int,
