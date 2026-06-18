@@ -1,4 +1,4 @@
-# kmp-ble-benchmark
+# Module kmp-ble-benchmark
 
 Performance measurement and telemetry utilities for kmp-ble.
 
