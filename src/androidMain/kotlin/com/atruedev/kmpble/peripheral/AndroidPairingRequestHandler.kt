@@ -15,6 +15,7 @@ import com.atruedev.kmpble.bonding.PairingHandler
 import com.atruedev.kmpble.bonding.PairingResponse
 import com.atruedev.kmpble.logging.BleLogEvent
 import com.atruedev.kmpble.logging.logEvent
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -76,6 +77,8 @@ internal class AndroidPairingRequestHandler(
                             try {
                                 val response = currentHandler.onPairingEvent(event)
                                 applyResponse(pairingDevice, response)
+                            } catch (e: CancellationException) {
+                                throw e
                             } catch (e: Exception) {
                                 logEvent(BleLogEvent.Error(identifier, "Pairing handler threw: ${e.message}", e))
                             }
