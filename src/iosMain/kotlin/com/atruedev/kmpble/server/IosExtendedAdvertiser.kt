@@ -27,8 +27,9 @@ import platform.Foundation.NSError
  *
  * CoreBluetooth does not expose BLE 5.0 extended advertising parameters.
  * This implementation provides the [ExtendedAdvertiser] contract using
- * legacy `CBPeripheralManager` advertising. PHY, interval, and scannable
- * fields from [ExtendedAdvertiseConfig] are silently ignored with a log warning.
+ * legacy `CBPeripheralManager` advertising. PHY, interval, scannable,
+ * and periodic advertising fields from [ExtendedAdvertiseConfig] are
+ * silently ignored with a log warning.
  *
  * Only one advertising set is supported at a time (iOS limitation).
  *
@@ -122,6 +123,7 @@ internal class IosExtendedAdvertiser(
         if (config.manufacturerData.isNotEmpty()) warnUnsupported("manufacturerData")
         if (config.serviceData.isNotEmpty()) warnUnsupported("serviceData")
         if (config.scannable) warnUnsupported("scannable")
+        if (config.periodicAdvertising != null) warnUnsupported("periodicAdvertising")
     }
 
     private fun warnUnsupported(field: String) {

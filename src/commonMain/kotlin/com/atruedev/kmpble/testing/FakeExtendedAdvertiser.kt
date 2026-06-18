@@ -3,6 +3,7 @@ package com.atruedev.kmpble.testing
 import com.atruedev.kmpble.ExperimentalBleApi
 import com.atruedev.kmpble.server.ExtendedAdvertiseConfig
 import com.atruedev.kmpble.server.ExtendedAdvertiser
+import com.atruedev.kmpble.server.PeriodicAdvertisingParameters
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -52,4 +53,10 @@ public class FakeExtendedAdvertiser : ExtendedAdvertiser {
 
     /** Get all active configs. */
     public fun getAllConfigs(): Map<Int, ExtendedAdvertiseConfig> = configs.toMap()
+
+    /** Check if periodic advertising is active for a specific set. */
+    public fun isPeriodicAdvertisingActive(setId: Int): Boolean = configs[setId]?.periodicAdvertising != null
+
+    /** Get the periodic advertising parameters for a set, or null if not configured. */
+    public fun getPeriodicConfig(setId: Int): PeriodicAdvertisingParameters? = configs[setId]?.periodicAdvertising
 }

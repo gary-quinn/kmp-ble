@@ -8,6 +8,8 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNotEquals
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 @OptIn(ExperimentalBleApi::class)
@@ -85,5 +87,60 @@ class FakeExtendedAdvertiserTest {
         runTest {
             val advertiser = FakeExtendedAdvertiser()
             advertiser.stopAdvertisingSet(999)
+        }
+
+    @Test
+    fun periodicAdvertisingParametersStored() =
+        runTest {
+            val advertiser = FakeExtendedAdvertiser()
+            val periodic =
+                PeriodicAdvertisingParameters(
+                    includeTxPower = true,
+                    interval = AdvertiseInterval.LowLatency,
+                )
+            val config =
+                ExtendedAdvertiseConfig(
+                    name = "PeriodicDevice",
+                    periodicAdvertising = periodic,
+                )
+
+            val setId = advertiser.startAdvertisingSet(config)
+            assertTrue(advertiser.isPeriodicAdvertisingActive(setId))
+
+            val stored = advertiser.getPeriodicConfig(setId)
+            assertNotNull(stored)
+            assertEquals(true, stored.includeTxPower)
+            assertEquals(AdvertiseInterval.LowLatency, stored.interval)
+        }
+
+    @Test
+    fun periodicAdvertisingNullByDefault() =
+        runTest {
+            val advertiser = FakeExtendedAdvertiser()
+            val config = ExtendedAdvertiseConfig(name = "NoPeriodic")
+
+            val setId = advertiser.startAdvertisingSet(config)
+            assertTrue(!advertiser.isPeriodicAdvertisingActive(setId))
+            assertNull(advertiser.getPeriodicConfig(setId))
+        }
+
+    @Test
+    fun configEqualityIncludesPeriodicAdvertising() =
+        runTest {
+            val periodic = PeriodicAdvertisingParameters(interval = AdvertiseInterval.LowPower)
+            val configA =
+                ExtendedAdvertiseConfig(
+                    name = "Test",
+                    periodicAdvertising = periodic,
+                )
+            val configB =
+                ExtendedAdvertiseConfig(
+                    name = "Test",
+                    periodicAdvertising = PeriodicAdvertisingParameters(interval = AdvertiseInterval.LowPower),
+                )
+            val configC = ExtendedAdvertiseConfig(name = "Test")
+
+            assertEquals(configA, configB)
+            assertNotEquals(configA, configC)
         }
 }
