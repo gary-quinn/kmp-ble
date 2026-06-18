@@ -4,6 +4,7 @@ package com.atruedev.kmpble.peripheral
 
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothGattCharacteristic
+import com.atruedev.kmpble.connection.PhyUpdate
 import com.atruedev.kmpble.connection.State
 import com.atruedev.kmpble.connection.internal.ConnectionEvent
 import com.atruedev.kmpble.error.BleException
@@ -60,6 +61,7 @@ internal fun AndroidPeripheral.handleGattEvent(event: GattCallbackEvent) {
                 pendingOps.complete(PendingOp.DescriptorWrite, event.status.toGattStatus())
             is GattCallbackEvent.ReadRemoteRssi -> handleRssiResult(event)
             is GattCallbackEvent.PhyUpdated -> handlePhyUpdated(event)
+            is GattCallbackEvent.PhyRead -> handlePhyRead(event)
         }
     }
 }
@@ -104,13 +106,34 @@ internal fun AndroidPeripheral.handleRssiResult(event: GattCallbackEvent.ReadRem
 }
 
 internal fun AndroidPeripheral.handlePhyUpdated(event: GattCallbackEvent.PhyUpdated) {
+    val status = event.status.toGattStatus()
+    val phyUpdate =
+        PhyUpdate(
+            txPhy = phyConstantToPhy(event.txPhy),
+            rxPhy = phyConstantToPhy(event.rxPhy),
+        )
     if (pendingOps.has(PendingOp.PhyUpdate)) {
         pendingOps.complete(
             PendingOp.PhyUpdate,
             PhyUpdateResult(
                 txPhyConstant = event.txPhy,
                 rxPhyConstant = event.rxPhy,
-                status = event.status.toGattStatus(),
+                status = status,
+            ),
+        )
+    }
+    _phyUpdate.tryEmit(phyUpdate)
+}
+
+internal fun AndroidPeripheral.handlePhyRead(event: GattCallbackEvent.PhyRead) {
+    if (pendingOps.has(PendingOp.PhyRead)) {
+        val status = event.status.toGattStatus()
+        pendingOps.complete(
+            PendingOp.PhyRead,
+            PhyUpdateResult(
+                txPhyConstant = event.txPhy,
+                rxPhyConstant = event.rxPhy,
+                status = status,
             ),
         )
     }

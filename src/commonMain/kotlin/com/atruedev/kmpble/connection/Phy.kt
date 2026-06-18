@@ -12,3 +12,15 @@ public enum class Phy {
     Le2M,
     LeCoded,
 }
+
+/**
+ * Notification that the active PHY for a connection has changed.
+ *
+ * Emitted by [com.atruedev.kmpble.peripheral.Peripheral.phyUpdate] when the
+ * controller negotiates a new PHY (spontaneously or in response to a
+ * [com.atruedev.kmpble.peripheral.Peripheral.setPreferredPhy] request).
+ */
+public data class PhyUpdate(
+    val txPhy: Phy,
+    val rxPhy: Phy,
+)

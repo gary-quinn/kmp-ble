@@ -6,6 +6,7 @@ import com.atruedev.kmpble.bonding.BondState
 import com.atruedev.kmpble.connection.ConnectionOptions
 import com.atruedev.kmpble.connection.ConnectionPriority
 import com.atruedev.kmpble.connection.Phy
+import com.atruedev.kmpble.connection.PhyUpdate
 import com.atruedev.kmpble.connection.State
 import com.atruedev.kmpble.gatt.BackpressureStrategy
 import com.atruedev.kmpble.gatt.Characteristic
@@ -95,6 +96,12 @@ internal class StubPeripheral(
         tx: Phy,
         rx: Phy,
     ): PhyResult? = unsupported()
+
+    @com.atruedev.kmpble.ExperimentalBleApi
+    override suspend fun readPhy(): PhyResult? = unsupported()
+
+    @com.atruedev.kmpble.ExperimentalBleApi
+    override val phyUpdate: Flow<PhyUpdate> = unsupported()
 
     override suspend fun openL2capChannel(
         psm: Int,

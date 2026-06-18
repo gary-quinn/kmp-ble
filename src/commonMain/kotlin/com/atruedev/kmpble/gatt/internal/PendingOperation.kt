@@ -34,6 +34,8 @@ internal sealed interface PendingOp<T> {
     data object MtuRequest : PendingOp<Int>
 
     data object PhyUpdate : PendingOp<PhyUpdateResult>
+
+    data object PhyRead : PendingOp<PhyUpdateResult>
 }
 
 internal data class PhyUpdateResult(

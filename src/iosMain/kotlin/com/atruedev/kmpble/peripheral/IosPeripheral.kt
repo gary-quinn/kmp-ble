@@ -7,6 +7,7 @@ import com.atruedev.kmpble.bonding.BondState
 import com.atruedev.kmpble.connection.ConnectionOptions
 import com.atruedev.kmpble.connection.ConnectionPriority
 import com.atruedev.kmpble.connection.Phy
+import com.atruedev.kmpble.connection.PhyUpdate
 import com.atruedev.kmpble.connection.ReconnectionStrategy
 import com.atruedev.kmpble.connection.State
 import com.atruedev.kmpble.connection.internal.ConnectionEvent
@@ -44,6 +45,7 @@ import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import platform.CoreBluetooth.CBCharacteristic
@@ -351,6 +353,15 @@ public class IosPeripheral(
         checkNotClosed()
         return null
     }
+
+    @ExperimentalBleApi
+    override suspend fun readPhy(): PhyResult? {
+        checkNotClosed()
+        return null
+    }
+
+    @ExperimentalBleApi
+    override val phyUpdate: Flow<PhyUpdate> = emptyFlow()
 
     override suspend fun openL2capChannel(
         psm: Int,

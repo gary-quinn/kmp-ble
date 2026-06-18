@@ -2,6 +2,7 @@ package com.atruedev.kmpble.testing
 
 import com.atruedev.kmpble.connection.ConnectionPriority
 import com.atruedev.kmpble.connection.Phy
+import com.atruedev.kmpble.connection.PhyUpdate
 import com.atruedev.kmpble.connection.State
 import com.atruedev.kmpble.error.BleException
 import com.atruedev.kmpble.error.GattError
@@ -23,6 +24,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.FlowCollector
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
@@ -41,6 +43,28 @@ internal class FakeGattResponder(
     private val cccdWritesState: MutableStateFlow<List<FakePeripheral.CccdWrite>>,
     private val closedFlag: () -> Boolean,
 ) {
+    private val _phyUpdate = MutableSharedFlow<PhyUpdate>(extraBufferCapacity = 16)
+    internal val phyUpdate: Flow<PhyUpdate> = _phyUpdate
+
+    private var configuredTxPhy: Phy = Phy.Le1M
+    private var configuredRxPhy: Phy = Phy.Le1M
+
+    /** Configure the PHY values that [readPhy] returns. */
+    internal fun configurePhy(
+        tx: Phy,
+        rx: Phy,
+    ) {
+        configuredTxPhy = tx
+        configuredRxPhy = rx
+    }
+
+    internal suspend fun emitPhyUpdate(
+        tx: Phy,
+        rx: Phy,
+    ) {
+        _phyUpdate.emit(PhyUpdate(tx, rx))
+    }
+
     private fun checkNotClosed() {
         check(!closedFlag()) { "Peripheral is closed" }
     }
@@ -251,5 +275,11 @@ internal class FakeGattResponder(
         checkNotClosed()
         checkConnected()
         return PhyResult(tx, rx)
+    }
+
+    suspend fun readPhy(): PhyResult? {
+        checkNotClosed()
+        checkConnected()
+        return PhyResult(configuredTxPhy, configuredRxPhy)
     }
 }
