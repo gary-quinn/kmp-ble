@@ -155,6 +155,7 @@ internal class AndroidGattServer(
                         try {
                             state.awaitNotifySend(server, target, nativeChar, dataBytes, confirm = false)
                         } catch (e: Exception) {
+                            if (e is CancellationException) throw e
                             logEvent(BleLogEvent.Error(Identifier(target.address), "notify failed", e))
                         }
                     }
