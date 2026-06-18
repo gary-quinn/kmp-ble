@@ -143,12 +143,18 @@ jobs:
           echo "date=$(date +%Y-%m-%d)" >> $GITHUB_OUTPUT
           PREV_TAG=$(git tag --sort=-version:refname | grep -v "^${{ needs.publish.outputs.tag }}$" | head -1)
           echo "prev_tag=$PREV_TAG" >> $GITHUB_OUTPUT
+          # Use the last docs-update merge commit as the changelog baseline.
+          # This avoids re-including PRs already listed in the previous version's
+          # CHANGELOG section (those PRs were merged after the previous tag but
+          # documented in that version's auto-update-docs commit).
+          DOCS_BASELINE=$(git log --oneline --grep="^docs: update docs for v" --merges --format="%H" | head -1)
+          echo "docs_baseline=${DOCS_BASELINE:-$PREV_TAG}" >> $GITHUB_OUTPUT
 
       - name: Generate changelog entries from merged PRs
         id: changelog
         uses: gary-quinn/shared-actions/changelog@4975dde119744969d162d01444f13e2515c639c2 # v1
         with:
-          prev_tag: ${{ steps.meta.outputs.prev_tag }}
+          prev_tag: ${{ steps.meta.outputs.docs_baseline }}
           current_tag: ${{ needs.publish.outputs.tag }}
 
       - name: Update README.md
