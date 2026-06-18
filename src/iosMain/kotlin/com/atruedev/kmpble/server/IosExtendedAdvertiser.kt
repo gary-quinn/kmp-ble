@@ -84,13 +84,14 @@ internal class IosExtendedAdvertiser(
             setId
         }
 
-    override suspend fun stopAdvertisingSet(setId: Int): Unit =
+    override suspend fun stopAdvertisingSet(setId: Int) {
         withContext(serialDispatcher) {
             if (setId !in _activeSets.value) return@withContext
             manager.stopAdvertising()
             _activeSets.update { it - setId }
             logEvent(BleLogEvent.ServerLifecycle("extended advertising set $setId stopped"))
         }
+    }
 
     override fun close() {
         if (isClosed) return

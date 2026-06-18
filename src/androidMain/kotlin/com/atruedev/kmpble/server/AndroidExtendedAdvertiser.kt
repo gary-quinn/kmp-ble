@@ -103,7 +103,7 @@ internal class AndroidExtendedAdvertiser(
         return deferred.await()
     }
 
-    override suspend fun stopAdvertisingSet(setId: Int): Unit =
+    override suspend fun stopAdvertisingSet(setId: Int) {
         withContext(serialDispatcher) {
             val handle = advertisingSets.remove(setId) ?: return@withContext
             val advertiser = getLeAdvertiser()
@@ -115,6 +115,7 @@ internal class AndroidExtendedAdvertiser(
             _activeSets.update { it - setId }
             logEvent(BleLogEvent.ServerLifecycle("extended advertising set $setId stopped"))
         }
+    }
 
     override fun close() {
         // runBlocking safe - uses limitedParallelism(1) dispatcher, no circular wait

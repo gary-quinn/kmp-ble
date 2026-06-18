@@ -63,7 +63,7 @@ internal class AndroidAdvertiser(
             }
         }
 
-    override suspend fun startAdvertising(config: AdvertiseConfig): Unit =
+    override suspend fun startAdvertising(config: AdvertiseConfig) {
         withContext(serialDispatcher) {
             if (_isAdvertising.value || isStarting) {
                 throw AdvertiserException.AlreadyAdvertising()
@@ -128,12 +128,14 @@ internal class AndroidAdvertiser(
                 throw AdvertiserException.StartFailed("Missing BLUETOOTH_ADVERTISE permission", e)
             }
         }
+    }
 
-    override suspend fun stopAdvertising(): Unit =
+    override suspend fun stopAdvertising() {
         withContext(serialDispatcher) {
             stopInternal()
             logEvent(BleLogEvent.ServerLifecycle("advertising stopped"))
         }
+    }
 
     override fun close() {
         // runBlocking safe - uses limitedParallelism(1) dispatcher, no circular wait
