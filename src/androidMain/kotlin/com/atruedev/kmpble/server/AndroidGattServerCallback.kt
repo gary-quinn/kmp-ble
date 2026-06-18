@@ -14,9 +14,9 @@ import android.bluetooth.BluetoothGattService
  * onto [state.scope] for serialized processing on [state.dispatcher].
  *
  * Logic is extracted into focused handler files:
- * - [AndroidGattServerConnectionHandlers.kt] — connection, MTU
- * - [AndroidGattServerReadHandlers.kt] — read, descriptor read, prepared writes
- * - [AndroidGattServerWriteHandlers.kt] — write, descriptor write, execute write, CCCD
+ * - [AndroidGattServerConnectionHandlers.kt] - connection, MTU
+ * - [AndroidGattServerReadHandlers.kt] - read, descriptor read, prepared writes
+ * - [AndroidGattServerWriteHandlers.kt] - write, descriptor write, execute write, CCCD
  *
  * This file wires the callback overrides to their handlers.
  */
