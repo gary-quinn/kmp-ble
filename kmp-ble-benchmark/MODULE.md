@@ -2,7 +2,7 @@
 
 Performance measurement and telemetry utilities for kmp-ble.
 
-## Modules
+The module provides:
 
 - **BleBenchmark** - One-shot benchmark for BLE operations (connect, read, write, discovery, throughput)
 - **LatencyTracker** - Multi-sample latency collection with percentile statistics (p50, p95, p99)
