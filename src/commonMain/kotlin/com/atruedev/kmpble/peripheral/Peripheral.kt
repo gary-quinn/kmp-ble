@@ -5,6 +5,8 @@ import com.atruedev.kmpble.Identifier
 import com.atruedev.kmpble.bonding.BondRemovalResult
 import com.atruedev.kmpble.bonding.BondState
 import com.atruedev.kmpble.connection.ConnectionOptions
+import com.atruedev.kmpble.connection.ConnectionParameterUpdateResult
+import com.atruedev.kmpble.connection.ConnectionParameters
 import com.atruedev.kmpble.connection.ConnectionPriority
 import com.atruedev.kmpble.connection.Phy
 import com.atruedev.kmpble.connection.PhyUpdate
@@ -149,6 +151,34 @@ public interface Peripheral : AutoCloseable {
      */
     @ExperimentalBleApi
     public suspend fun requestConnectionPriority(priority: ConnectionPriority): Boolean
+
+    /**
+     * Request updated LE connection parameters from the central.
+     *
+     * The central may accept, reject, or negotiate alternative values. The
+     * returned [ConnectionParameterUpdateResult] reflects the actual
+     * negotiated parameters reported by the platform.
+     *
+     * ## Platform notes
+     *
+     * - **Android**: Maps to `BluetoothGatt.requestConnectionPriority()` with
+     *   the closest supported priority level to the requested interval range.
+     *   The `onConnectionUpdated` callback (API 29+) reports the actual
+     *   negotiated values. Returns `null` on older API levels where the
+     *   callback is unavailable.
+     * - **iOS**: CoreBluetooth does not expose connection parameter
+     *   negotiation through public API. Returns `null`.
+     *
+     * Use this instead of [requestConnectionPriority] when you need specific
+     * interval/latency/timeout control (Nordic, TI, and ST BLE stacks expose
+     * equivalent primitives).
+     *
+     * @param params Desired connection parameters.
+     * @return [ConnectionParameterUpdateResult] with the negotiated values,
+     *   or `null` if the platform does not support the operation.
+     */
+    @ExperimentalBleApi
+    public suspend fun requestConnectionParameterUpdate(params: ConnectionParameters): ConnectionParameterUpdateResult?
 
     /**
      * Request preferred PHYs for the LE connection (BLE 5.0).

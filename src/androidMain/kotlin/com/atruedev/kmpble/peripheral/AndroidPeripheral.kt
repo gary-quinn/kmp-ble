@@ -13,6 +13,8 @@ import com.atruedev.kmpble.Identifier
 import com.atruedev.kmpble.bonding.BondRemovalResult
 import com.atruedev.kmpble.bonding.BondState
 import com.atruedev.kmpble.connection.ConnectionOptions
+import com.atruedev.kmpble.connection.ConnectionParameterUpdateResult
+import com.atruedev.kmpble.connection.ConnectionParameters
 import com.atruedev.kmpble.connection.ConnectionPriority
 import com.atruedev.kmpble.connection.Phy
 import com.atruedev.kmpble.connection.PhyUpdate
@@ -52,6 +54,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
@@ -306,6 +309,29 @@ public class AndroidPeripheral internal constructor(
             }
         return peripheralContext.gattQueue.enqueue {
             bridge.requestConnectionPriority(androidPriority)
+        }
+    }
+
+    @ExperimentalBleApi
+    override suspend fun requestConnectionParameterUpdate(
+        params: ConnectionParameters,
+    ): ConnectionParameterUpdateResult? {
+        checkNotClosed()
+        val androidPriority = params.intervalRange.toAndroidConnectionPriority()
+        return peripheralContext.gattQueue.enqueue {
+            val success = bridge.requestConnectionPriority(androidPriority)
+            if (!success) return@enqueue null
+            val result =
+                pendingOps.awaitGatt(
+                    PendingOp.ConnectionParameterUpdate,
+                    "requestConnectionParameterUpdate",
+                ) { /* callback-driven, no extra native call needed beyond requestConnectionPriority */ }
+            if (!result.status.isSuccess()) return@enqueue null
+            ConnectionParameterUpdateResult(
+                negotiatedInterval = (result.interval * 1.25).milliseconds,
+                negotiatedLatency = result.latency,
+                negotiatedSupervisionTimeout = (result.timeout * 10).milliseconds,
+            )
         }
     }
 

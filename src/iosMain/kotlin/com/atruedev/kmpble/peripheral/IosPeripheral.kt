@@ -5,6 +5,8 @@ import com.atruedev.kmpble.Identifier
 import com.atruedev.kmpble.bonding.BondRemovalResult
 import com.atruedev.kmpble.bonding.BondState
 import com.atruedev.kmpble.connection.ConnectionOptions
+import com.atruedev.kmpble.connection.ConnectionParameterUpdateResult
+import com.atruedev.kmpble.connection.ConnectionParameters
 import com.atruedev.kmpble.connection.ConnectionPriority
 import com.atruedev.kmpble.connection.Phy
 import com.atruedev.kmpble.connection.PhyUpdate
@@ -343,6 +345,14 @@ public class IosPeripheral(
     override suspend fun requestConnectionPriority(priority: ConnectionPriority): Boolean {
         checkNotClosed()
         return false
+    }
+
+    @ExperimentalBleApi
+    override suspend fun requestConnectionParameterUpdate(
+        params: ConnectionParameters,
+    ): ConnectionParameterUpdateResult? {
+        checkNotClosed()
+        return null
     }
 
     @ExperimentalBleApi

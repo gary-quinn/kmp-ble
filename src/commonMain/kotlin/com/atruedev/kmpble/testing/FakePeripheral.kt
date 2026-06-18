@@ -2,6 +2,8 @@ package com.atruedev.kmpble.testing
 
 import com.atruedev.kmpble.Identifier
 import com.atruedev.kmpble.connection.ConnectionOptions
+import com.atruedev.kmpble.connection.ConnectionParameterUpdateResult
+import com.atruedev.kmpble.connection.ConnectionParameters
 import com.atruedev.kmpble.connection.ConnectionPriority
 import com.atruedev.kmpble.connection.Phy
 import com.atruedev.kmpble.connection.PhyUpdate
@@ -38,6 +40,9 @@ public class FakePeripheral internal constructor(
     private val onConnectHandler: suspend () -> Result<Unit>,
     private val onDisconnectHandler: suspend () -> Result<Unit>,
     private val onL2capHandler: L2capHandler?,
+    private val onConnectionParameterUpdateHandler: (
+        suspend (ConnectionParameters) -> ConnectionParameterUpdateResult?
+    )? = null,
     private val observationDispatcher: CoroutineDispatcher =
         Dispatchers.Default.limitedParallelism(
             1,
@@ -209,6 +214,12 @@ public class FakePeripheral internal constructor(
     @com.atruedev.kmpble.ExperimentalBleApi
     override suspend fun requestConnectionPriority(priority: ConnectionPriority): Boolean =
         gattResponder.requestConnectionPriority(priority)
+
+    @com.atruedev.kmpble.ExperimentalBleApi
+    override suspend fun requestConnectionParameterUpdate(
+        params: ConnectionParameters,
+    ): ConnectionParameterUpdateResult? =
+        gattResponder.requestConnectionParameterUpdate(params, onConnectionParameterUpdateHandler)
 
     @com.atruedev.kmpble.ExperimentalBleApi
     override suspend fun setPreferredPhy(

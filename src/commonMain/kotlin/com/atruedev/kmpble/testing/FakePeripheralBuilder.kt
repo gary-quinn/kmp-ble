@@ -1,6 +1,8 @@
 package com.atruedev.kmpble.testing
 
 import com.atruedev.kmpble.Identifier
+import com.atruedev.kmpble.connection.ConnectionParameterUpdateResult
+import com.atruedev.kmpble.connection.ConnectionParameters
 import com.atruedev.kmpble.error.BleError
 import com.atruedev.kmpble.gatt.Characteristic
 import com.atruedev.kmpble.gatt.DiscoveredService
@@ -36,6 +38,11 @@ public class FakePeripheralBuilder {
     private var connectHandler: suspend () -> Result<Unit> = { Result.success(Unit) }
     private var disconnectHandler: suspend () -> Result<Unit> = { Result.success(Unit) }
     internal var l2capHandler: L2capHandler? = null
+    internal var onConnectionParameterUpdate: (
+        suspend (
+            ConnectionParameters,
+        ) -> ConnectionParameterUpdateResult?
+    )? = null
     public var identifier: Identifier = Identifier("fake-peripheral")
     internal var observationDispatcher: CoroutineDispatcher = Dispatchers.Default.limitedParallelism(1)
 
@@ -72,6 +79,13 @@ public class FakePeripheralBuilder {
         l2capHandler = handler
     }
 
+    /** Configure the response to [Peripheral.requestConnectionParameterUpdate] calls. */
+    public fun onConnectionParameterUpdate(
+        handler: suspend (ConnectionParameters) -> ConnectionParameterUpdateResult?,
+    ) {
+        onConnectionParameterUpdate = handler
+    }
+
     /** Set the dispatcher for the ObservationManager. Useful for testing with TestDispatcher. */
     public fun observationDispatcher(dispatcher: CoroutineDispatcher): FakePeripheralBuilder {
         observationDispatcher = dispatcher
@@ -86,6 +100,7 @@ public class FakePeripheralBuilder {
             onConnectHandler = connectHandler,
             onDisconnectHandler = disconnectHandler,
             onL2capHandler = l2capHandler,
+            onConnectionParameterUpdateHandler = onConnectionParameterUpdate,
             observationDispatcher = observationDispatcher,
         )
 }

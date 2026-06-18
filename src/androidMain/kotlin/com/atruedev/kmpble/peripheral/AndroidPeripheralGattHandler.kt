@@ -14,6 +14,7 @@ import com.atruedev.kmpble.gatt.Descriptor
 import com.atruedev.kmpble.gatt.DiscoveredService
 import com.atruedev.kmpble.gatt.WriteType
 import com.atruedev.kmpble.gatt.internal.CCCD_UUID
+import com.atruedev.kmpble.gatt.internal.ConnectionUpdateResult
 import com.atruedev.kmpble.gatt.internal.DISABLE_NOTIFICATION_VALUE
 import com.atruedev.kmpble.gatt.internal.ENABLE_INDICATION_VALUE
 import com.atruedev.kmpble.gatt.internal.ENABLE_NOTIFICATION_VALUE
@@ -62,6 +63,7 @@ internal fun AndroidPeripheral.handleGattEvent(event: GattCallbackEvent) {
             is GattCallbackEvent.ReadRemoteRssi -> handleRssiResult(event)
             is GattCallbackEvent.PhyUpdated -> handlePhyUpdated(event)
             is GattCallbackEvent.PhyRead -> handlePhyRead(event)
+            is GattCallbackEvent.ConnectionUpdated -> handleConnectionUpdated(event)
         }
     }
 }
@@ -185,6 +187,21 @@ internal suspend fun AndroidPeripheral.enableNotifications(characteristic: Chara
                 bridge.writeDescriptor(cccd, value)
             }
         if (!status.isSuccess()) throw BleException(GattError("enableNotifications", status))
+    }
+}
+
+/** Handle the `onConnectionUpdated` callback from Android (API 29+). */
+internal fun AndroidPeripheral.handleConnectionUpdated(event: GattCallbackEvent.ConnectionUpdated) {
+    if (pendingOps.has(PendingOp.ConnectionParameterUpdate)) {
+        pendingOps.complete(
+            PendingOp.ConnectionParameterUpdate,
+            ConnectionUpdateResult(
+                interval = event.interval,
+                latency = event.latency,
+                timeout = event.timeout,
+                status = event.status.toGattStatus(),
+            ),
+        )
     }
 }
 
