@@ -16,8 +16,8 @@ It demonstrates the complete BLE lifecycle:
 6. **Disconnect** and clean up
 
 Two patterns are provided:
-- `bleQuickstartHeartRate()` — continuous monitoring with observations
-- `bleQuickstartReadOnce()` — scan, connect, read a single value, disconnect
+- `bleQuickstartHeartRate()` - continuous monitoring with observations
+- `bleQuickstartReadOnce()` - scan, connect, read a single value, disconnect
 
 ## Navigation
 

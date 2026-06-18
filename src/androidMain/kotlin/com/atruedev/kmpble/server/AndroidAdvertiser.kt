@@ -136,7 +136,7 @@ internal class AndroidAdvertiser(
         }
 
     override fun close() {
-        // runBlocking safe — uses limitedParallelism(1) dispatcher, no circular wait
+        // runBlocking safe - uses limitedParallelism(1) dispatcher, no circular wait
         runBlocking(serialDispatcher) {
             stopInternal()
             advertiser = null
