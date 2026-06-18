@@ -26,6 +26,27 @@ _Changes on `main` that have not yet been tagged for release._
 
 ---
 
+## [0.8.5] - 2026-06-18
+
+### Added
+- feat(benchmark): add BleBenchmark utility for operation latency and throughput
+- feat(sample): add BleQuickstart end-to-end code examples and update README
+
+### Changed
+- test(benchmark): add cross-platform benchmark comparison tests
+- chore(release): prep v0.8.5 -- version bump, Package.swift, docs
+
+### Fixed
+- fix(ios): conditionally implement willRestoreState only when state restoration enabled
+- fix(kmp-314): replace qualified kotlinx.coroutines names with imports
+- fix(server): add WHY comments for runBlocking in close() methods
+
+### Other
+- docs(changelog): populate v0.8.4 release notes with all changes since v0.8.3
+
+
+---
+
 ## [0.8.4] - 2026-06-18
 
 ### Added
@@ -631,6 +652,7 @@ _No notable changes._
 ---
 
 [Unreleased]: https://github.com/gary-quinn/kmp-ble/compare/v0.8.5...HEAD
+[0.8.5]: https://github.com/gary-quinn/kmp-ble/compare/v0.8.4...v0.8.5
 [0.8.5]: https://github.com/gary-quinn/kmp-ble/compare/v0.8.4...v0.8.5
 [0.8.4]: https://github.com/gary-quinn/kmp-ble/compare/v0.8.3...v0.8.4
 [0.8.3]: https://github.com/gary-quinn/kmp-ble/compare/v0.8.2...v0.8.3
