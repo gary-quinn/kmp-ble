@@ -19,12 +19,14 @@ public sealed interface ConnectionError : BleError
 public data class ConnectionFailed(
     val reason: String,
     val platformCode: Int? = null,
+    val recoveryHint: String = "Check Bluetooth is enabled and the peripheral is in range.",
 ) : ConnectionError
 
 /** An established connection was lost unexpectedly. */
 public data class ConnectionLost(
     val reason: String,
     val platformCode: Int? = null,
+    val recoveryHint: String = "Connection lost. Move closer and retry.",
 ) : ConnectionError
 
 // --- GATT operation errors ---
@@ -36,6 +38,7 @@ public sealed interface GattOperationError : BleError
 public data class GattError(
     val operation: String,
     val status: GattStatus,
+    val recoveryHint: String = "GATT operation failed. Verify the characteristic exists and supports this operation.",
 ) : GattOperationError
 
 // --- Authentication / encryption errors (composable with GattOperationError) ---
@@ -47,6 +50,7 @@ public sealed interface AuthError : BleError
 public data class AuthenticationFailed(
     val reason: String,
     val platformCode: Int? = null,
+    val recoveryHint: String = "Pairing failed. Forget and re-pair in Bluetooth settings.",
 ) : AuthError,
     GattOperationError
 
@@ -54,6 +58,7 @@ public data class AuthenticationFailed(
 public data class EncryptionFailed(
     val reason: String,
     val platformCode: Int? = null,
+    val recoveryHint: String = "Link encryption failed. Try bonding first, then access encrypted characteristics.",
 ) : AuthError,
     GattOperationError
 
@@ -66,17 +71,20 @@ public sealed interface OperationConstraintError : BleError
 public data class MtuExceeded(
     val attempted: Int,
     val maximum: Int,
+    val recoveryHint: String = "Payload exceeds negotiated MTU. Reduce payload size or request a larger MTU.",
 ) : OperationConstraintError
 
-/** A GATT characteristic or descriptor handle is stale - the peer disconnected or services were invalidated. */
+/** A GATT characteristic or descriptor handle is stale - the peripheral disconnected or services were invalidated. */
 public data class StaleGattHandle(
     val handleType: String,
     val uuid: String,
+    val recoveryHint: String = "GATT handle is stale. Reconnect and re-discover services.",
 ) : GattOperationError
 
 /** A catch-all for operation failures that don't fit a more specific category. */
 public data class OperationFailed(
     val message: String,
+    val recoveryHint: String = "Operation failed. Retry. If persistent, disconnect and reconnect to the peripheral.",
 ) : BleError
 
 /**
