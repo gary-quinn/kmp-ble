@@ -194,7 +194,7 @@ public abstract class BleConformanceTest {
                     .first { it.uuid == uuidFrom("2a37") }
 
             peripheral.write(char, writeData, WriteType.WithResponse)
-            // Write completes without throw — success
+            // Write completes without throw - success
             peripheral.close()
         }
 
