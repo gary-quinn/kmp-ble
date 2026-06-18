@@ -119,12 +119,12 @@ public class AndroidPeripheral internal constructor(
     }
 
     @OptIn(ExperimentalBleApi::class)
-    override suspend fun connect(options: ConnectionOptions): Unit {
+    override suspend fun connect(options: ConnectionOptions) {
         connectInternal(options)
     }
 
     @OptIn(ExperimentalBleApi::class)
-    override suspend fun disconnect(): Unit {
+    override suspend fun disconnect() {
         disconnectInternal()
     }
 
