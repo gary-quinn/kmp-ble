@@ -2,14 +2,11 @@ package com.atruedev.kmpble.server
 
 import com.atruedev.kmpble.BleData
 import com.atruedev.kmpble.Identifier
-import com.atruedev.kmpble.bleDataFromNSData
-import com.atruedev.kmpble.emptyBleData
 import com.atruedev.kmpble.error.GattStatus
 import com.atruedev.kmpble.internal.IosPeripheralManagerDelegate
 import com.atruedev.kmpble.internal.PeripheralManagerProvider
 import com.atruedev.kmpble.logging.BleLogEvent
 import com.atruedev.kmpble.logging.logEvent
-import com.atruedev.kmpble.scanner.uuidFrom
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
@@ -31,39 +28,17 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
-import platform.CoreBluetooth.CBATTErrorInsufficientAuthentication
-import platform.CoreBluetooth.CBATTErrorInsufficientAuthorization
-import platform.CoreBluetooth.CBATTErrorInsufficientEncryption
-import platform.CoreBluetooth.CBATTErrorInvalidAttributeValueLength
-import platform.CoreBluetooth.CBATTErrorInvalidOffset
-import platform.CoreBluetooth.CBATTErrorReadNotPermitted
-import platform.CoreBluetooth.CBATTErrorRequestNotSupported
-import platform.CoreBluetooth.CBATTErrorSuccess
-import platform.CoreBluetooth.CBATTErrorWriteNotPermitted
 import platform.CoreBluetooth.CBATTRequest
-import platform.CoreBluetooth.CBAttributePermissionsReadEncryptionRequired
-import platform.CoreBluetooth.CBAttributePermissionsReadable
-import platform.CoreBluetooth.CBAttributePermissionsWriteEncryptionRequired
-import platform.CoreBluetooth.CBAttributePermissionsWriteable
 import platform.CoreBluetooth.CBCentral
-import platform.CoreBluetooth.CBCharacteristic
 import platform.CoreBluetooth.CBCharacteristicPropertyIndicate
-import platform.CoreBluetooth.CBCharacteristicPropertyNotify
-import platform.CoreBluetooth.CBCharacteristicPropertyRead
-import platform.CoreBluetooth.CBCharacteristicPropertyWrite
-import platform.CoreBluetooth.CBCharacteristicPropertyWriteWithoutResponse
 import platform.CoreBluetooth.CBMutableCharacteristic
-import platform.CoreBluetooth.CBMutableService
 import platform.CoreBluetooth.CBPeripheralManager
 import platform.CoreBluetooth.CBPeripheralManagerStatePoweredOn
-import platform.CoreBluetooth.CBUUID
 import platform.Foundation.NSData
 import platform.Foundation.NSError
 import kotlin.concurrent.AtomicInt
 import kotlin.concurrent.Volatile
 import kotlin.time.Duration
-import kotlin.time.Duration.Companion.minutes
-import kotlin.time.Duration.Companion.seconds
 import kotlin.uuid.Uuid
 
 /**
@@ -126,28 +101,28 @@ internal class IosGattServer(
     private val centralSweepInterval: Duration = DEFAULT_CENTRAL_SWEEP_INTERVAL,
 ) : GattServer {
     private val dispatcher: CoroutineDispatcher = Dispatchers.Default.limitedParallelism(1)
-    private val scope = CoroutineScope(SupervisorJob() + dispatcher + CoroutineName("IosGattServer"))
+    internal val scope = CoroutineScope(SupervisorJob() + dispatcher + CoroutineName("IosGattServer"))
 
     private val _connections = MutableStateFlow<List<ServerConnection>>(emptyList())
     override val connections: StateFlow<List<ServerConnection>> = _connections.asStateFlow()
 
-    private val _connectionEvents = MutableSharedFlow<ServerConnectionEvent>(extraBufferCapacity = 64)
+    internal val _connectionEvents = MutableSharedFlow<ServerConnectionEvent>(extraBufferCapacity = 64)
     override val connectionEvents: Flow<ServerConnectionEvent> = _connectionEvents.asSharedFlow()
 
     // --- All mutable collections below accessed ONLY on [dispatcher] ---
 
-    private val connectedCentrals = IdleTracker<CBCentral>(centralIdleTimeout)
-    private val subscriptions = mutableMapOf<String, MutableSet<String>>()
-    private val readHandlers = mutableMapOf<Uuid, suspend (Identifier) -> BleData>()
-    private val writeHandlers =
+    internal val connectedCentrals = IdleTracker<CBCentral>(centralIdleTimeout)
+    internal val subscriptions = mutableMapOf<String, MutableSet<String>>()
+    internal val readHandlers = mutableMapOf<Uuid, suspend (Identifier) -> BleData>()
+    internal val writeHandlers =
         mutableMapOf<Uuid, suspend (Identifier, BleData, Boolean) -> GattStatus?>()
-    private val characteristicCache = mutableMapOf<Uuid, CBMutableCharacteristic>()
+    internal val characteristicCache = mutableMapOf<Uuid, CBMutableCharacteristic>()
 
     @Volatile
-    private var readyToUpdate = CompletableDeferred<Unit>().apply { complete(Unit) }
+    internal var readyToUpdate = CompletableDeferred<Unit>().apply { complete(Unit) }
 
     @Volatile
-    private var pendingServiceAdd: CompletableDeferred<NSError?>? = null
+    internal var pendingServiceAdd: CompletableDeferred<NSError?>? = null
 
     private val isOpen = AtomicInt(0)
     private val isClosed = AtomicInt(0)
@@ -209,7 +184,7 @@ internal class IosGattServer(
         }
 
         for (serviceDef in serviceDefinitions) {
-            val nativeService = buildNativeService(serviceDef)
+            val nativeService = buildNativeService(serviceDef, characteristicCache)
             val deferred = CompletableDeferred<NSError?>()
             pendingServiceAdd = deferred
             manager.addService(nativeService)
@@ -323,213 +298,18 @@ internal class IosGattServer(
         logEvent(BleLogEvent.ServerLifecycle("closed"))
     }
 
-    // --- Delegate callback handlers (called on GCD queue, dispatch to scope) ---
-
-    private fun handleServiceAdded(error: NSError?) {
-        pendingServiceAdd?.complete(error)
-    }
-
-    private fun handleReadRequest(
-        peripheral: CBPeripheralManager,
-        request: CBATTRequest,
-    ) {
-        scope.launch {
-            trackCentral(request.central)
-
-            val handler = readHandlers[request.charUuid]
-            if (handler == null) {
-                logEvent(
-                    BleLogEvent.ServerRequest(
-                        request.centralId,
-                        "read-rejected (no handler)",
-                        request.charUuid,
-                        GattStatus.ReadNotPermitted,
-                    ),
-                )
-                peripheral.respondToRequest(request, withResult = CBATTErrorRequestNotSupported)
-                return@launch
-            }
-
-            try {
-                val bleData = handler(request.centralId)
-                val offset = request.offset.toInt()
-
-                val responseNsData =
-                    when {
-                        offset >= bleData.size && offset > 0 -> emptyBleData().nsData
-                        offset > 0 -> bleData.slice(offset, bleData.size).nsData
-                        else -> bleData.nsData
-                    }
-                request.value = responseNsData
-                peripheral.respondToRequest(request, withResult = CBATTErrorSuccess)
-
-                logEvent(
-                    BleLogEvent.ServerRequest(
-                        request.centralId,
-                        "read (${responseNsData.length.toInt()}B, offset=$offset)",
-                        request.charUuid,
-                        GattStatus.Success,
-                    ),
-                )
-            } catch (e: Exception) {
-                if (e is CancellationException) throw e
-                logEvent(
-                    BleLogEvent.ServerRequest(
-                        request.centralId,
-                        "read-failed (handler threw)",
-                        request.charUuid,
-                        GattStatus.Failure,
-                    ),
-                )
-                peripheral.respondToRequest(request, withResult = CB_ATT_ERROR_UNLIKELY)
-            }
-        }
-    }
-
-    private fun handleWriteRequests(
-        peripheral: CBPeripheralManager,
-        rawRequests: List<*>,
-    ) {
-        val requests = rawRequests.filterIsInstance<CBATTRequest>()
-        if (requests.isEmpty()) return
-
-        val firstRequest = requests.first()
-
-        scope.launch {
-            // CoreBluetooth delivers fragmented writes as a batch with non-zero offsets
-            val hasFragments = requests.any { it.offset.toInt() > 0 }
-            val writes: List<Pair<Uuid, BleData>> =
-                if (hasFragments) {
-                    val assembled = assembleFragmentedWrites(requests)
-                    if (assembled == null) {
-                        peripheral.respondToRequest(
-                            firstRequest,
-                            withResult = CBATTErrorInvalidAttributeValueLength,
-                        )
-                        return@launch
-                    }
-                    assembled
-                } else {
-                    requests.map { request ->
-                        val data = request.value?.let(::bleDataFromNSData) ?: emptyBleData()
-                        request.charUuid to data
-                    }
-                }
-
-            val errorCode = dispatchWrites(requests.first().centralId, requests.first().central, writes)
-            peripheral.respondToRequest(firstRequest, withResult = errorCode ?: CBATTErrorSuccess)
-        }
-    }
-
-    /**
-     * Dispatch assembled writes to handlers. Returns the first error code, or null on success.
-     */
-    private suspend fun dispatchWrites(
-        centralId: Identifier,
-        central: CBCentral,
-        writes: List<Pair<Uuid, BleData>>,
-    ): Long? {
-        trackCentral(central)
-
-        for ((charUuid, data) in writes) {
-            val handler = writeHandlers[charUuid]
-            if (handler == null) {
-                logEvent(
-                    BleLogEvent.ServerRequest(
-                        centralId,
-                        "write-rejected (no handler)",
-                        charUuid,
-                        GattStatus.WriteNotPermitted,
-                    ),
-                )
-                return CBATTErrorWriteNotPermitted
-            }
-
-            try {
-                val status = handler(centralId, data, true)
-                if (status != null && status != GattStatus.Success) {
-                    return status.toCBATTError()
-                }
-                logEvent(BleLogEvent.ServerRequest(centralId, "write (${data.size}B)", charUuid, status))
-            } catch (e: Exception) {
-                if (e is CancellationException) throw e
-                logEvent(
-                    BleLogEvent.ServerRequest(centralId, "write-failed (handler threw)", charUuid, GattStatus.Failure),
-                )
-                return CB_ATT_ERROR_UNLIKELY
-            }
-        }
-        return null
-    }
-
-    private fun assembleFragmentedWrites(requests: List<CBATTRequest>): List<Pair<Uuid, BleData>>? {
-        val fragments =
-            requests.map { request ->
-                val nsData = request.value
-                val bytes = if (nsData != null) bleDataFromNSData(nsData).toByteArray() else byteArrayOf()
-                WriteFragment(request.charUuid, request.offset.toInt(), bytes)
-            }
-        return when (val result = assembleWriteFragments(fragments)) {
-            is AssemblyResult.Success -> result.writes.map { it.charUuid to BleData(it.data) }
-            is AssemblyResult.PayloadTooLarge -> {
-                logEvent(
-                    BleLogEvent.ServerRequest(
-                        requests.first().centralId,
-                        "write-rejected (${result.actualSize}B exceeds limit)",
-                        result.charUuid,
-                        GattStatus.InvalidAttributeLength,
-                    ),
-                )
-                null
-            }
-        }
-    }
-
-    private fun handleSubscribe(
-        central: CBCentral,
-        characteristic: CBCharacteristic,
-    ) {
-        scope.launch {
-            val charUuid = characteristic.UUID.UUIDString
-            val centralId = Identifier(central.id)
-            val isNewCentral = trackCentral(central)
-
-            subscriptions.getOrPut(charUuid) { mutableSetOf() }.add(central.id)
-
-            logEvent(
-                BleLogEvent.ServerClientEvent(centralId, "subscribed to $charUuid"),
-            )
-
-            if (isNewCentral) {
-                if (!_connectionEvents.tryEmit(ServerConnectionEvent.Connected(centralId))) {
-                    logEvent(
-                        BleLogEvent.Error(
-                            centralId,
-                            "Connection event buffer full, event dropped",
-                            null,
-                        ),
-                    )
-                }
-            }
-        }
-    }
-
-    private fun handleReadyToUpdate() {
-        readyToUpdate.complete(Unit)
-    }
-
     // --- Internal helpers ---
 
-    private fun setDelegateCallbacks(active: Boolean) {
-        delegate.onServiceAdded = if (active) ::handleServiceAdded else null
-        delegate.onReadRequest = if (active) ::handleReadRequest else null
-        delegate.onWriteRequests = if (active) ::handleWriteRequests else null
-        delegate.onSubscribe = if (active) ::handleSubscribe else null
-        delegate.onReadyToUpdate = if (active) ::handleReadyToUpdate else null
+    internal fun setDelegateCallbacks(active: Boolean) {
+        delegate.onServiceAdded = if (active) this::handleServiceAdded else null
+        delegate.onReadRequest = if (active) this::handleReadRequest else null
+        delegate.onWriteRequests = if (active) this::handleWriteRequests else null
+        delegate.onSubscribe = if (active) this::handleSubscribe else null
+        delegate.onReadyToUpdate = if (active) this::handleReadyToUpdate else null
     }
 
     /** Track or refresh a central. Returns `true` if newly discovered. */
-    private fun trackCentral(central: CBCentral): Boolean {
+    internal fun trackCentral(central: CBCentral): Boolean {
         val id = central.id
         val isNew = connectedCentrals.trackOrRefresh(id, central)
         if (isNew) {
@@ -600,85 +380,11 @@ internal class IosGattServer(
         throw ServerException.NotifyFailed("Transmit queue full after $MAX_NOTIFY_RETRIES retries")
     }
 
-    private fun buildNativeService(definition: ServiceDefinition): CBMutableService {
-        val service =
-            CBMutableService(
-                type = CBUUID.UUIDWithString(definition.uuid.toString()),
-                primary = true,
-            )
-        val nativeChars: List<Any> =
-            definition.characteristics.map { charDef ->
-                val properties = buildCBProperties(charDef.properties)
-                val permissions = buildCBPermissions(charDef.permissions)
-                val char =
-                    CBMutableCharacteristic(
-                        type = CBUUID.UUIDWithString(charDef.uuid.toString()),
-                        properties = properties,
-                        value = null,
-                        permissions = permissions,
-                    )
-                characteristicCache[charDef.uuid] = char
-                char
-            }
-        service.setCharacteristics(nativeChars)
-        return service
-    }
-
     private fun checkOpen() {
         if (isOpen.value == 0) throw ServerException.NotOpen()
     }
 
-    private companion object {
-        const val POWER_ON_TIMEOUT_MS = 10_000L
-        const val SERVICE_ADD_TIMEOUT_MS = 10_000L
-        const val MAX_NOTIFY_RETRIES = 3
-        val NOTIFY_TIMEOUT = 5.seconds
-        val DEFAULT_CENTRAL_IDLE_TIMEOUT = 5.minutes
-        val DEFAULT_CENTRAL_SWEEP_INTERVAL = 1.minutes
-
+    internal companion object {
         val instanceLock = AtomicInt(0)
     }
 }
-
-// --- Private extensions to reduce CBATTRequest/CBCentral identity boilerplate ---
-
-private val CBATTRequest.charUuid: Uuid get() = uuidFrom(characteristic.UUID.UUIDString)
-private val CBATTRequest.centralId: Identifier get() = Identifier(central.identifier.UUIDString)
-private val CBCentral.id: String get() = identifier.UUIDString
-
-private const val CB_ATT_ERROR_UNLIKELY: Long = 0x0E
-
-private fun buildCBProperties(props: ServerCharacteristic.Properties): ULong {
-    var flags: ULong = 0u
-    if (props.read) flags = flags or CBCharacteristicPropertyRead
-    if (props.write) flags = flags or CBCharacteristicPropertyWrite
-    if (props.writeWithoutResponse) flags = flags or CBCharacteristicPropertyWriteWithoutResponse
-    if (props.notify) flags = flags or CBCharacteristicPropertyNotify
-    if (props.indicate) flags = flags or CBCharacteristicPropertyIndicate
-    return flags
-}
-
-private fun buildCBPermissions(perms: ServerCharacteristic.Permissions): ULong {
-    var flags: ULong = 0u
-    if (perms.read) flags = flags or CBAttributePermissionsReadable
-    if (perms.readEncrypted) flags = flags or CBAttributePermissionsReadEncryptionRequired
-    if (perms.write) flags = flags or CBAttributePermissionsWriteable
-    if (perms.writeEncrypted) flags = flags or CBAttributePermissionsWriteEncryptionRequired
-    return flags
-}
-
-private fun GattStatus.toCBATTError(): Long =
-    when (this) {
-        GattStatus.Success -> CBATTErrorSuccess
-        GattStatus.ReadNotPermitted -> CBATTErrorReadNotPermitted
-        GattStatus.WriteNotPermitted -> CBATTErrorWriteNotPermitted
-        GattStatus.InvalidOffset -> CBATTErrorInvalidOffset
-        GattStatus.InvalidAttributeLength -> CBATTErrorInvalidAttributeValueLength
-        GattStatus.InsufficientAuthentication -> CBATTErrorInsufficientAuthentication
-        GattStatus.InsufficientEncryption -> CBATTErrorInsufficientEncryption
-        GattStatus.InsufficientAuthorization -> CBATTErrorInsufficientAuthorization
-        GattStatus.RequestNotSupported -> CBATTErrorRequestNotSupported
-        GattStatus.ConnectionCongested -> CB_ATT_ERROR_UNLIKELY
-        GattStatus.Failure -> CB_ATT_ERROR_UNLIKELY
-        is GattStatus.Unknown -> CB_ATT_ERROR_UNLIKELY
-    }
