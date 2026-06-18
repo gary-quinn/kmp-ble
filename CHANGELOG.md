@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.8.5] - 2026-06-18
+
+### Added
+- feat(sample): add BleQuickstart end-to-end code examples and update README (#227)
+- test(benchmark): add cross-platform benchmark comparison tests (#228)
+
+### Fixed
+- fix: replace em-dashes with hyphens in comments and README
+
+---
+
 ## [Unreleased]
 
 _Changes on `main` that have not yet been tagged for release._
@@ -619,7 +630,8 @@ _No notable changes._
 
 ---
 
-[Unreleased]: https://github.com/gary-quinn/kmp-ble/compare/v0.8.4...HEAD
+[Unreleased]: https://github.com/gary-quinn/kmp-ble/compare/v0.8.5...HEAD
+[0.8.5]: https://github.com/gary-quinn/kmp-ble/compare/v0.8.4...v0.8.5
 [0.8.4]: https://github.com/gary-quinn/kmp-ble/compare/v0.8.3...v0.8.4
 [0.8.3]: https://github.com/gary-quinn/kmp-ble/compare/v0.8.2...v0.8.3
 [0.8.2]: https://github.com/gary-quinn/kmp-ble/compare/v0.8.1...v0.8.2
