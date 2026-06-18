@@ -9,7 +9,6 @@ import android.bluetooth.le.AdvertisingSet
 import android.bluetooth.le.AdvertisingSetCallback
 import android.bluetooth.le.AdvertisingSetParameters
 import android.bluetooth.le.BluetoothLeAdvertiser
-import android.bluetooth.le.PeriodicAdvertisingParameters
 import android.content.Context
 import android.os.ParcelUuid
 import com.atruedev.kmpble.ExperimentalBleApi
@@ -220,19 +219,14 @@ private fun ExtendedAdvertiseConfig.toPeriodicData(): AdvertiseData {
     for ((uuid, data) in serviceData) {
         builder.addServiceData(ParcelUuid(uuid.toJavaUuid()), data)
     }
-
-    val periodic = periodicAdvertising
-    if (periodic != null && periodic.includeTxPower) {
-        builder.setIncludeTxPower(true)
-    }
-
     return builder.build()
 }
 
 @ExperimentalBleApi
-private fun PeriodicAdvertisingParameters.toAndroidPeriodicParams(): PeriodicAdvertisingParameters {
+private fun PeriodicAdvertisingParameters.toAndroidPeriodicParams():
+    android.bluetooth.le.PeriodicAdvertisingParameters {
     val builder =
-        PeriodicAdvertisingParameters
+        android.bluetooth.le.PeriodicAdvertisingParameters
             .Builder()
             .setIncludeTxPower(includeTxPower)
             .setInterval(interval.toAndroidInterval())
