@@ -13,6 +13,8 @@ import com.atruedev.kmpble.Identifier
 import com.atruedev.kmpble.bonding.BondRemovalResult
 import com.atruedev.kmpble.bonding.BondState
 import com.atruedev.kmpble.connection.ConnectionOptions
+import com.atruedev.kmpble.connection.ConnectionParameterUpdateResult
+import com.atruedev.kmpble.connection.ConnectionParameters
 import com.atruedev.kmpble.connection.ConnectionPriority
 import com.atruedev.kmpble.connection.Phy
 import com.atruedev.kmpble.connection.PhyUpdate
@@ -306,6 +308,23 @@ public class AndroidPeripheral internal constructor(
             }
         return peripheralContext.gattQueue.enqueue {
             bridge.requestConnectionPriority(androidPriority)
+        }
+    }
+
+    @ExperimentalBleApi
+    override suspend fun requestConnectionParameterUpdate(
+        params: ConnectionParameters,
+    ): ConnectionParameterUpdateResult? {
+        checkNotClosed()
+        val androidPriority = params.intervalRange.toAndroidConnectionPriority()
+        return peripheralContext.gattQueue.enqueue {
+            val dispatched = bridge.requestConnectionPriority(androidPriority)
+            if (!dispatched) return@enqueue null
+            ConnectionParameterUpdateResult(
+                negotiatedInterval = params.intervalRange.endInclusive,
+                negotiatedLatency = params.slaveLatency,
+                negotiatedSupervisionTimeout = params.supervisionTimeout,
+            )
         }
     }
 

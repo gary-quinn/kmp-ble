@@ -4,6 +4,8 @@ import com.atruedev.kmpble.Identifier
 import com.atruedev.kmpble.bonding.BondRemovalResult
 import com.atruedev.kmpble.bonding.BondState
 import com.atruedev.kmpble.connection.ConnectionOptions
+import com.atruedev.kmpble.connection.ConnectionParameterUpdateResult
+import com.atruedev.kmpble.connection.ConnectionParameters
 import com.atruedev.kmpble.connection.ConnectionPriority
 import com.atruedev.kmpble.connection.Phy
 import com.atruedev.kmpble.connection.PhyUpdate
@@ -90,6 +92,11 @@ internal class StubPeripheral(
 
     @com.atruedev.kmpble.ExperimentalBleApi
     override suspend fun requestConnectionPriority(priority: ConnectionPriority): Boolean = unsupported()
+
+    @com.atruedev.kmpble.ExperimentalBleApi
+    override suspend fun requestConnectionParameterUpdate(
+        params: ConnectionParameters,
+    ): ConnectionParameterUpdateResult? = unsupported()
 
     @com.atruedev.kmpble.ExperimentalBleApi
     override suspend fun setPreferredPhy(

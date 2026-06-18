@@ -1,5 +1,7 @@
 package com.atruedev.kmpble.testing
 
+import com.atruedev.kmpble.connection.ConnectionParameterUpdateResult
+import com.atruedev.kmpble.connection.ConnectionParameters
 import com.atruedev.kmpble.connection.ConnectionPriority
 import com.atruedev.kmpble.connection.Phy
 import com.atruedev.kmpble.connection.PhyUpdate
@@ -281,5 +283,22 @@ internal class FakeGattResponder(
         checkNotClosed()
         checkConnected()
         return PhyResult(configuredTxPhy, configuredRxPhy)
+    }
+
+    suspend fun requestConnectionParameterUpdate(
+        params: ConnectionParameters,
+        handler: (suspend (ConnectionParameters) -> ConnectionParameterUpdateResult?)?,
+    ): ConnectionParameterUpdateResult? {
+        checkNotClosed()
+        checkConnected()
+        return if (handler != null) {
+            handler(params)
+        } else {
+            ConnectionParameterUpdateResult(
+                negotiatedInterval = params.intervalRange.endInclusive,
+                negotiatedLatency = params.slaveLatency,
+                negotiatedSupervisionTimeout = params.supervisionTimeout,
+            )
+        }
     }
 }

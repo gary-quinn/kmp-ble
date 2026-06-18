@@ -1,6 +1,8 @@
 package com.atruedev.kmpble.peripheral
 
 import com.atruedev.kmpble.ExperimentalBleApi
+import com.atruedev.kmpble.connection.ConnectionParameterUpdateResult
+import com.atruedev.kmpble.connection.ConnectionParameters
 import com.atruedev.kmpble.connection.ConnectionPriority
 import com.atruedev.kmpble.connection.Phy
 import com.atruedev.kmpble.connection.State
@@ -16,6 +18,7 @@ import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.uuid.ExperimentalUuidApi
 
 @OptIn(ExperimentalUuidApi::class)
@@ -203,5 +206,51 @@ class FakePeripheralTest {
             assertNotNull(result)
             assertEquals(Phy.Le2M, result.tx)
             assertEquals(Phy.Le2M, result.rx)
+        }
+
+    @OptIn(ExperimentalBleApi::class)
+    @Test
+    fun requestConnectionParameterUpdateReturnsDefaultWhenConnected() =
+        runTest {
+            val peripheral = createPeripheral()
+            peripheral.connect()
+
+            val params =
+                ConnectionParameters(
+                    intervalRange = 15.milliseconds..30.milliseconds,
+                    slaveLatency = 0,
+                    supervisionTimeout = 500.milliseconds,
+                )
+            val result = peripheral.requestConnectionParameterUpdate(params)
+            assertNotNull(result)
+            assertEquals(30.milliseconds, result.negotiatedInterval)
+            assertEquals(0, result.negotiatedLatency)
+            assertEquals(500.milliseconds, result.negotiatedSupervisionTimeout)
+        }
+
+    @OptIn(ExperimentalBleApi::class)
+    @Test
+    fun requestConnectionParameterUpdateUsesCustomHandler() =
+        runTest {
+            val customResult =
+                ConnectionParameterUpdateResult(
+                    negotiatedInterval = 20.milliseconds,
+                    negotiatedLatency = 2,
+                    negotiatedSupervisionTimeout = 1000.milliseconds,
+                )
+            val peripheral =
+                FakePeripheral {
+                    onConnectionParameterUpdate { customResult }
+                }
+            peripheral.connect()
+
+            val params =
+                ConnectionParameters(
+                    intervalRange = 15.milliseconds..30.milliseconds,
+                    slaveLatency = 0,
+                    supervisionTimeout = 500.milliseconds,
+                )
+            val result = peripheral.requestConnectionParameterUpdate(params)
+            assertEquals(customResult, result)
         }
 }
