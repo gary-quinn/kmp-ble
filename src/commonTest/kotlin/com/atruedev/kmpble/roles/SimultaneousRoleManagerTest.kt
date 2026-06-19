@@ -3,7 +3,6 @@ package com.atruedev.kmpble.roles
 import com.atruedev.kmpble.testing.FakeAdvertiser
 import com.atruedev.kmpble.testing.FakeGattServer
 import com.atruedev.kmpble.testing.FakeScanner
-import com.atruedev.kmpble.testing.FakeScannerBuilder
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -11,23 +10,23 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class SimultaneousRoleManagerTest {
-
     @Test
     fun `manager exposes scanner advertiser and optional gatt server`() {
         // Verify we can construct with all three roles via the builder.
         // Use FakeScanner/FakeAdvertiser/FakeGattServer explicitly since
         // the commonMain factory delegates to expect fun Scanner/Advertiser/GattServer
         // which resolve to platform-specific implementations at link time.
-        // In jvmTest, Scanner() and Advertiser() are stubs — we verify
+        // In jvmTest, Scanner() and Advertiser() are stubs - we verify
         // the manager's structure and composition, not platform behavior.
         val scanner = FakeScanner {}
         val advertiser = FakeAdvertiser()
         val server = FakeGattServer()
-        val roles = SimultaneousRoleManager(
-            scanner = scanner,
-            advertiser = advertiser,
-            gattServer = server,
-        )
+        val roles =
+            SimultaneousRoleManager(
+                scanner = scanner,
+                advertiser = advertiser,
+                gattServer = server,
+            )
 
         assertEquals(scanner, roles.scanner)
         assertEquals(advertiser, roles.advertiser)
@@ -38,10 +37,11 @@ class SimultaneousRoleManagerTest {
     fun `gattServer is null when not provided`() {
         val scanner = FakeScanner {}
         val advertiser = FakeAdvertiser()
-        val roles = SimultaneousRoleManager(
-            scanner = scanner,
-            advertiser = advertiser,
-        )
+        val roles =
+            SimultaneousRoleManager(
+                scanner = scanner,
+                advertiser = advertiser,
+            )
 
         assertNull(roles.gattServer)
     }
@@ -51,11 +51,12 @@ class SimultaneousRoleManagerTest {
         val scanner = FakeScanner {}
         val advertiser = FakeAdvertiser()
         val server = FakeGattServer()
-        val roles = SimultaneousRoleManager(
-            scanner = scanner,
-            advertiser = advertiser,
-            gattServer = server,
-        )
+        val roles =
+            SimultaneousRoleManager(
+                scanner = scanner,
+                advertiser = advertiser,
+                gattServer = server,
+            )
 
         roles.close()
 
@@ -69,10 +70,11 @@ class SimultaneousRoleManagerTest {
     fun `close is safe to call multiple times`() {
         val scanner = FakeScanner {}
         val advertiser = FakeAdvertiser()
-        val roles = SimultaneousRoleManager(
-            scanner = scanner,
-            advertiser = advertiser,
-        )
+        val roles =
+            SimultaneousRoleManager(
+                scanner = scanner,
+                advertiser = advertiser,
+            )
 
         // Should not throw
         roles.close()
@@ -84,11 +86,12 @@ class SimultaneousRoleManagerTest {
     fun `close with null gattServer does not throw`() {
         val scanner = FakeScanner {}
         val advertiser = FakeAdvertiser()
-        val roles = SimultaneousRoleManager(
-            scanner = scanner,
-            advertiser = advertiser,
-            gattServer = null,
-        )
+        val roles =
+            SimultaneousRoleManager(
+                scanner = scanner,
+                advertiser = advertiser,
+                gattServer = null,
+            )
 
         roles.close()
         assertTrue(!advertiser.isAdvertising.value)

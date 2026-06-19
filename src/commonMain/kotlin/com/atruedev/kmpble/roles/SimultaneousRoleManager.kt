@@ -60,7 +60,7 @@ public class SimultaneousRoleManager(
      * Close all roles and release platform resources.
      *
      * Closes [scanner], [advertiser], and [gattServer] (if present).
-     * Each close is best-effort — if one fails, the remaining are still closed.
+     * Each close is best-effort - if one fails, the remaining are still closed.
      * Safe to call multiple times.
      */
     override fun close() {
@@ -127,7 +127,5 @@ public class SimultaneousRolesBuilder internal constructor() {
  * @param block DSL block for [SimultaneousRolesBuilder].
  * @return A [SimultaneousRoleManager] with all roles ready.
  */
-public fun simultaneousRoles(
-    block: SimultaneousRolesBuilder.() -> Unit,
-): SimultaneousRoleManager =
+public fun simultaneousRoles(block: SimultaneousRolesBuilder.() -> Unit): SimultaneousRoleManager =
     SimultaneousRolesBuilder().apply(block).build()
