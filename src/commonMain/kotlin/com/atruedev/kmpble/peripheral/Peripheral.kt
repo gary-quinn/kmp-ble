@@ -66,22 +66,17 @@ public interface Peripheral : AutoCloseable {
     )
 
     /**
-     * Observe notifications/indications from a characteristic.
+     * Observe notifications/indications from a characteristic. The returned
+     * flow survives disconnects and auto-resubscribes on reconnect -- emits
+     * [Observation.Value] with data, [Observation.Disconnected] on connection
+     * loss, resumes after reconnect, and completes when retries exhaust.
      *
-     * The returned flow survives disconnects and auto-resubscribes on reconnect:
-     * - Emits [Observation.Value] when data is received
-     * - Emits [Observation.Disconnected] when connection is lost
-     * - Resumes emitting [Observation.Value] when reconnected
-     * - Completes normally when reconnection exhausts max attempts
+     * May be called before connecting; CCCD is enabled on connect.
      *
-     * May be called before connecting - CCCD will be enabled when connection is established.
-     *
-     * @param characteristic The characteristic to observe (must support notify or indicate)
-     * @param backpressure Strategy for handling backpressure when values arrive faster than consumed.
-     *   Defaults to [BackpressureStrategy.Latest], which drops intermediate values and keeps only the
-     *   most recent notification. Use [BackpressureStrategy.Buffer] to retain a fixed number of
-     *   unprocessed values, or [BackpressureStrategy.Unbounded] for lossless delivery.
-     * @return A cold flow that emits [Observation] events
+     * @param backpressure Controls delivery when values arrive faster than
+     *   consumed: [BackpressureStrategy.Latest] drops intermediate values,
+     *   [BackpressureStrategy.Buffer] retains a fixed number,
+     *   [BackpressureStrategy.Unbounded] for lossless delivery.
      */
     public fun observe(
         characteristic: Characteristic,
@@ -91,26 +86,15 @@ public interface Peripheral : AutoCloseable {
     /**
      * Observe raw notification/indication values from a characteristic.
      *
-     * Similar to [observe], but provides transparent reconnection - the flow suspends during
-     * disconnects and resumes when reconnected, without emitting disconnect events.
+     * Same lifecycle as [observe], but provides transparent reconnection --
+     * suspends during disconnects and resumes on reconnect without emitting
+     * disconnect events. Consumers see a gap in data during disconnects but
+     * no error handling is required.
      *
-     * The returned flow survives disconnects and auto-resubscribes on reconnect:
-     * - Emits [ByteArray] when data is received
-     * - Suspends (no emission) during disconnect
-     * - Resumes emitting [ByteArray] when reconnected
-     * - Completes normally when reconnection exhausts max attempts
+     * May be called before connecting; CCCD is enabled on connect.
      *
-     * Use this when you want to process values without handling connection state changes.
-     * Consumers will see a gap in data during disconnects but no error handling is required.
-     *
-     * May be called before connecting - CCCD will be enabled when connection is established.
-     *
-     * @param characteristic The characteristic to observe (must support notify or indicate)
-     * @param backpressure Strategy for handling backpressure when values arrive faster than consumed.
-     *   Defaults to [BackpressureStrategy.Latest], which drops intermediate values and keeps only the
-     *   most recent notification. Use [BackpressureStrategy.Buffer] to retain a fixed number of
-     *   unprocessed values, or [BackpressureStrategy.Unbounded] for lossless delivery.
-     * @return A cold flow that emits raw [ByteArray] values
+     * @param backpressure Controls delivery when values arrive faster than
+     *   consumed (see [observe] for strategy details).
      */
     public fun observeValues(
         characteristic: Characteristic,
@@ -131,23 +115,17 @@ public interface Peripheral : AutoCloseable {
     public suspend fun requestMtu(mtu: Int): Int
 
     /**
-     * Request a new connection priority (interval / latency / supervision timeout).
+     * Request a new connection priority (interval/latency/timeout).
      *
-     * On Android, maps to `BluetoothGatt.requestConnectionPriority`. Returns
-     * synchronously after the request is dispatched; the actual interval
-     * negotiation happens asynchronously and is not surfaced through this API.
-     *
-     * On iOS, this is a no-op and returns `false`. CoreBluetooth does not
-     * expose connection parameter negotiation through public API.
+     * Android maps to `BluetoothGatt.requestConnectionPriority`. iOS is a
+     * no-op (CoreBluetooth does not expose this API).
      *
      * Use [ConnectionPriority.High] before high-throughput operations
-     * (L2CAP bulk transfers, firmware updates) to drop the connection interval
-     * to ~11-15 ms. Reset to [ConnectionPriority.Balanced] when done to
-     * avoid sustained battery drain.
+     * (L2CAP, firmware updates) to drop interval to ~11-15 ms. Reset to
+     * [ConnectionPriority.Balanced] when done.
      *
-     * @return `true` if the platform supports the request and it was dispatched
-     *         successfully; `false` on unsupported platforms or if the GATT
-     *         layer is not yet ready.
+     * @return `true` if the request was dispatched; `false` if unsupported
+     *   or the GATT layer is not ready.
      */
     @ExperimentalBleApi
     public suspend fun requestConnectionPriority(priority: ConnectionPriority): Boolean
@@ -155,27 +133,18 @@ public interface Peripheral : AutoCloseable {
     /**
      * Request updated LE connection parameters from the central.
      *
-     * The central may accept, reject, or negotiate alternative values. The
-     * returned [ConnectionParameterUpdateResult] reflects the actual
-     * negotiated parameters reported by the platform.
+     * The central may accept, reject, or negotiate alternative values. Returns
+     * the actual negotiated parameters reported by the platform.
      *
-     * ## Platform notes
+     * Android maps to `BluetoothGatt.requestConnectionPriority()` with the
+     * closest priority level; returns `null` on API <29 where the callback is
+     * unavailable. iOS returns `null` (CoreBluetooth has no public API).
      *
-     * - **Android**: Maps to `BluetoothGatt.requestConnectionPriority()` with
-     *   the closest supported priority level to the requested interval range.
-     *   The `onConnectionUpdated` callback (API 29+) reports the actual
-     *   negotiated values. Returns `null` on older API levels where the
-     *   callback is unavailable.
-     * - **iOS**: CoreBluetooth does not expose connection parameter
-     *   negotiation through public API. Returns `null`.
+     * Use instead of [requestConnectionPriority] when you need specific
+     * interval/latency/timeout control.
      *
-     * Use this instead of [requestConnectionPriority] when you need specific
-     * interval/latency/timeout control (Nordic, TI, and ST BLE stacks expose
-     * equivalent primitives).
-     *
-     * @param params Desired connection parameters.
-     * @return [ConnectionParameterUpdateResult] with the negotiated values,
-     *   or `null` if the platform does not support the operation.
+     * @return [ConnectionParameterUpdateResult] with negotiated values,
+     *   or `null` if unsupported.
      */
     @ExperimentalBleApi
     public suspend fun requestConnectionParameterUpdate(params: ConnectionParameters): ConnectionParameterUpdateResult?
@@ -183,22 +152,14 @@ public interface Peripheral : AutoCloseable {
     /**
      * Request preferred PHYs for the LE connection (BLE 5.0).
      *
-     * On Android, maps to `BluetoothGatt.setPreferredPhy`. Suspends until the
-     * `onPhyUpdate` callback fires (or times out via `gattOperationTimeout`).
-     * The returned PHYs reflect the controller's choice, which may differ from
-     * what was requested.
+     * Android maps to `BluetoothGatt.setPreferredPhy` (API 26+); returns the
+     * controller's choice which may differ from the request. iOS returns
+     * `null` (CoreBluetooth has no public PHY API).
      *
-     * On iOS, this is a no-op and returns `null`. CoreBluetooth does not
-     * expose PHY negotiation through public API; the OS picks PHY based on
-     * device capability.
+     * Use [Phy.Le2M] for both directions to double throughput on BLE 5.0
+     * devices. Falls back to 1M on older devices.
      *
-     * Use `Phy.Le2M` for both directions to double over-the-air throughput on
-     * BLE 5.0 devices. Falls back to 1M silently on older devices.
-     *
-     * @param tx Preferred TX PHY.
-     * @param rx Preferred RX PHY.
-     * @return [PhyResult] reflecting the negotiated TX/RX PHYs, or `null` if
-     *         the platform does not support the operation.
+     * @return [PhyResult] with negotiated TX/RX PHYs, or `null` if unsupported.
      */
     @ExperimentalBleApi
     public suspend fun setPreferredPhy(
@@ -207,32 +168,20 @@ public interface Peripheral : AutoCloseable {
     ): PhyResult?
 
     /**
-     * Actively read the current PHY for this connection.
+     * Read the current PHY for this connection.
      *
-     * On Android, maps to [android.bluetooth.BluetoothGatt.readPhy] (API 26+).
-     * Suspends until the `onPhyRead` callback fires or times out.
+     * Android maps to `BluetoothGatt.readPhy()` (API 26+); suspends until
+     * callback or timeout. iOS returns `null` (no public API).
      *
-     * On iOS, returns `null`. CoreBluetooth does not expose PHY read-back
-     * through public API.
-     *
-     * @return [PhyResult] reflecting the current TX/RX PHYs, or `null` if
-     *         the platform does not support the operation.
+     * @return [PhyResult] with current TX/RX PHYs, or `null` if unsupported.
      */
     @ExperimentalBleApi
     public suspend fun readPhy(): PhyResult?
 
     /**
-     * Flow of spontaneous PHY change events for this connection.
-     *
-     * Emits [PhyUpdate] when the controller negotiates a new PHY, whether
-     * triggered by a [setPreferredPhy] request or autonomously by the
-     * controller (e.g., range-based adaptation).
-     *
-     * The flow is **hot** -- it emits only while the peripheral is connected.
-     * Collectors will see no events during disconnects.
-     *
-     * On iOS, this flow never emits. CoreBluetooth does not expose PHY
-     * change notifications through public API.
+     * Hot flow of spontaneous PHY change events. Emits [PhyUpdate] when the
+     * controller negotiates a new PHY (triggered by [setPreferredPhy] or
+     * autonomously). Only emits while connected. iOS never emits.
      */
     @ExperimentalBleApi
     public val phyUpdate: Flow<PhyUpdate>
@@ -242,55 +191,22 @@ public interface Peripheral : AutoCloseable {
     // --- L2CAP ---
 
     /**
-     * Open an L2CAP Connection-Oriented Channel to this peripheral.
+     * Open an L2CAP Connection-Oriented Channel for high-throughput,
+     * stream-oriented communication bypassing GATT.
      *
-     * L2CAP channels provide high-throughput, stream-oriented communication
-     * that bypasses GATT. Use for firmware updates, bulk data transfer,
-     * or any scenario requiring sustained throughput.
+     * Peripheral must be connected and support L2CAP. PSM is typically
+     * discovered via a GATT characteristic.
      *
-     * ## Prerequisites
-     *
-     * - Peripheral must be connected (state = [State.Connected.Ready])
-     * - Peripheral must support L2CAP and advertise the PSM
-     * - PSM is typically discovered via a GATT characteristic
-     *
-     * ## Example
-     *
-     * ```kotlin
-     * // Read PSM from a GATT characteristic (device-specific)
-     * val psmBytes = peripheral.read(psmCharacteristic)
-     * val psm = psmBytes.toInt()
-     *
-     * // Open channel
-     * val channel = peripheral.openL2capChannel(psm)
-     *
-     * // Use channel
-     * channel.write(data)
-     * channel.incoming.collect { response -> ... }
-     *
-     * // Close when done
-     * channel.close()
-     * ```
-     *
-     * @param psm Protocol/Service Multiplexer identifying the L2CAP service
-     * @param secure If true, requires an encrypted connection (default: true).
-     *               **Platform behavior varies:**
-     *               - **iOS:** This parameter is ignored. CoreBluetooth determines
-     *                 encryption at the connection level, not per-channel. All L2CAP
-     *                 channels inherit the connection's security level.
-     *               - **Android:** When true, uses `createL2capChannel()` (encrypted);
-     *                 when false, uses `createInsecureL2capChannel()`.
-     * @param mtu Optional MTU hint for the channel (must be positive if provided).
-     *            **Platform behavior varies:**
-     *            - **iOS:** CoreBluetooth does not expose the negotiated L2CAP MTU.
-     *              When provided, the channel uses this value instead of the
-     *              conservative 2048-byte default.
-     *            - **Android:** Ignored. The MTU is queried from the socket directly.
-     * @return Open L2CAP channel ready for communication
-     * @throws IllegalArgumentException if [mtu] is not positive
-     * @throws com.atruedev.kmpble.l2cap.L2capException.NotConnected if peripheral is not connected
-     * @throws com.atruedev.kmpble.l2cap.L2capException.OpenFailed if channel cannot be opened
-     * @throws com.atruedev.kmpble.l2cap.L2capException.NotSupported if L2CAP is not available
+     * @param psm Protocol/Service Multiplexer identifying the L2CAP service.
+     * @param secure Requires encrypted connection (default true). Ignored on
+     *   iOS (CoreBluetooth determines encryption at connection level).
+     * @param mtu Optional MTU hint (positive). iOS uses this value instead of
+     *   the 2048-byte default (CoreBluetooth hides negotiated MTU). Ignored
+     *   on Android (queried from socket).
+     * @throws IllegalArgumentException if [mtu] is not positive.
+     * @throws com.atruedev.kmpble.l2cap.L2capException.NotConnected if not connected.
+     * @throws com.atruedev.kmpble.l2cap.L2capException.OpenFailed if channel open fails.
+     * @throws com.atruedev.kmpble.l2cap.L2capException.NotSupported if unavailable.
      */
     public suspend fun openL2capChannel(
         psm: Int,
