@@ -8,7 +8,6 @@ import android.bluetooth.BluetoothGatt
 import android.bluetooth.BluetoothGattCallback
 import android.bluetooth.BluetoothGattCharacteristic
 import android.bluetooth.BluetoothGattDescriptor
-import android.bluetooth.BluetoothGattService
 import android.content.Context
 import android.os.Handler
 import android.os.HandlerThread
@@ -17,67 +16,6 @@ import com.atruedev.kmpble.connection.TransportType
 import com.atruedev.kmpble.logging.BleLogEvent
 import com.atruedev.kmpble.logging.logEvent
 import kotlin.concurrent.Volatile
-
-internal sealed interface GattCallbackEvent {
-    data class ConnectionStateChanged(
-        val status: Int,
-        val newState: Int,
-    ) : GattCallbackEvent
-
-    data class ServicesDiscovered(
-        val status: Int,
-        val services: List<BluetoothGattService>,
-    ) : GattCallbackEvent
-
-    data class MtuChanged(
-        val mtu: Int,
-        val status: Int,
-    ) : GattCallbackEvent
-
-    class CharacteristicRead(
-        val characteristic: BluetoothGattCharacteristic,
-        val value: ByteArray,
-        val status: Int,
-    ) : GattCallbackEvent
-
-    data class CharacteristicWrite(
-        val characteristic: BluetoothGattCharacteristic,
-        val status: Int,
-    ) : GattCallbackEvent
-
-    class CharacteristicChanged(
-        val characteristic: BluetoothGattCharacteristic,
-        val value: ByteArray,
-    ) : GattCallbackEvent
-
-    class DescriptorRead(
-        val descriptor: BluetoothGattDescriptor,
-        val value: ByteArray,
-        val status: Int,
-    ) : GattCallbackEvent
-
-    data class DescriptorWrite(
-        val descriptor: BluetoothGattDescriptor,
-        val status: Int,
-    ) : GattCallbackEvent
-
-    data class ReadRemoteRssi(
-        val rssi: Int,
-        val status: Int,
-    ) : GattCallbackEvent
-
-    data class PhyUpdated(
-        val txPhy: Int,
-        val rxPhy: Int,
-        val status: Int,
-    ) : GattCallbackEvent
-
-    data class PhyRead(
-        val txPhy: Int,
-        val rxPhy: Int,
-        val status: Int,
-    ) : GattCallbackEvent
-}
 
 internal class AndroidGattBridge(
     private val device: BluetoothDevice,
