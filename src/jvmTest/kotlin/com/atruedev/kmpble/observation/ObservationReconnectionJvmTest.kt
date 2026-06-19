@@ -5,6 +5,8 @@ import com.atruedev.kmpble.gatt.Observation
 import com.atruedev.kmpble.scanner.uuidFrom
 import com.atruedev.kmpble.testing.FakePeripheral
 import com.atruedev.kmpble.testing.FakePeripheralBuilder
+import com.atruedev.kmpble.testing.emitObservationValue
+import com.atruedev.kmpble.testing.getCccdWrites
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancelAndJoin

@@ -290,7 +290,7 @@ public class IosPeripheral(
         bridge.setNotifyValue(true, requireNativeCbChar(characteristic))
     }
 
-    private fun disableNotifications(characteristic: Characteristic) {
+    internal fun disableNotifications(characteristic: Characteristic) {
         if (peripheralContext.state.value !is State.Connected) return
         val native = nativeCharMap[characteristic] ?: return
         bridge.setNotifyValue(false, native)
