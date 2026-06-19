@@ -1,6 +1,7 @@
 package com.atruedev.kmpble.scanner
 
 import android.annotation.SuppressLint
+import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothManager
 import android.bluetooth.le.ScanCallback
 import android.bluetooth.le.ScanFilter
@@ -129,9 +130,9 @@ public class AndroidScanner(
             if (phySet.isEmpty()) return ScanSettings.PHY_LE_ALL_SUPPORTED
             if (phySet.size == 1) {
                 return when (phySet.single()) {
-                    Phy.Le1M -> ScanSettings.PHY_LE_1M
-                    Phy.Le2M -> ScanSettings.PHY_LE_2M
-                    Phy.LeCoded -> ScanSettings.PHY_LE_CODED
+                    Phy.Le1M -> BluetoothDevice.PHY_LE_1M
+                    Phy.Le2M -> BluetoothDevice.PHY_LE_2M
+                    Phy.LeCoded -> BluetoothDevice.PHY_LE_CODED
                 }
             }
             return ScanSettings.PHY_LE_ALL_SUPPORTED
