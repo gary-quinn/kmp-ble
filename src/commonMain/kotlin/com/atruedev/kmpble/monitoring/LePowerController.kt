@@ -16,7 +16,7 @@ import kotlin.time.Duration.Companion.milliseconds
  * Active LE Power Control (LEPC) for peer transmit power adjustment.
  *
  * Where [PowerMonitor] provides **passive** path-loss monitoring,
- * `LePowerController` enables **active** power adjustment requests —
+ * `LePowerController` enables **active** power adjustment requests -
  * asking the connected peer to change its transmit power level.
  *
  * Bluetooth 5.1+ defines LE Power Control as a GATT-based procedure.
@@ -52,7 +52,7 @@ import kotlin.time.Duration.Companion.milliseconds
  *   No fine-grained LEPC GATT procedure available yet.
  * - **iOS**: CoreBluetooth does not expose connection parameter
  *   negotiation or LE Power Control. Returns `accepted = false`.
- * - **JVM**: Stub — returns `accepted = false`.
+ * - **JVM**: Stub - returns `accepted = false`.
  *
  * @property incomingPowerRequests Flow of power change requests from the peer.
  *   Empty on current platforms (not surfaced by Android or iOS APIs).
@@ -72,7 +72,7 @@ public class LePowerController(
     /**
      * Begin monitoring for incoming power requests.
      *
-     * Safe to call multiple times — subsequent calls are no-ops.
+     * Safe to call multiple times - subsequent calls are no-ops.
      * Does not block; launches a coroutine in [scope] to observe
      * connection state for power control opportunities.
      */

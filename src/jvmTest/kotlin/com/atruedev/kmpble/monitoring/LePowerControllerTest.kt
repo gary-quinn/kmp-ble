@@ -111,8 +111,8 @@ class LePowerControllerTest {
 
             controller.requestPeerPowerChange(-4)
             assertNotNull(capturedParams)
-            assertEquals(0, capturedParams!!.slaveLatency)
-            assertEquals(500.milliseconds, capturedParams!!.supervisionTimeout)
+            assertEquals(0, capturedParams.slaveLatency)
+            assertEquals(500.milliseconds, capturedParams.supervisionTimeout)
 
             controller.stop()
         }
@@ -145,8 +145,8 @@ class LePowerControllerTest {
 
             controller.requestPeerPowerChange(-10)
             assertNotNull(capturedParams)
-            assertEquals(2, capturedParams!!.slaveLatency)
-            assertEquals(2000.milliseconds, capturedParams!!.supervisionTimeout)
+            assertEquals(2, capturedParams.slaveLatency)
+            assertEquals(2000.milliseconds, capturedParams.supervisionTimeout)
 
             controller.stop()
         }
@@ -179,8 +179,8 @@ class LePowerControllerTest {
 
             controller.requestPeerPowerChange(-15)
             assertNotNull(capturedParams)
-            assertEquals(4, capturedParams!!.slaveLatency)
-            assertEquals(4000.milliseconds, capturedParams!!.supervisionTimeout)
+            assertEquals(4, capturedParams.slaveLatency)
+            assertEquals(4000.milliseconds, capturedParams.supervisionTimeout)
 
             controller.stop()
         }
@@ -213,8 +213,8 @@ class LePowerControllerTest {
 
             controller.requestPeerPowerChange(-25)
             assertNotNull(capturedParams)
-            assertEquals(7, capturedParams!!.slaveLatency)
-            assertEquals(6000.milliseconds, capturedParams!!.supervisionTimeout)
+            assertEquals(7, capturedParams.slaveLatency)
+            assertEquals(6000.milliseconds, capturedParams.supervisionTimeout)
 
             controller.stop()
         }
@@ -300,7 +300,7 @@ class LePowerControllerTest {
 
             controller.stop()
 
-            // After stop, requestPeerPowerChange still works — it's stateless
+            // After stop, requestPeerPowerChange still works - it's stateless
             val response = controller.requestPeerPowerChange(-4)
             assertTrue(response.accepted)
         }
