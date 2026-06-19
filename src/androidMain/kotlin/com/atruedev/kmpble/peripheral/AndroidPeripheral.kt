@@ -4,6 +4,8 @@ package com.atruedev.kmpble.peripheral
 
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothDevice
+import android.bluetooth.BluetoothGattCharacteristic
+import android.bluetooth.BluetoothGattDescriptor
 import android.content.Context
 import com.atruedev.kmpble.ExperimentalBleApi
 import com.atruedev.kmpble.Identifier
