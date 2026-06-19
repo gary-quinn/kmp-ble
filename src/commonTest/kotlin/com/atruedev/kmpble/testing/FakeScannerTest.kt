@@ -3,8 +3,10 @@ package com.atruedev.kmpble.testing
 import com.atruedev.kmpble.connection.Phy
 import com.atruedev.kmpble.scanner.DataStatus
 import com.atruedev.kmpble.scanner.ScanEvent
+import com.atruedev.kmpble.scanner.ScanPhy
 import com.atruedev.kmpble.scanner.ScannerConfig
 import com.atruedev.kmpble.scanner.uuidFrom
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.toList
@@ -196,6 +198,40 @@ class FakeScannerTest {
     @Test
     fun scannerConfigDefaultScanPhy() {
         val config = ScannerConfig()
-        assertEquals(setOf(Phy.Le1M, Phy.Le2M, Phy.LeCoded), config.scanPhy)
+        assertEquals(ScanPhy.All, config.phy)
     }
+
+    @Test
+    fun scanWorksWithLe1mPhyConfig() =
+        runTest {
+            val config = ScannerConfig()
+            config.phy = ScanPhy.Le1M
+            assertEquals(ScanPhy.Le1M, config.phy)
+
+            val scanner = FakeScanner { advertisement { name("PHY Test") } }
+            val event =
+                scanner.scanEvents
+                    .mapNotNull { it as? ScanEvent.Found }
+                    .take(1)
+                    .first()
+            assertEquals("PHY Test", event.advertisement.name)
+            scanner.close()
+        }
+
+    @Test
+    fun scanWorksWithLeCodedPhyConfig() =
+        runTest {
+            val config = ScannerConfig()
+            config.phy = ScanPhy.LeCoded
+            assertEquals(ScanPhy.LeCoded, config.phy)
+
+            val scanner = FakeScanner { advertisement { name("Coded PHY") } }
+            val event =
+                scanner.scanEvents
+                    .mapNotNull { it as? ScanEvent.Found }
+                    .take(1)
+                    .first()
+            assertEquals("Coded PHY", event.advertisement.name)
+            scanner.close()
+        }
 }
