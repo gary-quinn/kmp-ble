@@ -117,10 +117,5 @@ internal class StubPeripheral(
         mtu: Int?,
     ): L2capChannel = unsupported()
 
-    override suspend fun openIsochronousChannel(
-        secure: Boolean,
-        mtu: Int?,
-    ): IsochronousChannel = unsupported()
-
     private fun unsupported(): Nothing = throw UnsupportedOperationException("StubPeripheral")
 }
