@@ -1,7 +1,6 @@
 package com.atruedev.kmpble.scanner
 
 import android.bluetooth.BluetoothDevice
-import android.bluetooth.le.ScanFilter
 import android.bluetooth.le.ScanSettings
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -11,7 +10,6 @@ import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 
 class AndroidScannerTest {
-
     // =========================================================================
     // scanPhyToAndroid
     // =========================================================================
@@ -46,9 +44,10 @@ class AndroidScannerTest {
 
     @Test
     fun `single service UUID filter`() {
-        val filterGroups = filterGroups {
-            match { serviceUuid("180d") }
-        }
+        val filterGroups =
+            filterGroups {
+                match { serviceUuid("180d") }
+            }
         val result = AndroidScanner.buildOsFilters(filterGroups)
 
         assertNotNull(result)
@@ -58,10 +57,11 @@ class AndroidScannerTest {
 
     @Test
     fun `multiple service UUIDs in separate AND groups produce OR'd filters`() {
-        val filterGroups = filterGroups {
-            match { serviceUuid("180d") }
-            match { serviceUuid("180a") }
-        }
+        val filterGroups =
+            filterGroups {
+                match { serviceUuid("180d") }
+                match { serviceUuid("180a") }
+            }
         val result = AndroidScanner.buildOsFilters(filterGroups)
 
         assertNotNull(result)
@@ -76,9 +76,10 @@ class AndroidScannerTest {
 
     @Test
     fun `exact name filter`() {
-        val filterGroups = filterGroups {
-            match { name("TestDevice") }
-        }
+        val filterGroups =
+            filterGroups {
+                match { name("TestDevice") }
+            }
         val result = AndroidScanner.buildOsFilters(filterGroups)
 
         assertNotNull(result)
@@ -92,9 +93,10 @@ class AndroidScannerTest {
 
     @Test
     fun `address filter`() {
-        val filterGroups = filterGroups {
-            match { address("AA:BB:CC:DD:EE:FF") }
-        }
+        val filterGroups =
+            filterGroups {
+                match { address("AA:BB:CC:DD:EE:FF") }
+            }
         val result = AndroidScanner.buildOsFilters(filterGroups)
 
         assertNotNull(result)
@@ -108,9 +110,11 @@ class AndroidScannerTest {
 
     @Test
     fun `manufacturer data filter with company ID only`() {
-        val filterGroups = filterGroups {
-            match { manufacturerData(companyId = 0x004C /* Apple */) }
-        }
+        val filterGroups =
+            filterGroups {
+                // Apple company ID
+                match { manufacturerData(companyId = 0x004C) }
+            }
         val result = AndroidScanner.buildOsFilters(filterGroups)
 
         assertNotNull(result)
@@ -124,15 +128,16 @@ class AndroidScannerTest {
     fun `manufacturer data filter with data and mask`() {
         val data = byteArrayOf(0x02, 0x15.toByte())
         val mask = byteArrayOf(0xFF.toByte(), 0xFF.toByte())
-        val filterGroups = filterGroups {
-            match {
-                manufacturerData(
-                    companyId = 0x004C,
-                    data = data,
-                    mask = mask,
-                )
+        val filterGroups =
+            filterGroups {
+                match {
+                    manufacturerData(
+                        companyId = 0x004C,
+                        data = data,
+                        mask = mask,
+                    )
+                }
             }
-        }
         val result = AndroidScanner.buildOsFilters(filterGroups)
 
         assertNotNull(result)
@@ -148,9 +153,10 @@ class AndroidScannerTest {
 
     @Test
     fun `service data filter with UUID only`() {
-        val filterGroups = filterGroups {
-            match { serviceData(uuid = "180d") }
-        }
+        val filterGroups =
+            filterGroups {
+                match { serviceData(uuid = "180d") }
+            }
         val result = AndroidScanner.buildOsFilters(filterGroups)
 
         assertNotNull(result)
@@ -164,9 +170,10 @@ class AndroidScannerTest {
     fun `service data filter with data and mask`() {
         val data = byteArrayOf(0x06, 0x42, 0x00)
         val mask = byteArrayOf(0xFF.toByte(), 0xFF.toByte(), 0xFF.toByte())
-        val filterGroups = filterGroups {
-            match { serviceData(uuid = "feaa", data = data, mask = mask) }
-        }
+        val filterGroups =
+            filterGroups {
+                match { serviceData(uuid = "feaa", data = data, mask = mask) }
+            }
         val result = AndroidScanner.buildOsFilters(filterGroups)
 
         assertNotNull(result)
@@ -182,12 +189,13 @@ class AndroidScannerTest {
 
     @Test
     fun `combined name and service UUID in one AND group`() {
-        val filterGroups = filterGroups {
-            match {
-                name("HeartRate")
-                serviceUuid("180d")
+        val filterGroups =
+            filterGroups {
+                match {
+                    name("HeartRate")
+                    serviceUuid("180d")
+                }
             }
-        }
         val result = AndroidScanner.buildOsFilters(filterGroups)
 
         assertNotNull(result)
@@ -198,12 +206,14 @@ class AndroidScannerTest {
 
     @Test
     fun `combined address and manufacturer data in one AND group`() {
-        val filterGroups = filterGroups {
-            match {
-                address("11:22:33:44:55:66")
-                manufacturerData(companyId = 0x06 /* Microsoft */)
+        val filterGroups =
+            filterGroups {
+                match {
+                    address("11:22:33:44:55:66")
+                    manufacturerData(companyId = 0x06)
+                    // Microsoft company ID
+                }
             }
-        }
         val result = AndroidScanner.buildOsFilters(filterGroups)
 
         assertNotNull(result)
@@ -219,9 +229,10 @@ class AndroidScannerTest {
     @Test
     fun `namePrefix only produces null group and is dropped`() {
         // NamePrefix is post-filter only - no OS-level equivalent
-        val filterGroups = filterGroups {
-            match { namePrefix("HR") }
-        }
+        val filterGroups =
+            filterGroups {
+                match { namePrefix("HR") }
+            }
         val result = AndroidScanner.buildOsFilters(filterGroups)
 
         assertNull(result)
@@ -230,9 +241,10 @@ class AndroidScannerTest {
     @Test
     fun `rssi only produces null group and is dropped`() {
         // MinRssi is post-filter only - no OS-level equivalent
-        val filterGroups = filterGroups {
-            match { rssi(-60) }
-        }
+        val filterGroups =
+            filterGroups {
+                match { rssi(-60) }
+            }
         val result = AndroidScanner.buildOsFilters(filterGroups)
 
         assertNull(result)
@@ -240,12 +252,13 @@ class AndroidScannerTest {
 
     @Test
     fun `post-filter-only combined with hardware filter still produces a filter`() {
-        val filterGroups = filterGroups {
-            match {
-                namePrefix("HR")
-                serviceUuid("180d")
+        val filterGroups =
+            filterGroups {
+                match {
+                    namePrefix("HR")
+                    serviceUuid("180d")
+                }
             }
-        }
         val result = AndroidScanner.buildOsFilters(filterGroups)
 
         assertNotNull(result)
@@ -265,10 +278,11 @@ class AndroidScannerTest {
 
     @Test
     fun `empty match block in filter groups produces no result`() {
-        val filterGroups = filterGroups {
-            // match without any predicates produces empty group
-            // which FiltersScope skips (predicates.isEmpty check)
-        }
+        val filterGroups =
+            filterGroups {
+                // match without any predicates produces empty group
+                // which FiltersScope skips (predicates.isEmpty check)
+            }
         val result = AndroidScanner.buildOsFilters(filterGroups)
         assertNull(result)
     }
@@ -279,10 +293,11 @@ class AndroidScannerTest {
 
     @Test
     fun `one hardware group and one post-filter-only group drops the post-filter group`() {
-        val filterGroups = filterGroups {
-            match { serviceUuid("180d") }
-            match { namePrefix("Device") }
-        }
+        val filterGroups =
+            filterGroups {
+                match { serviceUuid("180d") }
+                match { namePrefix("Device") }
+            }
         val result = AndroidScanner.buildOsFilters(filterGroups)
 
         assertNotNull(result)
@@ -296,15 +311,16 @@ class AndroidScannerTest {
 
     @Test
     fun `all hardware predicate types combined in single match`() {
-        val filterGroups = filterGroups {
-            match {
-                name("MyDevice")
-                serviceUuid("180d")
-                address("AA:BB:CC:DD:EE:FF")
-                manufacturerData(companyId = 0x004C)
-                serviceData(uuid = "180a")
+        val filterGroups =
+            filterGroups {
+                match {
+                    name("MyDevice")
+                    serviceUuid("180d")
+                    address("AA:BB:CC:DD:EE:FF")
+                    manufacturerData(companyId = 0x004C)
+                    serviceData(uuid = "180a")
+                }
             }
-        }
         val result = AndroidScanner.buildOsFilters(filterGroups)
 
         assertNotNull(result)
@@ -324,15 +340,16 @@ class AndroidScannerTest {
     @Test
     fun `manufacturer data with data and null mask`() {
         val data = byteArrayOf(0x01, 0x02)
-        val filterGroups = filterGroups {
-            match {
-                manufacturerData(
-                    companyId = 0x004C,
-                    data = data,
-                    mask = null,
-                )
+        val filterGroups =
+            filterGroups {
+                match {
+                    manufacturerData(
+                        companyId = 0x004C,
+                        data = data,
+                        mask = null,
+                    )
+                }
             }
-        }
         val result = AndroidScanner.buildOsFilters(filterGroups)
 
         assertNotNull(result)
@@ -345,14 +362,15 @@ class AndroidScannerTest {
     fun `manufacturer data with null data is skipped`() {
         // When data is null, ScanFilter.Builder skips setManufacturerData
         // and hasOsPredicate stays false => null result
-        val filterGroups = filterGroups {
-            match {
-                manufacturerData(
-                    companyId = 0x004C,
-                    data = null,
-                )
+        val filterGroups =
+            filterGroups {
+                match {
+                    manufacturerData(
+                        companyId = 0x004C,
+                        data = null,
+                    )
+                }
             }
-        }
         val result = AndroidScanner.buildOsFilters(filterGroups)
 
         // data=null bypasses the setManufacturerData block entirely
@@ -367,11 +385,12 @@ class AndroidScannerTest {
     fun `service data with only UUID and null data`() {
         // ServiceData predicate with null data still sets serviceDataUuid
         // on the builder, so hasOsPredicate = true
-        val filterGroups = filterGroups {
-            match {
-                serviceData(uuid = "feaa", data = null, mask = null)
+        val filterGroups =
+            filterGroups {
+                match {
+                    serviceData(uuid = "feaa", data = null, mask = null)
+                }
             }
-        }
         val result = AndroidScanner.buildOsFilters(filterGroups)
 
         assertNotNull(result)
@@ -396,12 +415,13 @@ class AndroidScannerTest {
 
     @Test
     fun `ScannerConfig DSL sets custom values`() {
-        val config = ScannerConfig().apply {
-            timeout = 30.seconds
-            emission = EmissionPolicy.All
-            legacyOnly = false
-            phy = ScanPhy.LeCoded
-        }
+        val config =
+            ScannerConfig().apply {
+                timeout = 30.seconds
+                emission = EmissionPolicy.All
+                legacyOnly = false
+                phy = ScanPhy.LeCoded
+            }
         assertEquals(30.seconds, config.timeout)
         assertTrue(config.emission is EmissionPolicy.All)
         assertEquals(false, config.legacyOnly)
@@ -410,15 +430,16 @@ class AndroidScannerTest {
 
     @Test
     fun `ScannerConfig filters DSL produces expected filter groups`() {
-        val config = ScannerConfig().apply {
-            filters {
-                match {
-                    name("DeviceA")
-                    serviceUuid("180d")
+        val config =
+            ScannerConfig().apply {
+                filters {
+                    match {
+                        name("DeviceA")
+                        serviceUuid("180d")
+                    }
+                    match { name("DeviceB") }
                 }
-                match { name("DeviceB") }
             }
-        }
         val osFilters = AndroidScanner.buildOsFilters(config.filterGroups)
         assertNotNull(osFilters)
         assertEquals(2, osFilters.size)
