@@ -38,7 +38,7 @@ import kotlin.time.Duration
 import kotlin.uuid.Uuid
 
 internal class FakeGattResponder(
-    private val context: PeripheralContext,
+    internal val context: PeripheralContext,
     private val observationManager: ObservationManager,
     private val characteristicConfigs: List<FakeCharacteristicConfig>,
     private val onL2capHandler: L2capHandler?,
@@ -67,11 +67,11 @@ internal class FakeGattResponder(
         _phyUpdate.emit(PhyUpdate(tx, rx))
     }
 
-    private fun checkNotClosed() {
+    internal fun checkNotClosed() {
         check(!closedFlag()) { "Peripheral is closed" }
     }
 
-    private fun checkConnected() {
+    internal fun checkConnected() {
         check(context.state.value is State.Connected) {
             "Peripheral is not connected (state: ${context.state.value})"
         }
@@ -221,18 +221,13 @@ internal class FakeGattResponder(
             }
     }
 
-    suspend fun readDescriptor(descriptor: Descriptor): ByteArray {
-        checkNotClosed()
-        checkConnected()
-        return byteArrayOf()
-    }
+    suspend fun readDescriptor(descriptor: Descriptor): ByteArray = readDescriptorImpl(descriptor)
 
     suspend fun writeDescriptor(
         descriptor: Descriptor,
         data: ByteArray,
     ) {
-        checkNotClosed()
-        checkConnected()
+        writeDescriptorImpl(descriptor, data)
     }
 
     suspend fun openL2capChannel(
@@ -251,18 +246,9 @@ internal class FakeGattResponder(
         return handler(psm, mtu)
     }
 
-    suspend fun readRssi(): Int {
-        checkNotClosed()
-        checkConnected()
-        return -50
-    }
+    suspend fun readRssi(): Int = readRssiImpl()
 
-    suspend fun requestMtu(mtu: Int): Int {
-        checkNotClosed()
-        checkConnected()
-        context.updateMtu(mtu)
-        return mtu
-    }
+    suspend fun requestMtu(mtu: Int): Int = requestMtuImpl(mtu)
 
     suspend fun requestConnectionPriority(priority: ConnectionPriority): Boolean {
         checkNotClosed()
