@@ -1,5 +1,6 @@
 package com.atruedev.kmpble.scanner
 
+import com.atruedev.kmpble.connection.Phy
 import kotlin.time.Duration
 
 /**
@@ -31,6 +32,25 @@ public class ScannerConfig internal constructor() {
      * regardless of this setting.
      */
     public var legacyOnly: Boolean = true
+
+    /**
+     * PHYs to scan on. Maps to the Android ScanSettings.setPhy() value.
+     *
+     * - [Phy.Le1M]: 1 Mbps scanning (always supported, BLE 4.0+)
+     * - [Phy.Le2M]: 2 Mbps scanning (BLE 5.0+, requires hardware support)
+     * - [Phy.LeCoded]: Long-range scanning with forward error correction (BLE 5.0+)
+     *
+     * Default: scan on all PHYs supported by the hardware.
+     *
+     * | Android | `ScanSettings.Builder.setPhy()` with the corresponding flag. |
+     * |---------|----------|
+     * | iOS     | No direct equivalent; CoreBluetooth scans on all PHYs transparently. |
+     *
+     * When scanning on a single PHY, only advertisements received on that PHY
+     * are reported. When scanning on multiple PHYs (or the default "all"), the
+     * platform reports advertisements from all supported PHYs.
+     */
+    public var scanPhy: Set<Phy> = setOf(Phy.Le1M, Phy.Le2M, Phy.LeCoded)
 
     internal var filterGroups: List<List<ScanPredicate>> = emptyList()
         private set

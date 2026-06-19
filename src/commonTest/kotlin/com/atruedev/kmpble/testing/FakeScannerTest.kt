@@ -3,6 +3,7 @@ package com.atruedev.kmpble.testing
 import com.atruedev.kmpble.connection.Phy
 import com.atruedev.kmpble.scanner.DataStatus
 import com.atruedev.kmpble.scanner.ScanEvent
+import com.atruedev.kmpble.scanner.ScannerConfig
 import com.atruedev.kmpble.scanner.uuidFrom
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.flow.take
@@ -191,4 +192,10 @@ class FakeScannerTest {
             assertEquals(240, ad.periodicAdvertisingInterval)
             assertEquals(DataStatus.Truncated, ad.dataStatus)
         }
+
+    @Test
+    fun scannerConfigDefaultScanPhy() {
+        val config = ScannerConfig()
+        assertEquals(setOf(Phy.Le1M, Phy.Le2M, Phy.LeCoded), config.scanPhy)
+    }
 }
