@@ -4,6 +4,9 @@ import com.atruedev.kmpble.Identifier
 import com.atruedev.kmpble.gatt.Characteristic
 import com.atruedev.kmpble.gatt.DiscoveredService
 import com.atruedev.kmpble.scanner.uuidFrom
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -42,7 +45,7 @@ public class AndroidGattCacheTest {
         )
 
     @Test
-    fun `put and get round-trip`() {
+    fun `put and get round-trip`() = runBlocking {
         val cache = buildCache()
         cache.put(identifierA, buildServices())
         val cached = cache.get(identifierA)
@@ -51,7 +54,7 @@ public class AndroidGattCacheTest {
     }
 
     @Test
-    fun `invalidate removes entry`() {
+    fun `invalidate removes entry`() = runBlocking {
         val cache = buildCache()
         cache.put(identifierA, buildServices())
         cache.invalidate(identifierA)
@@ -59,7 +62,7 @@ public class AndroidGattCacheTest {
     }
 
     @Test
-    fun `clear removes all entries`() {
+    fun `clear removes all entries`() = runBlocking {
         val cache = buildCache()
         cache.put(identifierA, buildServices())
         cache.put(identifierB, buildServices("180a"))
@@ -69,7 +72,7 @@ public class AndroidGattCacheTest {
     }
 
     @Test
-    fun `LRU evicts least recently used when capacity exceeded`() {
+    fun `LRU evicts least recently used when capacity exceeded`() = runBlocking {
         val cache = buildCache(maxSize = 2)
         cache.put(identifierA, buildServices("180d"))
         cache.put(identifierB, buildServices("180a"))
@@ -83,7 +86,7 @@ public class AndroidGattCacheTest {
     }
 
     @Test
-    fun `LRU access order promotes entry`() {
+    fun `LRU access order promotes entry`() = runBlocking {
         val cache = buildCache(maxSize = 2)
         cache.put(identifierA, buildServices("180d"))
         cache.put(identifierB, buildServices("180a"))
@@ -98,7 +101,7 @@ public class AndroidGattCacheTest {
     }
 
     @Test
-    fun `put replaces existing entry`() {
+    fun `put replaces existing entry`() = runBlocking {
         val cache = buildCache()
         cache.put(identifierA, buildServices("180d"))
         cache.put(identifierA, buildServices("180a"))
@@ -108,7 +111,7 @@ public class AndroidGattCacheTest {
     }
 
     @Test
-    fun `multiple identifiers independent`() {
+    fun `multiple identifiers independent`() = runBlocking {
         val cache = buildCache()
         cache.put(identifierA, buildServices("180d"))
         cache.put(identifierB, buildServices("180a"))
@@ -119,11 +122,13 @@ public class AndroidGattCacheTest {
 
 /**
  * Standalone LRU [GattCache] for testing -- mirrors [AndroidGattCache].
+ *
+ * Uses [Mutex] for structured concurrency instead of [synchronized].
  */
 internal class LruGattCache(
     private val maxSize: Int,
 ) : GattCache {
-    private val lock = Any()
+    private val mutex = Mutex()
 
     @Suppress("UNCHECKED_CAST")
     private val cache =
@@ -137,20 +142,21 @@ internal class LruGattCache(
             ): Boolean = size > maxSize
         }
 
-    override fun get(identifier: Identifier): List<DiscoveredService>? = synchronized(lock) { cache[identifier] }
+    override suspend fun get(identifier: Identifier): List<DiscoveredService>? =
+        mutex.withLock { cache[identifier] }
 
-    override fun put(
+    override suspend fun put(
         identifier: Identifier,
         services: List<DiscoveredService>,
     ) {
-        synchronized(lock) { cache[identifier] = services }
+        mutex.withLock { cache[identifier] = services }
     }
 
-    override fun invalidate(identifier: Identifier) {
-        synchronized(lock) { cache.remove(identifier) }
+    override suspend fun invalidate(identifier: Identifier) {
+        mutex.withLock { cache.remove(identifier) }
     }
 
-    override fun clear() {
-        synchronized(lock) { cache.clear() }
+    override suspend fun clear() {
+        mutex.withLock { cache.clear() }
     }
 }

@@ -2,6 +2,8 @@ package com.atruedev.kmpble.gatt.cache
 
 import com.atruedev.kmpble.Identifier
 import com.atruedev.kmpble.gatt.DiscoveredService
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /**
  * In-memory LRU cache for discovered GATT services.
@@ -9,12 +11,13 @@ import com.atruedev.kmpble.gatt.DiscoveredService
  * Uses [LinkedHashMap] with access-order eviction. When the cache exceeds
  * [maxSize], the least-recently-accessed entry is removed.
  *
- * Thread-safe: all public methods synchronize on the internal map.
+ * Thread-safe: all public methods use [Mutex] for structured concurrency
+ * instead of [synchronized].
  */
 internal class AndroidGattCache(
     private val maxSize: Int,
 ) : GattCache {
-    private val lock = Any()
+    private val mutex = Mutex()
 
     @Suppress("UNCHECKED_CAST")
     private val cache =
@@ -28,21 +31,22 @@ internal class AndroidGattCache(
             ): Boolean = size > maxSize
         }
 
-    override fun get(identifier: Identifier): List<DiscoveredService>? = synchronized(lock) { cache[identifier] }
+    override suspend fun get(identifier: Identifier): List<DiscoveredService>? =
+        mutex.withLock { cache[identifier] }
 
-    override fun put(
+    override suspend fun put(
         identifier: Identifier,
         services: List<DiscoveredService>,
     ) {
-        synchronized(lock) { cache[identifier] = services }
+        mutex.withLock { cache[identifier] = services }
     }
 
-    override fun invalidate(identifier: Identifier) {
-        synchronized(lock) { cache.remove(identifier) }
+    override suspend fun invalidate(identifier: Identifier) {
+        mutex.withLock { cache.remove(identifier) }
     }
 
-    override fun clear() {
-        synchronized(lock) { cache.clear() }
+    override suspend fun clear() {
+        mutex.withLock { cache.clear() }
     }
 }
 

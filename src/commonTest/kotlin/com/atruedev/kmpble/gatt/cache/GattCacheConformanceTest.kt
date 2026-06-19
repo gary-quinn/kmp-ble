@@ -4,6 +4,7 @@ import com.atruedev.kmpble.Identifier
 import com.atruedev.kmpble.gatt.Characteristic
 import com.atruedev.kmpble.gatt.DiscoveredService
 import com.atruedev.kmpble.scanner.uuidFrom
+import kotlinx.coroutines.runBlocking
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -53,28 +54,28 @@ public abstract class GattCacheConformanceTest {
         )
 
     @Test
-    fun `get returns null for unknown identifier`() {
+    fun `get returns null for unknown identifier`() = runBlocking {
         val cache = buildCache()
         assertNull(cache.get(identifierA))
     }
 
     @Test
-    fun `invalidate unknown identifier is no-op`() {
+    fun `invalidate unknown identifier is no-op`() = runBlocking {
         val cache = buildCache()
         cache.invalidate(identifierA)
         // No exception thrown
     }
 
     @Test
-    fun `clear empty cache is no-op`() {
+    fun `clear empty cache is no-op`() = runBlocking {
         val cache = buildCache()
         cache.clear()
         // No exception thrown
     }
 
     @Test
-    fun `put and get round-trip`() {
-        if (!supportsCaching) return
+    fun `put and get round-trip`() = runBlocking {
+        if (!supportsCaching) return@runBlocking
         val cache = buildCache()
         val services = buildServices()
         cache.put(identifierA, services)
@@ -85,8 +86,8 @@ public abstract class GattCacheConformanceTest {
     }
 
     @Test
-    fun `put replaces existing entry`() {
-        if (!supportsCaching) return
+    fun `put replaces existing entry`() = runBlocking {
+        if (!supportsCaching) return@runBlocking
         val cache = buildCache()
         val services1 = buildServices()
         val services2 =
@@ -105,8 +106,8 @@ public abstract class GattCacheConformanceTest {
     }
 
     @Test
-    fun `invalidate removes entry`() {
-        if (!supportsCaching) return
+    fun `invalidate removes entry`() = runBlocking {
+        if (!supportsCaching) return@runBlocking
         val cache = buildCache()
         cache.put(identifierA, buildServices())
         cache.invalidate(identifierA)
@@ -114,8 +115,8 @@ public abstract class GattCacheConformanceTest {
     }
 
     @Test
-    fun `clear removes all entries`() {
-        if (!supportsCaching) return
+    fun `clear removes all entries`() = runBlocking {
+        if (!supportsCaching) return@runBlocking
         val cache = buildCache()
         cache.put(identifierA, buildServices())
         cache.put(identifierB, buildServices())
@@ -125,8 +126,8 @@ public abstract class GattCacheConformanceTest {
     }
 
     @Test
-    fun `multiple identifiers independent`() {
-        if (!supportsCaching) return
+    fun `multiple identifiers independent`() = runBlocking {
+        if (!supportsCaching) return@runBlocking
         val cache = buildCache()
         val servicesA = buildServices()
         val servicesB =

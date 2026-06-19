@@ -11,20 +11,20 @@ import com.atruedev.kmpble.gatt.DiscoveredService
  * D-Bus or serial) should provide their own [GattCache] implementation.
  */
 internal object JvmGattCache : GattCache {
-    override fun get(identifier: Identifier): List<DiscoveredService>? = null
+    override suspend fun get(identifier: Identifier): List<DiscoveredService>? = null
 
-    override fun put(
+    override suspend fun put(
         identifier: Identifier,
         services: List<DiscoveredService>,
     ) {
         // No Bluetooth stack available on JVM
     }
 
-    override fun invalidate(identifier: Identifier) {
+    override suspend fun invalidate(identifier: Identifier) {
         // No-op on JVM
     }
 
-    override fun clear() {
+    override suspend fun clear() {
         // No-op on JVM
     }
 }
