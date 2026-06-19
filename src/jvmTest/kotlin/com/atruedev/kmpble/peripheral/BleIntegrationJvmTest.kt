@@ -8,6 +8,9 @@ import com.atruedev.kmpble.gatt.Observation
 import com.atruedev.kmpble.scanner.ScanEvent
 import com.atruedev.kmpble.testing.FakePeripheralBuilder
 import com.atruedev.kmpble.testing.IntegrationTestFixtures
+import com.atruedev.kmpble.testing.emitObservationValue
+import com.atruedev.kmpble.testing.simulateDisconnect
+import com.atruedev.kmpble.testing.simulateReconnect
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull

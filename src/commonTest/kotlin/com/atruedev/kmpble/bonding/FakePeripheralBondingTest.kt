@@ -4,6 +4,7 @@ import com.atruedev.kmpble.connection.State
 import com.atruedev.kmpble.connection.internal.ConnectionEvent
 import com.atruedev.kmpble.error.ConnectionFailed
 import com.atruedev.kmpble.testing.FakePeripheral
+import com.atruedev.kmpble.testing.simulateEvent
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertIs

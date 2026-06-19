@@ -9,9 +9,7 @@ import com.atruedev.kmpble.connection.Phy
 import com.atruedev.kmpble.connection.PhyUpdate
 import com.atruedev.kmpble.connection.State
 import com.atruedev.kmpble.connection.internal.ConnectionEvent
-import com.atruedev.kmpble.error.BleError
 import com.atruedev.kmpble.error.ConnectionFailed
-import com.atruedev.kmpble.error.ConnectionLost
 import com.atruedev.kmpble.error.OperationFailed
 import com.atruedev.kmpble.gatt.BackpressureStrategy
 import com.atruedev.kmpble.gatt.Characteristic
@@ -49,11 +47,11 @@ public class FakePeripheral internal constructor(
         ),
 ) : Peripheral {
     private val context = PeripheralContext(identifier)
-    private val observationManager = ObservationManager(observationDispatcher)
+    internal val observationManager = ObservationManager(observationDispatcher)
     private var closed = false
-    private val cccdWritesState = MutableStateFlow<List<CccdWrite>>(emptyList())
+    internal val cccdWritesState = MutableStateFlow<List<CccdWrite>>(emptyList())
 
-    private val connectionSimulator =
+    internal val connectionSimulator =
         FakeConnectionSimulator(
             context = context,
             observationManager = observationManager,
@@ -62,7 +60,7 @@ public class FakePeripheral internal constructor(
             closedFlag = { closed },
         )
 
-    private val gattResponder =
+    internal val gattResponder =
         FakeGattResponder(
             context = context,
             observationManager = observationManager,
@@ -101,33 +99,6 @@ public class FakePeripheral internal constructor(
                 )
             context.processEvent(ConnectionEvent.ConnectionLost(error))
         }
-    }
-
-    internal suspend fun simulateEvent(event: ConnectionEvent): State = connectionSimulator.simulateEvent(event)
-
-    /**
-     * Drives the state machine from [State.Connected.Ready] to
-     * [State.Connected.BondingChange].
-     */
-    public suspend fun simulateBondStateChange() {
-        connectionSimulator.simulateBondStateChange()
-    }
-
-    /**
-     * Drives the state machine from [State.Connected.Ready] to
-     * [State.Connected.ServiceChanged]. Services remain populated (now stale)
-     * until rediscovery completes.
-     */
-    public suspend fun simulateServiceChangedIndication() {
-        connectionSimulator.simulateServiceChangedIndication()
-    }
-
-    /**
-     * Drives the state machine from [State.Connected.ServiceChanged] back to
-     * [State.Connected.Ready].
-     */
-    public suspend fun simulateRediscoverySucceeded() {
-        connectionSimulator.simulateRediscoverySucceeded()
     }
 
     override suspend fun disconnect() {
@@ -232,86 +203,6 @@ public class FakePeripheral internal constructor(
 
     @com.atruedev.kmpble.ExperimentalBleApi
     override val phyUpdate: Flow<PhyUpdate> = gattResponder.phyUpdate
-
-    // --- Test Simulation Methods (delegated to FakeConnectionSimulator) ---
-
-    /**
-     * Simulate a disconnect event. This will emit [Observation.Disconnected] to all active
-     * observations but NOT complete them - they persist for reconnection.
-     */
-    public suspend fun simulateDisconnect(error: BleError = ConnectionLost("Simulated disconnect")) {
-        connectionSimulator.simulateDisconnect(error)
-    }
-
-    /**
-     * Simulate a reconnection. This will:
-     * 1. Transition through connecting states
-     * 2. Re-discover services
-     * 3. Re-enable CCCD for all active observations
-     */
-    public suspend fun simulateReconnect(newServices: List<DiscoveredService>? = null) {
-        connectionSimulator.simulateReconnect(newServices)
-    }
-
-    /**
-     * Simulate permanent disconnect (max reconnection attempts exhausted).
-     * This will complete all observation flows.
-     */
-    public suspend fun simulatePermanentDisconnect() {
-        connectionSimulator.simulatePermanentDisconnect()
-    }
-
-    /** Simulate a characteristic notification by emitting [value] to active observers. */
-    public suspend fun emitObservationValue(
-        serviceUuid: Uuid,
-        charUuid: Uuid,
-        value: ByteArray,
-    ) {
-        connectionSimulator.emitObservationValue(serviceUuid, charUuid, value)
-    }
-
-    /** Convenience overload accepting short or full UUID strings. */
-    public suspend fun emitObservationValue(
-        serviceUuid: String,
-        charUuid: String,
-        value: ByteArray,
-    ) {
-        connectionSimulator.emitObservationValue(serviceUuid, charUuid, value)
-    }
-
-    /** Configure the PHY values returned by [readPhy]. */
-    public fun configurePhy(
-        tx: Phy,
-        rx: Phy,
-    ) {
-        gattResponder.configurePhy(tx, rx)
-    }
-
-    /** Simulate a spontaneous PHY update, which emits to [phyUpdate]. */
-    public suspend fun emitPhyUpdate(
-        tx: Phy,
-        rx: Phy,
-    ) {
-        gattResponder.emitPhyUpdate(tx, rx)
-    }
-
-    /** Returns all CCCD writes recorded during observation setup/teardown. */
-    public fun getCccdWrites(): List<CccdWrite> = cccdWritesState.value
-
-    /** Clears recorded CCCD writes. */
-    public fun clearCccdWrites() {
-        cccdWritesState.value = emptyList()
-    }
-
-    /** Returns `true` if there are active collectors for the given characteristic. */
-    public suspend fun hasCollectors(
-        serviceUuid: Uuid,
-        charUuid: Uuid,
-    ): Boolean = connectionSimulator.hasCollectors(serviceUuid, charUuid)
-
-    /** Expose ObservationManager for test debugging. */
-    internal fun getObservationManagerForTest(): com.atruedev.kmpble.gatt.internal.ObservationManager =
-        observationManager
 
     private fun checkNotClosed() {
         check(!closed) { "Peripheral is closed" }

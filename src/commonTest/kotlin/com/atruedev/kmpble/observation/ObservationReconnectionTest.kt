@@ -8,6 +8,12 @@ import com.atruedev.kmpble.gatt.Observation
 import com.atruedev.kmpble.scanner.uuidFrom
 import com.atruedev.kmpble.testing.FakePeripheral
 import com.atruedev.kmpble.testing.FakePeripheralBuilder
+import com.atruedev.kmpble.testing.clearCccdWrites
+import com.atruedev.kmpble.testing.emitObservationValue
+import com.atruedev.kmpble.testing.getCccdWrites
+import com.atruedev.kmpble.testing.simulateDisconnect
+import com.atruedev.kmpble.testing.simulatePermanentDisconnect
+import com.atruedev.kmpble.testing.simulateReconnect
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancelAndJoin
