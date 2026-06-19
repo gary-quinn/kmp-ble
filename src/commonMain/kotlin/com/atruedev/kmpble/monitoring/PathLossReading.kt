@@ -1,7 +1,5 @@
 package com.atruedev.kmpble.monitoring
 
-import com.atruedev.kmpble.peripheral.Peripheral
-
 /**
  * A single path loss reading computed from TX power and RSSI.
  *
