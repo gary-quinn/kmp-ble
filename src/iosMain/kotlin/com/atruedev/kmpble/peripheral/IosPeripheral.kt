@@ -69,6 +69,9 @@ public class IosPeripheral(
     internal var pendingL2capChannel: CompletableDeferred<CBL2CAPChannel>? = null
     internal val activeL2capChannels = MutableStateFlow<List<IosL2capChannel>>(emptyList())
 
+    @ExperimentalBleApi
+    internal val pairingRequestHandler = IosPairingRequestHandler(identifier)
+
     override val state: StateFlow<State> get() = peripheralContext.state
     override val bondState: StateFlow<BondState> get() = peripheralContext.bondState
     override val services: StateFlow<List<DiscoveredService>?> get() = peripheralContext.services
@@ -108,6 +111,7 @@ public class IosPeripheral(
 
     override suspend fun connect(options: ConnectionOptions) {
         checkNotClosed()
+        pairingRequestHandler.setHandler(options.pairingHandler)
         reconnectionHandler.start(options)
         withContext(peripheralContext.dispatcher) {
             peripheralContext.processEvent(ConnectionEvent.ConnectRequested)
@@ -160,6 +164,7 @@ public class IosPeripheral(
         if (closed) return
         closed = true
         reconnectionHandler.stop()
+        pairingRequestHandler.closeSync()
         closeL2capChannels()
         centralDelegate.unregisterConnectionCallback(identifier.value)
 
