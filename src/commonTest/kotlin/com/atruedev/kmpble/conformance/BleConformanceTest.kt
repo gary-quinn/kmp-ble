@@ -17,6 +17,9 @@ import com.atruedev.kmpble.testing.FakeL2capListener
 import com.atruedev.kmpble.testing.FakePeripheralBuilder
 import com.atruedev.kmpble.testing.FakeScanner
 import com.atruedev.kmpble.testing.FakeScannerBuilder
+import com.atruedev.kmpble.testing.configurePhy
+import com.atruedev.kmpble.testing.emitObservationValue
+import com.atruedev.kmpble.testing.emitPhyUpdate
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.mapNotNull

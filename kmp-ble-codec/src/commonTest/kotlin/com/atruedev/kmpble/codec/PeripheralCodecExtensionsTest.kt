@@ -5,6 +5,9 @@ import com.atruedev.kmpble.gatt.BackpressureStrategy
 import com.atruedev.kmpble.gatt.DiscoveredService
 import com.atruedev.kmpble.scanner.uuidFrom
 import com.atruedev.kmpble.testing.FakePeripheral
+import com.atruedev.kmpble.testing.simulateBondStateChange
+import com.atruedev.kmpble.testing.simulateRediscoverySucceeded
+import com.atruedev.kmpble.testing.simulateServiceChangedIndication
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.flowOf

@@ -8,6 +8,7 @@ import com.atruedev.kmpble.gatt.WriteType
 import com.atruedev.kmpble.scanner.uuidFrom
 import com.atruedev.kmpble.testing.FakeL2capChannel
 import com.atruedev.kmpble.testing.FakePeripheralBuilder
+import com.atruedev.kmpble.testing.simulateDisconnect
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
