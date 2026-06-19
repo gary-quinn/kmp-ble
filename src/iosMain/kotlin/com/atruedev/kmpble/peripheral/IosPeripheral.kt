@@ -14,9 +14,7 @@ import com.atruedev.kmpble.connection.ReconnectionStrategy
 import com.atruedev.kmpble.connection.State
 import com.atruedev.kmpble.connection.internal.ConnectionEvent
 import com.atruedev.kmpble.connection.internal.ReconnectionHandler
-import com.atruedev.kmpble.error.BleException
 import com.atruedev.kmpble.error.ConnectionFailed
-import com.atruedev.kmpble.error.GattError
 import com.atruedev.kmpble.error.OperationFailed
 import com.atruedev.kmpble.gatt.BackpressureStrategy
 import com.atruedev.kmpble.gatt.Characteristic
@@ -24,9 +22,7 @@ import com.atruedev.kmpble.gatt.Descriptor
 import com.atruedev.kmpble.gatt.DiscoveredService
 import com.atruedev.kmpble.gatt.Observation
 import com.atruedev.kmpble.gatt.WriteType
-import com.atruedev.kmpble.gatt.internal.LargeWriteHandler
 import com.atruedev.kmpble.gatt.internal.ObservationManager
-import com.atruedev.kmpble.gatt.internal.PendingOp
 import com.atruedev.kmpble.gatt.internal.PendingOperations
 import com.atruedev.kmpble.gatt.internal.PersistedObservation
 import com.atruedev.kmpble.internal.CentralManagerProvider
@@ -34,12 +30,8 @@ import com.atruedev.kmpble.internal.StateRestorationHandler
 import com.atruedev.kmpble.l2cap.IosL2capChannel
 import com.atruedev.kmpble.l2cap.L2capChannel
 import com.atruedev.kmpble.peripheral.internal.LifecycleSlots
-import com.atruedev.kmpble.peripheral.internal.ObservationToBytes
-import com.atruedev.kmpble.peripheral.internal.ObservationToObservation
 import com.atruedev.kmpble.peripheral.internal.PeripheralContext
 import com.atruedev.kmpble.peripheral.internal.PeripheralRegistry
-import com.atruedev.kmpble.peripheral.internal.awaitGatt
-import com.atruedev.kmpble.peripheral.internal.buildObservationFlow
 import com.atruedev.kmpble.peripheral.internal.findCharacteristic
 import com.atruedev.kmpble.peripheral.internal.findDescriptor
 import kotlinx.coroutines.CompletableDeferred
@@ -51,11 +43,9 @@ import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import platform.CoreBluetooth.CBCharacteristic
-import platform.CoreBluetooth.CBCharacteristicWriteWithResponse
 import platform.CoreBluetooth.CBDescriptor
 import platform.CoreBluetooth.CBL2CAPChannel
 import platform.CoreBluetooth.CBPeripheral
-import platform.CoreBluetooth.CBPeripheralStateConnected
 import kotlin.concurrent.Volatile
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
@@ -214,77 +204,25 @@ public class IosPeripheral(
         descriptorUuid: Uuid,
     ): Descriptor? = services.value.findDescriptor(serviceUuid, characteristicUuid, descriptorUuid)
 
-    override suspend fun read(characteristic: Characteristic): ByteArray {
-        checkNotClosed()
-        return peripheralContext.gattQueue.enqueue {
-            val native = requireNativeCbChar(characteristic)
-            val result =
-                pendingOps.awaitGatt(PendingOp.CharacteristicRead, "read") {
-                    bridge.readCharacteristic(native)
-                }
-            if (!result.status.isSuccess()) throw BleException(GattError("read", result.status))
-            result.value
-        }
-    }
+    override suspend fun read(characteristic: Characteristic): ByteArray = readGatt(characteristic)
 
     override suspend fun write(
         characteristic: Characteristic,
         data: ByteArray,
         writeType: WriteType,
     ) {
-        checkNotClosed()
-        LargeWriteHandler.validateForWriteType(data, maximumWriteValueLength.value, writeType)
-
-        val native = requireNativeCbChar(characteristic)
-        val withResponse = writeType == WriteType.WithResponse || writeType == WriteType.Signed
-        val chunks = LargeWriteHandler.chunk(data, maximumWriteValueLength.value)
-
-        peripheralContext.gattQueue.enqueue {
-            for (chunk in chunks) {
-                if (withResponse) {
-                    val status =
-                        pendingOps.awaitGatt(PendingOp.CharacteristicWrite, "write") {
-                            bridge.writeCharacteristic(native, chunk.toNSData(), withResponse = true)
-                        }
-                    if (!status.isSuccess()) throw BleException(GattError("write", status))
-                } else {
-                    bridge.writeCharacteristic(native, chunk.toNSData(), withResponse = false)
-                }
-            }
-        }
+        writeGatt(characteristic, data, writeType)
     }
 
     override fun observe(
         characteristic: Characteristic,
         backpressure: BackpressureStrategy,
-    ): Flow<Observation> {
-        checkNotClosed()
-        return buildObservationFlow(
-            characteristic = characteristic,
-            backpressure = backpressure,
-            observationManager = observationManager,
-            isReady = { peripheralContext.state.value is State.Connected.Ready },
-            enable = ::enableNotifications,
-            disable = ::disableNotifications,
-            mapper = ObservationToObservation,
-        )
-    }
+    ): Flow<Observation> = observeGatt(characteristic, backpressure)
 
     override fun observeValues(
         characteristic: Characteristic,
         backpressure: BackpressureStrategy,
-    ): Flow<ByteArray> {
-        checkNotClosed()
-        return buildObservationFlow(
-            characteristic = characteristic,
-            backpressure = backpressure,
-            observationManager = observationManager,
-            isReady = { peripheralContext.state.value is State.Connected.Ready },
-            enable = ::enableNotifications,
-            disable = ::disableNotifications,
-            mapper = ObservationToBytes,
-        )
-    }
+    ): Flow<ByteArray> = observeValuesGatt(characteristic, backpressure)
 
     internal fun enableNotifications(characteristic: Characteristic) {
         bridge.setNotifyValue(true, requireNativeCbChar(characteristic))
@@ -296,79 +234,36 @@ public class IosPeripheral(
         bridge.setNotifyValue(false, native)
     }
 
-    override suspend fun readDescriptor(descriptor: Descriptor): ByteArray {
-        checkNotClosed()
-        return peripheralContext.gattQueue.enqueue {
-            val native = requireNativeCbDesc(descriptor)
-            val result =
-                pendingOps.awaitGatt(PendingOp.DescriptorRead, "readDescriptor") {
-                    bridge.readDescriptor(native)
-                }
-            if (!result.status.isSuccess()) throw BleException(GattError("readDescriptor", result.status))
-            result.value
-        }
-    }
+    override suspend fun readDescriptor(descriptor: Descriptor): ByteArray = readDescriptorGatt(descriptor)
 
     override suspend fun writeDescriptor(
         descriptor: Descriptor,
         data: ByteArray,
     ) {
-        checkNotClosed()
-        peripheralContext.gattQueue.enqueue {
-            val native = requireNativeCbDesc(descriptor)
-            val status =
-                pendingOps.awaitGatt(PendingOp.DescriptorWrite, "writeDescriptor") {
-                    bridge.writeDescriptor(native, data.toNSData())
-                }
-            if (!status.isSuccess()) throw BleException(GattError("writeDescriptor", status))
-        }
+        writeDescriptorGatt(descriptor, data)
     }
 
-    override suspend fun readRssi(): Int {
-        checkNotClosed()
-        return peripheralContext.gattQueue.enqueue {
-            pendingOps.awaitGatt(PendingOp.RssiRead, "readRssi") { bridge.readRSSI() }
-        }
-    }
+    override suspend fun readRssi(): Int = readRssiGatt()
 
-    override suspend fun requestMtu(mtu: Int): Int {
-        checkNotClosed()
-        val actualMtu =
-            cbPeripheral
-                .maximumWriteValueLengthForType(CBCharacteristicWriteWithResponse)
-                .toInt() + ATT_HEADER_SIZE
-        peripheralContext.updateMtu(actualMtu)
-        return actualMtu
-    }
+    override suspend fun requestMtu(mtu: Int): Int = requestMtuGatt(mtu)
 
     @ExperimentalBleApi
-    override suspend fun requestConnectionPriority(priority: ConnectionPriority): Boolean {
-        checkNotClosed()
-        return false
-    }
+    override suspend fun requestConnectionPriority(priority: ConnectionPriority): Boolean =
+        requestConnectionPriorityExt(priority)
 
     @ExperimentalBleApi
     override suspend fun requestConnectionParameterUpdate(
         params: ConnectionParameters,
-    ): ConnectionParameterUpdateResult? {
-        checkNotClosed()
-        return null
-    }
+    ): ConnectionParameterUpdateResult? = requestConnectionParameterUpdateExt(params)
 
     @ExperimentalBleApi
     override suspend fun setPreferredPhy(
         tx: Phy,
         rx: Phy,
-    ): PhyResult? {
-        checkNotClosed()
-        return null
-    }
+    ): PhyResult? = setPreferredPhyExt(tx, rx)
 
     @ExperimentalBleApi
-    override suspend fun readPhy(): PhyResult? {
-        checkNotClosed()
-        return null
-    }
+    override suspend fun readPhy(): PhyResult? = readPhyExt()
 
     @ExperimentalBleApi
     override val phyUpdate: Flow<PhyUpdate> = emptyFlow()
@@ -386,26 +281,6 @@ public class IosPeripheral(
      * delivered the peripheral as connected.
      */
     internal suspend fun restoreFromStateRestoration(savedObservations: Set<PersistedObservation>) {
-        if (closed) return
-
-        withContext(peripheralContext.dispatcher) {
-            for (obs in savedObservations) {
-                observationManager.subscribe(obs.key.serviceUuid, obs.key.charUuid, obs.backpressure)
-            }
-
-            if (cbPeripheral.state == CBPeripheralStateConnected) {
-                peripheralContext.processEvent(ConnectionEvent.ConnectRequested)
-                peripheralContext.gattQueue.start()
-                peripheralContext.processEvent(ConnectionEvent.LinkEstablished)
-
-                val deferred = slots.armConnect()
-                bridge.discoverServices()
-                try {
-                    withTimeout(DISCOVERY_TIMEOUT) { deferred.await() }
-                } finally {
-                    slots.clearConnect()
-                }
-            }
-        }
+        restoreFromStateRestorationExt(savedObservations)
     }
 }
