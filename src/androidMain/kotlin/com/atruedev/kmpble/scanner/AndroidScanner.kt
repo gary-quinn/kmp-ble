@@ -8,6 +8,7 @@ import android.bluetooth.le.ScanResult
 import android.bluetooth.le.ScanSettings
 import android.content.Context
 import android.os.ParcelUuid
+import com.atruedev.kmpble.connection.Phy
 import com.atruedev.kmpble.scanner.internal.toScanEvents
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -59,6 +60,7 @@ public class AndroidScanner(
                     .Builder()
                     .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
                     .setLegacy(config.legacyOnly)
+                    .setPhy(scanPhyToAndroid(config.scanPhy))
                     .build()
 
             leScanner.startScan(osFilters, settings, callback)
@@ -121,6 +123,18 @@ public class AndroidScanner(
 
                     if (hasOsPredicate) builder.build() else null
                 }.ifEmpty { null }
+        }
+
+        internal fun scanPhyToAndroid(phySet: Set<Phy>): Int {
+            if (phySet.isEmpty()) return ScanSettings.PHY_LE_ALL_SUPPORTED
+            if (phySet.size == 1) {
+                return when (phySet.single()) {
+                    Phy.Le1M -> ScanSettings.PHY_LE_1M
+                    Phy.Le2M -> ScanSettings.PHY_LE_2M
+                    Phy.LeCoded -> ScanSettings.PHY_LE_CODED
+                }
+            }
+            return ScanSettings.PHY_LE_ALL_SUPPORTED
         }
     }
 }
