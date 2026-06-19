@@ -39,6 +39,9 @@ import com.atruedev.kmpble.gatt.DiscoveredService
  * ```
  *
  * Thread-safe across coroutines on all platforms.
+ *
+ * Implementation uses [kotlinx.coroutines.sync.Mutex] for structured
+ * concurrency on Android, instead of [synchronized].
  */
 public interface GattCache {
     /**
@@ -47,7 +50,7 @@ public interface GattCache {
      * On iOS this always returns `null` -- CoreBluetooth handles caching
      * internally and [Peripheral.services] returns cached results directly.
      */
-    public fun get(identifier: Identifier): List<DiscoveredService>?
+    public suspend fun get(identifier: Identifier): List<DiscoveredService>?
 
     /**
      * Store discovered [services] for [identifier].
@@ -55,7 +58,7 @@ public interface GattCache {
      * Replaces any existing entry. Call after [Peripheral.refreshServices]
      * completes so the cache stays current with the actual GATT database.
      */
-    public fun put(
+    public suspend fun put(
         identifier: Identifier,
         services: List<DiscoveredService>,
     )
@@ -67,7 +70,7 @@ public interface GattCache {
      * added a service) or when service discovery fails with a stale handle
      * error, forcing a fresh discovery on next connect.
      */
-    public fun invalidate(identifier: Identifier)
+    public suspend fun invalidate(identifier: Identifier)
 
     /**
      * Remove all cached entries.
@@ -75,7 +78,7 @@ public interface GattCache {
      * Useful when the app resets Bluetooth state, or when switching between
      * environments (development/production) where peripheral configurations differ.
      */
-    public fun clear()
+    public suspend fun clear()
 }
 
 /**

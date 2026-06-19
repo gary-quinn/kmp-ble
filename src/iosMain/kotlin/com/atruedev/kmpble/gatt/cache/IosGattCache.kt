@@ -15,20 +15,20 @@ import com.atruedev.kmpble.gatt.DiscoveredService
  * to [Peripheral.services] which returns CoreBluetooth's internally cached data.
  */
 internal object IosGattCache : GattCache {
-    override fun get(identifier: Identifier): List<DiscoveredService>? = null
+    override suspend fun get(identifier: Identifier): List<DiscoveredService>? = null
 
-    override fun put(
+    override suspend fun put(
         identifier: Identifier,
         services: List<DiscoveredService>,
     ) {
         // CoreBluetooth handles caching natively
     }
 
-    override fun invalidate(identifier: Identifier) {
+    override suspend fun invalidate(identifier: Identifier) {
         // CoreBluetooth handles cache invalidation on disconnect
     }
 
-    override fun clear() {
+    override suspend fun clear() {
         // CoreBluetooth cache lifecycle is managed by the OS
     }
 }
