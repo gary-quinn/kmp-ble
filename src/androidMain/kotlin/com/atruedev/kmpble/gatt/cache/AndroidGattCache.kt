@@ -31,8 +31,7 @@ internal class AndroidGattCache(
             ): Boolean = size > maxSize
         }
 
-    override suspend fun get(identifier: Identifier): List<DiscoveredService>? =
-        mutex.withLock { cache[identifier] }
+    override suspend fun get(identifier: Identifier): List<DiscoveredService>? = mutex.withLock { cache[identifier] }
 
     override suspend fun put(
         identifier: Identifier,

@@ -45,79 +45,86 @@ public class AndroidGattCacheTest {
         )
 
     @Test
-    fun `put and get round-trip`() = runBlocking {
-        val cache = buildCache()
-        cache.put(identifierA, buildServices())
-        val cached = cache.get(identifierA)
-        assertNotNull(cached)
-        assertEquals(1, cached.size)
-    }
+    fun `put and get round-trip`() =
+        runBlocking {
+            val cache = buildCache()
+            cache.put(identifierA, buildServices())
+            val cached = cache.get(identifierA)
+            assertNotNull(cached)
+            assertEquals(1, cached.size)
+        }
 
     @Test
-    fun `invalidate removes entry`() = runBlocking {
-        val cache = buildCache()
-        cache.put(identifierA, buildServices())
-        cache.invalidate(identifierA)
-        assertNull(cache.get(identifierA))
-    }
+    fun `invalidate removes entry`() =
+        runBlocking {
+            val cache = buildCache()
+            cache.put(identifierA, buildServices())
+            cache.invalidate(identifierA)
+            assertNull(cache.get(identifierA))
+        }
 
     @Test
-    fun `clear removes all entries`() = runBlocking {
-        val cache = buildCache()
-        cache.put(identifierA, buildServices())
-        cache.put(identifierB, buildServices("180a"))
-        cache.clear()
-        assertNull(cache.get(identifierA))
-        assertNull(cache.get(identifierB))
-    }
+    fun `clear removes all entries`() =
+        runBlocking {
+            val cache = buildCache()
+            cache.put(identifierA, buildServices())
+            cache.put(identifierB, buildServices("180a"))
+            cache.clear()
+            assertNull(cache.get(identifierA))
+            assertNull(cache.get(identifierB))
+        }
 
     @Test
-    fun `LRU evicts least recently used when capacity exceeded`() = runBlocking {
-        val cache = buildCache(maxSize = 2)
-        cache.put(identifierA, buildServices("180d"))
-        cache.put(identifierB, buildServices("180a"))
-        // Access A to make B the least-recently-used
-        cache.get(identifierA)
-        // Insert C -- B should be evicted
-        cache.put(identifierC, buildServices("180f"))
-        assertNotNull(cache.get(identifierA))
-        assertNotNull(cache.get(identifierC))
-        assertNull(cache.get(identifierB))
-    }
+    fun `LRU evicts least recently used when capacity exceeded`() =
+        runBlocking {
+            val cache = buildCache(maxSize = 2)
+            cache.put(identifierA, buildServices("180d"))
+            cache.put(identifierB, buildServices("180a"))
+            // Access A to make B the least-recently-used
+            cache.get(identifierA)
+            // Insert C -- B should be evicted
+            cache.put(identifierC, buildServices("180f"))
+            assertNotNull(cache.get(identifierA))
+            assertNotNull(cache.get(identifierC))
+            assertNull(cache.get(identifierB))
+        }
 
     @Test
-    fun `LRU access order promotes entry`() = runBlocking {
-        val cache = buildCache(maxSize = 2)
-        cache.put(identifierA, buildServices("180d"))
-        cache.put(identifierB, buildServices("180a"))
-        // Access A multiple times
-        cache.get(identifierA)
-        cache.get(identifierA)
-        // Insert C -- B should be evicted (A was accessed most recently)
-        cache.put(identifierC, buildServices("180f"))
-        assertNotNull(cache.get(identifierA))
-        assertNotNull(cache.get(identifierC))
-        assertNull(cache.get(identifierB))
-    }
+    fun `LRU access order promotes entry`() =
+        runBlocking {
+            val cache = buildCache(maxSize = 2)
+            cache.put(identifierA, buildServices("180d"))
+            cache.put(identifierB, buildServices("180a"))
+            // Access A multiple times
+            cache.get(identifierA)
+            cache.get(identifierA)
+            // Insert C -- B should be evicted (A was accessed most recently)
+            cache.put(identifierC, buildServices("180f"))
+            assertNotNull(cache.get(identifierA))
+            assertNotNull(cache.get(identifierC))
+            assertNull(cache.get(identifierB))
+        }
 
     @Test
-    fun `put replaces existing entry`() = runBlocking {
-        val cache = buildCache()
-        cache.put(identifierA, buildServices("180d"))
-        cache.put(identifierA, buildServices("180a"))
-        val cached = cache.get(identifierA)
-        assertNotNull(cached)
-        assertEquals(uuidFrom("180a"), cached[0].uuid)
-    }
+    fun `put replaces existing entry`() =
+        runBlocking {
+            val cache = buildCache()
+            cache.put(identifierA, buildServices("180d"))
+            cache.put(identifierA, buildServices("180a"))
+            val cached = cache.get(identifierA)
+            assertNotNull(cached)
+            assertEquals(uuidFrom("180a"), cached[0].uuid)
+        }
 
     @Test
-    fun `multiple identifiers independent`() = runBlocking {
-        val cache = buildCache()
-        cache.put(identifierA, buildServices("180d"))
-        cache.put(identifierB, buildServices("180a"))
-        assertEquals(uuidFrom("180d"), cache.get(identifierA)!![0].uuid)
-        assertEquals(uuidFrom("180a"), cache.get(identifierB)!![0].uuid)
-    }
+    fun `multiple identifiers independent`() =
+        runBlocking {
+            val cache = buildCache()
+            cache.put(identifierA, buildServices("180d"))
+            cache.put(identifierB, buildServices("180a"))
+            assertEquals(uuidFrom("180d"), cache.get(identifierA)!![0].uuid)
+            assertEquals(uuidFrom("180a"), cache.get(identifierB)!![0].uuid)
+        }
 }
 
 /**
@@ -142,8 +149,7 @@ internal class LruGattCache(
             ): Boolean = size > maxSize
         }
 
-    override suspend fun get(identifier: Identifier): List<DiscoveredService>? =
-        mutex.withLock { cache[identifier] }
+    override suspend fun get(identifier: Identifier): List<DiscoveredService>? = mutex.withLock { cache[identifier] }
 
     override suspend fun put(
         identifier: Identifier,
