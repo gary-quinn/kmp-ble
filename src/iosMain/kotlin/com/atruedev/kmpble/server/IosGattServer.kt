@@ -7,7 +7,6 @@ import com.atruedev.kmpble.internal.IosPeripheralManagerDelegate
 import com.atruedev.kmpble.internal.PeripheralManagerProvider
 import com.atruedev.kmpble.logging.BleLogEvent
 import com.atruedev.kmpble.logging.logEvent
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineName
@@ -15,17 +14,12 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.TimeoutCancellationException
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import platform.CoreBluetooth.CBATTRequest
@@ -33,7 +27,6 @@ import platform.CoreBluetooth.CBCentral
 import platform.CoreBluetooth.CBCharacteristicPropertyIndicate
 import platform.CoreBluetooth.CBMutableCharacteristic
 import platform.CoreBluetooth.CBPeripheralManager
-import platform.CoreBluetooth.CBPeripheralManagerStatePoweredOn
 import platform.Foundation.NSData
 import platform.Foundation.NSError
 import kotlin.concurrent.AtomicInt
@@ -94,16 +87,16 @@ import kotlin.uuid.Uuid
  * to call from any thread, matching the Android pattern.
  */
 internal class IosGattServer(
-    private val serviceDefinitions: List<ServiceDefinition>,
-    private val manager: CBPeripheralManager = PeripheralManagerProvider.manager,
-    private val delegate: IosPeripheralManagerDelegate = PeripheralManagerProvider.delegate,
-    private val centralIdleTimeout: Duration = DEFAULT_CENTRAL_IDLE_TIMEOUT,
-    private val centralSweepInterval: Duration = DEFAULT_CENTRAL_SWEEP_INTERVAL,
+    internal val serviceDefinitions: List<ServiceDefinition>,
+    internal val manager: CBPeripheralManager = PeripheralManagerProvider.manager,
+    internal val delegate: IosPeripheralManagerDelegate = PeripheralManagerProvider.delegate,
+    internal val centralIdleTimeout: Duration = DEFAULT_CENTRAL_IDLE_TIMEOUT,
+    internal val centralSweepInterval: Duration = DEFAULT_CENTRAL_SWEEP_INTERVAL,
 ) : GattServer {
-    private val dispatcher: CoroutineDispatcher = Dispatchers.Default.limitedParallelism(1)
+    internal val dispatcher: CoroutineDispatcher = Dispatchers.Default.limitedParallelism(1)
     internal val scope = CoroutineScope(SupervisorJob() + dispatcher + CoroutineName("IosGattServer"))
 
-    private val _connections = MutableStateFlow<List<ServerConnection>>(emptyList())
+    internal val _connections = MutableStateFlow<List<ServerConnection>>(emptyList())
     override val connections: StateFlow<List<ServerConnection>> = _connections.asStateFlow()
 
     internal val _connectionEvents = MutableSharedFlow<ServerConnectionEvent>(extraBufferCapacity = 64)
@@ -124,96 +117,13 @@ internal class IosGattServer(
     @Volatile
     internal var pendingServiceAdd: CompletableDeferred<NSError?>? = null
 
-    private val isOpen = AtomicInt(0)
-    private val isClosed = AtomicInt(0)
+    internal val isOpen = AtomicInt(0)
+    internal val isClosed = AtomicInt(0)
 
     // --- Public API ---
 
     override suspend fun open() {
-        if (isClosed.value != 0) {
-            throw ServerException.OpenFailed(
-                "This server instance has been closed and cannot be reopened. " +
-                    "Create a new instance via GattServer { ... } factory.",
-            )
-        }
-
-        withContext(dispatcher) {
-            if (isOpen.value != 0) return@withContext
-
-            if (!instanceLock.compareAndSet(0, 1)) {
-                throw ServerException.OpenFailed(
-                    "Another IosGattServer is already open. iOS uses a single " +
-                        "CBPeripheralManager - call close() on the existing server first.",
-                )
-            }
-
-            logEvent(BleLogEvent.ServerLifecycle("opening"))
-
-            try {
-                openInternal()
-            } catch (e: Exception) {
-                instanceLock.value = 0
-                throw e
-            }
-        }
-    }
-
-    private suspend fun openInternal() {
-        setDelegateCallbacks(active = true)
-
-        // Force lazy CBPeripheralManager init - the constructor fires
-        // peripheralManagerDidUpdateState on our delegate.
-        manager
-
-        try {
-            withTimeout(POWER_ON_TIMEOUT_MS) {
-                delegate.managerState.first { it == CBPeripheralManagerStatePoweredOn }
-            }
-        } catch (_: TimeoutCancellationException) {
-            setDelegateCallbacks(active = false)
-            throw ServerException.OpenFailed(
-                "Timeout waiting for Bluetooth to power on (state: ${delegate.managerState.value})",
-            )
-        }
-
-        for (serviceDef in serviceDefinitions) {
-            for (charDef in serviceDef.characteristics) {
-                charDef.readHandler?.let { readHandlers[charDef.uuid] = it }
-                charDef.writeHandler?.let { writeHandlers[charDef.uuid] = it }
-            }
-        }
-
-        for (serviceDef in serviceDefinitions) {
-            val nativeService = buildNativeService(serviceDef, characteristicCache)
-            val deferred = CompletableDeferred<NSError?>()
-            pendingServiceAdd = deferred
-            manager.addService(nativeService)
-
-            try {
-                val error = withTimeout(SERVICE_ADD_TIMEOUT_MS) { deferred.await() }
-                pendingServiceAdd = null
-                if (error != null) {
-                    throw ServerException.OpenFailed(
-                        "addService failed for ${serviceDef.uuid}: ${error.localizedDescription}",
-                    )
-                }
-            } catch (e: TimeoutCancellationException) {
-                pendingServiceAdd = null
-                throw ServerException.OpenFailed(
-                    "Timeout adding service ${serviceDef.uuid}",
-                )
-            }
-
-            logEvent(BleLogEvent.ServerLifecycle("service added: ${serviceDef.uuid}"))
-        }
-
-        isOpen.value = 1
-
-        scope.launch { runSweepLoop() }
-
-        logEvent(
-            BleLogEvent.ServerLifecycle("open (${serviceDefinitions.size} services)"),
-        )
+        openLifecycle()
     }
 
     override suspend fun notify(
@@ -272,87 +182,15 @@ internal class IosGattServer(
     }
 
     override fun close() {
-        if (isClosed.compareAndSet(0, 1).not()) return
-
-        val wasOpen = isOpen.compareAndSet(1, 0)
-        if (!wasOpen) {
-            setDelegateCallbacks(active = false)
-            return
-        }
-
-        logEvent(BleLogEvent.ServerLifecycle("closing"))
-
-        // Stop accepting new callbacks before cancelling scope - prevents
-        // a GCD-queued callback from scope.launch-ing into a cancelled scope.
-        setDelegateCallbacks(active = false)
-
-        manager.removeAllServices()
-
-        readyToUpdate.cancel(CancellationException("Server closed"))
-
-        // Don't clear collections here - races with in-flight coroutines before cancellation.
-        scope.cancel()
-        _connections.value = emptyList()
-
-        instanceLock.value = 0
-        logEvent(BleLogEvent.ServerLifecycle("closed"))
+        closeLifecycle()
     }
 
     // --- Internal helpers ---
 
-    internal fun setDelegateCallbacks(active: Boolean) {
-        delegate.onServiceAdded = if (active) this::handleServiceAdded else null
-        delegate.onReadRequest = if (active) this::handleReadRequest else null
-        delegate.onWriteRequests = if (active) this::handleWriteRequests else null
-        delegate.onSubscribe = if (active) this::handleSubscribe else null
-        delegate.onReadyToUpdate = if (active) this::handleReadyToUpdate else null
-    }
-
-    /** Track or refresh a central. Returns `true` if newly discovered. */
-    internal fun trackCentral(central: CBCentral): Boolean {
-        val id = central.id
-        val isNew = connectedCentrals.trackOrRefresh(id, central)
-        if (isNew) {
-            _connections.update { it + ServerConnection(Identifier(id)) }
-            logEvent(
-                BleLogEvent.ServerClientEvent(
-                    Identifier(id),
-                    "connected (${connectedCentrals.size} total)",
-                ),
-            )
-        }
-        return isNew
-    }
-
-    private suspend fun runSweepLoop() {
-        while (true) {
-            delay(centralSweepInterval)
-            try {
-                evictIdleCentrals()
-            } catch (e: Exception) {
-                if (e is CancellationException) throw e
-                logEvent(BleLogEvent.Error(null, "central sweep failed", e))
-            }
-        }
-    }
-
-    private suspend fun evictIdleCentrals() {
-        val evicted = connectedCentrals.evictIdle()
-        for ((id, _) in evicted) {
-            subscriptions.values.forEach { it.remove(id) }
-            val identifier = Identifier(id)
-            _connections.update { list -> list.filter { it.device != identifier } }
-            _connectionEvents.emit(ServerConnectionEvent.Disconnected(identifier))
-            logEvent(
-                BleLogEvent.ServerClientEvent(identifier, "evicted (idle > $centralIdleTimeout)"),
-            )
-        }
-    }
-
     // iOS silently truncates notification/indication payloads to the negotiated
     // ATT MTU. Unlike Android, there is no API to query the per-central MTU or
     // receive a truncation warning - callers must size payloads conservatively
-    // (typically ≤ 182 bytes for default MTU, or negotiate a larger MTU from
+    // (typically <= 182 bytes for default MTU, or negotiate a larger MTU from
     // the central side).
     private suspend fun sendUpdate(
         characteristic: CBMutableCharacteristic,
