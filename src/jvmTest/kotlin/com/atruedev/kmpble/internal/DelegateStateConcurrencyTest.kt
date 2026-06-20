@@ -22,7 +22,6 @@ import kotlin.test.assertNull
  * identical state holder so the pattern is proven correct on JVM.
  */
 class DelegateStateConcurrencyTest {
-
     private data class TestDelegateState(
         val onServiceAdded: ((String) -> Unit)? = null,
         val onReadRequest: ((String, Int) -> Unit)? = null,
@@ -39,35 +38,51 @@ class DelegateStateConcurrencyTest {
 
         var onServiceAdded: ((String) -> Unit)?
             get() = _state.value.onServiceAdded
-            set(value) { _state.update { it.copy(onServiceAdded = value) } }
+            set(value) {
+                _state.update { it.copy(onServiceAdded = value) }
+            }
 
         var onReadRequest: ((String, Int) -> Unit)?
             get() = _state.value.onReadRequest
-            set(value) { _state.update { it.copy(onReadRequest = value) } }
+            set(value) {
+                _state.update { it.copy(onReadRequest = value) }
+            }
 
         var onWriteRequests: ((String, List<Int>) -> Unit)?
             get() = _state.value.onWriteRequests
-            set(value) { _state.update { it.copy(onWriteRequests = value) } }
+            set(value) {
+                _state.update { it.copy(onWriteRequests = value) }
+            }
 
         var onSubscribe: ((String, String) -> Unit)?
             get() = _state.value.onSubscribe
-            set(value) { _state.update { it.copy(onSubscribe = value) } }
+            set(value) {
+                _state.update { it.copy(onSubscribe = value) }
+            }
 
         var onReadyToUpdate: (() -> Unit)?
             get() = _state.value.onReadyToUpdate
-            set(value) { _state.update { it.copy(onReadyToUpdate = value) } }
+            set(value) {
+                _state.update { it.copy(onReadyToUpdate = value) }
+            }
 
         var onStartAdvertising: ((String) -> Unit)?
             get() = _state.value.onStartAdvertising
-            set(value) { _state.update { it.copy(onStartAdvertising = value) } }
+            set(value) {
+                _state.update { it.copy(onStartAdvertising = value) }
+            }
 
         var onPublishL2cap: ((Int, String) -> Unit)?
             get() = _state.value.onPublishL2cap
-            set(value) { _state.update { it.copy(onPublishL2cap = value) } }
+            set(value) {
+                _state.update { it.copy(onPublishL2cap = value) }
+            }
 
         var onOpenL2capChannel: ((String?, String) -> Unit)?
             get() = _state.value.onOpenL2capChannel
-            set(value) { _state.update { it.copy(onOpenL2capChannel = value) } }
+            set(value) {
+                _state.update { it.copy(onOpenL2capChannel = value) }
+            }
 
         // Delegate methods read from the atomic state snapshot
         fun handleServiceAdded(error: String) {
@@ -78,57 +93,62 @@ class DelegateStateConcurrencyTest {
             _state.value.onStartAdvertising?.invoke(error)
         }
 
-        fun handleReadRequest(peripheral: String, request: Int) {
+        fun handleReadRequest(
+            peripheral: String,
+            request: Int,
+        ) {
             _state.value.onReadRequest?.invoke(peripheral, request)
         }
     }
 
     @Test
-    fun `concurrent writes to different fields do not lose updates`() = runBlocking {
-        val delegate = TestDelegate()
-        val iterations = 1000
+    fun `concurrent writes to different fields do not lose updates`() =
+        runBlocking {
+            val delegate = TestDelegate()
+            val iterations = 1000
 
-        val receivedServiceCalls = mutableListOf<String>()
-        val receivedAdvertiseCalls = mutableListOf<String>()
+            val receivedServiceCalls = mutableListOf<String>()
+            val receivedAdvertiseCalls = mutableListOf<String>()
 
-        // Set initial callbacks
-        delegate.onServiceAdded = { receivedServiceCalls.add(it) }
-        delegate.onStartAdvertising = { receivedAdvertiseCalls.add(it) }
+            // Set initial callbacks
+            delegate.onServiceAdded = { receivedServiceCalls.add(it) }
+            delegate.onStartAdvertising = { receivedAdvertiseCalls.add(it) }
 
-        // Concurrently write and read different fields
-        withContext(Dispatchers.Default) {
-            val jobs = List(4) { index ->
-                launch {
-                    repeat(iterations) { i ->
-                        when (index) {
-                            0 -> delegate.onServiceAdded = { receivedServiceCalls.add("s$i") }
-                            1 -> delegate.onReadRequest = { p, r -> }
-                            2 -> delegate.onStartAdvertising = { receivedAdvertiseCalls.add("a$i") }
-                            3 -> {
-                                // Read: must never see a torn state
-                                val state = delegate.onServiceAdded
-                                val adv = delegate.onStartAdvertising
-                                // Both fields are independently set; null is valid
-                                // The key invariant: no exception, no corrupted lambda
-                                delegate.handleServiceAdded("read")
-                                delegate.handleStartAdvertising("read")
+            // Concurrently write and read different fields
+            withContext(Dispatchers.Default) {
+                val jobs =
+                    List(4) { index ->
+                        launch {
+                            repeat(iterations) { i ->
+                                when (index) {
+                                    0 -> delegate.onServiceAdded = { receivedServiceCalls.add("s$i") }
+                                    1 -> delegate.onReadRequest = { p, r -> }
+                                    2 -> delegate.onStartAdvertising = { receivedAdvertiseCalls.add("a$i") }
+                                    3 -> {
+                                        // Read: must never see a torn state
+                                        val state = delegate.onServiceAdded
+                                        val adv = delegate.onStartAdvertising
+                                        // Both fields are independently set; null is valid
+                                        // The key invariant: no exception, no corrupted lambda
+                                        delegate.handleServiceAdded("read")
+                                        delegate.handleStartAdvertising("read")
+                                    }
+                                }
                             }
                         }
                     }
-                }
+                jobs.forEach { it.join() }
             }
-            jobs.forEach { it.join() }
+
+            // After all concurrent ops, callbacks should still be valid
+            delegate.onServiceAdded = { receivedServiceCalls.add("final") }
+            delegate.onStartAdvertising = { receivedAdvertiseCalls.add("final") }
+            delegate.handleServiceAdded("final")
+            delegate.handleStartAdvertising("final")
+
+            assertEquals("final", receivedServiceCalls.last())
+            assertEquals("final", receivedAdvertiseCalls.last())
         }
-
-        // After all concurrent ops, callbacks should still be valid
-        delegate.onServiceAdded = { receivedServiceCalls.add("final") }
-        delegate.onStartAdvertising = { receivedAdvertiseCalls.add("final") }
-        delegate.handleServiceAdded("final")
-        delegate.handleStartAdvertising("final")
-
-        assertEquals("final", receivedServiceCalls.last())
-        assertEquals("final", receivedAdvertiseCalls.last())
-    }
 
     @Test
     fun `write to one field preserves other field values`() {
