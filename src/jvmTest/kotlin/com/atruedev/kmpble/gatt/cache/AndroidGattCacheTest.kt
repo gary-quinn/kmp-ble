@@ -5,8 +5,6 @@ import com.atruedev.kmpble.gatt.Characteristic
 import com.atruedev.kmpble.gatt.DiscoveredService
 import com.atruedev.kmpble.scanner.uuidFrom
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -130,13 +128,12 @@ public class AndroidGattCacheTest {
 /**
  * Standalone LRU [GattCache] for testing -- mirrors [AndroidGattCache].
  *
- * Uses [Mutex] for structured concurrency instead of [synchronized].
+ * Thread-safety is not needed in tests since all test coroutines run
+ * on the single-threaded [runBlocking] dispatcher.
  */
 internal class LruGattCache(
     private val maxSize: Int,
 ) : GattCache {
-    private val mutex = Mutex()
-
     @Suppress("UNCHECKED_CAST")
     private val cache =
         object : LinkedHashMap<Identifier, List<DiscoveredService>>(
@@ -149,20 +146,20 @@ internal class LruGattCache(
             ): Boolean = size > maxSize
         }
 
-    override suspend fun get(identifier: Identifier): List<DiscoveredService>? = mutex.withLock { cache[identifier] }
+    override suspend fun get(identifier: Identifier): List<DiscoveredService>? = cache[identifier]
 
     override suspend fun put(
         identifier: Identifier,
         services: List<DiscoveredService>,
     ) {
-        mutex.withLock { cache[identifier] = services }
+        cache[identifier] = services
     }
 
     override suspend fun invalidate(identifier: Identifier) {
-        mutex.withLock { cache.remove(identifier) }
+        cache.remove(identifier)
     }
 
     override suspend fun clear() {
-        mutex.withLock { cache.clear() }
+        cache.clear()
     }
 }
