@@ -59,37 +59,53 @@ internal class IosPeripheralManagerDelegate :
 
     internal var onServiceAdded: ((NSError?) -> Unit)?
         get() = _state.value.onServiceAdded
-        set(value) { _state.update { it.copy(onServiceAdded = value) } }
+        set(value) {
+            _state.update { it.copy(onServiceAdded = value) }
+        }
 
     internal var onReadRequest: ((CBPeripheralManager, CBATTRequest) -> Unit)?
         get() = _state.value.onReadRequest
-        set(value) { _state.update { it.copy(onReadRequest = value) } }
+        set(value) {
+            _state.update { it.copy(onReadRequest = value) }
+        }
 
     internal var onWriteRequests: ((CBPeripheralManager, List<*>) -> Unit)?
         get() = _state.value.onWriteRequests
-        set(value) { _state.update { it.copy(onWriteRequests = value) } }
+        set(value) {
+            _state.update { it.copy(onWriteRequests = value) }
+        }
 
     internal var onSubscribe: ((CBCentral, CBCharacteristic) -> Unit)?
         get() = _state.value.onSubscribe
-        set(value) { _state.update { it.copy(onSubscribe = value) } }
+        set(value) {
+            _state.update { it.copy(onSubscribe = value) }
+        }
 
     internal var onReadyToUpdate: (() -> Unit)?
         get() = _state.value.onReadyToUpdate
-        set(value) { _state.update { it.copy(onReadyToUpdate = value) } }
+        set(value) {
+            _state.update { it.copy(onReadyToUpdate = value) }
+        }
 
     // Callback set by IosAdvertiser
 
     internal var onStartAdvertising: ((NSError?) -> Unit)?
         get() = _state.value.onStartAdvertising
-        set(value) { _state.update { it.copy(onStartAdvertising = value) } }
+        set(value) {
+            _state.update { it.copy(onStartAdvertising = value) }
+        }
 
     internal var onPublishL2cap: ((CBL2CAPPSM, NSError?) -> Unit)?
         get() = _state.value.onPublishL2cap
-        set(value) { _state.update { it.copy(onPublishL2cap = value) } }
+        set(value) {
+            _state.update { it.copy(onPublishL2cap = value) }
+        }
 
     internal var onOpenL2capChannel: ((CBL2CAPChannel?, NSError?) -> Unit)?
         get() = _state.value.onOpenL2capChannel
-        set(value) { _state.update { it.copy(onOpenL2capChannel = value) } }
+        set(value) {
+            _state.update { it.copy(onOpenL2capChannel = value) }
+        }
 
     // --- Required delegate method ---
 
