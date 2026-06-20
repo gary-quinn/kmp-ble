@@ -51,6 +51,45 @@ public data class ConnectionOptions(
             "gattOperationTimeout must be positive and finite, was $gattOperationTimeout"
         }
     }
+
+    public companion object {
+        /**
+         * Balanced preset: 1M+2M PHY, 30s timeout, no auto-connect.
+         * Suitable for most BLE peripherals within typical range.
+         */
+        public val Balanced: ConnectionOptions =
+            ConnectionOptions(
+                autoConnect = false,
+                timeout = 30.seconds,
+                transportType = TransportType.LE,
+                phyMask = PhyMask.LE_2M,
+            )
+
+        /**
+         * Long-range preset: Coded PHY, 60s timeout for BLE 5.0 long-range scanning.
+         * Use for peripherals beyond typical BLE range (100m+).
+         */
+        public val LongRange: ConnectionOptions =
+            ConnectionOptions(
+                autoConnect = false,
+                timeout = 60.seconds,
+                transportType = TransportType.LE,
+                phyMask = PhyMask.LE_CODED,
+            )
+
+        /**
+         * Low-latency preset: 2M PHY, 10s timeout for high-throughput operations.
+         * Use for firmware updates or fast data transfers where speed matters most.
+         */
+        public val LowLatency: ConnectionOptions =
+            ConnectionOptions(
+                autoConnect = false,
+                timeout = 10.seconds,
+                transportType = TransportType.LE,
+                phyMask = PhyMask.LE_2M,
+                mtuRequest = 512,
+            )
+    }
 }
 
 /** Whether bonding should be initiated during connection. */
