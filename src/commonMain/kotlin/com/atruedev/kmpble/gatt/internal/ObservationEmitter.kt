@@ -54,7 +54,7 @@ internal class ObservationEmitter(
     /**
      * Emit a value to observation flow. Non-suspend version for use from GATT callbacks.
      *
-     * Thread-safety: Reads from an immutable @Volatile snapshot from the registry,
+     * Thread-safety: Reads from an immutable atomic snapshot from the registry,
      * so no serialization needed. tryEmit on MutableSharedFlow is thread-safe.
      * Worst case during concurrent subscribe/unsubscribe is a missed emit
      * (acceptable for transient race windows).
@@ -72,7 +72,7 @@ internal class ObservationEmitter(
      * Called on disconnect. Emits [ObservationEvent.Disconnected] to all active observations.
      * Does NOT clear observations - they persist for reconnection.
      *
-     * Thread-safety: Reads from an immutable @Volatile snapshot from the registry.
+     * Thread-safety: Reads from an immutable atomic snapshot from the registry.
      */
     fun onDisconnect() {
         for (tracked in registry.snapshot().values) {
