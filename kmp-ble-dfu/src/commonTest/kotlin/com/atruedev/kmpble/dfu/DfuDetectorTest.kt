@@ -4,6 +4,7 @@ import com.atruedev.kmpble.dfu.transport.DfuUuids
 import com.atruedev.kmpble.dfu.transport.EspOtaUuids
 import com.atruedev.kmpble.dfu.transport.SmpUuids
 import com.atruedev.kmpble.testing.FakePeripheral
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -33,7 +34,7 @@ class DfuDetectorTest {
                 characteristic(DfuUuids.DFU_CONTROL_POINT) {
                     properties(notify = true, write = true)
                     onWrite { _, _ -> }
-                    onObserve { kotlinx.coroutines.flow.flow {} }
+                    onObserve { flow {} }
                 }
             }
         }
@@ -53,7 +54,7 @@ class DfuDetectorTest {
                 characteristic(SmpUuids.SMP_CHARACTERISTIC) {
                     properties(notify = true, writeWithoutResponse = true)
                     onWrite { _, _ -> }
-                    onObserve { kotlinx.coroutines.flow.flow {} }
+                    onObserve { flow {} }
                 }
             }
         }
@@ -73,7 +74,7 @@ class DfuDetectorTest {
                 characteristic(EspOtaUuids.OTA_CONTROL) {
                     properties(notify = true, write = true)
                     onWrite { _, _ -> }
-                    onObserve { kotlinx.coroutines.flow.flow {} }
+                    onObserve { flow {} }
                 }
             }
         }
@@ -93,7 +94,7 @@ class DfuDetectorTest {
                 characteristic("2a37") {
                     properties(notify = true)
                     onWrite { _, _ -> }
-                    onObserve { kotlinx.coroutines.flow.flow {} }
+                    onObserve { flow {} }
                 }
             }
         }
@@ -113,21 +114,21 @@ class DfuDetectorTest {
                 characteristic(EspOtaUuids.OTA_CONTROL) {
                     properties(notify = true)
                     onWrite { _, _ -> }
-                    onObserve { kotlinx.coroutines.flow.flow {} }
+                    onObserve { flow {} }
                 }
             }
             service(DfuUuids.DFU_SERVICE) {
                 characteristic(DfuUuids.DFU_CONTROL_POINT) {
                     properties(notify = true)
                     onWrite { _, _ -> }
-                    onObserve { kotlinx.coroutines.flow.flow {} }
+                    onObserve { flow {} }
                 }
             }
             service(SmpUuids.SMP_SERVICE) {
                 characteristic(SmpUuids.SMP_CHARACTERISTIC) {
                     properties(notify = true)
                     onWrite { _, _ -> }
-                    onObserve { kotlinx.coroutines.flow.flow {} }
+                    onObserve { flow {} }
                 }
             }
         }

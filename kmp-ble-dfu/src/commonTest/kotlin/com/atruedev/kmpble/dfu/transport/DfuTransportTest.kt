@@ -7,6 +7,7 @@ import com.atruedev.kmpble.dfu.protocol.DfuOpcode
 import com.atruedev.kmpble.gatt.Characteristic
 import com.atruedev.kmpble.testing.FakePeripheral
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -18,6 +19,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 import kotlin.uuid.ExperimentalUuidApi
+import kotlin.uuid.Uuid
 
 @OptIn(ExperimentalUuidApi::class)
 class DfuTransportTest {
@@ -31,7 +33,7 @@ class DfuTransportTest {
                 characteristic(DfuUuids.DFU_CONTROL_POINT) {
                     properties(write = true, notify = true)
                     onWrite { _, _ -> }
-                    onObserve { kotlinx.coroutines.flow.flow {} }
+                    onObserve { flow {} }
                 }
                 characteristic(DfuUuids.DFU_PACKET) {
                     properties(writeWithoutResponse = true)
@@ -75,7 +77,7 @@ class DfuTransportTest {
                     properties(write = true, notify = true)
                     onWrite { _, _ -> }
                     onObserve {
-                        kotlinx.coroutines.flow.flow {
+                        flow {
                             emit(byteArrayOf(0x60, 0x01, 0x01)) // Select response
                         }
                     }
@@ -110,7 +112,7 @@ class DfuTransportTest {
                 characteristic(DfuUuids.DFU_CONTROL_POINT) {
                     properties(write = true, notify = true)
                     onWrite { _, _ -> }
-                    onObserve { kotlinx.coroutines.flow.flow {} }
+                    onObserve { flow {} }
                 }
                 characteristic(DfuUuids.DFU_PACKET) {
                     properties(writeWithoutResponse = true)
@@ -145,7 +147,7 @@ class DfuTransportTest {
                 characteristic(SmpUuids.SMP_CHARACTERISTIC) {
                     properties(writeWithoutResponse = true, notify = true)
                     onWrite { _, _ -> }
-                    onObserve { kotlinx.coroutines.flow.flow {} }
+                    onObserve { flow {} }
                 }
             }
         }
@@ -187,7 +189,7 @@ class DfuTransportTest {
                     properties(writeWithoutResponse = true, notify = true)
                     onWrite { _, _ -> }
                     onObserve {
-                        kotlinx.coroutines.flow.flow {
+                        flow {
                             emit(smpResponse)
                         }
                     }
@@ -229,7 +231,7 @@ class DfuTransportTest {
                     properties(writeWithoutResponse = true, notify = true)
                     onWrite { _, _ -> }
                     onObserve {
-                        kotlinx.coroutines.flow.flow {
+                        flow {
                             emit(fragment1)
                             emit(fragment2)
                             emit(fragment3)
@@ -261,7 +263,7 @@ class DfuTransportTest {
                 characteristic(SmpUuids.SMP_CHARACTERISTIC) {
                     properties(writeWithoutResponse = true, notify = true)
                     onWrite { data, _ -> writeLog.add(data.copyOf()) }
-                    onObserve { kotlinx.coroutines.flow.flow {} }
+                    onObserve { flow {} }
                 }
             }
         }
@@ -290,7 +292,7 @@ class DfuTransportTest {
                 characteristic(EspOtaUuids.OTA_CONTROL) {
                     properties(write = true, notify = true)
                     onWrite { _, _ -> }
-                    onObserve { kotlinx.coroutines.flow.flow {} }
+                    onObserve { flow {} }
                 }
                 characteristic(EspOtaUuids.OTA_DATA) {
                     properties(writeWithoutResponse = true)
@@ -334,7 +336,7 @@ class DfuTransportTest {
                     properties(write = true, notify = true)
                     onWrite { _, _ -> }
                     onObserve {
-                        kotlinx.coroutines.flow.flow {
+                        flow {
                             emit(expectedResponse)
                         }
                     }
@@ -369,7 +371,7 @@ class DfuTransportTest {
                 characteristic(EspOtaUuids.OTA_CONTROL) {
                     properties(write = true, notify = true)
                     onWrite { _, _ -> }
-                    onObserve { kotlinx.coroutines.flow.flow {} }
+                    onObserve { flow {} }
                 }
                 characteristic(EspOtaUuids.OTA_DATA) {
                     properties(writeWithoutResponse = true)
@@ -396,16 +398,16 @@ class DfuTransportTest {
 
     @Test
     fun `esp ota transport uses custom UUIDs when provided`() = runTest {
-        val customService = kotlin.uuid.Uuid.parse("a0000000-0000-0000-0000-000000000001")
-        val customControl = kotlin.uuid.Uuid.parse("a0000000-0000-0000-0000-000000000002")
-        val customData = kotlin.uuid.Uuid.parse("a0000000-0000-0000-0000-000000000003")
+        val customService = Uuid.parse("a0000000-0000-0000-0000-000000000001")
+        val customControl = Uuid.parse("a0000000-0000-0000-0000-000000000002")
+        val customData = Uuid.parse("a0000000-0000-0000-0000-000000000003")
 
         val peripheral = FakePeripheral {
             service(customService) {
                 characteristic(customControl) {
                     properties(write = true, notify = true)
                     onWrite { _, _ -> }
-                    onObserve { kotlinx.coroutines.flow.flow {} }
+                    onObserve { flow {} }
                 }
                 characteristic(customData) {
                     properties(writeWithoutResponse = true)
