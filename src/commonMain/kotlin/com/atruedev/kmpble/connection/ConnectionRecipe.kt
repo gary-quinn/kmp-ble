@@ -30,7 +30,7 @@ public object ConnectionRecipe {
     public val MEDICAL: ConnectionOptions =
         ConnectionOptions(
             mtuRequest = BLE_4_2_MAX_ATT_MTU,
-            timeout = 60.seconds,
+            timeouts = OperationTimeouts(connect = 60.seconds),
             gattOperationTimeout = 30.seconds,
             reconnectionStrategy =
                 ReconnectionStrategy.ExponentialBackoff(
@@ -52,7 +52,7 @@ public object ConnectionRecipe {
     public val FITNESS: ConnectionOptions =
         ConnectionOptions(
             mtuRequest = BLE_4_2_MAX_ATT_MTU,
-            timeout = 30.seconds,
+            timeouts = OperationTimeouts(connect = 30.seconds),
             gattOperationTimeout = 10.seconds,
             reconnectionStrategy =
                 ReconnectionStrategy.ExponentialBackoff(
@@ -74,7 +74,7 @@ public object ConnectionRecipe {
     public val IOT: ConnectionOptions =
         ConnectionOptions(
             mtuRequest = null,
-            timeout = 15.seconds,
+            timeouts = OperationTimeouts(connect = 15.seconds),
             gattOperationTimeout = 10.seconds,
             reconnectionStrategy =
                 ReconnectionStrategy.LinearBackoff(
@@ -95,7 +95,7 @@ public object ConnectionRecipe {
     public val CONSUMER: ConnectionOptions =
         ConnectionOptions(
             mtuRequest = BLE_4_2_MAX_ATT_MTU,
-            timeout = 20.seconds,
+            timeouts = OperationTimeouts(connect = 20.seconds),
             gattOperationTimeout = 10.seconds,
             reconnectionStrategy =
                 ReconnectionStrategy.ExponentialBackoff(

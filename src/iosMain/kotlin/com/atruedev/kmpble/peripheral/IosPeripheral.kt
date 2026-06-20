@@ -121,7 +121,7 @@ public class IosPeripheral(
             bridge.connect()
 
             try {
-                withTimeout(options.timeout) { deferred.await() }
+                withTimeout(options.timeouts.connect) { deferred.await() }
             } catch (_: TimeoutCancellationException) {
                 bridge.disconnect()
                 peripheralContext.processEvent(

@@ -13,7 +13,7 @@ class ConnectionRecipeTest {
     fun medicalRecipeHasCorrectDefaults() {
         val opts = ConnectionRecipe.MEDICAL
         assertEquals(247, opts.mtuRequest)
-        assertEquals(60.seconds, opts.timeout)
+        assertEquals(60.seconds, opts.timeouts.connect)
         assertEquals(30.seconds, opts.gattOperationTimeout)
         val strategy = assertIs<ReconnectionStrategy.ExponentialBackoff>(opts.reconnectionStrategy)
         assertEquals(1.seconds, strategy.initialDelay)
@@ -23,11 +23,10 @@ class ConnectionRecipeTest {
 
     @Test
     fun durationFieldsRejectInvalid() {
+        // OperationTimeouts allows ZERO and INFINITE (disables timeout).
+        // Only negative values and the gattOperationTimeout field reject invalid durations.
         assertFailsWith<IllegalArgumentException> {
-            ConnectionOptions(timeout = Duration.ZERO)
-        }
-        assertFailsWith<IllegalArgumentException> {
-            ConnectionOptions(timeout = Duration.INFINITE)
+            ConnectionOptions(timeouts = OperationTimeouts(connect = (-1).seconds))
         }
         assertFailsWith<IllegalArgumentException> {
             ConnectionOptions(gattOperationTimeout = Duration.ZERO)
@@ -44,7 +43,7 @@ class ConnectionRecipeTest {
     fun fitnessRecipeHasCorrectDefaults() {
         val opts = ConnectionRecipe.FITNESS
         assertEquals(247, opts.mtuRequest)
-        assertEquals(30.seconds, opts.timeout)
+        assertEquals(30.seconds, opts.timeouts.connect)
         assertEquals(10.seconds, opts.gattOperationTimeout)
         val strategy = assertIs<ReconnectionStrategy.ExponentialBackoff>(opts.reconnectionStrategy)
         assertEquals(0.5.seconds, strategy.initialDelay)
@@ -56,7 +55,7 @@ class ConnectionRecipeTest {
     fun iotRecipeHasCorrectDefaults() {
         val opts = ConnectionRecipe.IOT
         assertNull(opts.mtuRequest)
-        assertEquals(15.seconds, opts.timeout)
+        assertEquals(15.seconds, opts.timeouts.connect)
         assertEquals(10.seconds, opts.gattOperationTimeout)
         val strategy = assertIs<ReconnectionStrategy.LinearBackoff>(opts.reconnectionStrategy)
         assertEquals(2.seconds, strategy.delay)
@@ -67,7 +66,7 @@ class ConnectionRecipeTest {
     fun consumerRecipeHasCorrectDefaults() {
         val opts = ConnectionRecipe.CONSUMER
         assertEquals(247, opts.mtuRequest)
-        assertEquals(20.seconds, opts.timeout)
+        assertEquals(20.seconds, opts.timeouts.connect)
         assertEquals(10.seconds, opts.gattOperationTimeout)
         val strategy = assertIs<ReconnectionStrategy.ExponentialBackoff>(opts.reconnectionStrategy)
         assertEquals(1.seconds, strategy.initialDelay)
@@ -79,6 +78,6 @@ class ConnectionRecipeTest {
     fun recipesAreCopyable() {
         val custom = ConnectionRecipe.MEDICAL.copy(mtuRequest = 512)
         assertEquals(512, custom.mtuRequest)
-        assertEquals(60.seconds, custom.timeout) // other fields preserved
+        assertEquals(60.seconds, custom.timeouts.connect) // other fields preserved
     }
 }

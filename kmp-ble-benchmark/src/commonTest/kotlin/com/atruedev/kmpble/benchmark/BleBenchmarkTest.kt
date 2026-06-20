@@ -2,6 +2,7 @@ package com.atruedev.kmpble.benchmark
 
 import com.atruedev.kmpble.ExperimentalBleApi
 import com.atruedev.kmpble.connection.ConnectionOptions
+import com.atruedev.kmpble.connection.OperationTimeouts
 import com.atruedev.kmpble.gatt.WriteType
 import com.atruedev.kmpble.scanner.uuidFrom
 import com.atruedev.kmpble.testing.FakeL2capChannel
@@ -31,7 +32,7 @@ class BleBenchmarkTest {
             val result =
                 benchmark.benchmarkConnection(
                     peripheral,
-                    ConnectionOptions(timeout = 5.seconds),
+                    ConnectionOptions(timeouts = OperationTimeouts(connect = 5.seconds)),
                 )
 
             assertTrue(result.success, "Expected successful connection but got: ${result.errorMessage}")
