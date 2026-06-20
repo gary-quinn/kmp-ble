@@ -10,6 +10,7 @@ import com.atruedev.kmpble.gatt.internal.GattOperationQueue
 import com.atruedev.kmpble.logging.BleLogConfig
 import com.atruedev.kmpble.logging.BleLogEvent
 import com.atruedev.kmpble.logging.logEvent
+import kotlinx.atomicfu.atomic
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
@@ -20,7 +21,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
-import kotlin.concurrent.Volatile
 import kotlin.time.Duration
 import kotlin.time.TimeSource
 
@@ -47,8 +47,7 @@ internal class PeripheralContext(
 
     val gattQueue = GattOperationQueue(scope)
 
-    @Volatile
-    private var closed = false
+    private val closed = atomic(false)
 
     /**
      * Tracks when the current state was entered, for connection timeline logging.
@@ -65,7 +64,7 @@ internal class PeripheralContext(
      */
     suspend fun processEvent(event: ConnectionEvent): State =
         withContext(dispatcher) {
-            check(!closed) { "PeripheralContext is closed" }
+            check(!closed.value) { "PeripheralContext is closed" }
 
             val previousState = _state.value
             val result = StateMachine.transition(previousState, event)
@@ -117,8 +116,8 @@ internal class PeripheralContext(
 
     /** Terminal - non-suspend for ViewModel.onCleared() / deinit. Idempotent. */
     fun close() {
-        if (closed) return
-        closed = true
+        if (closed.value) return
+        closed.value = true
         gattQueue.close()
         scope.cancel()
     }
