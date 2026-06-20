@@ -417,6 +417,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for design details and [STREAMS.md](STREA
 - [Platform Setup: iOS](docs/platform-setup-ios.md) -- Info.plist keys, background modes, entitlements
 - [Platform Setup: Android](docs/platform-setup-android.md) -- manifest permissions, runtime permission flow, location
 - [Troubleshooting](docs/troubleshooting.md) -- common BLE errors and their fixes
+- [Migration Guide v0.8.x to v0.9.0](MIGRATION.md) -- breaking changes and upgrade steps
 - [Architecture](ARCHITECTURE.md) -- state machine, concurrency, GATT queue design
 - [L2CAP Architecture](docs/L2CAP.md) -- Connection-Oriented Channel subsystem
 - [API Reference](https://gary-quinn.github.io/kmp-ble/) -- KDoc-generated API docs
