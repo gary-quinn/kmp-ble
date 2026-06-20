@@ -66,7 +66,7 @@ internal suspend fun AndroidPeripheral.ensureBondedIfRequired(options: Connectio
 internal suspend fun AndroidPeripheral.connectWithRetry(options: ConnectionOptions) {
     val maxAttempts = quirkRegistry.resolve(BleQuirks.GattRetryCount)
     val retryDelay = quirkRegistry.resolve(BleQuirks.GattRetryDelay)
-    val timeout = maxOf(options.timeout, quirkRegistry.resolve(BleQuirks.ConnectionTimeout))
+    val timeout = maxOf(options.timeouts.connect, quirkRegistry.resolve(BleQuirks.ConnectionTimeout))
 
     repeat(maxAttempts) { attempt ->
         if (attempt > 0) {
@@ -208,6 +208,7 @@ internal suspend fun AndroidPeripheral.connectInternal(options: ConnectionOption
 
     withContext(peripheralContext.dispatcher) {
         currentConnectionOptions = options
+        currentTimeouts = options.timeouts
         pairingRequestHandler.setHandler(options.pairingHandler)
         pairingRequestHandler.start()
         ensureBondedIfRequired(options)

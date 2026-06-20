@@ -8,6 +8,7 @@ import com.atruedev.kmpble.connection.ConnectionOptions
 import com.atruedev.kmpble.connection.ConnectionParameterUpdateResult
 import com.atruedev.kmpble.connection.ConnectionParameters
 import com.atruedev.kmpble.connection.ConnectionPriority
+import com.atruedev.kmpble.connection.OperationTimeouts
 import com.atruedev.kmpble.connection.Phy
 import com.atruedev.kmpble.connection.PhyUpdate
 import com.atruedev.kmpble.connection.ReconnectionStrategy
@@ -80,6 +81,9 @@ public class IosPeripheral(
     @Volatile
     internal var closed = false
 
+    /** Stored during [connect] for GATT ops to reference per-operation timeouts. */
+    internal var currentTimeouts: OperationTimeouts = OperationTimeouts()
+
     /** Discovery generation counter - increments on each new discovery cycle to detect stale callbacks. */
     @Volatile
     internal var discoveryGeneration = 0
@@ -111,6 +115,7 @@ public class IosPeripheral(
 
     override suspend fun connect(options: ConnectionOptions) {
         checkNotClosed()
+        currentTimeouts = options.timeouts
         pairingRequestHandler.setHandler(options.pairingHandler)
         reconnectionHandler.start(options)
         withContext(peripheralContext.dispatcher) {
@@ -121,7 +126,7 @@ public class IosPeripheral(
             bridge.connect()
 
             try {
-                withTimeout(options.timeout) { deferred.await() }
+                withTimeout(options.timeouts.connect) { deferred.await() }
             } catch (_: TimeoutCancellationException) {
                 bridge.disconnect()
                 peripheralContext.processEvent(
@@ -191,7 +196,7 @@ public class IosPeripheral(
             nativeDescMap.clear()
             bridge.discoverServices()
             try {
-                withTimeout(DISCOVERY_TIMEOUT) { deferred.await() }
+                withTimeout(currentTimeouts.serviceDiscovery) { deferred.await() }
             } finally {
                 slots.clearDiscovery()
             }
