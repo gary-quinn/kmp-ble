@@ -411,6 +411,15 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for design details and [STREAMS.md](STREA
 - iOS 15+
 - kotlinx-coroutines 1.10+
 
+## Documentation
+
+- [Platform Setup: iOS](docs/platform-setup-ios.md) -- Info.plist keys, background modes, entitlements
+- [Platform Setup: Android](docs/platform-setup-android.md) -- manifest permissions, runtime permission flow, location
+- [Troubleshooting](docs/troubleshooting.md) -- common BLE errors and their fixes
+- [Architecture](ARCHITECTURE.md) -- state machine, concurrency, GATT queue design
+- [L2CAP Architecture](docs/L2CAP.md) -- Connection-Oriented Channel subsystem
+- [API Reference](https://gary-quinn.github.io/kmp-ble/) -- KDoc-generated API docs
+
 ## Contributing
 
 After cloning, enable the repo's pre-commit hooks once:
