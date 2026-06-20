@@ -3,15 +3,13 @@ package com.atruedev.kmpble.connection
 import com.atruedev.kmpble.error.BleException
 import com.atruedev.kmpble.error.PeripheralTimeout
 import kotlin.test.Test
-import kotlin.test.assertFailsWith
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
-import kotlin.time.Duration.Companion.milliseconds
 
 class OperationTimeoutsTest {
-
     @Test
     fun `default values match spec`() {
         val t = OperationTimeouts()
@@ -25,14 +23,15 @@ class OperationTimeoutsTest {
 
     @Test
     fun `all timeouts can be overridden`() {
-        val t = OperationTimeouts(
-            connect = 60.seconds,
-            serviceDiscovery = 20.seconds,
-            read = 3.seconds,
-            write = 3.seconds,
-            mtuNegotiation = 5.seconds,
-            l2capOpen = 15.seconds,
-        )
+        val t =
+            OperationTimeouts(
+                connect = 60.seconds,
+                serviceDiscovery = 20.seconds,
+                read = 3.seconds,
+                write = 3.seconds,
+                mtuNegotiation = 5.seconds,
+                l2capOpen = 15.seconds,
+            )
         assertEquals(60.seconds, t.connect)
         assertEquals(20.seconds, t.serviceDiscovery)
         assertEquals(3.seconds, t.read)
@@ -69,9 +68,10 @@ class OperationTimeoutsTest {
 
     @Test
     fun `ConnectionOptions accepts custom timeouts`() {
-        val opts = ConnectionOptions(
-            timeouts = OperationTimeouts(connect = 45.seconds),
-        )
+        val opts =
+            ConnectionOptions(
+                timeouts = OperationTimeouts(connect = 45.seconds),
+            )
         assertEquals(45.seconds, opts.timeouts.connect)
         // Other timeouts remain at defaults
         assertEquals(15.seconds, opts.timeouts.serviceDiscovery)
@@ -79,7 +79,6 @@ class OperationTimeoutsTest {
 }
 
 class PeripheralTimeoutTest {
-
     @Test
     fun `PeripheralTimeout stores operation and timeout`() {
         val err = PeripheralTimeout("connect", 30.seconds)
