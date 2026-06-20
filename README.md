@@ -413,6 +413,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for design details and [STREAMS.md](STREA
 
 ## Documentation
 
+- [API Quick Reference](docs/api-quick-reference.md) -- copy-paste-ready snippets for common BLE workflows
 - [Platform Setup: iOS](docs/platform-setup-ios.md) -- Info.plist keys, background modes, entitlements
 - [Platform Setup: Android](docs/platform-setup-android.md) -- manifest permissions, runtime permission flow, location
 - [Troubleshooting](docs/troubleshooting.md) -- common BLE errors and their fixes
