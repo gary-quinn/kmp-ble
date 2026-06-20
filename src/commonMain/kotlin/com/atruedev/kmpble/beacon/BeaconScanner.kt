@@ -102,7 +102,8 @@ public class BeaconScanner(
         try {
             scanner.close()
         } catch (_: CancellationException) {
-            // Propagate cancellation; close is best-effort
+            // Cancellation is expected -- stop() already cancelled the collection job;
+            // the residual CancellationException from scanner.close() is non-critical
         } catch (_: Exception) {
             // Scanner close failures are non-fatal
         }
