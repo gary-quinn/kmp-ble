@@ -1,167 +1,7 @@
-# Migration Guide
+# Migration Guide: v0.8.x to v0.9.0
 
-Migrating to kmp-ble from other Kotlin Multiplatform BLE libraries.
-
-## Setup
-
-### Gradle
-
-```kotlin
-// build.gradle.kts
-kotlin {
-    sourceSets {
-        commonMain.dependencies {
-            implementation("com.atruedev:kmp-ble:0.1.0-alpha01")
-        }
-    }
-}
-```
-
-### Android initialization
-
-```kotlin
-class MyApp : Application() {
-    override fun onCreate() {
-        super.onCreate()
-        KmpBle.init(this)
-    }
-}
-```
-
-### iOS
-
-No initialization needed. Add via SPM or use the XCFramework directly.
-
-## API Mapping
-
-### Scanning
-
-| Concept | kmp-ble |
-|---------|---------|
-| Create scanner | `Scanner { filters { match { serviceUuid("180d") } } }` |
-| Scan results | `scanner.scanEvents: Flow<ScanEvent>` |
-| Stop scanning | Cancel the collecting coroutine or call `scanner.close()` |
-| Filter by name | `match { name("HeartSensor") }` |
-| Filter by service UUID | `match { serviceUuid(ServiceUuid.HEART_RATE) }` |
-| Filter by manufacturer | `match { manufacturerData(CompanyId.APPLE) }` |
-| Deduplication | `emission = EmissionPolicy.FirstThenChanges(rssiThreshold = 5)` |
-| Scan timeout | `timeout = 30.seconds` |
-
-### Connecting
-
-| Concept | kmp-ble |
-|---------|---------|
-| Create peripheral | `advertisement.toPeripheral()` |
-| Connect | `peripheral.connect()` |
-| Connect with options | `peripheral.connect(ConnectionOptions(autoConnect = true, timeout = 15.seconds))` |
-| Disconnect | `peripheral.disconnect()` |
-| Release resources | `peripheral.close()` (terminal, or use `peripheral.use { }`) |
-| Connection state | `peripheral.state: StateFlow<State>` |
-| Reconnection | `ConnectionOptions(reconnectionStrategy = ReconnectionStrategy.ExponentialBackoff())` |
-
-### GATT Operations
-
-| Concept | kmp-ble |
-|---------|---------|
-| Discover services | Automatic on connect. Access via `peripheral.services: StateFlow` |
-| Find characteristic | `peripheral.findCharacteristic(serviceUuid, charUuid)` |
-| Read | `peripheral.read(characteristic): ByteArray` |
-| Write with response | `peripheral.write(char, data, WriteType.WithResponse)` |
-| Write without response | `peripheral.write(char, data, WriteType.WithoutResponse)` |
-| Observe notifications | `peripheral.observeValues(char): Flow<ByteArray>` |
-| Observe with lifecycle | `peripheral.observe(char): Flow<Observation>` |
-| Read descriptor | `peripheral.readDescriptor(descriptor)` |
-| Write descriptor | `peripheral.writeDescriptor(descriptor, data)` |
-| Read RSSI | `peripheral.readRssi(): Int` |
-| Request MTU | `peripheral.requestMtu(512): Int` |
-| Max write length | `peripheral.maximumWriteValueLength: StateFlow<Int>` |
-
-### Bonding
-
-| Concept | kmp-ble |
-|---------|---------|
-| Bond state | `peripheral.bondState: StateFlow<BondState>` |
-| Proactive bonding | `ConnectionOptions(bondingPreference = BondingPreference.Required)` |
-| Implicit bonding | Default - OS triggers when device requires encryption |
-| Remove bond (Android) | `@OptIn(ExperimentalBleApi::class) peripheral.removeBond()` |
-| Remove bond (iOS) | Returns `BondRemovalResult.NotSupported` - use Settings |
-
-### Adapter State
-
-| Concept | kmp-ble |
-|---------|---------|
-| Create adapter | `BluetoothAdapter()` |
-| Observe state | `adapter.state: StateFlow<BluetoothAdapterState>` |
-| States | `On`, `Off`, `Unavailable`, `Unauthorized`, `Unsupported` |
-| Release | `adapter.close()` |
-
-### Permissions
-
-| Concept | kmp-ble |
-|---------|---------|
-| Check permissions | `checkBlePermissions(): PermissionResult` |
-| Result types | `Granted`, `Denied(permissions)`, `PermanentlyDenied(permissions)` |
-
-### Logging
-
-```kotlin
-// Enable debug logging
-BleLogConfig.logger = PrintBleLogger()
-
-// Custom logger
-BleLogConfig.logger = BleLogger { event ->
-    // Forward to Timber, OSLog, Kermit, etc.
-}
-
-// Disable
-BleLogConfig.logger = null
-```
-
-### Testing
-
-```kotlin
-// Fake scanner
-val scanner = FakeScanner {
-    advertisement {
-        name("HeartSensor")
-        rssi(-55)
-        serviceUuids("180d")
-    }
-}
-
-// Fake peripheral
-val peripheral = FakePeripheral {
-    service("180d") {
-        characteristic("2a37") {
-            properties(notify = true, read = true)
-            onRead { byteArrayOf(0x00, 72) }
-            onObserve { flow { emit(byteArrayOf(0x00, 72)) } }
-        }
-    }
-    onConnect { Result.success(Unit) }
-}
-```
-
-## Key Differences
-
-### Explicit WriteType
-
-kmp-ble requires an explicit `WriteType` on every write - no default. This prevents the common mistake of accidentally using fire-and-forget writes when acknowledged writes are needed.
-
-### Object Identity for Characteristics
-
-`Characteristic` and `Descriptor` use reference equality, not structural equality. Always get them from `peripheral.services` or `findCharacteristic()` after connecting - don't construct them manually.
-
-### Close vs Disconnect
-
-- `disconnect()` - graceful, peripheral can reconnect
-- `close()` - terminal, releases all native resources, peripheral is unusable after
-
-Always call `close()` when done (e.g., `ViewModel.onCleared()`, `deinit`).
-
-### Zero-Copy BleData
-
-Advertisement data (`manufacturerData`, `serviceData`) uses `BleData` instead of `ByteArray`. Call `.toByteArray()` only when you need a mutable copy. On iOS this avoids unnecessary `NSData` → `ByteArray` copies.
+This guide covers breaking API changes, new features, and deprecations when
+upgrading from kmp-ble v0.8.x to v0.9.0.
 
 ## Requirements
 
@@ -169,3 +9,350 @@ Advertisement data (`manufacturerData`, `serviceData`) uses `BleData` instead of
 - Android minSdk 33
 - iOS 15+
 - kotlinx-coroutines 1.10+
+
+## Breaking Changes
+
+### 1. Typed Error Hierarchy
+
+v0.8.x threw raw exceptions on GATT and connection failures. v0.9.0 introduces a
+composable sealed-interface error hierarchy.
+
+**Before (0.8.x):**
+
+```kotlin
+try {
+    peripheral.read(characteristic)
+} catch (e: Exception) {
+    when {
+        e.message?.contains("GATT") == true -> handleGatt()
+        e.message?.contains("connect") == true -> handleConnection()
+        else -> handleUnknown()
+    }
+}
+```
+
+**After (0.9.0):**
+
+```kotlin
+import com.atruedev.kmpble.error.BleException
+import com.atruedev.kmpble.error.GattError
+import com.atruedev.kmpble.error.ConnectionLost
+import com.atruedev.kmpble.error.AuthenticationFailed
+import com.atruedev.kmpble.error.StaleGattHandle
+import com.atruedev.kmpble.error.MtuExceeded
+
+try {
+    peripheral.read(characteristic)
+} catch (e: BleException) {
+    when (e.error) {
+        is GattError -> handleGattError(e.error) // includes recoveryHint
+        is ConnectionLost -> handleDisconnect()
+        is AuthenticationFailed -> promptPairing()
+        is StaleGattHandle -> reconnect()
+        is MtuExceeded -> {
+            val m = e.error as MtuExceeded
+            peripheral.requestMtu(m.attempted)
+        }
+        else -> logError(e.error)
+    }
+}
+```
+
+### 2. ConnectionFailed and ConnectionLost Include recoveryHint
+
+Connection errors now carry a `recoveryHint` property with actionable guidance.
+Update any code that inspects these types.
+
+**Before (0.8.x):**
+
+```kotlin
+catch (e: ConnectionFailed) {
+    showError("Connection failed: ${e.reason}")
+}
+```
+
+**After (0.9.0):**
+
+```kotlin
+import com.atruedev.kmpble.error.ConnectionFailed
+
+catch (e: ConnectionFailed) {
+    showError(e.recoveryHint) // "Check Bluetooth is enabled and the peripheral is in range."
+}
+```
+
+### 3. readPhy() and setPreferredPhy() Added to Peripheral
+
+The `Peripheral` interface now includes PHY control methods. Compile errors on
+classes implementing `Peripheral` directly: add the new methods (or extend
+`PeripheralSupport` for delegate-based implementations).
+
+**Before (0.8.x):**
+
+```kotlin
+// No PHY control API available
+// Manually estimate connection throughput
+```
+
+**After (0.9.0):**
+
+```kotlin
+import com.atruedev.kmpble.connection.Phy
+
+val result = peripheral.readPhy()
+if (result != null) {
+    println("TX=${result.tx}, RX=${result.rx}")
+}
+
+peripheral.setPreferredPhy(Phy.Le2M, Phy.Le2M)
+
+peripheral.phyUpdate.collect { update ->
+    println("PHY changed: TX=${update.txPhy}, RX=${update.rxPhy}")
+}
+```
+
+### 4. requestConnectionParameterUpdate() Added
+
+The new fine-grained connection parameter API replaces the coarse
+`requestConnectionPriority()` for callers that need specific interval/latency
+control. `requestConnectionPriority()` is **not deprecated** -- it remains the
+simpler option for High/Balanced/PowerSave use cases.
+
+```kotlin
+import com.atruedev.kmpble.connection.ConnectionParameters
+import kotlin.time.Duration.Companion.milliseconds
+
+val result = peripheral.requestConnectionParameterUpdate(
+    ConnectionParameters(
+        intervalRange = 11.25.milliseconds..15.milliseconds,
+        slaveLatency = 0,
+        supervisionTimeout = 500.milliseconds,
+    )
+)
+if (result != null) {
+    println("Negotiated interval: ${result.negotiatedInterval}")
+}
+```
+
+### 5. ExtendedAdvertiser periodicAdvertising Parameter
+
+`ExtendedAdvertiseConfig` has a new `periodicAdvertising` parameter. Callers
+constructing `ExtendedAdvertiseConfig` with positional arguments need to add
+the parameter (all parameters have defaults, so named-argument callers are
+unaffected).
+
+**Before (0.8.x):**
+
+```kotlin
+val config = ExtendedAdvertiseConfig(
+    serviceUuids = listOf(uuidFrom("180d")),
+    primaryPhy = Phy.Le1M,
+)
+extAdvertiser.startAdvertisingSet(config)
+```
+
+**After (0.9.0):**
+
+```kotlin
+import com.atruedev.kmpble.server.PeriodicAdvertisingParameters
+import com.atruedev.kmpble.server.AdvertiseInterval
+
+val config = ExtendedAdvertiseConfig(
+    serviceUuids = listOf(uuidFrom("180d")),
+    primaryPhy = Phy.Le1M,
+    periodicAdvertising = PeriodicAdvertisingParameters(
+        includeTxPower = true,
+        interval = AdvertiseInterval.Balanced,
+    ),
+)
+extAdvertiser.startAdvertisingSet(config)
+```
+
+### 6. GattCache Changes (synchronized to Mutex)
+
+AndroidGattCache no longer uses `synchronized`. If your code held a reference to
+the cache internals, the thread-safety mechanism has changed. Public API is
+unchanged.
+
+## New Features
+
+### PHY Selection for Scanning
+
+`ScannerConfig` now supports PHY selection via `ScanPhy`, including LE Coded for
+long-range scanning.
+
+```kotlin
+import com.atruedev.kmpble.scanner.ScanPhy
+
+val scanner = Scanner {
+    phy = ScanPhy.LeCoded // Long-range (BLE 5.0+)
+    emission = EmissionPolicy.FirstThenChanges(rssiThreshold = 10)
+    filters { match { serviceUuid(ServiceUuid.HEART_RATE) } }
+}
+```
+
+See [API Quick Reference](docs/api-quick-reference.md) for more scan patterns.
+
+### Beacon Scanning (iBeacon, Eddystone)
+
+```kotlin
+import com.atruedev.kmpble.beacon.BeaconScanner
+import com.atruedev.kmpble.beacon.BeaconEvent
+
+val scanner = Scanner { filters { match { serviceUuid("feaa") } } }
+val beaconScanner = BeaconScanner(scanner, scope)
+
+scope.launch {
+    beaconScanner.beaconEvents.collect { event ->
+        when (event) {
+            is BeaconEvent.Found -> println("Beacon: ${event.beacon}")
+            is BeaconEvent.Failed -> handleError(event.error)
+        }
+    }
+}
+beaconScanner.start()
+// ... later
+beaconScanner.stop()
+beaconScanner.close()
+```
+
+### L2CAP Listener (Server-Side)
+
+Server-side L2CAP is now available via `L2capListener`, independent of
+`GattServer`:
+
+```kotlin
+import com.atruedev.kmpble.l2cap.L2capListener
+import com.atruedev.kmpble.l2cap.l2capListener
+
+val listener = l2capListener()
+listener.open(secure = true)
+
+val psm = listener.psm
+// Expose PSM to centrals via GATT characteristic or advertisement
+
+listener.incoming.collect { channel ->
+    scope.launch {
+        channel.incoming.collect { data -> process(data) }
+    }
+}
+```
+
+### ConnectionQualityMonitor
+
+Stand-alone class that tracks connection/disconnection statistics:
+
+```kotlin
+import com.atruedev.kmpble.monitoring.ConnectionQualityMonitor
+
+val monitor = ConnectionQualityMonitor(peripheral, scope)
+monitor.start()
+
+monitor.connectionQuality.collect { quality ->
+    println("Connected: ${quality.isConnected}")
+    println("Total connections: ${quality.totalConnections}")
+    println("Total disconnections: ${quality.totalDisconnections}")
+}
+
+// Feed RSSI readings
+val rssi = peripheral.readRssi()
+monitor.recordRssi(rssi)
+
+monitor.stop()
+```
+
+### LE Power Control and Path Loss Monitoring
+
+```kotlin
+import com.atruedev.kmpble.monitoring.PowerMonitor
+import com.atruedev.kmpble.monitoring.LePowerController
+
+val powerMonitor = PowerMonitor(peripheral, scope)
+val powerController = LePowerController(peripheral, scope)
+
+powerMonitor.start()
+powerController.start()
+
+// Passive path loss monitoring
+powerMonitor.pathLoss.collect { reading ->
+    if (reading != null && reading.pathLoss > 50) {
+        // Active power adjustment
+        val response = powerController.requestPeerPowerChange(-4)
+        if (response.accepted) {
+            println("Peer power adjusted to ${response.targetDbm} dBm")
+        }
+    }
+}
+```
+
+### L2CAP Framed Writes with Codec
+
+L2CAP channels now support framed writes with `BleCodec` for typed streaming:
+
+```kotlin
+import com.atruedev.kmpble.l2cap.writeFramed
+import com.atruedev.kmpble.l2cap.framedIncoming
+
+val channel = peripheral.openL2capChannel(psm = 0x25)
+channel.writeFramed(myPacket, myCodec)
+
+channel.framedIncoming(myCodec).collect { packet ->
+    processTypedPacket(packet)
+}
+```
+
+### ConnectionRecipe Presets
+
+Pre-built connection option presets for common use cases:
+
+```kotlin
+import com.atruedev.kmpble.connection.ConnectionRecipe
+
+peripheral.connect(ConnectionRecipe.MEDICAL)  // strict bonding, no auto-connect
+peripheral.connect(ConnectionRecipe.FITNESS)  // reconnection, if-required bonding
+peripheral.connect(ConnectionRecipe.IOT)      // auto-connect, no bonding
+peripheral.connect(ConnectionRecipe.CONSUMER) // balanced defaults
+```
+
+### GATT Service Caching
+
+Fast reconnection by caching discovered GATT services:
+
+```kotlin
+import com.atruedev.kmpble.connection.ConnectionOptions
+import com.atruedev.kmpble.connection.GattCacheMode
+
+peripheral.connect(ConnectionOptions(
+    gattCacheMode = GattCacheMode.Enabled,
+))
+// On reconnect, services are restored from cache instead of re-discovered
+```
+
+## Module Changes
+
+### kmp-ble-benchmark (New)
+
+Benchmark module extracted from the core library. Add as a separate dependency:
+
+```kotlin
+// build.gradle.kts
+implementation("com.atruedev:kmp-ble-benchmark:0.9.0")
+```
+
+### kmp-ble-core (Renamed from kmp-ble)
+
+The core artifact remains `com.atruedev:kmp-ble`. No Gradle changes needed.
+
+## Documentation
+
+- [API Quick Reference](docs/api-quick-reference.md): copy-paste-ready snippets for all workflows
+- [Platform Setup: iOS](docs/platform-setup-ios.md): Info.plist keys, background modes
+- [Platform Setup: Android](docs/platform-setup-android.md): manifest permissions, runtime flow
+- [Troubleshooting](docs/troubleshooting.md): common BLE errors and fixes
+- [Architecture](ARCHITECTURE.md): state machine, concurrency, GATT queue design
+- [L2CAP Architecture](docs/L2CAP.md): Connection-Oriented Channel subsystem
+
+## Need Help?
+
+If you encounter issues not covered here, open an issue at
+[github.com/gary-quinn/kmp-ble](https://github.com/gary-quinn/kmp-ble/issues).
