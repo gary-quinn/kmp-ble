@@ -40,8 +40,9 @@ import com.atruedev.kmpble.gatt.DiscoveredService
  *
  * Thread-safe across coroutines on all platforms.
  *
- * Implementation uses [kotlinx.coroutines.sync.Mutex] for structured
- * concurrency on Android, instead of [synchronized].
+ * The Android implementation confines all cache operations to a
+ * single-threaded dispatcher, serializing access to the non-thread-safe
+ * [LinkedHashMap] without locks.
  */
 public interface GattCache {
     /**
