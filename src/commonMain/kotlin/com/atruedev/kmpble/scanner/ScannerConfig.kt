@@ -1,6 +1,7 @@
 package com.atruedev.kmpble.scanner
 
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * Configuration for a [Scanner], built via DSL.
@@ -53,5 +54,22 @@ public class ScannerConfig internal constructor() {
     public fun filters(block: FiltersScope.() -> Unit) {
         val scope = FiltersScope().apply(block)
         filterGroups = scope.matchGroups
+    }
+
+    public companion object {
+        /**
+         * Sensible default scanner configuration: all PHYs, extended advertisements,
+         * 30s timeout, first-then-changes emission.
+         *
+         * ```kotlin
+         * val scanner = AndroidScanner(context) { default(this) }
+         * ```
+         */
+        public fun default(config: ScannerConfig) {
+            config.phy = ScanPhy.All
+            config.legacyOnly = false
+            config.timeout = 30.seconds
+            config.emission = EmissionPolicy.FirstThenChanges()
+        }
     }
 }
