@@ -59,14 +59,14 @@ internal suspend fun AndroidPeripheral.ensureBondedIfRequired(options: Connectio
  * a short delay (1-1.5s) typically succeeds. The retry count and delay are sourced
  * from [QuirkRegistry] so each OEM gets appropriate handling.
  *
- * The effective timeout is `max(options.timeout, quirks.connectionTimeout)` so that
+ * The effective timeout is `max(options.timeouts.connect, quirks.connectionTimeout)` so that
  * user-configured values are respected while still accommodating OEMs that need longer
  * timeouts (e.g. Huawei at 35s vs the 30s default).
  */
 internal suspend fun AndroidPeripheral.connectWithRetry(options: ConnectionOptions) {
     val maxAttempts = quirkRegistry.resolve(BleQuirks.GattRetryCount)
     val retryDelay = quirkRegistry.resolve(BleQuirks.GattRetryDelay)
-    val timeout = maxOf(options.timeout, quirkRegistry.resolve(BleQuirks.ConnectionTimeout))
+    val timeout = maxOf(options.timeouts.connect, quirkRegistry.resolve(BleQuirks.ConnectionTimeout))
 
     repeat(maxAttempts) { attempt ->
         if (attempt > 0) {
