@@ -26,6 +26,7 @@ commonsLang3 = "3.18.0"
 httpclient = "4.5.14"
 bouncycastle = "1.84"
 opentelemetry = "1.62.0"
+atomicfu = "0.27.0"
 
 [libraries]
 androidx-core = { module = "androidx.core:core-ktx", version = "1.19.0" }
@@ -45,6 +46,7 @@ lifecycle-viewmodel-compose = { module = "org.jetbrains.androidx.lifecycle:lifec
 lifecycle-runtime-compose = { module = "org.jetbrains.androidx.lifecycle:lifecycle-runtime-compose", version.ref = "androidxLifecycle" }
 kotlinx-serialization-core = { module = "org.jetbrains.kotlinx:kotlinx-serialization-core", version.ref = "kotlinxSerialization" }
 kotlinx-serialization-cbor = { module = "org.jetbrains.kotlinx:kotlinx-serialization-cbor", version.ref = "kotlinxSerialization" }
+kotlinx-atomicfu = { module = "org.jetbrains.kotlinx:atomicfu", version.ref = "atomicfu" }
 
 [plugins]
 kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
