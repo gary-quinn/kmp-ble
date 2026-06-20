@@ -5,7 +5,6 @@ import com.atruedev.kmpble.gatt.BackpressureStrategy
 import com.atruedev.kmpble.gatt.Observation
 import com.atruedev.kmpble.gatt.WriteType
 import com.atruedev.kmpble.scanner.uuidFrom
-import com.atruedev.kmpble.testing.FakePeripheralBuilder
 import com.atruedev.kmpble.testing.emitObservationValue
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -109,13 +108,11 @@ public abstract class GattConformanceTest : BleConformanceTest() {
         val dispatcher = StandardTestDispatcher(scheduler)
         runTest(scheduler) {
             val peripheral =
-                FakePeripheralBuilder()
-                    .observationDispatcher(dispatcher)
-                    .apply {
-                        service("180d") {
-                            characteristic("2a37") { properties(notify = true) }
-                        }
-                    }.build()
+                buildPeripheral(observationDispatcher = dispatcher) {
+                    service("180d") {
+                        characteristic("2a37") { properties(notify = true) }
+                    }
+                }
 
             peripheral.connect(ConnectionOptions())
             scheduler.runCurrent()
