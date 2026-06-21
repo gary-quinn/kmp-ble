@@ -1,5 +1,7 @@
 package com.atruedev.kmpble.logging
 
+import kotlinx.atomicfu.atomic
+
 /**
  * Global logging configuration.
  *
@@ -17,12 +19,24 @@ package com.atruedev.kmpble.logging
  * ```
  */
 public object BleLogConfig {
-    @kotlin.concurrent.Volatile
-    public var logger: BleLogger? = null
+    /**
+     * Atomic read/write for thread-safe logger swaps at runtime.
+     * Atomicfu guarantees visibility without JVM-specific annotations.
+     */
+    private val _logger = atomic<BleLogger?>(null)
+    public var logger: BleLogger?
+        get() = _logger.value
+        set(value) {
+            _logger.value = value
+        }
 
     /** Throws on invalid state transitions when enabled. Set once at app startup. */
-    @kotlin.concurrent.Volatile
-    public var strictMode: Boolean = false
+    private val _strictMode = atomic(false)
+    public var strictMode: Boolean
+        get() = _strictMode.value
+        set(value) {
+            _strictMode.value = value
+        }
 }
 
 internal fun logEvent(event: BleLogEvent) {
