@@ -101,7 +101,9 @@ public data class PeripheralTimeout(
     val operation: String,
     /** The configured timeout that was exceeded. */
     val timeout: Duration,
-    val recoveryHint: String = "Operation timed out. Increase the timeout via ConnectionOptions.timeouts or verify the device is in range.",
+    val recoveryHint: String =
+        "Operation timed out. Increase the timeout via ConnectionOptions.timeouts " +
+            "or verify the device is in range.",
 ) : BleError
 
 /**
