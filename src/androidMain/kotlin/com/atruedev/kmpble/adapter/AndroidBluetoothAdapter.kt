@@ -2,11 +2,13 @@ package com.atruedev.kmpble.adapter
 
 import android.Manifest
 import android.bluetooth.BluetoothManager
+import android.bluetooth.BluetoothStatusCodes
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Process
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.CoroutineScope
@@ -57,6 +59,41 @@ public class AndroidBluetoothAdapter(
             started = SharingStarted.Lazily,
             initialValue = currentState(),
         )
+
+    override val capabilities: BleCapabilities by lazy {
+        val adapter =
+            context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
+                ?: return@lazy BleCapabilities.None
+        val bt = adapter.adapter ?: return@lazy BleCapabilities.None
+
+        BleCapabilities(
+            supportsExtendedAdvertising =
+                if (Build.VERSION.SDK_INT >= 26) {
+                    bt.isLeExtendedAdvertisingSupported
+                } else {
+                    false
+                },
+            supportsLe2mPhy = if (Build.VERSION.SDK_INT >= 26) bt.isLe2MPhySupported else false,
+            supportsLeCodedPhy = if (Build.VERSION.SDK_INT >= 26) bt.isLeCodedPhySupported else false,
+            supportsPeriodicAdvertising =
+                if (Build.VERSION.SDK_INT >= 26) {
+                    bt.isLePeriodicAdvertisingSupported
+                } else {
+                    false
+                },
+            // LE Power Control capability query is not exposed as a public Android API.
+            supportsLePowerControl = false,
+            // isLeAudioSupported() returns Int (BluetoothStatusCodes), not Boolean.
+            supportsLeAudio =
+                if (Build.VERSION.SDK_INT >= 33) {
+                    bt.isLeAudioSupported == BluetoothStatusCodes.FEATURE_SUPPORTED
+                } else {
+                    false
+                },
+            // Connection Subrating may not be queryable on all compile SDK versions.
+            supportsConnectionSubrating = false,
+        )
+    }
 
     private fun currentState(): BluetoothAdapterState {
         if (!context.packageManager.hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE)) {

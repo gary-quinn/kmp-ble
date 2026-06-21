@@ -16,5 +16,13 @@ import kotlinx.coroutines.flow.StateFlow
 public interface BluetoothAdapter {
     public val state: StateFlow<BluetoothAdapterState>
 
+    /**
+     * Hardware and platform capabilities for Bluetooth 5.x features.
+     *
+     * Use this to gracefully degrade when a feature is unsupported rather
+     * than catching errors after attempting the operation.
+     */
+    public val capabilities: BleCapabilities
+
     public fun close()
 }
