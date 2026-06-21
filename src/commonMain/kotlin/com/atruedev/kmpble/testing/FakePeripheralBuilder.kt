@@ -7,6 +7,7 @@ import com.atruedev.kmpble.error.BleError
 import com.atruedev.kmpble.gatt.Characteristic
 import com.atruedev.kmpble.gatt.DiscoveredService
 import com.atruedev.kmpble.gatt.WriteType
+import com.atruedev.kmpble.isochronous.IsochronousChannel
 import com.atruedev.kmpble.l2cap.L2capChannel
 import com.atruedev.kmpble.scanner.uuidFrom
 import kotlinx.coroutines.CoroutineDispatcher
@@ -20,6 +21,7 @@ public typealias ReadHandler = suspend () -> ByteArray
 public typealias WriteHandler = suspend (data: ByteArray, writeType: WriteType) -> Unit
 public typealias ObserveHandler = () -> Flow<ByteArray>
 public typealias L2capHandler = suspend (psm: Int, mtu: Int?) -> L2capChannel
+public typealias IsochronousHandler = suspend () -> IsochronousChannel
 
 @OptIn(ExperimentalUuidApi::class)
 internal data class FakeCharacteristicConfig(
@@ -38,6 +40,7 @@ public class FakePeripheralBuilder {
     private var connectHandler: suspend () -> Result<Unit> = { Result.success(Unit) }
     private var disconnectHandler: suspend () -> Result<Unit> = { Result.success(Unit) }
     internal var l2capHandler: L2capHandler? = null
+    internal var isoHandler: IsochronousHandler? = null
     internal var onConnectionParameterUpdate: (
         suspend (
             ConnectionParameters,
@@ -79,6 +82,14 @@ public class FakePeripheralBuilder {
         l2capHandler = handler
     }
 
+    /**
+     * Configure isochronous channel opening behavior.
+     * The handler returns an [IsochronousChannel] for testing LE Audio streaming.
+     */
+    public fun onOpenIsochronousChannel(handler: IsochronousHandler) {
+        isoHandler = handler
+    }
+
     /** Configure the response to [Peripheral.requestConnectionParameterUpdate] calls. */
     public fun onConnectionParameterUpdate(
         handler: suspend (ConnectionParameters) -> ConnectionParameterUpdateResult?,
@@ -100,6 +111,7 @@ public class FakePeripheralBuilder {
             onConnectHandler = connectHandler,
             onDisconnectHandler = disconnectHandler,
             onL2capHandler = l2capHandler,
+            onIsoHandler = isoHandler,
             onConnectionParameterUpdateHandler = onConnectionParameterUpdate,
             observationDispatcher = observationDispatcher,
         )

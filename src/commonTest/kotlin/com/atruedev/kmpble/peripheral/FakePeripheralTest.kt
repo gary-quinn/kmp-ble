@@ -8,7 +8,9 @@ import com.atruedev.kmpble.connection.Phy
 import com.atruedev.kmpble.connection.State
 import com.atruedev.kmpble.connection.internal.ConnectionEvent
 import com.atruedev.kmpble.error.ConnectionLost
+import com.atruedev.kmpble.isochronous.IsochronousException
 import com.atruedev.kmpble.scanner.uuidFrom
+import com.atruedev.kmpble.testing.FakeIsochronousChannel
 import com.atruedev.kmpble.testing.FakePeripheral
 import com.atruedev.kmpble.testing.simulateEvent
 import kotlinx.coroutines.test.runTest
@@ -253,5 +255,50 @@ class FakePeripheralTest {
                 )
             val result = peripheral.requestConnectionParameterUpdate(params)
             assertEquals(customResult, result)
+        }
+
+    @Test
+    fun `openIsochronousChannel with handler returns channel`() =
+        runTest {
+            val fakeChannel = FakeIsochronousChannel()
+            val peripheral =
+                FakePeripheral {
+                    onOpenIsochronousChannel { fakeChannel }
+                }
+            peripheral.connect()
+
+            val channel = peripheral.openIsochronousChannel()
+            assertEquals(fakeChannel, channel)
+            assertTrue(channel.isOpen)
+        }
+
+    @Test
+    fun `openIsochronousChannel without handler throws NotSupported`() =
+        runTest {
+            val peripheral =
+                FakePeripheral {
+                    service("180d") {
+                        characteristic("2a37") { properties(notify = true) }
+                    }
+                }
+            peripheral.connect()
+
+            assertFailsWith<IsochronousException.NotSupported> {
+                peripheral.openIsochronousChannel()
+            }
+        }
+
+    @Test
+    fun `openIsochronousChannel when disconnected throws NotConnected`() =
+        runTest {
+            val fakeChannel = FakeIsochronousChannel()
+            val peripheral =
+                FakePeripheral {
+                    onOpenIsochronousChannel { fakeChannel }
+                }
+
+            assertFailsWith<IsochronousException.NotConnected> {
+                peripheral.openIsochronousChannel()
+            }
         }
 }

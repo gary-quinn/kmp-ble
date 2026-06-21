@@ -28,6 +28,8 @@ import com.atruedev.kmpble.gatt.internal.PendingOperations
 import com.atruedev.kmpble.gatt.internal.PersistedObservation
 import com.atruedev.kmpble.internal.CentralManagerProvider
 import com.atruedev.kmpble.internal.StateRestorationHandler
+import com.atruedev.kmpble.isochronous.IsochronousChannel
+import com.atruedev.kmpble.isochronous.IsochronousException
 import com.atruedev.kmpble.l2cap.IosL2capChannel
 import com.atruedev.kmpble.l2cap.L2capChannel
 import com.atruedev.kmpble.peripheral.internal.LifecycleSlots
@@ -284,6 +286,11 @@ public class IosPeripheral(
         secure: Boolean,
         mtu: Int?,
     ): L2capChannel = openL2capChannelInternal(psm, secure, mtu)
+
+    override suspend fun openIsochronousChannel(): IsochronousChannel =
+        throw IsochronousException.NotSupported(
+            "CoreBluetooth does not expose LE Audio isochronous channels",
+        )
 
     /**
      * Restore this peripheral from iOS state restoration.
