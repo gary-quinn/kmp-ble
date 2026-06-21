@@ -42,6 +42,9 @@ internal class PeripheralContext(
     private val _bondState = MutableStateFlow<BondState>(BondState.Unknown)
     val bondState: StateFlow<BondState> = _bondState.asStateFlow()
 
+    private val _mtu = MutableStateFlow(DEFAULT_ATT_MTU)
+    val mtu: StateFlow<Int> = _mtu.asStateFlow()
+
     private val _maximumWriteValueLength = MutableStateFlow(DEFAULT_ATT_MTU - ATT_HEADER_SIZE)
     val maximumWriteValueLength: StateFlow<Int> = _maximumWriteValueLength.asStateFlow()
 
@@ -111,6 +114,7 @@ internal class PeripheralContext(
 
     suspend fun updateMtu(mtu: Int) =
         withContext(dispatcher) {
+            _mtu.value = mtu.coerceAtLeast(DEFAULT_ATT_MTU)
             _maximumWriteValueLength.value = (mtu - ATT_HEADER_SIZE).coerceAtLeast(DEFAULT_ATT_MTU - ATT_HEADER_SIZE)
         }
 
