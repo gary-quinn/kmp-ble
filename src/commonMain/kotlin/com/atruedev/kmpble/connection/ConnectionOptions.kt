@@ -46,8 +46,6 @@ public data class ConnectionOptions(
      */
     @property:ExperimentalBleApi
     val pairingHandler: PairingHandler? = null,
-    /** Per-operation timeout overrides. See [OperationTimeouts] for defaults. */
-    val timeouts: OperationTimeouts = OperationTimeouts(),
 ) {
     init {
         require(gattOperationTimeout.isPositive() && gattOperationTimeout.isFinite()) {

@@ -24,19 +24,14 @@ import kotlin.time.Duration.Companion.seconds
 public data class OperationTimeouts(
     /** Maximum time to establish a BLE connection. Default: 30s. */
     val connect: Duration = 30.seconds,
-
     /** Maximum time for GATT service/characteristic discovery. Default: 15s. */
     val serviceDiscovery: Duration = 15.seconds,
-
     /** Maximum time for a single GATT characteristic read. Default: 5s. */
     val read: Duration = 5.seconds,
-
     /** Maximum time for a single GATT characteristic write. Default: 5s. */
     val write: Duration = 5.seconds,
-
     /** Maximum time for ATT MTU negotiation. Default: 10s. */
     val mtuNegotiation: Duration = 10.seconds,
-
     /** Maximum time to establish an L2CAP CoC channel. Default: 10s. */
     val l2capOpen: Duration = 10.seconds,
 ) {
@@ -44,7 +39,9 @@ public data class OperationTimeouts(
         require(connect.isPositive() || connect == Duration.ZERO || connect == Duration.INFINITE) {
             "connect timeout must be positive, ZERO, or INFINITE, was $connect"
         }
-        require(serviceDiscovery.isPositive() || serviceDiscovery == Duration.ZERO || serviceDiscovery == Duration.INFINITE) {
+        require(
+            serviceDiscovery.isPositive() || serviceDiscovery == Duration.ZERO || serviceDiscovery == Duration.INFINITE,
+        ) {
             "serviceDiscovery timeout must be positive, ZERO, or INFINITE, was $serviceDiscovery"
         }
         require(read.isPositive() || read == Duration.ZERO || read == Duration.INFINITE) {
