@@ -1,5 +1,6 @@
 package com.atruedev.kmpble.quirks
 
+import kotlinx.atomicfu.atomic
 import kotlinx.atomicfu.locks.reentrantLock
 import kotlinx.atomicfu.locks.withLock
 
@@ -95,7 +96,7 @@ public class QuirkRegistry internal constructor(
         private val lock = reentrantLock()
         private var userConfig: ((Builder) -> Unit)? = null
 
-        private var cached: QuirkRegistry? = null
+        private val cached = atomic<QuirkRegistry?>(null)
         private var initialized = false
 
         /**
@@ -116,13 +117,13 @@ public class QuirkRegistry internal constructor(
 
         /** Returns the singleton registry for the current device. */
         public fun getInstance(): QuirkRegistry {
-            val existing = cached
+            val existing = cached.value
             if (existing != null) return existing
             return lock.withLock {
                 initialized = true
-                cached ?: run {
+                cached.value ?: run {
                     val registry = buildRegistry(DeviceInfo.current(), userConfig)
-                    cached = registry
+                    cached.value = registry
                     registry
                 }
             }
