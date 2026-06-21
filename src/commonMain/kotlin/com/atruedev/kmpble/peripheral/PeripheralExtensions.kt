@@ -136,7 +136,7 @@ public suspend fun Peripheral.whenReady(
  *   service discovery phases are taken from [ConnectionOptions.timeouts].
  * @return The list of discovered GATT services.
  * @throws BleException if connection fails.
- * @throws GattException if service discovery fails (connection is released).
+ * @throws BleException if service discovery fails (connection is released).
  */
 @OptIn(ExperimentalUuidApi::class)
 public suspend fun Peripheral.connectAndDiscover(
