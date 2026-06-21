@@ -18,6 +18,7 @@ import com.atruedev.kmpble.gatt.DiscoveredService
 import com.atruedev.kmpble.gatt.Observation
 import com.atruedev.kmpble.gatt.WriteType
 import com.atruedev.kmpble.gatt.internal.ObservationManager
+import com.atruedev.kmpble.isochronous.IsochronousChannel
 import com.atruedev.kmpble.l2cap.L2capChannel
 import com.atruedev.kmpble.peripheral.Peripheral
 import com.atruedev.kmpble.peripheral.PhyResult
@@ -38,6 +39,7 @@ public class FakePeripheral internal constructor(
     private val onConnectHandler: suspend () -> Result<Unit>,
     private val onDisconnectHandler: suspend () -> Result<Unit>,
     private val onL2capHandler: L2capHandler?,
+    private val onIsoHandler: IsochronousHandler?,
     private val onConnectionParameterUpdateHandler: (
         suspend (ConnectionParameters) -> ConnectionParameterUpdateResult?
     )? = null,
@@ -66,6 +68,7 @@ public class FakePeripheral internal constructor(
             observationManager = observationManager,
             characteristicConfigs = characteristicConfigs,
             onL2capHandler = onL2capHandler,
+            onIsoHandler = onIsoHandler,
             cccdWritesState = cccdWritesState,
             closedFlag = { closed },
         )
@@ -177,6 +180,8 @@ public class FakePeripheral internal constructor(
         secure: Boolean,
         mtu: Int?,
     ): L2capChannel = gattResponder.openL2capChannel(psm, secure, mtu)
+
+    override suspend fun openIsochronousChannel(): IsochronousChannel = gattResponder.openIsochronousChannel()
 
     override suspend fun readRssi(): Int = gattResponder.readRssi()
 

@@ -17,6 +17,7 @@ import com.atruedev.kmpble.gatt.Descriptor
 import com.atruedev.kmpble.gatt.DiscoveredService
 import com.atruedev.kmpble.gatt.Observation
 import com.atruedev.kmpble.gatt.WriteType
+import com.atruedev.kmpble.isochronous.IsochronousChannel
 import com.atruedev.kmpble.l2cap.L2capChannel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
@@ -213,4 +214,21 @@ public interface Peripheral : AutoCloseable {
         secure: Boolean = true,
         mtu: Int? = null,
     ): L2capChannel
+
+    // --- Isochronous Channels ---
+
+    /**
+     * Open a LE Audio Isochronous Channel for time-bounded streaming.
+     *
+     * Isochronous channels (Bluetooth 5.2+) provide connection-oriented (CIS)
+     * or broadcast (BIS) streaming with guaranteed latency bounds. Used by
+     * LE Audio profiles for hearing aids, broadcast audio, and low-latency
+     * audio devices.
+     *
+     * @throws IsochronousException.NotSupported if isochronous channels are
+     *         not available on this platform
+     * @throws IsochronousException.NotConnected if the peripheral is not connected
+     * @throws IsochronousException.OpenFailed if channel setup fails
+     */
+    public suspend fun openIsochronousChannel(): IsochronousChannel
 }

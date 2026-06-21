@@ -16,6 +16,7 @@ import com.atruedev.kmpble.gatt.Descriptor
 import com.atruedev.kmpble.gatt.DiscoveredService
 import com.atruedev.kmpble.gatt.Observation
 import com.atruedev.kmpble.gatt.WriteType
+import com.atruedev.kmpble.isochronous.IsochronousChannel
 import com.atruedev.kmpble.l2cap.L2capChannel
 import com.atruedev.kmpble.peripheral.Peripheral
 import com.atruedev.kmpble.peripheral.PhyResult
@@ -115,6 +116,8 @@ internal class StubPeripheral(
         secure: Boolean,
         mtu: Int?,
     ): L2capChannel = unsupported()
+
+    override suspend fun openIsochronousChannel(): IsochronousChannel = unsupported()
 
     private fun unsupported(): Nothing = throw UnsupportedOperationException("StubPeripheral")
 }

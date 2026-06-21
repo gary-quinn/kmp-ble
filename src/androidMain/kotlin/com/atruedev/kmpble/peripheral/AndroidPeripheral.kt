@@ -29,6 +29,8 @@ import com.atruedev.kmpble.gatt.Observation
 import com.atruedev.kmpble.gatt.WriteType
 import com.atruedev.kmpble.gatt.internal.ObservationManager
 import com.atruedev.kmpble.gatt.internal.PendingOperations
+import com.atruedev.kmpble.isochronous.IsochronousChannel
+import com.atruedev.kmpble.isochronous.IsochronousException
 import com.atruedev.kmpble.l2cap.AndroidL2capChannel
 import com.atruedev.kmpble.l2cap.L2capChannel
 import com.atruedev.kmpble.logging.BleLogEvent
@@ -218,4 +220,9 @@ public class AndroidPeripheral internal constructor(
         secure: Boolean,
         mtu: Int?,
     ): L2capChannel = openL2capChannelInternal(psm, secure, mtu)
+
+    override suspend fun openIsochronousChannel(): IsochronousChannel =
+        throw IsochronousException.NotSupported(
+            "LE Audio isochronous channels are not publicly available on Android",
+        )
 }

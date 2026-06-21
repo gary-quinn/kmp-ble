@@ -17,6 +17,8 @@ import com.atruedev.kmpble.gatt.WriteType
 import com.atruedev.kmpble.gatt.internal.ObservationEvent
 import com.atruedev.kmpble.gatt.internal.ObservationManager
 import com.atruedev.kmpble.gatt.internal.applyBackpressure
+import com.atruedev.kmpble.isochronous.IsochronousChannel
+import com.atruedev.kmpble.isochronous.IsochronousException
 import com.atruedev.kmpble.l2cap.L2capChannel
 import com.atruedev.kmpble.l2cap.L2capException
 import com.atruedev.kmpble.peripheral.PhyResult
@@ -42,6 +44,7 @@ internal class FakeGattResponder(
     private val observationManager: ObservationManager,
     private val characteristicConfigs: List<FakeCharacteristicConfig>,
     private val onL2capHandler: L2capHandler?,
+    private val onIsoHandler: IsochronousHandler?,
     private val cccdWritesState: MutableStateFlow<List<FakePeripheral.CccdWrite>>,
     private val closedFlag: () -> Boolean,
 ) {
@@ -244,6 +247,21 @@ internal class FakeGattResponder(
             onL2capHandler
                 ?: throw L2capException.NotSupported("No onOpenL2capChannel handler configured")
         return handler(psm, mtu)
+    }
+
+    suspend fun openIsochronousChannel(): IsochronousChannel {
+        checkNotClosed()
+        if (context.state.value !is State.Connected) {
+            throw IsochronousException.NotConnected(
+                "Peripheral is not connected (state: ${context.state.value})",
+            )
+        }
+        val handler =
+            onIsoHandler
+                ?: throw IsochronousException.NotSupported(
+                    "No onOpenIsochronousChannel handler configured",
+                )
+        return handler()
     }
 
     suspend fun readRssi(): Int = readRssiImpl()
