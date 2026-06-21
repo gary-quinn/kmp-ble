@@ -38,7 +38,7 @@ internal suspend fun IosPeripheral.openL2capChannelInternal(
         bridge.openL2CAPChannel(psm.toUShort())
 
         try {
-            val cbChannel = withTimeout(L2CAP_OPEN_TIMEOUT) { deferred.await() }
+            val cbChannel = withTimeout(currentTimeouts.l2capOpen) { deferred.await() }
             val channel = IosL2capChannel(cbChannel, peripheralContext.scope, mtu ?: DEFAULT_L2CAP_MTU)
             activeL2capChannels.update { it + channel }
             channel

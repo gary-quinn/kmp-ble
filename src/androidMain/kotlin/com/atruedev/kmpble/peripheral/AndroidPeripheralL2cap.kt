@@ -68,7 +68,7 @@ internal suspend fun AndroidPeripheral.openL2capChannelInternal(
 
         try {
             withContext(Dispatchers.IO) {
-                withTimeout(30.seconds) {
+                withTimeout(currentTimeouts.l2capOpen) {
                     suspendCancellableCoroutine { cont ->
                         cont.invokeOnCancellation { socket.closeQuietly() }
                         try {
