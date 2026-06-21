@@ -12,7 +12,8 @@ import kotlin.time.Duration.Companion.seconds
  * [ConnectionRecipe] preset for common use cases.
  *
  * @property autoConnect If `true`, the system connects when the peripheral is in range (Android only).
- * @property timeout Maximum duration to wait for a connection before timing out.
+ * @property timeouts Per-operation timeout configuration. Use [OperationTimeouts.connect]
+ *   to set the connection-establishment timeout.
  * @property transportType Preferred BLE transport.
  * @property phyMask Preferred PHY for the connection (BLE 5.0).
  * @property mtuRequest Request a specific MTU after connection, or `null` for the platform default.
@@ -26,7 +27,7 @@ import kotlin.time.Duration.Companion.seconds
  */
 public data class ConnectionOptions(
     val autoConnect: Boolean = false,
-    val timeout: Duration = 30.seconds,
+    val timeouts: OperationTimeouts = OperationTimeouts(),
     val transportType: TransportType = TransportType.Auto,
     val phyMask: PhyMask = PhyMask.LE_1M,
     val mtuRequest: Int? = null,
@@ -49,9 +50,6 @@ public data class ConnectionOptions(
     val timeouts: OperationTimeouts = OperationTimeouts(),
 ) {
     init {
-        require(timeout.isPositive() && timeout.isFinite()) {
-            "timeout must be positive and finite, was $timeout"
-        }
         require(gattOperationTimeout.isPositive() && gattOperationTimeout.isFinite()) {
             "gattOperationTimeout must be positive and finite, was $gattOperationTimeout"
         }
@@ -65,7 +63,7 @@ public data class ConnectionOptions(
         public val Balanced: ConnectionOptions =
             ConnectionOptions(
                 autoConnect = false,
-                timeout = 30.seconds,
+                timeouts = OperationTimeouts(connect = 30.seconds),
                 transportType = TransportType.LE,
                 phyMask = PhyMask.LE_2M,
             )
@@ -77,7 +75,7 @@ public data class ConnectionOptions(
         public val LongRange: ConnectionOptions =
             ConnectionOptions(
                 autoConnect = false,
-                timeout = 60.seconds,
+                timeouts = OperationTimeouts(connect = 60.seconds),
                 transportType = TransportType.LE,
                 phyMask = PhyMask.LE_CODED,
             )
@@ -89,7 +87,7 @@ public data class ConnectionOptions(
         public val LowLatency: ConnectionOptions =
             ConnectionOptions(
                 autoConnect = false,
-                timeout = 10.seconds,
+                timeouts = OperationTimeouts(connect = 10.seconds),
                 transportType = TransportType.LE,
                 phyMask = PhyMask.LE_2M,
                 mtuRequest = 512,

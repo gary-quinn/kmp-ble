@@ -1,6 +1,7 @@
 package com.atruedev.kmpble.gatt.internal
 
 import com.atruedev.kmpble.gatt.BackpressureStrategy
+import kotlinx.atomicfu.atomic
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.channels.BufferOverflow
@@ -10,7 +11,6 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.buffer
 import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.withContext
-import kotlin.concurrent.Volatile
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
@@ -64,8 +64,8 @@ internal data class TrackedObservation(
  *
  * Serialization: Mutable state is accessed exclusively via [serialDispatcher]
  * (`limitedParallelism(1)`), consistent with the rest of the codebase.
- * The @Volatile [observationsSnapshot] provides lock-free reads from non-suspend
- * contexts (platform callback threads).
+ * [observationsSnapshot] uses [kotlinx.atomicfu.atomic] for lock-free reads
+ * from non-suspend contexts (platform callback threads).
  */
 @OptIn(ExperimentalUuidApi::class)
 internal class ObservationRegistry(
@@ -81,21 +81,21 @@ internal class ObservationRegistry(
     /**
      * Snapshot of observations for lock-free reads from non-suspend contexts.
      * Updated on [serialDispatcher] whenever [observations] changes. Reads are safe
-     * from any thread because the reference is @Volatile and the Map is immutable.
+     * from any thread because the reference is held in a [kotlinx.atomicfu.atomic]
+     * and the Map is immutable.
      */
-    @Volatile
-    private var observationsSnapshot = mapOf<ObservationKey, TrackedObservation>()
+    private val observationsSnapshot = atomic(mapOf<ObservationKey, TrackedObservation>())
 
     /** Optional callback invoked when the set of active observations changes. */
     internal var onObservationsChanged: ((Set<PersistedObservation>) -> Unit)? = null
 
     private fun updateSnapshot() {
-        observationsSnapshot = observations.toMap()
+        observationsSnapshot.value = observations.toMap()
     }
 
     private fun notifyObservationsChanged() {
         onObservationsChanged?.invoke(
-            observationsSnapshot.values
+            observationsSnapshot.value.values
                 .map { tracked ->
                     PersistedObservation(tracked.key, tracked.backpressure)
                 }.toSet(),
@@ -200,7 +200,7 @@ internal class ObservationRegistry(
     }
 
     /** Provides read-only access to the immutable snapshot for non-suspend contexts. */
-    fun snapshot(): Map<ObservationKey, TrackedObservation> = observationsSnapshot
+    fun snapshot(): Map<ObservationKey, TrackedObservation> = observationsSnapshot.value
 
     /** Serial dispatcher for mutable state access. */
     internal val dispatcher: CoroutineDispatcher = serialDispatcher

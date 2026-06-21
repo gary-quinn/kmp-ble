@@ -15,7 +15,7 @@ class PresetDefaultsTest {
         val opts = ConnectionOptions.Balanced
         assertEquals(TransportType.LE, opts.transportType)
         assertEquals(PhyMask.LE_2M, opts.phyMask)
-        assertEquals(30.seconds, opts.timeout)
+        assertEquals(30.seconds, opts.timeouts.connect)
         assertFalse(opts.autoConnect)
     }
 
@@ -24,7 +24,7 @@ class PresetDefaultsTest {
         val opts = ConnectionOptions.LongRange
         assertEquals(TransportType.LE, opts.transportType)
         assertEquals(PhyMask.LE_CODED, opts.phyMask)
-        assertEquals(60.seconds, opts.timeout)
+        assertEquals(60.seconds, opts.timeouts.connect)
         assertFalse(opts.autoConnect)
     }
 
@@ -33,7 +33,7 @@ class PresetDefaultsTest {
         val opts = ConnectionOptions.LowLatency
         assertEquals(TransportType.LE, opts.transportType)
         assertEquals(PhyMask.LE_2M, opts.phyMask)
-        assertEquals(10.seconds, opts.timeout)
+        assertEquals(10.seconds, opts.timeouts.connect)
         assertEquals(512, opts.mtuRequest)
         assertFalse(opts.autoConnect)
     }

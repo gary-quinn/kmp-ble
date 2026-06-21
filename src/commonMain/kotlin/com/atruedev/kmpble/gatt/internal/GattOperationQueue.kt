@@ -1,12 +1,12 @@
 package com.atruedev.kmpble.gatt.internal
 
+import kotlinx.atomicfu.atomic
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
-import kotlin.concurrent.Volatile
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
@@ -19,7 +19,8 @@ import kotlin.time.Duration.Companion.seconds
  *
  * [start], [drain], and [close] are confined to the owning peripheral's
  * serialized dispatcher (`limitedParallelism(1)`).
- * [enqueue] reads the `@Volatile` [state] snapshot from any coroutine context.
+ * [enqueue] reads the [kotlinx.atomicfu.atomic] [state] snapshot from any
+ * coroutine context.
  */
 internal class GattOperationQueue(
     private val scope: CoroutineScope,
@@ -35,16 +36,17 @@ internal class GattOperationQueue(
         val operationTimeout: Duration,
     )
 
-    @Volatile
-    private var state =
-        QueueState(
-            channel = Channel(Channel.UNLIMITED),
-            drainJob = null,
-            operationTimeout = DEFAULT_OPERATION_TIMEOUT,
+    private val state =
+        atomic(
+            QueueState(
+                channel = Channel(Channel.UNLIMITED),
+                drainJob = null,
+                operationTimeout = DEFAULT_OPERATION_TIMEOUT,
+            ),
         )
 
     fun start(timeout: Duration? = null) {
-        val prev = state
+        val prev = state.value
         drainChannel(prev.channel)
         prev.drainJob?.cancel()
 
@@ -55,7 +57,7 @@ internal class GattOperationQueue(
                     entry.action()
                 }
             }
-        state =
+        state.value =
             QueueState(
                 channel = ch,
                 drainJob = job,
@@ -64,7 +66,7 @@ internal class GattOperationQueue(
     }
 
     suspend fun <T> enqueue(
-        timeout: Duration = state.operationTimeout,
+        timeout: Duration = state.value.operationTimeout,
         block: suspend () -> T,
     ): T {
         val deferred = CompletableDeferred<T>()
@@ -80,7 +82,12 @@ internal class GattOperationQueue(
                 cancel = { deferred.completeExceptionally(it) },
             )
 
-        if (!state.channel.trySend(entry).isSuccess) throw NotConnectedException()
+        if (!state.value.channel
+                .trySend(entry)
+                .isSuccess
+        ) {
+            throw NotConnectedException()
+        }
 
         return withTimeout(timeout) {
             deferred.await()
@@ -88,11 +95,11 @@ internal class GattOperationQueue(
     }
 
     fun drain() {
-        drainChannel(state.channel)
+        drainChannel(state.value.channel)
     }
 
     fun close() {
-        val s = state
+        val s = state.value
         drainChannel(s.channel)
         s.drainJob?.cancel()
     }
