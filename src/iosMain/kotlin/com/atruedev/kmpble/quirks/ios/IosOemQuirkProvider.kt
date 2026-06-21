@@ -4,6 +4,7 @@ import com.atruedev.kmpble.quirks.BleQuirks
 import com.atruedev.kmpble.quirks.DeviceMatch
 import com.atruedev.kmpble.quirks.QuirkProvider
 import com.atruedev.kmpble.quirks.QuirkRegistry
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -31,7 +32,7 @@ public class IosOemQuirkProvider : QuirkProvider {
 
     private companion object {
         // iPhone SE 1st gen, iPhone 5s, iPhone 6 (A7/A8 chips) need more time.
-        val IOS_CONNECTION_TIMEOUT: Map<String, kotlin.time.Duration> =
+        val IOS_CONNECTION_TIMEOUT: Map<String, Duration> =
             mapOf(
                 "apple:iphone6,2" to 45.seconds,
                 "apple:iphone6,1" to 45.seconds,
