@@ -2,6 +2,7 @@ package com.atruedev.kmpble.adapter
 
 import android.Manifest
 import android.bluetooth.BluetoothManager
+import android.bluetooth.BluetoothStatusCodes
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -85,7 +86,7 @@ public class AndroidBluetoothAdapter(
             // isLeAudioSupported() returns Int (BluetoothStatusCodes), not Boolean.
             supportsLeAudio =
                 if (Build.VERSION.SDK_INT >= 33) {
-                    bt.isLeAudioSupported == android.bluetooth.BluetoothStatusCodes.FEATURE_SUPPORTED
+                    bt.isLeAudioSupported == BluetoothStatusCodes.FEATURE_SUPPORTED
                 } else {
                     false
                 },

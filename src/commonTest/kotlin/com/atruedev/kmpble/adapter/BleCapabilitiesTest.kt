@@ -53,5 +53,10 @@ class BleCapabilitiesTest {
         val str = caps.toString()
         assertTrue(str.contains("extAdv=true"), "toString should include extAdv")
         assertTrue(str.contains("le2M=false"), "toString should include le2M")
+        assertTrue(str.contains("leCoded=false"), "toString should include leCoded")
+        assertTrue(str.contains("perAdv=false"), "toString should include perAdv")
+        assertTrue(str.contains("pwrCtrl=false"), "toString should include pwrCtrl")
+        assertTrue(str.contains("leAudio=false"), "toString should include leAudio")
+        assertTrue(str.contains("subrating=false"), "toString should include subrating")
     }
 }
