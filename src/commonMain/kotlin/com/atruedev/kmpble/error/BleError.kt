@@ -1,5 +1,7 @@
 package com.atruedev.kmpble.error
 
+import kotlin.time.Duration
+
 /**
  * Root of the composable BLE error hierarchy.
  *
@@ -85,6 +87,23 @@ public data class StaleGattHandle(
 public data class OperationFailed(
     val message: String,
     val recoveryHint: String = "Operation failed. Retry. If persistent, disconnect and reconnect to the peripheral.",
+) : BleError
+
+/**
+ * A BLE operation timed out.
+ *
+ * [operation] identifies which operation exceeded its configured [timeout].
+ * Compare [timeout] against [OperationTimeouts] values to adjust per-operation
+ * timeout limits.
+ */
+public data class PeripheralTimeout(
+    /** Human-readable operation name (e.g., "connect", "serviceDiscovery", "read"). */
+    val operation: String,
+    /** The configured timeout that was exceeded. */
+    val timeout: Duration,
+    val recoveryHint: String =
+        "Operation timed out. Increase the timeout via ConnectionOptions.timeouts " +
+            "or verify the device is in range.",
 ) : BleError
 
 /**

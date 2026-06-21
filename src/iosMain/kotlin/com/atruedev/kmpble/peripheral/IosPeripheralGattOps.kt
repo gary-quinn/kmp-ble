@@ -19,7 +19,7 @@ import platform.CoreBluetooth.CBCharacteristicWriteWithResponse
 
 internal suspend fun IosPeripheral.readGatt(characteristic: Characteristic): ByteArray {
     checkNotClosed()
-    return peripheralContext.gattQueue.enqueue {
+    return peripheralContext.gattQueue.enqueue(timeout = currentTimeouts.read) {
         val native = requireNativeCbChar(characteristic)
         val result =
             pendingOps.awaitGatt(PendingOp.CharacteristicRead, "read") {
@@ -42,7 +42,7 @@ internal suspend fun IosPeripheral.writeGatt(
     val withResponse = writeType == WriteType.WithResponse || writeType == WriteType.Signed
     val chunks = LargeWriteHandler.chunk(data, maximumWriteValueLength.value)
 
-    peripheralContext.gattQueue.enqueue {
+    peripheralContext.gattQueue.enqueue(timeout = currentTimeouts.write) {
         for (chunk in chunks) {
             if (withResponse) {
                 val status =
@@ -91,7 +91,7 @@ internal fun IosPeripheral.observeValuesGatt(
 
 internal suspend fun IosPeripheral.readDescriptorGatt(descriptor: Descriptor): ByteArray {
     checkNotClosed()
-    return peripheralContext.gattQueue.enqueue {
+    return peripheralContext.gattQueue.enqueue(timeout = currentTimeouts.read) {
         val native = requireNativeCbDesc(descriptor)
         val result =
             pendingOps.awaitGatt(PendingOp.DescriptorRead, "readDescriptor") {
@@ -107,7 +107,7 @@ internal suspend fun IosPeripheral.writeDescriptorGatt(
     data: ByteArray,
 ) {
     checkNotClosed()
-    peripheralContext.gattQueue.enqueue {
+    peripheralContext.gattQueue.enqueue(timeout = currentTimeouts.write) {
         val native = requireNativeCbDesc(descriptor)
         val status =
             pendingOps.awaitGatt(PendingOp.DescriptorWrite, "writeDescriptor") {

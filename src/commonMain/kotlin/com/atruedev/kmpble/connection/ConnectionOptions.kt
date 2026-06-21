@@ -21,6 +21,9 @@ import kotlin.time.Duration.Companion.seconds
  * @property reconnectionStrategy Strategy to apply on unexpected disconnects.
  * @property gattOperationTimeout Maximum time a single GATT operation may take before the watchdog
  *   cancels it. Increase for devices with slow BLE stacks or firmware update flows.
+ * @property timeouts Per-operation timeout configuration. Individual timeouts override
+ *   the coarse-grained [gattOperationTimeout] when set. Use [OperationTimeouts]
+ *   for fine-grained control over connect, discovery, read, write, MTU, and L2CAP operations.
  */
 public data class ConnectionOptions(
     val autoConnect: Boolean = false,

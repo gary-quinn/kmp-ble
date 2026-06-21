@@ -15,6 +15,7 @@ import com.atruedev.kmpble.connection.ConnectionOptions
 import com.atruedev.kmpble.connection.ConnectionParameterUpdateResult
 import com.atruedev.kmpble.connection.ConnectionParameters
 import com.atruedev.kmpble.connection.ConnectionPriority
+import com.atruedev.kmpble.connection.OperationTimeouts
 import com.atruedev.kmpble.connection.Phy
 import com.atruedev.kmpble.connection.PhyUpdate
 import com.atruedev.kmpble.connection.ReconnectionStrategy
@@ -86,6 +87,9 @@ public class AndroidPeripheral internal constructor(
      * to decide whether bonding is required for the freshly-established link.
      */
     internal var currentConnectionOptions: ConnectionOptions? = null
+
+    /** Stored during [connect] for GATT ops to reference per-operation timeouts. */
+    internal var currentTimeouts: OperationTimeouts = OperationTimeouts()
 
     internal val reconnectionHandler =
         ReconnectionHandler(
