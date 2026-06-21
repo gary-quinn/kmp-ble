@@ -2,6 +2,7 @@ package com.atruedev.kmpble.peripheral
 
 import com.atruedev.kmpble.connection.ConnectionOptions
 import com.atruedev.kmpble.connection.State
+import com.atruedev.kmpble.scanner.uuidFrom
 import com.atruedev.kmpble.testing.FakePeripheral
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
@@ -113,22 +114,8 @@ class PeripheralExtensionsTest {
             val peripheral = createPeripheral()
             val services = peripheral.connectAndDiscover()
             assertEquals(2, services.size)
-            assertEquals(
-                "0000180d",
-                services[0]
-                    .uuid
-                    .toString()
-                    .takeLast(4)
-                    .lowercase(),
-            )
-            assertEquals(
-                "0000180f",
-                services[1]
-                    .uuid
-                    .toString()
-                    .takeLast(4)
-                    .lowercase(),
-            )
+            assertEquals(uuidFrom("180d"), services[0].uuid)
+            assertEquals(uuidFrom("180f"), services[1].uuid)
             peripheral.disconnect()
         }
 
