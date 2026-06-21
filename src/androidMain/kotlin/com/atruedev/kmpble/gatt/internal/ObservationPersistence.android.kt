@@ -223,7 +223,8 @@ internal object JsonArrayEncoder {
         start: Int,
     ): Int {
         var depth = 0
-        for (i in start until s.length) {
+        var i = start
+        while (i < s.length) {
             when (s[i]) {
                 '{' -> depth++
                 '}' -> {
@@ -245,6 +246,7 @@ internal object JsonArrayEncoder {
                     }
                 }
             }
+            i++
         }
         return -1
     }
