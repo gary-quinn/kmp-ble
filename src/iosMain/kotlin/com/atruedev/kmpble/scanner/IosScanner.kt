@@ -2,6 +2,8 @@ package com.atruedev.kmpble.scanner
 
 import com.atruedev.kmpble.adapter.BluetoothAdapterState
 import com.atruedev.kmpble.internal.CentralManagerProvider
+import com.atruedev.kmpble.logging.BleLogEvent
+import com.atruedev.kmpble.logging.logEvent
 import com.atruedev.kmpble.scanner.internal.toScanEvents
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -72,10 +74,12 @@ public class IosScanner(
                         CBCentralManagerScanOptionAllowDuplicatesKey to true,
                     ),
             )
+            logEvent(BleLogEvent.ScanStarted(config.filterGroups.size))
 
             awaitClose {
                 manager.stopScan()
                 collectJob.cancel()
+                logEvent(BleLogEvent.ScanStopped("closed"))
             }
         }
 

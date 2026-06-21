@@ -9,6 +9,8 @@ import android.bluetooth.le.ScanResult
 import android.bluetooth.le.ScanSettings
 import android.content.Context
 import android.os.ParcelUuid
+import com.atruedev.kmpble.logging.BleLogEvent
+import com.atruedev.kmpble.logging.logEvent
 import com.atruedev.kmpble.scanner.ScanPhy
 import com.atruedev.kmpble.scanner.internal.toScanEvents
 import kotlinx.coroutines.CoroutineScope
@@ -65,9 +67,11 @@ public class AndroidScanner(
                     .build()
 
             leScanner.startScan(osFilters, settings, callback)
+            logEvent(BleLogEvent.ScanStarted(config.filterGroups.size))
 
             awaitClose {
                 leScanner.stopScan(callback)
+                logEvent(BleLogEvent.ScanStopped("closed"))
             }
         }
 
