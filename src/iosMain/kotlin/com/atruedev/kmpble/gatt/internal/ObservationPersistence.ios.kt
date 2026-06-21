@@ -1,6 +1,5 @@
 package com.atruedev.kmpble.gatt.internal
 
-import com.atruedev.kmpble.gatt.BackpressureStrategy
 import platform.Foundation.NSUserDefaults
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
@@ -136,25 +135,4 @@ internal actual class ObservationPersistence actual constructor() {
             setIndex(current - peripheralId)
         }
     }
-
-    // --- BackpressureStrategy serialization ---
-
-    private fun serializeBackpressure(strategy: BackpressureStrategy): String =
-        when (strategy) {
-            is BackpressureStrategy.Latest -> "latest"
-            is BackpressureStrategy.Buffer -> "buffer:${strategy.capacity}"
-            is BackpressureStrategy.Unbounded -> "unbounded"
-        }
-
-    private fun deserializeBackpressure(value: String?): BackpressureStrategy =
-        when {
-            value == null -> BackpressureStrategy.Latest // fallback for pre-strategy data
-            value == "latest" -> BackpressureStrategy.Latest
-            value.startsWith("buffer:") -> {
-                val capacity = value.removePrefix("buffer:").toIntOrNull() ?: 64
-                BackpressureStrategy.Buffer(capacity)
-            }
-            value == "unbounded" -> BackpressureStrategy.Unbounded
-            else -> BackpressureStrategy.Latest
-        }
 }
