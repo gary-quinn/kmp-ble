@@ -1,6 +1,7 @@
 package com.atruedev.kmpble.peripheral
 
 import com.atruedev.kmpble.connection.ConnectionOptions
+import com.atruedev.kmpble.gatt.DiscoveredService
 import com.atruedev.kmpble.scanner.uuidFrom
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
@@ -112,5 +113,42 @@ public suspend fun Peripheral.whenReady(
         block()
     } finally {
         withContext(NonCancellable) { close() }
+    }
+}
+
+/**
+ * Connect to a peripheral and automatically discover its GATT services.
+ *
+ * Combines the two-step connect-then-discover workflow into a single call,
+ * returning the discovered services on success and cleaning up the
+ * connection if discovery fails.
+ *
+ * ```kotlin
+ * val services = peripheral.connectAndDiscover(
+ *     ConnectionOptions.Balanced,
+ * )
+ * services.forEach { svc ->
+ *     println("Service: ${svc.uuid}")
+ * }
+ * ```
+ *
+ * @param options Connection configuration. Timeouts for both connect and
+ *   service discovery phases are taken from [ConnectionOptions.timeouts].
+ * @return The list of discovered GATT services.
+ * @throws BleException if connection fails.
+ * @throws GattException if service discovery fails (connection is released).
+ */
+@OptIn(ExperimentalUuidApi::class)
+public suspend fun Peripheral.connectAndDiscover(
+    options: ConnectionOptions = ConnectionOptions(),
+): List<DiscoveredService> {
+    connect(options)
+    return try {
+        refreshServices()
+    } catch (e: Exception) {
+        // Release connection on discovery failure so the peripheral
+        // is not left in a half-connected state.
+        withContext(NonCancellable) { disconnect() }
+        throw e
     }
 }
