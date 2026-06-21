@@ -67,9 +67,7 @@ public class AndroidBluetoothAdapter(
 
         BleCapabilities(
             supportsExtendedAdvertising =
-                if (Build.VERSION.SDK_INT >=
-                    26
-                ) {
+                if (Build.VERSION.SDK_INT >= 26) {
                     bt.isLeExtendedAdvertisingSupported
                 } else {
                     false
@@ -77,23 +75,22 @@ public class AndroidBluetoothAdapter(
             supportsLe2mPhy = if (Build.VERSION.SDK_INT >= 26) bt.isLe2MPhySupported else false,
             supportsLeCodedPhy = if (Build.VERSION.SDK_INT >= 26) bt.isLeCodedPhySupported else false,
             supportsPeriodicAdvertising =
-                if (Build.VERSION.SDK_INT >=
-                    26
-                ) {
+                if (Build.VERSION.SDK_INT >= 26) {
                     bt.isLePeriodicAdvertisingSupported
                 } else {
                     false
                 },
-            supportsLePowerControl = if (Build.VERSION.SDK_INT >= 34) bt.isLePowerControlSupported else false,
-            supportsLeAudio = if (Build.VERSION.SDK_INT >= 33) bt.isLeAudioSupported else false,
-            supportsConnectionSubrating =
-                if (Build.VERSION.SDK_INT >=
-                    35
-                ) {
-                    bt.isLeConnectionSubratingSupported
+            // LE Power Control capability query is not exposed as a public Android API.
+            supportsLePowerControl = false,
+            // isLeAudioSupported() returns Int (BluetoothStatusCodes), not Boolean.
+            supportsLeAudio =
+                if (Build.VERSION.SDK_INT >= 33) {
+                    bt.isLeAudioSupported == android.bluetooth.BluetoothStatusCodes.FEATURE_SUPPORTED
                 } else {
                     false
                 },
+            // Connection Subrating may not be queryable on all compile SDK versions.
+            supportsConnectionSubrating = false,
         )
     }
 
