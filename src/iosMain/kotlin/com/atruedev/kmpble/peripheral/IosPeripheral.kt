@@ -77,6 +77,7 @@ public class IosPeripheral(
 
     override val state: StateFlow<State> get() = peripheralContext.state
     override val bondState: StateFlow<BondState> get() = peripheralContext.bondState
+    internal val bondManager = IosBondManager(peripheralContext)
     override val services: StateFlow<List<DiscoveredService>?> get() = peripheralContext.services
     override val maximumWriteValueLength: StateFlow<Int> get() = peripheralContext.maximumWriteValueLength
     override val mtu: StateFlow<Int> get() = peripheralContext.mtu
@@ -121,6 +122,7 @@ public class IosPeripheral(
         currentTimeouts = options.timeouts
         pairingRequestHandler.setHandler(options.pairingHandler)
         reconnectionHandler.start(options)
+        bondManager.start()
         withContext(peripheralContext.dispatcher) {
             peripheralContext.processEvent(ConnectionEvent.ConnectRequested)
             peripheralContext.gattQueue.start(options.gattOperationTimeout)
@@ -144,6 +146,7 @@ public class IosPeripheral(
     override suspend fun disconnect() {
         checkNotClosed()
         reconnectionHandler.stop()
+        bondManager.stop()
         withContext(peripheralContext.dispatcher) {
             if (peripheralContext.state.value is State.Disconnected) return@withContext
             peripheralContext.processEvent(ConnectionEvent.DisconnectRequested)
@@ -163,15 +166,13 @@ public class IosPeripheral(
     }
 
     @ExperimentalBleApi
-    override fun removeBond(): BondRemovalResult =
-        BondRemovalResult.NotSupported(
-            "iOS does not support programmatic bond removal. Remove from Settings > Bluetooth.",
-        )
+    override fun removeBond(): BondRemovalResult = bondManager.removeBond()
 
     override fun close() {
         if (closed) return
         closed = true
         reconnectionHandler.stop()
+        bondManager.stop()
         pairingRequestHandler.closeSync()
         closeL2capChannels()
         centralDelegate.unregisterConnectionCallback(identifier.value)
