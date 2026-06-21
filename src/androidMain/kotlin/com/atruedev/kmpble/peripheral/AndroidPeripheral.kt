@@ -28,6 +28,7 @@ import com.atruedev.kmpble.gatt.DiscoveredService
 import com.atruedev.kmpble.gatt.Observation
 import com.atruedev.kmpble.gatt.WriteType
 import com.atruedev.kmpble.gatt.internal.ObservationManager
+import com.atruedev.kmpble.gatt.internal.ObservationPersistence
 import com.atruedev.kmpble.gatt.internal.PendingOperations
 import com.atruedev.kmpble.l2cap.AndroidL2capChannel
 import com.atruedev.kmpble.l2cap.L2capChannel
@@ -61,6 +62,7 @@ public class AndroidPeripheral internal constructor(
 
     internal val pendingOps = PendingOperations()
     internal val observationManager = ObservationManager(peripheralContext.dispatcher)
+    private val observationPersistence = ObservationPersistence()
     internal val slots = LifecycleSlots()
 
     internal val nativeCharMap = mutableMapOf<Characteristic, BluetoothGattCharacteristic>()
@@ -107,6 +109,9 @@ public class AndroidPeripheral internal constructor(
 
     init {
         bridge.onEvent = { event -> handleGattEvent(event) }
+        observationManager.onObservationsChanged = { observations ->
+            observationPersistence.save(identifier.value, observations)
+        }
         logEvent(
             BleLogEvent.GattOperation(
                 identifier,
@@ -127,6 +132,26 @@ public class AndroidPeripheral internal constructor(
         disconnectInternal()
     }
 
+    /**
+     * Restore observations that were persisted from a previous session.
+     *
+     * Re-subscribes to characteristics with their original backpressure
+     * strategies. Call after [connect] and service discovery when the
+     * peripheral was previously observed in a prior app session.
+     *
+     * This is a no-op if no observations were persisted. Stale entries
+     * (characteristics that no longer exist) are silently skipped.
+     *
+     * Safe to call multiple times; already-subscribed observations are
+     * not duplicated (the ObservationManager tracks by UUID key).
+     */
+    internal suspend fun restorePersistedObservations() {
+        val saved = observationPersistence.restore(identifier.value)
+        for (obs in saved) {
+            observationManager.subscribe(obs.key.serviceUuid, obs.key.charUuid, obs.backpressure)
+        }
+    }
+
     @OptIn(ExperimentalBleApi::class)
     override fun close() {
         if (closed) return
@@ -137,6 +162,7 @@ public class AndroidPeripheral internal constructor(
         closeL2capChannels()
         bridge.close()
         observationManager.clear()
+        observationPersistence.clear(identifier.value)
         peripheralContext.close()
         PeripheralRegistry.remove(identifier)
     }
