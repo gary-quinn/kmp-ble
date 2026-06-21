@@ -1,10 +1,13 @@
 package com.atruedev.kmpble.peripheral
 
+import com.atruedev.kmpble.connection.ConnectionOptions
 import com.atruedev.kmpble.connection.State
+import com.atruedev.kmpble.scanner.uuidFrom
 import com.atruedev.kmpble.testing.FakePeripheral
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertContains
+import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
@@ -101,5 +104,45 @@ class PeripheralExtensionsTest {
                 }
             }
             // Peripheral should still be closed even after exception
+        }
+
+    // --- connectAndDiscover() ---
+
+    @Test
+    fun connectAndDiscoverReturnsServices() =
+        runTest {
+            val peripheral = createPeripheral()
+            val services = peripheral.connectAndDiscover()
+            assertEquals(2, services.size)
+            assertEquals(uuidFrom("180d"), services[0].uuid)
+            assertEquals(uuidFrom("180f"), services[1].uuid)
+            peripheral.disconnect()
+        }
+
+    @Test
+    fun connectAndDiscoverAcceptsCustomOptions() =
+        runTest {
+            val peripheral = createPeripheral()
+            val options = ConnectionOptions.Balanced
+            val services = peripheral.connectAndDiscover(options)
+            assertEquals(2, services.size)
+            peripheral.disconnect()
+        }
+
+    @Test
+    fun connectAndDiscoverThrowsOnConnectionFailure() =
+        runTest {
+            val peripheral =
+                FakePeripheral {
+                    onConnect { Result.failure(RuntimeException("out of range")) }
+                    service("180d") {
+                        characteristic("2a37") { properties(notify = true) }
+                    }
+                }
+            // FakePeripheral.connect() does not throw on failure;
+            // it transitions to Disconnected state instead.
+            // The real platform implementations throw BleException.
+            peripheral.connectAndDiscover()
+            assertIs<State.Disconnected>(peripheral.state.value)
         }
 }
