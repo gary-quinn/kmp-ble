@@ -1,7 +1,8 @@
 package com.atruedev.kmpble.connection
 
 import com.atruedev.kmpble.ExperimentalBleApi
-import com.atruedev.kmpble.peripheral.requestConnectionParameterPreset
+import com.atruedev.kmpble.connection.ConnectionParamPreset
+import com.atruedev.kmpble.connection.requestConnectionParameterPreset
 import com.atruedev.kmpble.testing.FakePeripheral
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
