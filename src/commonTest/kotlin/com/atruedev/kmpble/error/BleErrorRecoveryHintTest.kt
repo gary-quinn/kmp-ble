@@ -58,4 +58,21 @@ class BleErrorRecoveryHintTest {
         val error = ConnectionFailed("timeout", recoveryHint = custom)
         assertTrue(error.recoveryHint == custom)
     }
+
+    @Test
+    fun serviceDiscoveryErrorHasRecoveryHint() {
+        val error = ServiceDiscoveryError(status = GattStatus.Failure)
+        assertTrue(error.recoveryHint.isNotEmpty())
+    }
+
+    @Test
+    fun characteristicErrorHasRecoveryHint() {
+        val error =
+            CharacteristicError(
+                charUuid = "2a37",
+                operation = "write",
+                status = GattStatus.WriteNotPermitted,
+            )
+        assertTrue(error.recoveryHint.isNotEmpty())
+    }
 }

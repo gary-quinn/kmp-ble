@@ -9,6 +9,7 @@ import com.atruedev.kmpble.connection.State
 import com.atruedev.kmpble.connection.internal.ConnectionEvent
 import com.atruedev.kmpble.error.BleException
 import com.atruedev.kmpble.error.GattError
+import com.atruedev.kmpble.error.ServiceDiscoveryError
 import com.atruedev.kmpble.gatt.Characteristic
 import com.atruedev.kmpble.gatt.Descriptor
 import com.atruedev.kmpble.gatt.DiscoveredService
@@ -69,9 +70,10 @@ internal fun AndroidPeripheral.handleGattEvent(event: GattCallbackEvent) {
 internal suspend fun AndroidPeripheral.handleServicesDiscovered(event: GattCallbackEvent.ServicesDiscovered) {
     val status = event.status.toGattStatus()
     if (!status.isSuccess()) {
-        peripheralContext.processEvent(ConnectionEvent.DiscoveryFailed(GattError("discoverServices", status)))
+        val discoveryError = ServiceDiscoveryError(serviceUuid = null, status = status)
+        peripheralContext.processEvent(ConnectionEvent.DiscoveryFailed(discoveryError))
         slots.completeConnect()
-        slots.failDiscovery(BleException(GattError("discoverServices", status)))
+        slots.failDiscovery(BleException(discoveryError))
         return
     }
 
