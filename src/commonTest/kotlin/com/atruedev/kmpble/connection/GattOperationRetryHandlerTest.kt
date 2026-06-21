@@ -6,14 +6,15 @@ import com.atruedev.kmpble.error.GattError
 import com.atruedev.kmpble.error.GattStatus
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
+import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
@@ -113,26 +114,28 @@ class GattOperationRetryHandlerTest {
     fun `CancellationException propagates immediately without retry`() =
         runTest {
             var attempts = 0
+            var caughtCancellation = false
             val handler =
                 GattOperationRetryHandler(
                     RetryPolicy(maxAttempts = 3, initialDelay = 50.milliseconds),
                 )
-            val ex =
-                assertFailsWith<CancellationException> {
-                    coroutineScope {
-                        val job =
-                            launch {
-                                handler.withRetry("read") {
-                                    attempts++
-                                    delay(10.seconds)
-                                }
-                            }
-                        delay(50.milliseconds)
-                        job.cancel()
-                        job.join()
+            val job =
+                launch {
+                    try {
+                        handler.withRetry("read") {
+                            attempts++
+                            delay(Long.MAX_VALUE.milliseconds)
+                        }
+                    } catch (_: CancellationException) {
+                        caughtCancellation = true
+                        // Consume to avoid runTest CancellationException interference
                     }
                 }
-            assertEquals(1, attempts)
+            delay(50.milliseconds)
+            assertEquals(1, attempts, "Only one attempt before cancellation")
+            job.cancel()
+            advanceUntilIdle()
+            assertTrue(caughtCancellation, "CancellationException should propagate from handler")
         }
 
     @Test
