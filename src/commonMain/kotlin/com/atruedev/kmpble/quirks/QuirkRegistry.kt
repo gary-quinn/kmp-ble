@@ -1,8 +1,7 @@
 package com.atruedev.kmpble.quirks
 
-import java.util.ServiceLoader
-import kotlin.concurrent.atomics.AtomicReference
-import kotlin.concurrent.atomics.ExperimentalAtomicApi
+import kotlinx.atomicfu.locks.reentrantLock
+import kotlinx.atomicfu.locks.withLock
 
 /**
  * Immutable registry that resolves device-specific BLE quirks.
@@ -12,7 +11,7 @@ import kotlin.concurrent.atomics.ExperimentalAtomicApi
  *
  * The registry is frozen after construction - all mutation happens through [Builder].
  */
-public class QuirkRegistry private constructor(
+public class QuirkRegistry internal constructor(
     @PublishedApi internal val resolved: Map<QuirkKey<*>, Any>,
     private val description: String,
 ) {
@@ -92,33 +91,42 @@ public class QuirkRegistry private constructor(
         }
     }
 
-    @OptIn(ExperimentalAtomicApi::class)
     public companion object {
-        private val userConfig = AtomicReference<(Builder.() -> Unit)?>(null)
+        private val lock = reentrantLock()
+        private var userConfig: ((Builder) -> Unit)? = null
 
-        private val defaultRegistryLazy: Lazy<QuirkRegistry> =
-            lazy {
-                Builder(DeviceInfo.current())
-                    .apply {
-                        ServiceLoader.load(QuirkProvider::class.java).forEach(::addProvider)
-                        userConfig.load()?.invoke(this)
-                    }.build()
-            }
+        private var cached: QuirkRegistry? = null
+        private var initialized = false
 
         /**
          * Configure custom quirks. Must be called before [getInstance].
-         * Typically called from `Application.onCreate`.
+         * Call once during app startup.
          */
         public fun configure(block: Builder.() -> Unit) {
-            check(!defaultRegistryLazy.isInitialized()) {
-                "configure() must be called before getInstance()"
-            }
-            check(userConfig.compareAndSet(null, block)) {
-                "configure() must be called at most once"
+            lock.withLock {
+                check(!initialized) {
+                    "configure() must be called before getInstance()"
+                }
+                check(userConfig == null) {
+                    "configure() must be called at most once"
+                }
+                userConfig = block
             }
         }
 
-        public fun getInstance(): QuirkRegistry = defaultRegistryLazy.value
+        /** Returns the singleton registry for the current device. */
+        public fun getInstance(): QuirkRegistry {
+            val existing = cached
+            if (existing != null) return existing
+            return lock.withLock {
+                initialized = true
+                cached ?: run {
+                    val registry = buildRegistry(DeviceInfo.current(), userConfig)
+                    cached = registry
+                    registry
+                }
+            }
+        }
 
         /** Create an isolated registry for testing. Providers are NOT auto-loaded. */
         public fun createForTest(
@@ -127,3 +135,9 @@ public class QuirkRegistry private constructor(
         ): QuirkRegistry = Builder(device).apply(block).build()
     }
 }
+
+/** Platform-specific: build the default registry with auto-loaded providers. */
+internal expect fun buildRegistry(
+    device: DeviceInfo,
+    userConfig: (QuirkRegistry.Builder.() -> Unit)?,
+): QuirkRegistry

@@ -7,7 +7,7 @@ package com.atruedev.kmpble.quirks
  * `"manufacturer:model:display"`. Matching tries most specific first.
  */
 public object DeviceMatch {
-    /** Captures Samsung SM-XXXX series prefixes (e.g. "sm-g99" for Galaxy S21 series). */
+    /** Captures SM-XXXX series prefixes (e.g. "sm-g99" for Galaxy S21 series). */
     public const val MODEL_PREFIX_LENGTH: Int = 6
 
     public fun matchesAny(
