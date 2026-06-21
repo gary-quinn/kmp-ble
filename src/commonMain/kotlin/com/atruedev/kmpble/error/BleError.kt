@@ -17,9 +17,44 @@ public sealed interface BleError
 /** Errors that occur during connection establishment or while connected. */
 public sealed interface ConnectionError : BleError
 
+/**
+ * Machine-readable reason a BLE connection or operation failed.
+ *
+ * Platform error codes are mapped once to these constants so callers can
+ * dispatch on [when] instead of parsing raw integers or string messages.
+ * Retry policies can use transient vs permanent categorization
+ * (e.g. [TIMEOUT] and [LINK_LOSS] are retryable; [UNKNOWN_DEVICE] is not).
+ */
+public enum class ConnectionFailureReason {
+    /** The operation did not complete within the configured timeout. Transient - retryable. */
+    TIMEOUT,
+
+    /** The radio link dropped unexpectedly. Transient - retryable. */
+    LINK_LOSS,
+
+    /** The device could not be found or connectGatt returned null. Permanent for this scan cycle. */
+    UNKNOWN_DEVICE,
+
+    /** The peripheral rejected pairing or the bond no longer exists. May be resolved by re-pairing. */
+    AUTHENTICATION_FAILED,
+
+    /** The platform GATT stack returned a non-success connection status. Transient if GATT 133. */
+    GATT_ERROR,
+
+    /** Bonding was required but the user rejected it or it timed out. */
+    BONDING_FAILED,
+
+    /** The peripheral actively refused the connection. Permanent. */
+    CONNECTION_REJECTED,
+
+    /** A platform-reported error that does not fit a known category. Inspect [platformCode]. */
+    UNKNOWN,
+}
+
 /** The initial connection attempt failed before a link was established. */
 public data class ConnectionFailed(
     val reason: String,
+    val failureReason: ConnectionFailureReason = ConnectionFailureReason.UNKNOWN,
     val platformCode: Int? = null,
     val recoveryHint: String = "Check Bluetooth is enabled and the peripheral is in range.",
 ) : ConnectionError
@@ -27,6 +62,7 @@ public data class ConnectionFailed(
 /** An established connection was lost unexpectedly. */
 public data class ConnectionLost(
     val reason: String,
+    val failureReason: ConnectionFailureReason = ConnectionFailureReason.LINK_LOSS,
     val platformCode: Int? = null,
     val recoveryHint: String = "Connection lost. Move closer and retry.",
 ) : ConnectionError
@@ -41,6 +77,24 @@ public data class GattError(
     val operation: String,
     val status: GattStatus,
     val recoveryHint: String = "GATT operation failed. Verify the characteristic exists and supports this operation.",
+) : GattOperationError
+
+/** Service or characteristic discovery failed on a connected peripheral. */
+public data class ServiceDiscoveryError(
+    /** UUID of the service that failed discovery, or null if the root discoverServices call failed. */
+    val serviceUuid: String? = null,
+    val status: GattStatus,
+    val recoveryHint: String =
+        "Service discovery failed. Verify the peripheral supports the requested services.",
+) : GattOperationError
+
+/** A GATT operation targeting a specific characteristic failed. */
+public data class CharacteristicError(
+    val charUuid: String,
+    val operation: String,
+    val status: GattStatus,
+    val recoveryHint: String =
+        "Characteristic operation failed. Verify the characteristic exists and supports this operation.",
 ) : GattOperationError
 
 // --- Authentication / encryption errors (composable with GattOperationError) ---

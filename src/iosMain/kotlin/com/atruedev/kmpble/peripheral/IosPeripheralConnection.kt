@@ -3,8 +3,13 @@ package com.atruedev.kmpble.peripheral
 import com.atruedev.kmpble.connection.State
 import com.atruedev.kmpble.connection.internal.ConnectionEvent
 import com.atruedev.kmpble.error.ConnectionFailed
+import com.atruedev.kmpble.error.ConnectionFailureReason
 import com.atruedev.kmpble.error.ConnectionLost
 import kotlinx.coroutines.launch
+import platform.CoreBluetooth.CBErrorConnectionFailed
+import platform.CoreBluetooth.CBErrorConnectionLimitReached
+import platform.CoreBluetooth.CBErrorConnectionTimeout
+import platform.CoreBluetooth.CBErrorPeripheralDisconnected
 import platform.Foundation.NSError
 
 /**
@@ -28,7 +33,11 @@ internal fun IosPeripheral.handleConnectionCallback(
 
         val bleError =
             if (error != null) {
-                ConnectionFailed(error.localizedDescription, error.code.toInt())
+                ConnectionFailed(
+                    error.localizedDescription,
+                    error.toConnectionFailureReason(),
+                    error.code.toInt(),
+                )
             } else {
                 ConnectionLost("Disconnected")
             }
@@ -41,5 +50,16 @@ internal fun IosPeripheral.handleConnectionCallback(
         }
         onDisconnectCleanup()
         slots.completeConnect()
+    }
+}
+
+internal fun NSError.toConnectionFailureReason(): ConnectionFailureReason {
+    val code = this.code.toInt()
+    return when (code) {
+        CBErrorConnectionTimeout.toInt() -> ConnectionFailureReason.TIMEOUT
+        CBErrorPeripheralDisconnected.toInt() -> ConnectionFailureReason.LINK_LOSS
+        CBErrorConnectionFailed.toInt() -> ConnectionFailureReason.GATT_ERROR
+        CBErrorConnectionLimitReached.toInt() -> ConnectionFailureReason.CONNECTION_REJECTED
+        else -> ConnectionFailureReason.UNKNOWN
     }
 }

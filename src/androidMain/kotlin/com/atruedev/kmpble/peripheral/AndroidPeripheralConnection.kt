@@ -11,6 +11,7 @@ import com.atruedev.kmpble.connection.ConnectionOptions
 import com.atruedev.kmpble.connection.State
 import com.atruedev.kmpble.connection.internal.ConnectionEvent
 import com.atruedev.kmpble.error.ConnectionFailed
+import com.atruedev.kmpble.error.ConnectionFailureReason
 import com.atruedev.kmpble.error.ConnectionLost
 import com.atruedev.kmpble.error.OperationFailed
 import com.atruedev.kmpble.logging.BleLogEvent
@@ -87,7 +88,9 @@ internal suspend fun AndroidPeripheral.connectWithRetry(options: ConnectionOptio
         val gatt = bridge.connect(options)
         if (gatt == null) {
             peripheralContext.processEvent(
-                ConnectionEvent.ConnectionLost(ConnectionFailed("connectGatt returned null")),
+                ConnectionEvent.ConnectionLost(
+                    ConnectionFailed("connectGatt returned null", ConnectionFailureReason.UNKNOWN_DEVICE),
+                ),
             )
             slots.clearConnect()
             if (attempt < maxAttempts - 1) delay(retryDelay)
@@ -100,7 +103,9 @@ internal suspend fun AndroidPeripheral.connectWithRetry(options: ConnectionOptio
             bridge.disconnect()
             bridge.releaseGatt()
             peripheralContext.processEvent(
-                ConnectionEvent.ConnectionLost(ConnectionFailed("Connection timeout after $timeout")),
+                ConnectionEvent.ConnectionLost(
+                    ConnectionFailed("Connection timeout after $timeout", ConnectionFailureReason.TIMEOUT),
+                ),
             )
         } finally {
             slots.clearConnect()
@@ -129,7 +134,9 @@ internal suspend fun AndroidPeripheral.handleLinkUp(
 ) {
     if (!status.isSuccess()) {
         peripheralContext.processEvent(
-            ConnectionEvent.ConnectionLost(ConnectionFailed("GATT status: $status", rawStatus)),
+            ConnectionEvent.ConnectionLost(
+                ConnectionFailed("GATT status: $status", ConnectionFailureReason.GATT_ERROR, rawStatus),
+            ),
         )
         slots.completeConnect()
         return
@@ -167,7 +174,9 @@ internal suspend fun AndroidPeripheral.bondIfRequiredForLink(): Boolean {
 
     if (!bonded) {
         peripheralContext.processEvent(
-            ConnectionEvent.BondFailed(ConnectionFailed("Bonding rejected or timed out")),
+            ConnectionEvent.BondFailed(
+                ConnectionFailed("Bonding rejected or timed out", ConnectionFailureReason.BONDING_FAILED),
+            ),
         )
         slots.completeConnect()
         return false
@@ -193,7 +202,9 @@ internal suspend fun AndroidPeripheral.handleLinkDown(rawStatus: Int) {
         slots.completeDisconnect()
     } else {
         peripheralContext.processEvent(
-            ConnectionEvent.ConnectionLost(ConnectionLost("Remote disconnect", rawStatus)),
+            ConnectionEvent.ConnectionLost(
+                ConnectionLost("Remote disconnect", ConnectionFailureReason.LINK_LOSS, rawStatus),
+            ),
         )
     }
     onDisconnectCleanup()

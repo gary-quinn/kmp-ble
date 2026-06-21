@@ -2,7 +2,7 @@ package com.atruedev.kmpble.peripheral
 
 import com.atruedev.kmpble.connection.internal.ConnectionEvent
 import com.atruedev.kmpble.error.BleException
-import com.atruedev.kmpble.error.GattError
+import com.atruedev.kmpble.error.ServiceDiscoveryError
 import com.atruedev.kmpble.gatt.Characteristic
 import com.atruedev.kmpble.gatt.Descriptor
 import com.atruedev.kmpble.gatt.DiscoveredService
@@ -36,9 +36,10 @@ internal data class DiscoveryCycle(
 internal suspend fun IosPeripheral.handleServicesDiscovered(event: AppleCallbackEvent.DidDiscoverServices) {
     if (event.error != null) {
         val status = event.error.toGattStatus()
-        peripheralContext.processEvent(ConnectionEvent.DiscoveryFailed(GattError("discoverServices", status)))
+        val discoveryError = ServiceDiscoveryError(serviceUuid = null, status = status)
+        peripheralContext.processEvent(ConnectionEvent.DiscoveryFailed(discoveryError))
         slots.completeConnect()
-        slots.failDiscovery(BleException(GattError("discoverServices", status)))
+        slots.failDiscovery(BleException(discoveryError))
         currentDiscovery = null
         return
     }
@@ -72,11 +73,11 @@ internal suspend fun IosPeripheral.handleCharacteristicsDiscovered(
     if (event.error != null) {
         val status = event.error.toGattStatus()
         peripheralContext.processEvent(
-            ConnectionEvent.DiscoveryFailed(GattError("discoverCharacteristics", status)),
+            ConnectionEvent.DiscoveryFailed(ServiceDiscoveryError(serviceUuid = event.serviceUuid, status = status)),
         )
         currentDiscovery = null
         slots.completeConnect()
-        slots.failDiscovery(BleException(GattError("discoverCharacteristics", status)))
+        slots.failDiscovery(BleException(ServiceDiscoveryError(serviceUuid = event.serviceUuid, status = status)))
         return
     }
 
