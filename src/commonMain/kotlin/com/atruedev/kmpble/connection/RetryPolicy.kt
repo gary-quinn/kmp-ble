@@ -19,9 +19,9 @@ import kotlin.time.Duration.Companion.seconds
  *
  * ## Presets
  *
- * - [RetryPolicy.Companion.NONE] — 1 attempt, no retry. Default, backward compatible.
- * - [RetryPolicy.Companion.DEFAULT] — 3 attempts, 100ms-2s exponential backoff.
- * - [RetryPolicy.Companion.AGGRESSIVE] — 5 attempts, 50ms initial delay.
+ * - [RetryPolicy.Companion.NONE] - 1 attempt, no retry. Default, backward compatible.
+ * - [RetryPolicy.Companion.DEFAULT] - 3 attempts, 100ms-2s exponential backoff.
+ * - [RetryPolicy.Companion.AGGRESSIVE] - 5 attempts, 50ms initial delay.
  *
  * @property maxAttempts Total number of attempts including the first. Minimum 1.
  * @property initialDelay Delay before the first retry.
