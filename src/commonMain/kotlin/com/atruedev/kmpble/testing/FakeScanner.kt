@@ -1,14 +1,13 @@
 package com.atruedev.kmpble.testing
 
 import com.atruedev.kmpble.BleData
-import com.atruedev.kmpble.Identifier
 import com.atruedev.kmpble.connection.Phy
 import com.atruedev.kmpble.scanner.Advertisement
+import com.atruedev.kmpble.scanner.AdvertisingDataBuilder
 import com.atruedev.kmpble.scanner.DataStatus
 import com.atruedev.kmpble.scanner.ScanEvent
 import com.atruedev.kmpble.scanner.ScanFailedException
 import com.atruedev.kmpble.scanner.Scanner
-import com.atruedev.kmpble.scanner.uuidFrom
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.flow
@@ -82,109 +81,75 @@ public class FakeScannerBuilder {
 
 @OptIn(ExperimentalUuidApi::class)
 public class FakeAdvertisementBuilder {
-    private var identifier: String = "fake-${counter++}"
-    private var name: String? = null
-    private var rssi: Int = -60
-    private var txPower: Int? = null
-    private var isConnectable: Boolean = true
-    private var serviceUuids: List<Uuid> = emptyList()
-    private var manufacturerData: Map<Int, BleData> = emptyMap()
-    private var serviceData: Map<Uuid, BleData> = emptyMap()
-    private var isLegacy: Boolean = true
-    private var primaryPhy: Phy = Phy.Le1M
-    private var secondaryPhy: Phy? = null
-    private var advertisingSid: Int? = null
-    private var periodicAdvertisingInterval: Int? = null
-    private var dataStatus: DataStatus = DataStatus.Complete
+    private val delegate = AdvertisingDataBuilder()
 
     public fun identifier(value: String) {
-        identifier = value
+        delegate.identifier(value)
     }
 
     public fun name(value: String) {
-        name = value
+        delegate.name(value)
     }
 
     public fun rssi(value: Int) {
-        rssi = value
+        delegate.rssi(value)
     }
 
     public fun txPower(value: Int) {
-        txPower = value
+        delegate.txPower(value)
     }
 
     public fun isConnectable(value: Boolean) {
-        isConnectable = value
+        delegate.isConnectable(value)
     }
 
     public fun isLegacy(value: Boolean) {
-        isLegacy = value
+        delegate.isLegacy(value)
     }
 
     public fun primaryPhy(value: Phy) {
-        primaryPhy = value
+        delegate.primaryPhy(value)
     }
 
     public fun secondaryPhy(value: Phy) {
-        secondaryPhy = value
+        delegate.secondaryPhy(value)
     }
 
     public fun advertisingSid(value: Int) {
-        advertisingSid = value
+        delegate.advertisingSid(value)
     }
 
     public fun periodicAdvertisingInterval(value: Int) {
-        periodicAdvertisingInterval = value
+        delegate.periodicAdvertisingInterval(value)
     }
 
     public fun dataStatus(value: DataStatus) {
-        dataStatus = value
+        delegate.dataStatus(value)
     }
 
     public fun serviceUuids(vararg uuids: String) {
-        serviceUuids = uuids.map { uuidFrom(it) }
+        delegate.serviceUuids(*uuids)
     }
 
     public fun serviceUuids(vararg uuids: Uuid) {
-        serviceUuids = uuids.toList()
+        delegate.serviceUuids(*uuids)
     }
 
     public fun manufacturerData(
         companyId: Int,
         data: BleData,
     ) {
-        manufacturerData = manufacturerData + (companyId to data)
+        delegate.manufacturerData(companyId, data)
     }
 
     public fun serviceData(
         uuid: String,
         data: BleData,
     ) {
-        serviceData = serviceData + (uuidFrom(uuid) to data)
+        delegate.serviceData(uuid, data)
     }
 
-    internal fun build(): Advertisement =
-        Advertisement(
-            identifier = Identifier(identifier),
-            name = name,
-            rssi = rssi,
-            txPower = txPower,
-            isConnectable = isConnectable,
-            serviceUuids = serviceUuids,
-            manufacturerData = manufacturerData,
-            serviceData = serviceData,
-            timestampNanos = 0L,
-            isLegacy = isLegacy,
-            primaryPhy = primaryPhy,
-            secondaryPhy = secondaryPhy,
-            advertisingSid = advertisingSid,
-            periodicAdvertisingInterval = periodicAdvertisingInterval,
-            dataStatus = dataStatus,
-        )
-
-    private companion object {
-        private var counter = 0
-    }
+    internal fun build(): Advertisement = delegate.build()
 }
 
 @OptIn(ExperimentalUuidApi::class)
