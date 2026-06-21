@@ -46,6 +46,13 @@ public data class ConnectionOptions(
      */
     @property:ExperimentalBleApi
     val pairingHandler: PairingHandler? = null,
+    /**
+     * Retry policy for GATT operations (read, write, MTU) that fail
+     * with transient errors. Defaults to [RetryPolicy.NONE] (no retry,
+     * backward compatible). Use [RetryPolicy.DEFAULT] for 3 attempts
+     * with exponential backoff, or [RetryPolicy.AGGRESSIVE] for 5 attempts.
+     */
+    val gattRetryPolicy: RetryPolicy = RetryPolicy.NONE,
 ) {
     init {
         require(gattOperationTimeout.isPositive() && gattOperationTimeout.isFinite()) {
