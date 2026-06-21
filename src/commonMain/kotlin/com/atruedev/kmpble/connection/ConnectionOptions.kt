@@ -60,6 +60,51 @@ public data class ConnectionOptions(
         }
     }
 
+    /**
+     * Validate this configuration and return a list of advisory warnings.
+     *
+     * Warnings highlight common misconfigurations that are technically
+     * valid but may lead to unexpected behavior, poor performance, or
+     * battery drain. Connections proceed regardless -- warnings are
+     * informational only.
+     *
+     * ```kotlin
+     * val options = ConnectionOptions(autoConnect = true, mtuRequest = 600)
+     * val warnings = options.validate()
+     * warnings.forEach { log.warn(it) }
+     * ```
+     */
+    public fun validate(): List<ValidationWarning> =
+        buildList {
+            // MTU bounds
+            if (mtuRequest != null && mtuRequest < 23) {
+                add(ValidationWarning.MtuTooLow(mtuRequest))
+            }
+            if (mtuRequest != null && mtuRequest > 517) {
+                add(ValidationWarning.MtuTooHigh(mtuRequest))
+            }
+
+            // Auto-connect battery drain
+            if (autoConnect) {
+                add(ValidationWarning.AutoConnectBattery)
+            }
+
+            // BR/EDR transport ignores PHY masks
+            if (transportType == TransportType.BrEdr && phyMask != PhyMask.LE_1M) {
+                add(ValidationWarning.PhyBrEdrMismatch(transportType, phyMask))
+            }
+
+            // Coded PHY with high MTU request
+            if (phyMask == PhyMask.LE_CODED && mtuRequest != null && mtuRequest > 100) {
+                add(ValidationWarning.CodedPhyHighMtu(mtuRequest))
+            }
+
+            // Required bonding without a pairing handler
+            if (bondingPreference == BondingPreference.Required && pairingHandler == null) {
+                add(ValidationWarning.RequiredBondingNoHandler)
+            }
+        }
+
     public companion object {
         /**
          * Balanced preset: 1M+2M PHY, 30s timeout, no auto-connect.
