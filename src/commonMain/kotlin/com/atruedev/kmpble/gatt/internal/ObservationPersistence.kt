@@ -16,7 +16,7 @@ internal data class PersistedObservation(
 
 /**
  * Persists observation entries so they survive app termination during iOS state restoration.
- * On Android, this is a no-op.
+ * On Android, observations are persisted via SharedPreferences.
  *
  * On iOS, entries (UUID pairs + backpressure strategy) are stored in NSUserDefaults as JSON.
  * The data is low-sensitivity metadata (standard BLE UUIDs), not user credentials.
@@ -45,3 +45,35 @@ internal expect class ObservationPersistence() {
      */
     fun clear(peripheralId: String)
 }
+
+/**
+ * Serialize a [BackpressureStrategy] to a string for persistent storage.
+ * Used by Android (SharedPreferences) and iOS (NSUserDefaults) platform implementations.
+ *
+ * Encoding:
+ *   - [BackpressureStrategy.Latest] -> "latest"
+ *   - [BackpressureStrategy.Buffer] -> "buffer:<capacity>"
+ *   - [BackpressureStrategy.Unbounded] -> "unbounded"
+ */
+internal fun serializeBackpressure(strategy: BackpressureStrategy): String =
+    when (strategy) {
+        is BackpressureStrategy.Latest -> "latest"
+        is BackpressureStrategy.Buffer -> "buffer:${strategy.capacity}"
+        is BackpressureStrategy.Unbounded -> "unbounded"
+    }
+
+/**
+ * Deserialize a string back into a [BackpressureStrategy].
+ * Returns [BackpressureStrategy.Latest] as the safe default for unrecognized or null input.
+ */
+internal fun deserializeBackpressure(value: String?): BackpressureStrategy =
+    when {
+        value == null -> BackpressureStrategy.Latest
+        value == "latest" -> BackpressureStrategy.Latest
+        value.startsWith("buffer:") -> {
+            val capacity = value.removePrefix("buffer:").toIntOrNull() ?: 64
+            BackpressureStrategy.Buffer(capacity)
+        }
+        value == "unbounded" -> BackpressureStrategy.Unbounded
+        else -> BackpressureStrategy.Latest
+    }
