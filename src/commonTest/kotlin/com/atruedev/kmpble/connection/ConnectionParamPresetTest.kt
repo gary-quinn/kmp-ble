@@ -49,7 +49,7 @@ class ConnectionParamPresetTest {
     @Test
     fun allPresetsProduceValidConnectionParameters() {
         for (preset in ConnectionParamPreset.entries) {
-            // Should not throw — all presets must produce valid parameters
+            // Should not throw - all presets must produce valid parameters
             preset.toConnectionParameters()
         }
     }
