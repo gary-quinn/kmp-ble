@@ -3,6 +3,7 @@ package com.atruedev.kmpble.scanner
 import com.atruedev.kmpble.BleData
 import com.atruedev.kmpble.Identifier
 import com.atruedev.kmpble.connection.Phy
+import kotlinx.atomicfu.atomic
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
@@ -33,7 +34,7 @@ import kotlin.uuid.Uuid
  */
 @OptIn(ExperimentalUuidApi::class)
 public class AdvertisingDataBuilder {
-    private var identifier: Identifier = Identifier("ad-${counter++}")
+    private var identifier: Identifier = Identifier("ad-${counter.getAndIncrement()}")
     private var name: String? = null
     private var rssi: Int = -60
     private var txPower: Int? = null
@@ -159,7 +160,7 @@ public class AdvertisingDataBuilder {
         )
 
     public companion object {
-        private var counter = 0
+        private val counter = atomic(0)
 
         /** DSL entry point: `AdvertisingDataBuilder { name("...") }.build()` */
         public operator fun invoke(block: AdvertisingDataBuilder.() -> Unit): AdvertisingDataBuilder =
