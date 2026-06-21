@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Process
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.CoroutineScope
@@ -57,6 +58,44 @@ public class AndroidBluetoothAdapter(
             started = SharingStarted.Lazily,
             initialValue = currentState(),
         )
+
+    override val capabilities: BleCapabilities by lazy {
+        val adapter =
+            context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
+                ?: return@lazy BleCapabilities.None
+        val bt = adapter.adapter ?: return@lazy BleCapabilities.None
+
+        BleCapabilities(
+            supportsExtendedAdvertising =
+                if (Build.VERSION.SDK_INT >=
+                    26
+                ) {
+                    bt.isLeExtendedAdvertisingSupported
+                } else {
+                    false
+                },
+            supportsLe2mPhy = if (Build.VERSION.SDK_INT >= 26) bt.isLe2MPhySupported else false,
+            supportsLeCodedPhy = if (Build.VERSION.SDK_INT >= 26) bt.isLeCodedPhySupported else false,
+            supportsPeriodicAdvertising =
+                if (Build.VERSION.SDK_INT >=
+                    26
+                ) {
+                    bt.isLePeriodicAdvertisingSupported
+                } else {
+                    false
+                },
+            supportsLePowerControl = if (Build.VERSION.SDK_INT >= 34) bt.isLePowerControlSupported else false,
+            supportsLeAudio = if (Build.VERSION.SDK_INT >= 33) bt.isLeAudioSupported else false,
+            supportsConnectionSubrating =
+                if (Build.VERSION.SDK_INT >=
+                    35
+                ) {
+                    bt.isLeConnectionSubratingSupported
+                } else {
+                    false
+                },
+        )
+    }
 
     private fun currentState(): BluetoothAdapterState {
         if (!context.packageManager.hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE)) {
