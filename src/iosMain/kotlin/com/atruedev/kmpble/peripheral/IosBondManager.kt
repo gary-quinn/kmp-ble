@@ -28,7 +28,9 @@ internal class IosBondManager(
     /**
      * Start bond state tracking.
      *
-     * On iOS, bonding is managed transparently by the OS.
+     * On iOS, bonding is managed transparently by CoreBluetooth during
+     * GATT operations. There is no explicit bond creation step - the OS
+     * presents a pairing dialog when the peripheral requires encryption.
      * Bond state remains [BondState.Unknown] unless the peripheral
      * requires encryption (detected via GATT auth error handling).
      */
@@ -43,20 +45,6 @@ internal class IosBondManager(
      */
     internal fun stop() {
         // No resources to release on iOS
-    }
-
-    /**
-     * Create a bond with the peripheral.
-     *
-     * On iOS, bonding is initiated implicitly by the OS when the peripheral
-     * requires encryption. This method returns `true` to indicate the OS
-     * will handle bonding if needed during subsequent GATT operations.
-     *
-     * @return `true` always - iOS handles bonding transparently
-     */
-    internal suspend fun createBond(): Boolean {
-        peripheralContext.updateBondState(BondState.Unknown)
-        return true
     }
 
     /**
