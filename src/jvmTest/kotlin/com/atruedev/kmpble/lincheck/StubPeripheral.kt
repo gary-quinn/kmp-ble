@@ -38,6 +38,7 @@ internal class StubPeripheral(
     override val bondState: StateFlow<BondState> = MutableStateFlow(BondState.Unknown)
     override val services: StateFlow<List<DiscoveredService>?> = MutableStateFlow(null)
     override val maximumWriteValueLength: StateFlow<Int> = MutableStateFlow(20)
+    override val mtu: StateFlow<Int> = MutableStateFlow(23)
 
     override suspend fun connect(options: ConnectionOptions) = unsupported()
 

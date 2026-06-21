@@ -78,6 +78,7 @@ public class AndroidPeripheral internal constructor(
     override val bondState: StateFlow<BondState> get() = bondManager.bondState
     override val services: StateFlow<List<DiscoveredService>?> get() = peripheralContext.services
     override val maximumWriteValueLength: StateFlow<Int> get() = peripheralContext.maximumWriteValueLength
+    override val mtu: StateFlow<Int> get() = peripheralContext.mtu
 
     @Volatile
     internal var closed = false

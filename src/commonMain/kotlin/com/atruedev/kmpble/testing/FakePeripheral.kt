@@ -80,6 +80,7 @@ public class FakePeripheral internal constructor(
     override val bondState: StateFlow<com.atruedev.kmpble.bonding.BondState> get() = context.bondState
     override val services: StateFlow<List<DiscoveredService>?> get() = context.services
     override val maximumWriteValueLength: StateFlow<Int> get() = context.maximumWriteValueLength
+    override val mtu: StateFlow<Int> get() = context.mtu
 
     override suspend fun connect(options: ConnectionOptions) {
         checkNotClosed()

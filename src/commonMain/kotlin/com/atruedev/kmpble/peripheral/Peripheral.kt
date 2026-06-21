@@ -112,7 +112,61 @@ public interface Peripheral : AutoCloseable {
     // --- Info ---
     public suspend fun readRssi(): Int
 
+    /**
+     * Negotiate the ATT Maximum Transmission Unit for this connection.
+     *
+     * The ATT MTU determines the maximum payload per GATT operation.
+     * A larger MTU reduces packet overhead and improves throughput --
+     * critical for firmware updates, large data transfers, and L2CAP
+     * co-channel usage. The default ATT MTU is 23 bytes (per the BLE
+     * specification), leaving 20 bytes of application payload after the
+     * 3-byte ATT header.
+     *
+     * The platform may negotiate a value lower than requested. Always
+     * read the returned value -- do not assume the request was granted
+     * in full. The negotiated MTU is also exposed as [mtu] for reactive
+     * consumers.
+     *
+     * After negotiation, [maximumWriteValueLength] reflects the usable
+     * payload (MTU minus the 3-byte ATT header) so callers can chunk
+     * writes appropriately.
+     *
+     * **Android**: Maps to `BluetoothGatt.requestMtu()`. The result is
+     * delivered asynchronously via `onMtuChanged`; this method suspends
+     * until the callback or [ConnectionOptions.timeouts] mtuNegotiation
+     * timeout fires.
+     *
+     * **iOS**: CoreBluetooth negotiates MTU automatically and does not
+     * expose a public request API. This method returns the current maximum
+     * write-value length from CoreBluetooth plus the 3-byte ATT header,
+     * clamped to at least the BLE default (23 bytes). The [mtu] parameter
+     * is ignored on iOS.
+     *
+     * @param mtu The desired ATT MTU in bytes. Must be >= 23 (BLE
+     *   minimum). Typical values: 185 (LE Data Length Extension),
+     *   517 (BLE 5.0 max).
+     * @return The actual negotiated ATT MTU (>= 23). May differ from
+     *   the requested value.
+     * @throws com.atruedev.kmpble.error.BleException wrapping
+     *   [com.atruedev.kmpble.error.GattError] if negotiation fails.
+     * @throws com.atruedev.kmpble.error.BleException wrapping
+     *   [com.atruedev.kmpble.error.PeripheralTimeout] if the platform
+     *   callback does not arrive within [com.atruedev.kmpble.connection.OperationTimeouts.mtuNegotiation].
+     */
     public suspend fun requestMtu(mtu: Int): Int
+
+    /**
+     * The current ATT Maximum Transmission Unit for this connection.
+     *
+     * Updated after [requestMtu] completes and when the remote device
+     * initiates MTU renegotiation. Starts at the BLE default (23 bytes)
+     * and reflects the most recently negotiated value.
+     *
+     * Use [maximumWriteValueLength] for write-payload capacity (MTU - 3
+     * byte ATT header). Read and descriptor operations may have different
+     * size limits depending on the platform GATT implementation.
+     */
+    public val mtu: StateFlow<Int>
 
     /**
      * Request a new connection priority (interval/latency/timeout).
