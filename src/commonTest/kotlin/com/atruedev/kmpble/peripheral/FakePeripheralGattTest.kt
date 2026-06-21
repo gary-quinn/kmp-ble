@@ -165,7 +165,39 @@ class FakePeripheralGattTest {
             peripheral.connect()
 
             assertEquals(20, peripheral.maximumWriteValueLength.value)
+            assertEquals(23, peripheral.mtu.value)
             peripheral.requestMtu(185)
             assertEquals(182, peripheral.maximumWriteValueLength.value) // 185 - 3
+            assertEquals(185, peripheral.mtu.value)
+        }
+
+    @Test
+    fun mtuFlowDefaultValue() =
+        runTest {
+            val peripheral =
+                FakePeripheral {
+                    service("180d") {
+                        characteristic("2a37") { properties(read = true) }
+                    }
+                }
+            assertEquals(23, peripheral.mtu.value)
+        }
+
+    @Test
+    fun mtuUpdatesAfterRequest() =
+        runTest {
+            val peripheral =
+                FakePeripheral {
+                    service("180d") {
+                        characteristic("2a37") { properties(read = true) }
+                    }
+                }
+            peripheral.connect()
+
+            assertEquals(23, peripheral.mtu.value)
+            val result = peripheral.requestMtu(512)
+            assertEquals(512, result)
+            assertEquals(512, peripheral.mtu.value)
+            assertEquals(509, peripheral.maximumWriteValueLength.value) // 512 - 3
         }
 }
