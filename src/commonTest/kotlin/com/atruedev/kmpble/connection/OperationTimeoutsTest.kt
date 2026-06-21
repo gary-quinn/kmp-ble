@@ -7,6 +7,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
 class OperationTimeoutsTest {
@@ -42,14 +43,14 @@ class OperationTimeoutsTest {
 
     @Test
     fun `zero duration disables timeout`() {
-        val t = OperationTimeouts(connect = kotlin.time.Duration.ZERO)
-        assertEquals(kotlin.time.Duration.ZERO, t.connect)
+        val t = OperationTimeouts(connect = Duration.ZERO)
+        assertEquals(Duration.ZERO, t.connect)
     }
 
     @Test
     fun `infinite duration disables timeout`() {
-        val t = OperationTimeouts(connect = kotlin.time.Duration.INFINITE)
-        assertEquals(kotlin.time.Duration.INFINITE, t.connect)
+        val t = OperationTimeouts(connect = Duration.INFINITE)
+        assertEquals(Duration.INFINITE, t.connect)
     }
 
     @Test
