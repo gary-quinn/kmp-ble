@@ -3,6 +3,8 @@
 package com.atruedev.kmpble.peripheral
 
 import android.annotation.SuppressLint
+import com.atruedev.kmpble.connection.ConnectionSubratingParameters
+import com.atruedev.kmpble.connection.ConnectionSubratingResult
 import com.atruedev.kmpble.connection.State
 import com.atruedev.kmpble.error.BleException
 import com.atruedev.kmpble.error.GattError
@@ -157,4 +159,14 @@ internal suspend fun AndroidPeripheral.requestMtuGatt(mtu: Int): Int {
     return peripheralContext.gattQueue.enqueue(timeout = currentTimeouts.mtuNegotiation) {
         pendingOps.awaitGatt(PendingOp.MtuRequest, "requestMtu") { bridge.requestMtu(mtu) }
     }
+}
+
+internal suspend fun AndroidPeripheral.requestConnectionSubratingGatt(
+    parameters: ConnectionSubratingParameters,
+): ConnectionSubratingResult {
+    checkNotClosed()
+    // Android's BluetoothLeConnectionSubrating requires compileSdk 35+ and
+    // runtime API 33+. When the compile SDK is upgraded to 35+, wire the
+    // bridge.requestConnectionSubrating() call and the onSubrateChange callback.
+    return ConnectionSubratingResult.NotSupported
 }

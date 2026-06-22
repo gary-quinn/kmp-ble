@@ -4,6 +4,8 @@ package com.atruedev.kmpble.peripheral
 
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothGattCharacteristic
+import com.atruedev.kmpble.connection.ConnectionSubratingParameters
+import com.atruedev.kmpble.connection.ConnectionSubratingResult
 import com.atruedev.kmpble.connection.PhyUpdate
 import com.atruedev.kmpble.connection.State
 import com.atruedev.kmpble.connection.internal.ConnectionEvent
@@ -63,6 +65,7 @@ internal fun AndroidPeripheral.handleGattEvent(event: GattCallbackEvent) {
             is GattCallbackEvent.ReadRemoteRssi -> handleRssiResult(event)
             is GattCallbackEvent.PhyUpdated -> handlePhyUpdated(event)
             is GattCallbackEvent.PhyRead -> handlePhyRead(event)
+            is GattCallbackEvent.SubrateChanged -> handleSubrateChanged(event)
         }
     }
 }
@@ -138,6 +141,30 @@ internal fun AndroidPeripheral.handlePhyRead(event: GattCallbackEvent.PhyRead) {
                 status = status,
             ),
         )
+    }
+}
+
+internal fun AndroidPeripheral.handleSubrateChanged(event: GattCallbackEvent.SubrateChanged) {
+    val status = event.status.toGattStatus()
+    if (pendingOps.has(PendingOp.SubrateRequest)) {
+        if (status.isSuccess()) {
+            pendingOps.complete(
+                PendingOp.SubrateRequest,
+                ConnectionSubratingResult.Accepted(
+                    ConnectionSubratingParameters(
+                        subrateFactor = event.subrateFactor,
+                        subrateLatency = event.subrateLatency,
+                        continuationNumber = event.continuationNumber,
+                        supervisionTimeout = event.supervisionTimeout,
+                    ),
+                ),
+            )
+        } else {
+            pendingOps.complete(
+                PendingOp.SubrateRequest,
+                ConnectionSubratingResult.Rejected("status=$status"),
+            )
+        }
     }
 }
 

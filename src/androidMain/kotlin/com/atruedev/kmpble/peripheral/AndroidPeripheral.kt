@@ -15,6 +15,8 @@ import com.atruedev.kmpble.connection.ConnectionOptions
 import com.atruedev.kmpble.connection.ConnectionParameterUpdateResult
 import com.atruedev.kmpble.connection.ConnectionParameters
 import com.atruedev.kmpble.connection.ConnectionPriority
+import com.atruedev.kmpble.connection.ConnectionSubratingParameters
+import com.atruedev.kmpble.connection.ConnectionSubratingResult
 import com.atruedev.kmpble.connection.OperationTimeouts
 import com.atruedev.kmpble.connection.Phy
 import com.atruedev.kmpble.connection.PhyUpdate
@@ -243,6 +245,11 @@ public class AndroidPeripheral internal constructor(
 
     @ExperimentalBleApi
     override val phyUpdate: Flow<PhyUpdate> = _phyUpdate
+
+    @ExperimentalBleApi
+    override suspend fun requestConnectionSubrating(
+        parameters: ConnectionSubratingParameters,
+    ): ConnectionSubratingResult = requestConnectionSubratingGatt(parameters)
 
     override suspend fun openL2capChannel(
         psm: Int,
