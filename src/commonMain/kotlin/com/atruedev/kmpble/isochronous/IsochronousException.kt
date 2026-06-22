@@ -47,4 +47,11 @@ public sealed class IsochronousException(
     public class NotSupported(
         message: String = "LE Audio isochronous channels are not supported",
     ) : IsochronousException(message)
+
+    /**
+     * Stream configuration is invalid.
+     */
+    public class InvalidConfiguration(
+        message: String,
+    ) : IsochronousException(message)
 }

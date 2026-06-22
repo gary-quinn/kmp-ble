@@ -259,4 +259,72 @@ class IsochronousStreamTest {
                 stream.send(byteArrayOf(0x01))
             }
         }
+
+    // --- Config: bufferCapacity ---
+
+    @Test
+    fun bufferCapacityAppliedToFlow() =
+        runTest {
+            val channel = FakeIsochronousChannel(testMtu)
+            val config = IsochronousStreamConfig(bufferCapacity = 10)
+            val stream = IsochronousStream.open(channel, config)
+
+            // Pump many frames through the channel -- verify no backpressure
+            // hangs with the configured buffer capacity.
+            stream.incoming.test {
+                repeat(5) { channel.emitIncoming(byteArrayOf(0x01)) }
+                // With buffer capacity 10, 5 items should not block.
+                repeat(5) { awaitItem() }
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    // --- Config: closeChannelOnClose ---
+
+    @Test
+    fun closeChannelOnCloseTrueClosesChannel() {
+        val channel = FakeIsochronousChannel(testMtu)
+        val config = IsochronousStreamConfig(closeChannelOnClose = true)
+        val stream = IsochronousStream.open(channel, config)
+        assertTrue(channel.isOpen)
+        stream.close()
+        assertFalse(channel.isOpen)
+    }
+
+    @Test
+    fun closeChannelOnCloseFalseKeepsChannelOpen() {
+        val channel = FakeIsochronousChannel(testMtu)
+        val config = IsochronousStreamConfig(closeChannelOnClose = false)
+        val stream = IsochronousStream.open(channel, config)
+        assertTrue(channel.isOpen)
+        stream.close()
+        assertTrue(channel.isOpen)
+    }
+
+    // --- Config: secure ---
+
+    @Test
+    fun secureConfigWithUnsecureChannelThrows() {
+        val channel = FakeIsochronousChannel(testMtu, isSecure = false)
+        val config = IsochronousStreamConfig(secure = true)
+        assertFailsWith<IsochronousException.InvalidConfiguration> {
+            IsochronousStream.open(channel, config)
+        }
+    }
+
+    @Test
+    fun secureConfigWithSecureChannelSucceeds() {
+        val channel = FakeIsochronousChannel(testMtu, isSecure = true)
+        val config = IsochronousStreamConfig(secure = true)
+        val stream = IsochronousStream.open(channel, config)
+        assertEquals(IsochronousStream.State.Idle, stream.state.value)
+    }
+
+    @Test
+    fun unsecureConfigWithUnsecureChannelSucceeds() {
+        val channel = FakeIsochronousChannel(testMtu, isSecure = false)
+        val config = IsochronousStreamConfig(secure = false)
+        val stream = IsochronousStream.open(channel, config)
+        assertEquals(IsochronousStream.State.Idle, stream.state.value)
+    }
 }

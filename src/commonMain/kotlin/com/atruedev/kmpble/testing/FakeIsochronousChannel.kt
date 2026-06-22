@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
  */
 public class FakeIsochronousChannel(
     override val mtu: Int = 256,
+    override val isSecure: Boolean = true,
 ) : IsochronousChannel {
     override var isOpen: Boolean = true
         private set

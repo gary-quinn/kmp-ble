@@ -5,6 +5,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.buffer
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onCompletion
@@ -121,6 +122,7 @@ public class IsochronousStream private constructor(
     public val incoming: Flow<IsochronousFrame> =
         channel.incoming
             .onStart { _state.value = State.Streaming }
+            .buffer(config.bufferCapacity)
             .catch { cause ->
                 if (cause !is CancellationException) {
                     _state.value = State.Failed
@@ -181,7 +183,9 @@ public class IsochronousStream private constructor(
         }
 
         _state.value = State.Closing
-        channel.close()
+        if (config.closeChannelOnClose) {
+            channel.close()
+        }
         // If no active collector, onCompletion won't fire.
         // Transition to Closed directly when collection is not in progress.
         if (_state.value == State.Closing) {
@@ -210,6 +214,11 @@ public class IsochronousStream private constructor(
             if (!channel.isOpen) {
                 throw IsochronousException.NotConnected(
                     "Channel must be open before creating a stream",
+                )
+            }
+            if (config.secure && !channel.isSecure) {
+                throw IsochronousException.InvalidConfiguration(
+                    "Stream requires secure transport but channel is not encrypted",
                 )
             }
             return IsochronousStream(channel, config)

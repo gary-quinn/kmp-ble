@@ -68,6 +68,14 @@ public interface IsochronousChannel : AutoCloseable {
     public val isOpen: Boolean
 
     /**
+     * Whether the channel provides encrypted (secure) transport.
+     *
+     * LE Audio typically requires encryption. When false, data is
+     * transmitted unencrypted (broadcast-only or test scenarios).
+     */
+    public val isSecure: Boolean
+
+    /**
      * Flow of incoming data from the remote device.
      *
      * - Emits [ByteArray] for each received SDU
