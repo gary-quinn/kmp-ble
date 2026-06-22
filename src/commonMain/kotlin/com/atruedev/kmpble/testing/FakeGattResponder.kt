@@ -3,6 +3,8 @@ package com.atruedev.kmpble.testing
 import com.atruedev.kmpble.connection.ConnectionParameterUpdateResult
 import com.atruedev.kmpble.connection.ConnectionParameters
 import com.atruedev.kmpble.connection.ConnectionPriority
+import com.atruedev.kmpble.connection.ConnectionSubratingParameters
+import com.atruedev.kmpble.connection.ConnectionSubratingResult
 import com.atruedev.kmpble.connection.Phy
 import com.atruedev.kmpble.connection.PhyUpdate
 import com.atruedev.kmpble.connection.State
@@ -322,5 +324,11 @@ internal class FakeGattResponder(
                 negotiatedSupervisionTimeout = params.supervisionTimeout,
             )
         }
+    }
+
+    suspend fun requestConnectionSubrating(parameters: ConnectionSubratingParameters): ConnectionSubratingResult {
+        checkNotClosed()
+        checkConnected()
+        return ConnectionSubratingResult.Accepted(parameters)
     }
 }

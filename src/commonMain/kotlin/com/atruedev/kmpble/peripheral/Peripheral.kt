@@ -8,6 +8,8 @@ import com.atruedev.kmpble.connection.ConnectionOptions
 import com.atruedev.kmpble.connection.ConnectionParameterUpdateResult
 import com.atruedev.kmpble.connection.ConnectionParameters
 import com.atruedev.kmpble.connection.ConnectionPriority
+import com.atruedev.kmpble.connection.ConnectionSubratingParameters
+import com.atruedev.kmpble.connection.ConnectionSubratingResult
 import com.atruedev.kmpble.connection.Phy
 import com.atruedev.kmpble.connection.PhyUpdate
 import com.atruedev.kmpble.connection.State
@@ -241,6 +243,27 @@ public interface Peripheral : AutoCloseable {
      */
     @ExperimentalBleApi
     public val phyUpdate: Flow<PhyUpdate>
+
+    /**
+     * Request LE Connection Subrating parameters for this connection
+     * (Bluetooth 5.3+).
+     *
+     * Connection Subrating allows a peripheral to switch to a lower subrated
+     * connection interval during idle periods, then snap back to the full
+     * connection interval for data transfer. This provides better power
+     * efficiency while maintaining fast response times.
+     *
+     * Android maps to `BluetoothGatt.requestConnectionSubrating()` (API 33+).
+     * iOS returns [ConnectionSubratingResult.NotSupported] -- CoreBluetooth
+     * handles subrating internally and does not expose a public API.
+     *
+     * @return [ConnectionSubratingResult.Accepted] with the negotiated
+     *   parameters, [ConnectionSubratingResult.NotSupported] if the platform
+     *   lacks this API, or [ConnectionSubratingResult.Rejected] if the
+     *   request was denied.
+     */
+    @ExperimentalBleApi
+    public suspend fun requestConnectionSubrating(parameters: ConnectionSubratingParameters): ConnectionSubratingResult
 
     public val maximumWriteValueLength: StateFlow<Int>
 

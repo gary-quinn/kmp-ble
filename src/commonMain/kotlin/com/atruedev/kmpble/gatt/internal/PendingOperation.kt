@@ -1,5 +1,6 @@
 package com.atruedev.kmpble.gatt.internal
 
+import com.atruedev.kmpble.connection.ConnectionSubratingResult
 import com.atruedev.kmpble.error.GattStatus
 import kotlinx.coroutines.CompletableDeferred
 
@@ -36,6 +37,8 @@ internal sealed interface PendingOp<T> {
     data object PhyUpdate : PendingOp<PhyUpdateResult>
 
     data object PhyRead : PendingOp<PhyUpdateResult>
+
+    data object SubrateRequest : PendingOp<ConnectionSubratingResult>
 }
 
 internal data class PhyUpdateResult(

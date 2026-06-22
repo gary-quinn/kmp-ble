@@ -5,6 +5,8 @@ import com.atruedev.kmpble.connection.ConnectionOptions
 import com.atruedev.kmpble.connection.ConnectionParameterUpdateResult
 import com.atruedev.kmpble.connection.ConnectionParameters
 import com.atruedev.kmpble.connection.ConnectionPriority
+import com.atruedev.kmpble.connection.ConnectionSubratingParameters
+import com.atruedev.kmpble.connection.ConnectionSubratingResult
 import com.atruedev.kmpble.connection.Phy
 import com.atruedev.kmpble.connection.PhyUpdate
 import com.atruedev.kmpble.connection.State
@@ -202,6 +204,11 @@ public class FakePeripheral internal constructor(
         params: ConnectionParameters,
     ): ConnectionParameterUpdateResult? =
         gattResponder.requestConnectionParameterUpdate(params, onConnectionParameterUpdateHandler)
+
+    @com.atruedev.kmpble.ExperimentalBleApi
+    override suspend fun requestConnectionSubrating(
+        parameters: ConnectionSubratingParameters,
+    ): ConnectionSubratingResult = gattResponder.requestConnectionSubrating(parameters)
 
     @com.atruedev.kmpble.ExperimentalBleApi
     override suspend fun setPreferredPhy(

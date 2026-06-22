@@ -67,4 +67,12 @@ internal sealed interface GattCallbackEvent {
         val rxPhy: Int,
         val status: Int,
     ) : GattCallbackEvent
+
+    data class SubrateChanged(
+        val subrateFactor: Int,
+        val subrateLatency: Int,
+        val continuationNumber: Int,
+        val supervisionTimeout: Int,
+        val status: Int,
+    ) : GattCallbackEvent
 }

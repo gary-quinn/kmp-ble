@@ -3,6 +3,8 @@
 package com.atruedev.kmpble.peripheral
 
 import android.annotation.SuppressLint
+import com.atruedev.kmpble.connection.ConnectionSubratingParameters
+import com.atruedev.kmpble.connection.ConnectionSubratingResult
 import com.atruedev.kmpble.connection.State
 import com.atruedev.kmpble.error.BleException
 import com.atruedev.kmpble.error.GattError
@@ -156,5 +158,29 @@ internal suspend fun AndroidPeripheral.requestMtuGatt(mtu: Int): Int {
     checkNotClosed()
     return peripheralContext.gattQueue.enqueue(timeout = currentTimeouts.mtuNegotiation) {
         pendingOps.awaitGatt(PendingOp.MtuRequest, "requestMtu") { bridge.requestMtu(mtu) }
+    }
+}
+
+internal suspend fun AndroidPeripheral.requestConnectionSubratingGatt(
+    parameters: ConnectionSubratingParameters,
+): ConnectionSubratingResult {
+    checkNotClosed()
+    if (android.os.Build.VERSION.SDK_INT < 33) return ConnectionSubratingResult.NotSupported
+    check(peripheralContext.state.value is State.Connected) {
+        "requestConnectionSubrating requires a connected peripheral"
+    }
+    return peripheralContext.gattQueue.enqueue {
+        val dispatched =
+            bridge.requestConnectionSubrating(
+                parameters.subrateFactor,
+                parameters.subrateLatency,
+                parameters.continuationNumber,
+                parameters.supervisionTimeout,
+            )
+        if (!dispatched) return@enqueue ConnectionSubratingResult.NotSupported
+        pendingOps.awaitGatt(
+            PendingOp.SubrateRequest,
+            "requestConnectionSubrating",
+        ) { true }
     }
 }
