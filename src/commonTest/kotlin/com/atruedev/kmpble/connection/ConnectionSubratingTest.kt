@@ -1,16 +1,18 @@
 package com.atruedev.kmpble.connection
 
 import com.atruedev.kmpble.testing.FakePeripheral
+import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
+import kotlin.test.fail
 
 class ConnectionSubratingTest {
     @Test
     fun `requestConnectionSubrating returns Accepted with same parameters on fake`() =
-        kotlinx.coroutines.test.runTest {
+        runTest {
             val peripheral = FakePeripheral {}
             peripheral.connect()
             val params =
@@ -28,7 +30,7 @@ class ConnectionSubratingTest {
 
     @Test
     fun `requestConnectionSubrating throws when not connected on fake`() =
-        kotlinx.coroutines.test.runTest {
+        runTest {
             val peripheral = FakePeripheral {}
             try {
                 peripheral.requestConnectionSubrating(
@@ -39,7 +41,7 @@ class ConnectionSubratingTest {
                         supervisionTimeout = 100,
                     ),
                 )
-                kotlin.test.fail("Expected IllegalStateException")
+                fail("Expected IllegalStateException")
             } catch (e: IllegalStateException) {
                 assertTrue("not connected" in e.message.orEmpty().lowercase())
             }
