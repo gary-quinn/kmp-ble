@@ -22,7 +22,7 @@ import kotlin.uuid.ExperimentalUuidApi
  * deliver command responses.
  */
 @OptIn(ExperimentalUuidApi::class)
-internal class EspOtaTransport(
+public class EspOtaTransport(
     private val peripheral: Peripheral,
     config: DfuTransportConfig.EspOta,
     private val commandTimeout: Duration,

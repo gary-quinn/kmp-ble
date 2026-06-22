@@ -11,7 +11,7 @@ import com.atruedev.kmpble.dfu.DfuError
  * because the link dropped mid-transmission ([DfuError.TransferFailed]).
  * Both are treated as successful reset signals.
  */
-internal suspend fun DfuTransport.sendCommandExpectingDisconnect(data: ByteArray) {
+public suspend fun DfuTransport.sendCommandExpectingDisconnect(data: ByteArray) {
     try {
         sendCommand(data)
     } catch (_: DfuError.Timeout) {

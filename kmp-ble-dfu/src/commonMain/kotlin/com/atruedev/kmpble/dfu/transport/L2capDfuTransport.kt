@@ -5,7 +5,7 @@ import com.atruedev.kmpble.peripheral.Peripheral
 import kotlinx.coroutines.flow.Flow
 import kotlin.time.Duration
 
-internal class L2capDfuTransport(
+public class L2capDfuTransport(
     private val peripheral: Peripheral,
     private val channel: L2capChannel,
     private val commandTimeout: Duration,
