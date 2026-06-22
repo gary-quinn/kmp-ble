@@ -33,6 +33,8 @@ public class BleCapabilities internal constructor(
     public val supportsLeAudio: Boolean,
     /** Connection Subrating support (BLE 5.3). Android API 35+. */
     public val supportsConnectionSubrating: Boolean,
+    /** PAST -- Periodic Advertising Sync Transfer support (BLE 5.1). Android API 31+. */
+    public val supportsPast: Boolean,
 ) {
     override fun toString(): String =
         "BleCapabilities(" +
@@ -42,7 +44,8 @@ public class BleCapabilities internal constructor(
             "perAdv=$supportsPeriodicAdvertising, " +
             "pwrCtrl=$supportsLePowerControl, " +
             "leAudio=$supportsLeAudio, " +
-            "subrating=$supportsConnectionSubrating" +
+            "subrating=$supportsConnectionSubrating, " +
+            "past=$supportsPast" +
             ")"
 
     /** Convenience constant: all capabilities unavailable (JVM / unsupported hardware). */
@@ -56,6 +59,7 @@ public class BleCapabilities internal constructor(
                 supportsLePowerControl = false,
                 supportsLeAudio = false,
                 supportsConnectionSubrating = false,
+                supportsPast = false,
             )
     }
 }

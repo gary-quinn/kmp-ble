@@ -19,6 +19,7 @@ import com.atruedev.kmpble.gatt.Observation
 import com.atruedev.kmpble.gatt.WriteType
 import com.atruedev.kmpble.isochronous.IsochronousChannel
 import com.atruedev.kmpble.l2cap.L2capChannel
+import com.atruedev.kmpble.periodic.PeriodicAdvertisingSync
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import kotlin.uuid.ExperimentalUuidApi
@@ -285,4 +286,26 @@ public interface Peripheral : AutoCloseable {
      * @throws IsochronousException.OpenFailed if channel setup fails
      */
     public suspend fun openIsochronousChannel(): IsochronousChannel
+
+    // --- Periodic Advertising Sync Transfer (PAST, BLE 5.1) ---
+
+    /**
+     * Receive a periodic advertising sync transferred from a connected peer via PAST.
+     *
+     * After a successful PAST transfer, the returned [PeriodicAdvertisingSync] can
+     * receive periodic advertising reports from the original advertiser without
+     * performing its own scan and sync procedure.
+     *
+     * Callers must be connected to the peer that initiated the transfer. The peer
+     * uses [PeriodicAdvertisingSync.transferTo] to send the sync.
+     *
+     * @throws com.atruedev.kmpble.periodic.PastException.NotSupported if PAST
+     *   is not available on this platform or OS version.
+     * @throws com.atruedev.kmpble.periodic.PastException.NotConnected if this
+     *   peripheral is not connected.
+     * @throws com.atruedev.kmpble.periodic.PastException.TransferFailed if the
+     *   transfer protocol fails.
+     */
+    @ExperimentalBleApi
+    public suspend fun receivePastSync(): PeriodicAdvertisingSync
 }

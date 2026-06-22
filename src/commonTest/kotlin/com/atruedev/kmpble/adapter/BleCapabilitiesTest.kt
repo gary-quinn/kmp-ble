@@ -15,6 +15,7 @@ class BleCapabilitiesTest {
         assertFalse(caps.supportsLePowerControl)
         assertFalse(caps.supportsLeAudio)
         assertFalse(caps.supportsConnectionSubrating)
+        assertFalse(caps.supportsPast)
     }
 
     @Test
@@ -28,6 +29,7 @@ class BleCapabilitiesTest {
                 supportsLePowerControl = false,
                 supportsLeAudio = true,
                 supportsConnectionSubrating = false,
+                supportsPast = true,
             )
         assertTrue(caps.supportsExtendedAdvertising)
         assertTrue(caps.supportsLe2mPhy)
@@ -36,6 +38,7 @@ class BleCapabilitiesTest {
         assertFalse(caps.supportsLePowerControl)
         assertTrue(caps.supportsLeAudio)
         assertFalse(caps.supportsConnectionSubrating)
+        assertTrue(caps.supportsPast)
     }
 
     @Test
@@ -49,6 +52,7 @@ class BleCapabilitiesTest {
                 supportsLePowerControl = false,
                 supportsLeAudio = false,
                 supportsConnectionSubrating = false,
+                supportsPast = false,
             )
         val str = caps.toString()
         assertTrue(str.contains("extAdv=true"), "toString should include extAdv")

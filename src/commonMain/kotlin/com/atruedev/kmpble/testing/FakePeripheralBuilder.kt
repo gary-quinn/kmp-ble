@@ -9,6 +9,7 @@ import com.atruedev.kmpble.gatt.DiscoveredService
 import com.atruedev.kmpble.gatt.WriteType
 import com.atruedev.kmpble.isochronous.IsochronousChannel
 import com.atruedev.kmpble.l2cap.L2capChannel
+import com.atruedev.kmpble.periodic.PeriodicAdvertisingSync
 import com.atruedev.kmpble.scanner.uuidFrom
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -22,6 +23,7 @@ public typealias WriteHandler = suspend (data: ByteArray, writeType: WriteType) 
 public typealias ObserveHandler = () -> Flow<ByteArray>
 public typealias L2capHandler = suspend (psm: Int, mtu: Int?) -> L2capChannel
 public typealias IsochronousHandler = suspend () -> IsochronousChannel
+public typealias PastSyncHandler = suspend () -> PeriodicAdvertisingSync
 
 @OptIn(ExperimentalUuidApi::class)
 internal data class FakeCharacteristicConfig(
@@ -41,6 +43,7 @@ public class FakePeripheralBuilder {
     private var disconnectHandler: suspend () -> Result<Unit> = { Result.success(Unit) }
     internal var l2capHandler: L2capHandler? = null
     internal var isoHandler: IsochronousHandler? = null
+    internal var pastSyncHandler: PastSyncHandler? = null
     internal var onConnectionParameterUpdate: (
         suspend (
             ConnectionParameters,
@@ -90,6 +93,14 @@ public class FakePeripheralBuilder {
         isoHandler = handler
     }
 
+    /**
+     * Configure PAST receive behavior.
+     * The handler returns a [PeriodicAdvertisingSync] representing the received sync.
+     */
+    public fun onReceivePastSync(handler: PastSyncHandler) {
+        pastSyncHandler = handler
+    }
+
     /** Configure the response to [Peripheral.requestConnectionParameterUpdate] calls. */
     public fun onConnectionParameterUpdate(
         handler: suspend (ConnectionParameters) -> ConnectionParameterUpdateResult?,
@@ -112,6 +123,7 @@ public class FakePeripheralBuilder {
             onDisconnectHandler = disconnectHandler,
             onL2capHandler = l2capHandler,
             onIsoHandler = isoHandler,
+            onPastSyncHandler = pastSyncHandler,
             onConnectionParameterUpdateHandler = onConnectionParameterUpdate,
             observationDispatcher = observationDispatcher,
         )

@@ -92,6 +92,8 @@ public class AndroidBluetoothAdapter(
                 },
             // Connection Subrating may not be queryable on all compile SDK versions.
             supportsConnectionSubrating = false,
+            // PAST (Periodic Advertising Sync Transfer) requires API 31+.
+            supportsPast = Build.VERSION.SDK_INT >= 31,
         )
     }
 

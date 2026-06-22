@@ -21,6 +21,8 @@ import com.atruedev.kmpble.isochronous.IsochronousChannel
 import com.atruedev.kmpble.isochronous.IsochronousException
 import com.atruedev.kmpble.l2cap.L2capChannel
 import com.atruedev.kmpble.l2cap.L2capException
+import com.atruedev.kmpble.periodic.PastException
+import com.atruedev.kmpble.periodic.PeriodicAdvertisingSync
 import com.atruedev.kmpble.peripheral.PhyResult
 import com.atruedev.kmpble.peripheral.internal.PeripheralContext
 import kotlinx.coroutines.NonCancellable
@@ -45,6 +47,7 @@ internal class FakeGattResponder(
     private val characteristicConfigs: List<FakeCharacteristicConfig>,
     private val onL2capHandler: L2capHandler?,
     private val onIsoHandler: IsochronousHandler?,
+    private val onPastSyncHandler: PastSyncHandler?,
     private val cccdWritesState: MutableStateFlow<List<FakePeripheral.CccdWrite>>,
     private val closedFlag: () -> Boolean,
 ) {
@@ -260,6 +263,21 @@ internal class FakeGattResponder(
             onIsoHandler
                 ?: throw IsochronousException.NotSupported(
                     "No onOpenIsochronousChannel handler configured",
+                )
+        return handler()
+    }
+
+    suspend fun receivePastSync(): PeriodicAdvertisingSync {
+        checkNotClosed()
+        if (context.state.value !is State.Connected) {
+            throw PastException.NotConnected(
+                "Peripheral is not connected (state: ${context.state.value})",
+            )
+        }
+        val handler =
+            onPastSyncHandler
+                ?: throw PastException.NotSupported(
+                    "No onReceivePastSync handler configured",
                 )
         return handler()
     }
