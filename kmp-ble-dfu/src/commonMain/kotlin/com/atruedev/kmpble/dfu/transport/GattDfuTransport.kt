@@ -5,7 +5,7 @@ import com.atruedev.kmpble.peripheral.Peripheral
 import kotlinx.coroutines.flow.Flow
 import kotlin.time.Duration
 
-internal class GattDfuTransport(
+public class GattDfuTransport(
     private val peripheral: Peripheral,
     private val commandTimeout: Duration,
 ) : DfuTransport {

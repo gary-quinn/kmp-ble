@@ -19,7 +19,7 @@ import kotlin.time.Duration
  * the MTU. This transport reassembles fragmented responses based on the SMP
  * header length field before returning to the caller.
  */
-internal class SmpTransport(
+public class SmpTransport(
     private val peripheral: Peripheral,
     private val commandTimeout: Duration,
 ) : DfuTransport {
@@ -56,7 +56,7 @@ internal class SmpTransport(
     // No-op: notification lifecycle is scoped to sendCommand's coroutineScope
     override fun close() {}
 
-    companion object {
+    private companion object {
         private const val SMP_HEADER_SIZE = 8
         private const val SMP_LENGTH_OFFSET = 2
 

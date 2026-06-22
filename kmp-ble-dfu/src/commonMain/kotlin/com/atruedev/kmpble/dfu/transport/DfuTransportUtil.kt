@@ -11,21 +11,21 @@ import kotlinx.coroutines.flow.produceIn
 import kotlinx.coroutines.withTimeout
 import kotlin.time.Duration
 
-internal fun resolveControlPoint(peripheral: Peripheral): Characteristic =
+public fun resolveControlPoint(peripheral: Peripheral): Characteristic =
     peripheral.findCharacteristic(DfuUuids.DFU_SERVICE, DfuUuids.DFU_CONTROL_POINT)
         ?: throw DfuError.CharacteristicNotFound("DFU Control Point")
 
-internal fun resolveDataPacket(peripheral: Peripheral): Characteristic =
+public fun resolveDataPacket(peripheral: Peripheral): Characteristic =
     peripheral.findCharacteristic(DfuUuids.DFU_SERVICE, DfuUuids.DFU_PACKET)
         ?: throw DfuError.CharacteristicNotFound("DFU Packet")
 
-internal fun controlPointNotifications(
+public fun controlPointNotifications(
     peripheral: Peripheral,
     controlPoint: Characteristic,
 ): Flow<ByteArray> =
     peripheral.observeValues(controlPoint, BackpressureStrategy.Unbounded)
 
-internal suspend fun sendCommandViaGatt(
+public suspend fun sendCommandViaGatt(
     peripheral: Peripheral,
     controlPoint: Characteristic,
     notifications: Flow<ByteArray>,

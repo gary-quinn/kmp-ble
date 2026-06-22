@@ -2,7 +2,13 @@
 
 Device Firmware Update (DFU) and Over-The-Air (OTA) update support for kmp-ble.
 Start with [DfuController][com.atruedev.kmpble.dfu.DfuController] to perform firmware updates over BLE.
-Supports Nordic Secure DFU v2, L2CAP-based OTA, observable progress tracking, and resumable transfers across Android and iOS.
+Supports Nordic Secure DFU v2, MCUboot SMP, Espressif ESP OTA, L2CAP-based OTA, observable progress tracking, and resumable transfers across Android and iOS.
+
+Use [DfuTransport][com.atruedev.kmpble.dfu.transport.DfuTransport] directly for custom DFU flows, or use the companion factory methods:
+- `DfuTransport.gatt(peripheral)` for Nordic DFU over GATT
+- `DfuTransport.l2cap(peripheral, channel)` for high-throughput L2CAP
+- `DfuTransport.smp(peripheral)` for MCUboot SMP
+- `DfuTransport.espOta(peripheral)` for Espressif ESP OTA
 
 # Package com.atruedev.kmpble.dfu
 
@@ -26,6 +32,12 @@ Nordic Secure DFU v2 implementation.
 
 BLE transport layer for DFU data transfer. [DfuTransport][com.atruedev.kmpble.dfu.transport.DfuTransport]
 abstracts the link between GATT characteristic writes and L2CAP channel writes.
+
+Built-in transport classes are public and constructable directly:
+- [GattDfuTransport][com.atruedev.kmpble.dfu.transport.GattDfuTransport] - standard Nordic DFU over GATT
+- [L2capDfuTransport][com.atruedev.kmpble.dfu.transport.L2capDfuTransport] - high-throughput L2CAP with GATT commands
+- [SmpTransport][com.atruedev.kmpble.dfu.transport.SmpTransport] - MCUboot SMP with fragment reassembly
+- [EspOtaTransport][com.atruedev.kmpble.dfu.transport.EspOtaTransport] - Espressif ESP-IDF OTA
 
 # Package com.atruedev.kmpble.dfu.testing
 
