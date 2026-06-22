@@ -41,9 +41,9 @@
 - [x] #276: feat(le-audio): add LE Audio Isochronous Channels API (PR #393) [enhancement, priority]
 - [x] #363: feat(le-audio): add LE Audio Isochronous Channels streaming API for Bluetooth 5.2+ (PR #416) [enhancement]
 - [x] #338: feat(parity): add Periodic Advertising Sync Transfer (PAST) support (Bluetooth 5.1+) (PR #413) [enhancement]
-- [~] #368: feat(parity): add BLE Direction Finding (AoA/AoD) API for Bluetooth 5.1+ [enhancement]
+- [x] #368: feat(parity): add BLE Direction Finding (AoA/AoD) API for Bluetooth 5.1+ (PR #427) [enhancement]
 - [x] #318: feat(connection): add LE Connection Subrating support (Bluetooth 5.3) [enhancement]
-- [ ] #359: feat(parity): add LE Data Length Extension API for BLE 4.2+ throughput optimization [enhancement]
+- [x] #359: feat(parity): add LE Data Length Extension API for BLE 4.2+ throughput optimization (PR #426) [enhancement]
 - [ ] #332: feat(dfu): design and expose public OTA DFU transport API [enhancement]
 
 ## Testing
