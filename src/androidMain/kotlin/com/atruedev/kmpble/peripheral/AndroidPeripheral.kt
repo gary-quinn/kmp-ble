@@ -24,6 +24,8 @@ import com.atruedev.kmpble.connection.PhyUpdate
 import com.atruedev.kmpble.connection.ReconnectionStrategy
 import com.atruedev.kmpble.connection.State
 import com.atruedev.kmpble.connection.internal.ReconnectionHandler
+import com.atruedev.kmpble.direction.DirectionFindingParameters
+import com.atruedev.kmpble.direction.DirectionFindingResult
 import com.atruedev.kmpble.gatt.BackpressureStrategy
 import com.atruedev.kmpble.gatt.Characteristic
 import com.atruedev.kmpble.gatt.Descriptor
@@ -268,4 +270,8 @@ public class AndroidPeripheral internal constructor(
         throw PastException.NotSupported(
             "PAST is not available on Android (requires API 31+)",
         )
+
+    @ExperimentalBleApi
+    override suspend fun requestDirectionFinding(parameters: DirectionFindingParameters): DirectionFindingResult =
+        DirectionFindingResult.NotSupported
 }

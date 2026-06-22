@@ -12,6 +12,8 @@ import com.atruedev.kmpble.connection.Phy
 import com.atruedev.kmpble.connection.PhyUpdate
 import com.atruedev.kmpble.connection.State
 import com.atruedev.kmpble.connection.internal.ConnectionEvent
+import com.atruedev.kmpble.direction.DirectionFindingParameters
+import com.atruedev.kmpble.direction.DirectionFindingResult
 import com.atruedev.kmpble.error.ConnectionFailed
 import com.atruedev.kmpble.error.OperationFailed
 import com.atruedev.kmpble.gatt.BackpressureStrategy
@@ -48,6 +50,9 @@ public class FakePeripheral internal constructor(
     private val onConnectionParameterUpdateHandler: (
         suspend (ConnectionParameters) -> ConnectionParameterUpdateResult?
     )? = null,
+    private val onDirectionFindingHandler: (
+        suspend (DirectionFindingParameters) -> DirectionFindingResult
+    )? = null,
     private val observationDispatcher: CoroutineDispatcher =
         Dispatchers.Default.limitedParallelism(
             1,
@@ -77,6 +82,7 @@ public class FakePeripheral internal constructor(
             onPastSyncHandler = onPastSyncHandler,
             cccdWritesState = cccdWritesState,
             closedFlag = { closed },
+            onDirectionFindingHandler = onDirectionFindingHandler,
         )
 
     public data class CccdWrite(
@@ -191,6 +197,10 @@ public class FakePeripheral internal constructor(
     override suspend fun openIsochronousChannel(): IsochronousChannel = gattResponder.openIsochronousChannel()
 
     override suspend fun receivePastSync(): PeriodicAdvertisingSync = gattResponder.receivePastSync()
+
+    @com.atruedev.kmpble.ExperimentalBleApi
+    override suspend fun requestDirectionFinding(parameters: DirectionFindingParameters): DirectionFindingResult =
+        gattResponder.requestDirectionFinding(parameters)
 
     override suspend fun readRssi(): Int = gattResponder.readRssi()
 

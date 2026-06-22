@@ -14,6 +14,8 @@ import com.atruedev.kmpble.connection.DataLengthParameters
 import com.atruedev.kmpble.connection.Phy
 import com.atruedev.kmpble.connection.PhyUpdate
 import com.atruedev.kmpble.connection.State
+import com.atruedev.kmpble.direction.DirectionFindingParameters
+import com.atruedev.kmpble.direction.DirectionFindingResult
 import com.atruedev.kmpble.gatt.BackpressureStrategy
 import com.atruedev.kmpble.gatt.Characteristic
 import com.atruedev.kmpble.gatt.Descriptor
@@ -332,6 +334,27 @@ public interface Peripheral : AutoCloseable {
      */
     @ExperimentalBleApi
     public suspend fun receivePastSync(): PeriodicAdvertisingSync
+
+    // --- Direction Finding (BLE 5.1+) ---
+
+    /**
+     * Request direction finding (AoA/AoD) on this connection.
+     *
+     * Bluetooth 5.1+ Direction Finding uses the Constant Tone Extension (CTE)
+     * and multi-antenna arrays to estimate the angle of arriving or departing
+     * signals. This enables high-accuracy indoor positioning, asset tracking,
+     * and wayfinding applications.
+     *
+     * Android maps to `BluetoothDevice#REQUEST_TYPE_DIRECTION_FINDING` (API 34+).
+     * iOS returns [DirectionFindingResult.NotSupported] -- CoreBluetooth does
+     * not expose a public direction finding API.
+     *
+     * @return [DirectionFindingResult.Angle] with azimuth/elevation,
+     *   [DirectionFindingResult.NotSupported] if the platform lacks this API,
+     *   or [DirectionFindingResult.Failed] if the request was denied.
+     */
+    @ExperimentalBleApi
+    public suspend fun requestDirectionFinding(parameters: DirectionFindingParameters): DirectionFindingResult
 
     // --- LE Data Length Extension (BLE 4.2+) ---
 

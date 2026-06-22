@@ -18,6 +18,8 @@ import com.atruedev.kmpble.connection.ReconnectionStrategy
 import com.atruedev.kmpble.connection.State
 import com.atruedev.kmpble.connection.internal.ConnectionEvent
 import com.atruedev.kmpble.connection.internal.ReconnectionHandler
+import com.atruedev.kmpble.direction.DirectionFindingParameters
+import com.atruedev.kmpble.direction.DirectionFindingResult
 import com.atruedev.kmpble.error.ConnectionFailed
 import com.atruedev.kmpble.error.OperationFailed
 import com.atruedev.kmpble.gatt.BackpressureStrategy
@@ -308,6 +310,10 @@ public class IosPeripheral(
         throw PastException.NotSupported(
             "CoreBluetooth does not expose PAST",
         )
+
+    @ExperimentalBleApi
+    override suspend fun requestDirectionFinding(parameters: DirectionFindingParameters): DirectionFindingResult =
+        DirectionFindingResult.NotSupported
 
     /**
      * Restore this peripheral from iOS state restoration.

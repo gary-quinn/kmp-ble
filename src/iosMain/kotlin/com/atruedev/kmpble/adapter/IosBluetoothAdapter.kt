@@ -45,6 +45,7 @@ public class IosBluetoothAdapter : BluetoothAdapter {
             supportsLeAudio = hasLeAudio,
             supportsConnectionSubrating = false,
             supportsPast = false,
+            supportsDirectionFinding = false,
         )
     }
 

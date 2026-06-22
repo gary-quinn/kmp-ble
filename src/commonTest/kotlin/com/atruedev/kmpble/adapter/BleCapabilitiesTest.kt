@@ -16,6 +16,7 @@ class BleCapabilitiesTest {
         assertFalse(caps.supportsLeAudio)
         assertFalse(caps.supportsConnectionSubrating)
         assertFalse(caps.supportsPast)
+        assertFalse(caps.supportsDirectionFinding)
     }
 
     @Test
@@ -30,6 +31,7 @@ class BleCapabilitiesTest {
                 supportsLeAudio = true,
                 supportsConnectionSubrating = false,
                 supportsPast = true,
+                supportsDirectionFinding = false,
             )
         assertTrue(caps.supportsExtendedAdvertising)
         assertTrue(caps.supportsLe2mPhy)
@@ -53,6 +55,7 @@ class BleCapabilitiesTest {
                 supportsLeAudio = false,
                 supportsConnectionSubrating = false,
                 supportsPast = false,
+                supportsDirectionFinding = false,
             )
         val str = caps.toString()
         assertTrue(str.contains("extAdv=true"), "toString should include extAdv")
