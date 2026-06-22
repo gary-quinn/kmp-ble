@@ -165,22 +165,8 @@ internal suspend fun AndroidPeripheral.requestConnectionSubratingGatt(
     parameters: ConnectionSubratingParameters,
 ): ConnectionSubratingResult {
     checkNotClosed()
-    if (android.os.Build.VERSION.SDK_INT < 33) return ConnectionSubratingResult.NotSupported
-    check(peripheralContext.state.value is State.Connected) {
-        "requestConnectionSubrating requires a connected peripheral"
-    }
-    return peripheralContext.gattQueue.enqueue {
-        val dispatched =
-            bridge.requestConnectionSubrating(
-                parameters.subrateFactor,
-                parameters.subrateLatency,
-                parameters.continuationNumber,
-                parameters.supervisionTimeout,
-            )
-        if (!dispatched) return@enqueue ConnectionSubratingResult.NotSupported
-        pendingOps.awaitGatt(
-            PendingOp.SubrateRequest,
-            "requestConnectionSubrating",
-        ) { true }
-    }
+    // Android's BluetoothLeConnectionSubrating requires compileSdk 35+ and
+    // runtime API 33+. When the compile SDK is upgraded to 35+, wire the
+    // bridge.requestConnectionSubrating() call and the onSubrateChange callback.
+    return ConnectionSubratingResult.NotSupported
 }

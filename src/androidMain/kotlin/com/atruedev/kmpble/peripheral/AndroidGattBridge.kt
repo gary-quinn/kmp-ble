@@ -120,22 +120,6 @@ internal class AndroidGattBridge(
             ) {
                 onEvent?.invoke(GattCallbackEvent.PhyRead(txPhy, rxPhy, status))
             }
-
-            override fun onSubrateChange(
-                gatt: BluetoothGatt,
-                subrate: android.bluetooth.BluetoothLeConnectionSubrating,
-                status: Int,
-            ) {
-                onEvent?.invoke(
-                    GattCallbackEvent.SubrateChanged(
-                        subrate.subrateFactor,
-                        subrate.subrateLatency,
-                        subrate.continuationNumber,
-                        subrate.supervisionTimeout,
-                        status,
-                    ),
-                )
-            }
         }
 
     internal fun connect(options: ConnectionOptions): BluetoothGatt? {
@@ -216,28 +200,6 @@ internal class AndroidGattBridge(
     ): Boolean = gatt?.setCharacteristicNotification(characteristic, enable) ?: false
 
     internal fun readRemoteRssi(): Boolean = gatt?.readRemoteRssi() ?: false
-
-    internal fun requestConnectionSubrating(
-        subrateFactor: Int,
-        subrateLatency: Int,
-        continuationNumber: Int,
-        supervisionTimeout: Int,
-    ): Boolean {
-        val g = gatt ?: return false
-        val subrate =
-            android.bluetooth.BluetoothLeConnectionSubrating(
-                subrateFactor,
-                subrateLatency,
-                continuationNumber,
-                supervisionTimeout,
-            )
-        return try {
-            g.requestConnectionSubrating(subrate)
-            true
-        } catch (e: UnsupportedOperationException) {
-            false
-        }
-    }
 
     /**
      * Clears the GATT service cache via the internal `BluetoothGatt.refresh()` API.
