@@ -5,6 +5,7 @@ import com.atruedev.kmpble.connection.ConnectionOptions
 import com.atruedev.kmpble.connection.ConnectionParameterUpdateResult
 import com.atruedev.kmpble.connection.ConnectionParameters
 import com.atruedev.kmpble.testing.FakePeripheralBuilder
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -303,6 +304,207 @@ class LePowerControllerTest {
             // After stop, requestPeerPowerChange still works - it's stateless
             val response = controller.requestPeerPowerChange(-4)
             assertTrue(response.accepted)
+        }
+    }
+
+    // -- Edge cases --
+
+    @Test
+    fun `boundary threshold minus5 uses balanced params`() {
+        val scheduler = TestCoroutineScheduler()
+        val dispatcher = StandardTestDispatcher(scheduler)
+        runTest(scheduler) {
+            var capturedParams: ConnectionParameters? = null
+            val peripheral =
+                FakePeripheralBuilder()
+                    .observationDispatcher(dispatcher)
+                    .apply {
+                        service("180d") {
+                            characteristic("2a37") { properties(notify = true) }
+                        }
+                        onConnectionParameterUpdate { params ->
+                            capturedParams = params
+                            defaultResult
+                        }
+                    }.build()
+
+            val controller = LePowerController(peripheral, backgroundScope)
+            controller.start()
+            peripheral.connect(ConnectionOptions())
+            scheduler.runCurrent()
+
+            controller.requestPeerPowerChange(-5)
+            // -5 < -4 so falls into balanced range
+            assertNotNull(capturedParams)
+            assertEquals(2, capturedParams!!.slaveLatency)
+            assertEquals(2000.milliseconds, capturedParams!!.supervisionTimeout)
+
+            controller.stop()
+        }
+    }
+
+    @Test
+    fun `boundary threshold minus13 uses power saving params`() {
+        val scheduler = TestCoroutineScheduler()
+        val dispatcher = StandardTestDispatcher(scheduler)
+        runTest(scheduler) {
+            var capturedParams: ConnectionParameters? = null
+            val peripheral =
+                FakePeripheralBuilder()
+                    .observationDispatcher(dispatcher)
+                    .apply {
+                        service("180d") {
+                            characteristic("2a37") { properties(notify = true) }
+                        }
+                        onConnectionParameterUpdate { params ->
+                            capturedParams = params
+                            defaultResult
+                        }
+                    }.build()
+
+            val controller = LePowerController(peripheral, backgroundScope)
+            controller.start()
+            peripheral.connect(ConnectionOptions())
+            scheduler.runCurrent()
+
+            controller.requestPeerPowerChange(-13)
+            // -13 < -12 so falls into low power range
+            assertNotNull(capturedParams)
+            assertEquals(4, capturedParams!!.slaveLatency)
+            assertEquals(4000.milliseconds, capturedParams!!.supervisionTimeout)
+
+            controller.stop()
+        }
+    }
+
+    @Test
+    fun `boundary threshold minus21 uses max saving params`() {
+        val scheduler = TestCoroutineScheduler()
+        val dispatcher = StandardTestDispatcher(scheduler)
+        runTest(scheduler) {
+            var capturedParams: ConnectionParameters? = null
+            val peripheral =
+                FakePeripheralBuilder()
+                    .observationDispatcher(dispatcher)
+                    .apply {
+                        service("180d") {
+                            characteristic("2a37") { properties(notify = true) }
+                        }
+                        onConnectionParameterUpdate { params ->
+                            capturedParams = params
+                            defaultResult
+                        }
+                    }.build()
+
+            val controller = LePowerController(peripheral, backgroundScope)
+            controller.start()
+            peripheral.connect(ConnectionOptions())
+            scheduler.runCurrent()
+
+            controller.requestPeerPowerChange(-21)
+            // -21 < -20 so falls into max saving range
+            assertNotNull(capturedParams)
+            assertEquals(7, capturedParams!!.slaveLatency)
+            assertEquals(6000.milliseconds, capturedParams!!.supervisionTimeout)
+
+            controller.stop()
+        }
+    }
+
+    @Test
+    fun `start stop start cycle restores monitoring`() {
+        val scheduler = TestCoroutineScheduler()
+        val dispatcher = StandardTestDispatcher(scheduler)
+        runTest(scheduler) {
+            val peripheral =
+                FakePeripheralBuilder()
+                    .observationDispatcher(dispatcher)
+                    .apply {
+                        service("180d") {
+                            characteristic("2a37") { properties(notify = true) }
+                        }
+                        onConnectionParameterUpdate { defaultResult }
+                    }.build()
+
+            val controller = LePowerController(peripheral, backgroundScope)
+            controller.start()
+
+            peripheral.connect(ConnectionOptions())
+            scheduler.runCurrent()
+
+            val first = controller.requestPeerPowerChange(-4)
+            assertTrue(first.accepted)
+
+            controller.stop()
+            controller.start()
+
+            val second = controller.requestPeerPowerChange(-10)
+            assertTrue(second.accepted)
+            assertEquals(-10, second.targetDbm)
+
+            controller.stop()
+        }
+    }
+
+    @Test
+    fun `stop without start is safe no op`() {
+        val scheduler = TestCoroutineScheduler()
+        val dispatcher = StandardTestDispatcher(scheduler)
+        val peripheral =
+            FakePeripheralBuilder()
+                .observationDispatcher(dispatcher)
+                .build()
+        val controller = LePowerController(peripheral, CoroutineScope(dispatcher))
+
+        // Stop before start should not throw
+        controller.stop()
+    }
+
+    @Test
+    fun `request without start still works`() {
+        val scheduler = TestCoroutineScheduler()
+        val dispatcher = StandardTestDispatcher(scheduler)
+        runTest(scheduler) {
+            val peripheral =
+                FakePeripheralBuilder()
+                    .observationDispatcher(dispatcher)
+                    .apply {
+                        service("180d") {
+                            characteristic("2a37") { properties(notify = true) }
+                        }
+                        onConnectionParameterUpdate { defaultResult }
+                    }.build()
+
+            val controller = LePowerController(peripheral, backgroundScope)
+
+            peripheral.connect(ConnectionOptions())
+            scheduler.runCurrent()
+
+            // requestPeerPowerChange is stateless - works without start
+            val response = controller.requestPeerPowerChange(-10)
+            assertTrue(response.accepted)
+            assertEquals(-10, response.targetDbm)
+        }
+    }
+
+    @Test
+    fun `request when not connected still works with default`() {
+        val scheduler = TestCoroutineScheduler()
+        val dispatcher = StandardTestDispatcher(scheduler)
+        runTest(scheduler) {
+            val peripheral =
+                FakePeripheralBuilder()
+                    .observationDispatcher(dispatcher)
+                    .build()
+
+            val controller = LePowerController(peripheral, backgroundScope)
+            controller.start()
+            scheduler.runCurrent()
+
+            // No connection established
+            // FakePeripheral.requestConnectionParameterUpdate returns default response
+            val response = controller.requestPeerPowerChange(-4)
+            assertNotNull(response)
         }
     }
 }
