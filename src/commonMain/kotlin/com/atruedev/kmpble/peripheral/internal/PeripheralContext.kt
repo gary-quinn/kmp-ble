@@ -2,6 +2,7 @@ package com.atruedev.kmpble.peripheral.internal
 
 import com.atruedev.kmpble.Identifier
 import com.atruedev.kmpble.bonding.BondState
+import com.atruedev.kmpble.connection.DataLengthParameters
 import com.atruedev.kmpble.connection.State
 import com.atruedev.kmpble.connection.internal.ConnectionEvent
 import com.atruedev.kmpble.connection.internal.StateMachine
@@ -47,6 +48,9 @@ internal class PeripheralContext(
 
     private val _maximumWriteValueLength = MutableStateFlow(DEFAULT_ATT_MTU - ATT_HEADER_SIZE)
     val maximumWriteValueLength: StateFlow<Int> = _maximumWriteValueLength.asStateFlow()
+
+    private val _dataLengthParameters = MutableStateFlow<DataLengthParameters?>(null)
+    val dataLengthParameters: StateFlow<DataLengthParameters?> = _dataLengthParameters.asStateFlow()
 
     val gattQueue = GattOperationQueue(scope)
 

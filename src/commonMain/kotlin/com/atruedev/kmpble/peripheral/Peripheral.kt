@@ -10,6 +10,7 @@ import com.atruedev.kmpble.connection.ConnectionParameters
 import com.atruedev.kmpble.connection.ConnectionPriority
 import com.atruedev.kmpble.connection.ConnectionSubratingParameters
 import com.atruedev.kmpble.connection.ConnectionSubratingResult
+import com.atruedev.kmpble.connection.DataLengthParameters
 import com.atruedev.kmpble.connection.Phy
 import com.atruedev.kmpble.connection.PhyUpdate
 import com.atruedev.kmpble.connection.State
@@ -331,4 +332,19 @@ public interface Peripheral : AutoCloseable {
      */
     @ExperimentalBleApi
     public suspend fun receivePastSync(): PeriodicAdvertisingSync
+
+    // --- LE Data Length Extension (BLE 4.2+) ---
+
+    /**
+     * Negotiated LE Data Length Extension parameters for this connection.
+     *
+     * BLE 4.2+ controllers negotiate larger link-layer payloads (up to 251 bytes
+     * vs the default 27) and longer transmission times for improved throughput.
+     * When DLE is supported and negotiated, this reflects the current parameters.
+     *
+     * Returns `null` when DLE is unsupported or parameters are not yet available.
+     * Both Android and iOS controllers handle DLE internally; this property
+     * exposes platform-reported values when the OS makes them available.
+     */
+    public val dataLengthParameters: StateFlow<DataLengthParameters?>
 }
