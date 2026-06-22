@@ -1,6 +1,7 @@
 package com.atruedev.kmpble.periodic
 
 import com.atruedev.kmpble.connection.Phy
+import com.atruedev.kmpble.server.PeriodicAdvertisingParameters
 
 /**
  * A single periodic advertising report received from a synced advertiser.
@@ -8,7 +9,7 @@ import com.atruedev.kmpble.connection.Phy
  * Periodic advertising reports are received on secondary advertising channels
  * at a fixed interval after sync is established. Unlike scan results, these
  * arrive without continuous scanning and carry the periodic advertising data
- * set by the advertiser's [com.atruedev.kmpble.server.PeriodicAdvertisingParameters].
+ * set by the advertiser's [PeriodicAdvertisingParameters].
  */
 public data class PeriodicReport(
     /** RSSI of the periodic advertising packet in dBm. */
