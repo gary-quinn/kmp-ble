@@ -13,6 +13,8 @@ import com.atruedev.kmpble.connection.DataLengthParameters
 import com.atruedev.kmpble.connection.Phy
 import com.atruedev.kmpble.connection.PhyUpdate
 import com.atruedev.kmpble.connection.State
+import com.atruedev.kmpble.direction.DirectionFindingParameters
+import com.atruedev.kmpble.direction.DirectionFindingResult
 import com.atruedev.kmpble.gatt.BackpressureStrategy
 import com.atruedev.kmpble.gatt.Characteristic
 import com.atruedev.kmpble.gatt.Descriptor
@@ -131,6 +133,10 @@ internal class StubPeripheral(
     override suspend fun openIsochronousChannel(): IsochronousChannel = unsupported()
 
     override suspend fun receivePastSync(): PeriodicAdvertisingSync = unsupported()
+
+    @com.atruedev.kmpble.ExperimentalBleApi
+    override suspend fun requestDirectionFinding(parameters: DirectionFindingParameters): DirectionFindingResult =
+        unsupported()
 
     private fun unsupported(): Nothing = throw UnsupportedOperationException("StubPeripheral")
 }

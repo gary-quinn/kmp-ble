@@ -94,6 +94,8 @@ public class AndroidBluetoothAdapter(
             supportsConnectionSubrating = false,
             // PAST (Periodic Advertising Sync Transfer) requires API 31+.
             supportsPast = Build.VERSION.SDK_INT >= 31,
+            // Direction Finding (AoA/AoD) requires API 34+. Not queryable through public API.
+            supportsDirectionFinding = false,
         )
     }
 

@@ -4,6 +4,8 @@ import com.atruedev.kmpble.Identifier
 import com.atruedev.kmpble.connection.ConnectionParameterUpdateResult
 import com.atruedev.kmpble.connection.ConnectionParameters
 import com.atruedev.kmpble.connection.DataLengthParameters
+import com.atruedev.kmpble.direction.DirectionFindingParameters
+import com.atruedev.kmpble.direction.DirectionFindingResult
 import com.atruedev.kmpble.error.BleError
 import com.atruedev.kmpble.gatt.Characteristic
 import com.atruedev.kmpble.gatt.DiscoveredService
@@ -51,6 +53,7 @@ public class FakePeripheralBuilder {
             ConnectionParameters,
         ) -> ConnectionParameterUpdateResult?
     )? = null
+    internal var directionFindingHandler: (suspend (DirectionFindingParameters) -> DirectionFindingResult)? = null
     public var identifier: Identifier = Identifier("fake-peripheral")
     internal var observationDispatcher: CoroutineDispatcher = Dispatchers.Default.limitedParallelism(1)
 
@@ -115,6 +118,11 @@ public class FakePeripheralBuilder {
         dataLengthParameters = parameters
     }
 
+    /** Configure the response to [Peripheral.requestDirectionFinding] calls. */
+    public fun onDirectionFinding(handler: suspend (DirectionFindingParameters) -> DirectionFindingResult) {
+        directionFindingHandler = handler
+    }
+
     /** Set the dispatcher for the ObservationManager. Useful for testing with TestDispatcher. */
     public fun observationDispatcher(dispatcher: CoroutineDispatcher): FakePeripheralBuilder {
         observationDispatcher = dispatcher
@@ -132,6 +140,7 @@ public class FakePeripheralBuilder {
             onIsoHandler = isoHandler,
             onPastSyncHandler = pastSyncHandler,
             onConnectionParameterUpdateHandler = onConnectionParameterUpdate,
+            onDirectionFindingHandler = directionFindingHandler,
             observationDispatcher = observationDispatcher,
         ).also { peripheral ->
             peripheral.gattResponder.configureDataLength(dataLengthParameters)

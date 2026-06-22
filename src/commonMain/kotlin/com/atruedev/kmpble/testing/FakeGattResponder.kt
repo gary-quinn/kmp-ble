@@ -9,6 +9,8 @@ import com.atruedev.kmpble.connection.DataLengthParameters
 import com.atruedev.kmpble.connection.Phy
 import com.atruedev.kmpble.connection.PhyUpdate
 import com.atruedev.kmpble.connection.State
+import com.atruedev.kmpble.direction.DirectionFindingParameters
+import com.atruedev.kmpble.direction.DirectionFindingResult
 import com.atruedev.kmpble.error.BleException
 import com.atruedev.kmpble.error.GattError
 import com.atruedev.kmpble.error.GattStatus
@@ -55,6 +57,9 @@ internal class FakeGattResponder(
     private val onPastSyncHandler: PastSyncHandler?,
     private val cccdWritesState: MutableStateFlow<List<FakePeripheral.CccdWrite>>,
     private val closedFlag: () -> Boolean,
+    private val onDirectionFindingHandler: (
+        suspend (DirectionFindingParameters) -> DirectionFindingResult
+    )? = null,
 ) {
     private val _phyUpdate = MutableSharedFlow<PhyUpdate>(extraBufferCapacity = 16)
     internal val phyUpdate: Flow<PhyUpdate> = _phyUpdate
@@ -341,5 +346,16 @@ internal class FakeGattResponder(
         checkNotClosed()
         checkConnected()
         return ConnectionSubratingResult.Accepted(parameters)
+    }
+
+    suspend fun requestDirectionFinding(parameters: DirectionFindingParameters): DirectionFindingResult {
+        checkNotClosed()
+        checkConnected()
+        val handler = onDirectionFindingHandler
+        return if (handler != null) {
+            handler(parameters)
+        } else {
+            DirectionFindingResult.NotSupported
+        }
     }
 }
