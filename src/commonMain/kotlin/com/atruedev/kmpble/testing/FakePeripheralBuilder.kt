@@ -3,6 +3,7 @@ package com.atruedev.kmpble.testing
 import com.atruedev.kmpble.Identifier
 import com.atruedev.kmpble.connection.ConnectionParameterUpdateResult
 import com.atruedev.kmpble.connection.ConnectionParameters
+import com.atruedev.kmpble.connection.DataLengthParameters
 import com.atruedev.kmpble.error.BleError
 import com.atruedev.kmpble.gatt.Characteristic
 import com.atruedev.kmpble.gatt.DiscoveredService
@@ -44,6 +45,7 @@ public class FakePeripheralBuilder {
     internal var l2capHandler: L2capHandler? = null
     internal var isoHandler: IsochronousHandler? = null
     internal var pastSyncHandler: PastSyncHandler? = null
+    internal var dataLengthParameters: DataLengthParameters? = null
     internal var onConnectionParameterUpdate: (
         suspend (
             ConnectionParameters,
@@ -108,6 +110,11 @@ public class FakePeripheralBuilder {
         onConnectionParameterUpdate = handler
     }
 
+    /** Configure the DLE parameters exposed by [Peripheral.dataLengthParameters]. Pass null to simulate unsupported. */
+    public fun onDataLengthParameters(parameters: DataLengthParameters?) {
+        dataLengthParameters = parameters
+    }
+
     /** Set the dispatcher for the ObservationManager. Useful for testing with TestDispatcher. */
     public fun observationDispatcher(dispatcher: CoroutineDispatcher): FakePeripheralBuilder {
         observationDispatcher = dispatcher
@@ -126,7 +133,9 @@ public class FakePeripheralBuilder {
             onPastSyncHandler = pastSyncHandler,
             onConnectionParameterUpdateHandler = onConnectionParameterUpdate,
             observationDispatcher = observationDispatcher,
-        )
+        ).also { peripheral ->
+            peripheral.gattResponder.configureDataLength(dataLengthParameters)
+        }
 }
 
 @OptIn(ExperimentalUuidApi::class)

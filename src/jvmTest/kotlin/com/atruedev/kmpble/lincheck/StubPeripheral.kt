@@ -9,6 +9,7 @@ import com.atruedev.kmpble.connection.ConnectionParameters
 import com.atruedev.kmpble.connection.ConnectionPriority
 import com.atruedev.kmpble.connection.ConnectionSubratingParameters
 import com.atruedev.kmpble.connection.ConnectionSubratingResult
+import com.atruedev.kmpble.connection.DataLengthParameters
 import com.atruedev.kmpble.connection.Phy
 import com.atruedev.kmpble.connection.PhyUpdate
 import com.atruedev.kmpble.connection.State
@@ -119,6 +120,7 @@ internal class StubPeripheral(
 
     @com.atruedev.kmpble.ExperimentalBleApi
     override val phyUpdate: Flow<PhyUpdate> = unsupported()
+    override val dataLengthParameters: StateFlow<DataLengthParameters?> = MutableStateFlow(null)
 
     override suspend fun openL2capChannel(
         psm: Int,

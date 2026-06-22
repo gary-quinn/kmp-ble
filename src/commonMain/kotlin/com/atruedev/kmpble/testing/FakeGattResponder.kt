@@ -5,6 +5,7 @@ import com.atruedev.kmpble.connection.ConnectionParameters
 import com.atruedev.kmpble.connection.ConnectionPriority
 import com.atruedev.kmpble.connection.ConnectionSubratingParameters
 import com.atruedev.kmpble.connection.ConnectionSubratingResult
+import com.atruedev.kmpble.connection.DataLengthParameters
 import com.atruedev.kmpble.connection.Phy
 import com.atruedev.kmpble.connection.PhyUpdate
 import com.atruedev.kmpble.connection.State
@@ -34,6 +35,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.FlowCollector
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onCompletion
@@ -56,6 +59,9 @@ internal class FakeGattResponder(
     private val _phyUpdate = MutableSharedFlow<PhyUpdate>(extraBufferCapacity = 16)
     internal val phyUpdate: Flow<PhyUpdate> = _phyUpdate
 
+    private val _dataLengthParameters = MutableStateFlow<DataLengthParameters?>(null)
+    internal val dataLengthParameters: StateFlow<DataLengthParameters?> = _dataLengthParameters.asStateFlow()
+
     private var configuredTxPhy: Phy = Phy.Le1M
     private var configuredRxPhy: Phy = Phy.Le1M
 
@@ -66,6 +72,11 @@ internal class FakeGattResponder(
     ) {
         configuredTxPhy = tx
         configuredRxPhy = rx
+    }
+
+    /** Configure the DLE parameters that [dataLengthParameters] exposes. Pass null to simulate unsupported. */
+    internal fun configureDataLength(parameters: DataLengthParameters?) {
+        _dataLengthParameters.value = parameters
     }
 
     internal suspend fun emitPhyUpdate(
