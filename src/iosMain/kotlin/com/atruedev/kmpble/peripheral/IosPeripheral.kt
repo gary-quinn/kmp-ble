@@ -32,6 +32,8 @@ import com.atruedev.kmpble.isochronous.IsochronousChannel
 import com.atruedev.kmpble.isochronous.IsochronousException
 import com.atruedev.kmpble.l2cap.IosL2capChannel
 import com.atruedev.kmpble.l2cap.L2capChannel
+import com.atruedev.kmpble.periodic.PastException
+import com.atruedev.kmpble.periodic.PeriodicAdvertisingSync
 import com.atruedev.kmpble.peripheral.internal.LifecycleSlots
 import com.atruedev.kmpble.peripheral.internal.PeripheralContext
 import com.atruedev.kmpble.peripheral.internal.PeripheralRegistry
@@ -291,6 +293,11 @@ public class IosPeripheral(
     override suspend fun openIsochronousChannel(): IsochronousChannel =
         throw IsochronousException.NotSupported(
             "CoreBluetooth does not expose LE Audio isochronous channels",
+        )
+
+    override suspend fun receivePastSync(): PeriodicAdvertisingSync =
+        throw PastException.NotSupported(
+            "CoreBluetooth does not expose PAST",
         )
 
     /**

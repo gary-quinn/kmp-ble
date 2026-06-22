@@ -36,6 +36,8 @@ import com.atruedev.kmpble.l2cap.AndroidL2capChannel
 import com.atruedev.kmpble.l2cap.L2capChannel
 import com.atruedev.kmpble.logging.BleLogEvent
 import com.atruedev.kmpble.logging.logEvent
+import com.atruedev.kmpble.periodic.PastException
+import com.atruedev.kmpble.periodic.PeriodicAdvertisingSync
 import com.atruedev.kmpble.peripheral.internal.LifecycleSlots
 import com.atruedev.kmpble.peripheral.internal.PeripheralContext
 import com.atruedev.kmpble.peripheral.internal.PeripheralRegistry
@@ -251,5 +253,10 @@ public class AndroidPeripheral internal constructor(
     override suspend fun openIsochronousChannel(): IsochronousChannel =
         throw IsochronousException.NotSupported(
             "LE Audio isochronous channels are not publicly available on Android",
+        )
+
+    override suspend fun receivePastSync(): PeriodicAdvertisingSync =
+        throw PastException.NotSupported(
+            "PAST is not available on Android (requires API 31+)",
         )
 }

@@ -18,6 +18,7 @@ import com.atruedev.kmpble.gatt.Observation
 import com.atruedev.kmpble.gatt.WriteType
 import com.atruedev.kmpble.isochronous.IsochronousChannel
 import com.atruedev.kmpble.l2cap.L2capChannel
+import com.atruedev.kmpble.periodic.PeriodicAdvertisingSync
 import com.atruedev.kmpble.peripheral.Peripheral
 import com.atruedev.kmpble.peripheral.PhyResult
 import kotlinx.coroutines.flow.Flow
@@ -119,6 +120,8 @@ internal class StubPeripheral(
     ): L2capChannel = unsupported()
 
     override suspend fun openIsochronousChannel(): IsochronousChannel = unsupported()
+
+    override suspend fun receivePastSync(): PeriodicAdvertisingSync = unsupported()
 
     private fun unsupported(): Nothing = throw UnsupportedOperationException("StubPeripheral")
 }
