@@ -11,7 +11,6 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 class IsochronousStreamTest {
-
     private val testMtu = 256
 
     private fun createStream(channel: FakeIsochronousChannel = FakeIsochronousChannel(testMtu)): IsochronousStream =
