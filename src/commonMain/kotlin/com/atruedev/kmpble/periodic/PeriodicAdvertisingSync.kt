@@ -3,6 +3,7 @@ package com.atruedev.kmpble.periodic
 import com.atruedev.kmpble.ExperimentalBleApi
 import com.atruedev.kmpble.Identifier
 import com.atruedev.kmpble.adapter.BleCapabilities
+import com.atruedev.kmpble.peripheral.Peripheral
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -33,9 +34,8 @@ import kotlinx.coroutines.flow.Flow
  *
  * - **Android**: Full support via `BluetoothLeScanner` (API 26+ periodic sync;
  *   API 31+ PAST transfer).
- * - **iOS**: Not supported by CoreBluetooth. [createSync] throws
- *   [PastException.NotSupported].
- * - **JVM**: No Bluetooth stack. [createSync] throws [PastException.NotSupported].
+ * - **iOS**: Not supported by CoreBluetooth. Throws [PastException.NotSupported].
+ * - **JVM**: No Bluetooth stack. Throws [PastException.NotSupported].
  */
 @ExperimentalBleApi
 public interface PeriodicAdvertisingSync : AutoCloseable {
@@ -67,7 +67,7 @@ public interface PeriodicAdvertisingSync : AutoCloseable {
      * @throws PastException.TransferFailed if the transfer protocol fails.
      * @throws PastException.NotSupported on platforms without PAST support.
      */
-    public suspend fun transferTo(peripheral: com.atruedev.kmpble.peripheral.Peripheral)
+    public suspend fun transferTo(peripheral: Peripheral)
 
     /** End the sync and stop receiving periodic advertising reports. */
     override fun close()
