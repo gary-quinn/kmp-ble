@@ -26,7 +26,7 @@ class FakePeripheralWriteTest {
                 FakePeripheral {
                     service("180d") {
                         characteristic("2a39") {
-                            properties(write = true)
+                            properties(write = true, writeWithoutResponse = true)
                             onWrite { data, type ->
                                 writtenData = data
                                 writtenType = type
