@@ -56,7 +56,7 @@
 - [ ] #305: test(monitoring): add integration tests for PowerMonitor and LePowerController edge cases [enhancement, testing]
 - [ ] #303: test(peripheral): add AndroidPeripheral GATT event handling integration tests [enhancement, testing]
 - [ ] #358: test(gatt): add GATT write-type conformance tests for Write Request vs Write Command [enhancement, testing]
-- [ ] #369: test(advertiser): add cross-platform Advertiser conformance tests [enhancement, testing]
+- [~] #369: test(advertiser): add cross-platform Advertiser conformance tests [enhancement, testing]
 - [ ] #378: test(l2cap): add L2CAP channel edge-case tests for disconnection and backpressure [enhancement, testing]
 
 ## Refactoring

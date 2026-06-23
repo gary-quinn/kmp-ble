@@ -24,6 +24,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _Changes on `main` that have not yet been tagged for release._
 
+### Added
+- feat(roles): add `SimultaneousRoleManager` for concurrent central and peripheral operation (Closes #289)
+
 ---
 
 ## [0.8.4] - 2026-06-18
