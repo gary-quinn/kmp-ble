@@ -174,6 +174,45 @@ AndroidGattCache no longer uses `synchronized`. If your code held a reference to
 the cache internals, the thread-safety mechanism has changed. Public API is
 unchanged.
 
+### 7. ConnectionOptions.timeout Replaced by timeouts: OperationTimeouts
+
+The single `timeout` parameter has been replaced by per-operation
+`OperationTimeouts` for fine-grained control over connect, service discovery,
+read, write, MTU, and L2CAP operation deadlines.
+
+A deprecated secondary constructor accepts the legacy `timeout` parameter and
+maps it to `timeouts.connect`, so existing call sites still compile with a
+warning. Migrate at your own pace.
+
+**Before (0.8.x):**
+
+```kotlin
+val options = ConnectionOptions(
+    timeout = 30.seconds,
+    mtuRequest = 512,
+)
+```
+
+**After (0.9.0):**
+
+```kotlin
+import com.atruedev.kmpble.connection.OperationTimeouts
+
+val options = ConnectionOptions(
+    timeouts = OperationTimeouts(
+        connect = 30.seconds,
+        serviceDiscovery = 15.seconds,
+        read = 5.seconds,
+        write = 5.seconds,
+    ),
+    mtuRequest = 512,
+)
+```
+
+All `OperationTimeouts` fields have sensible defaults (30s connect, 15s
+discovery, 5s read/write, 10s MTU/L2CAP). Omit any you do not need to
+customize.
+
 ## New Features
 
 ### PHY Selection for Scanning
