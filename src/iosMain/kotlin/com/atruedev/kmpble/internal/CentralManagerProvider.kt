@@ -6,12 +6,12 @@ import com.atruedev.kmpble.adapter.BluetoothAdapterState
 import com.atruedev.kmpble.interop.KmpBleDelegateProxy
 import com.atruedev.kmpble.logging.BleLogEvent
 import com.atruedev.kmpble.logging.logEvent
+import kotlinx.atomicfu.atomic
 import kotlinx.coroutines.flow.StateFlow
 import platform.CoreBluetooth.CBCentralManager
 import platform.CoreBluetooth.CBCentralManagerDelegateProtocol
 import platform.CoreBluetooth.CBCentralManagerOptionRestoreIdentifierKey
 import platform.darwin.dispatch_queue_create
-import kotlin.concurrent.Volatile
 
 internal object CentralManagerProvider {
     private val queue = dispatch_queue_create("com.atruedev.kmpble", null)
@@ -21,6 +21,8 @@ internal object CentralManagerProvider {
     private var _delegate: CentralDelegate? = null
     private var _objCDelegate: CBCentralManagerDelegateProtocol? = null
     private var _delegateProxy: KmpBleDelegateProxy? = null
+
+    private val restoreId = atomic<String?>(null)
 
     private val delegate: CentralDelegate
         get() {
@@ -48,14 +50,14 @@ internal object CentralManagerProvider {
 
     private fun createDelegateAndProxy() {
         val impl =
-            if (restoreIdentifier != null) {
+            if (restoreId.value != null) {
                 CentralDelegateImpl(isRestorationEnabled = true)
             } else {
                 CentralDelegateImpl()
             }
         _delegate = impl
         _objCDelegate =
-            if (restoreIdentifier != null) {
+            if (restoreId.value != null) {
                 KmpBleCentralDelegateWithRestorationObjC(impl)
             } else {
                 KmpBleCentralDelegateObjC(impl)
@@ -85,8 +87,11 @@ internal object CentralManagerProvider {
      * with CBCentralManagerOptionRestoreIdentifierKey, enabling iOS to restore
      * BLE connections after app termination.
      */
-    @Volatile
-    internal var restoreIdentifier: String? = null
+    internal var restoreIdentifier: String?
+        get() = restoreId.value
+        set(value) {
+            restoreId.value = value
+        }
 
     /** Override for testing. Set before first access to [manager]. */
     internal var managerFactory: (() -> CBCentralManager)? = null

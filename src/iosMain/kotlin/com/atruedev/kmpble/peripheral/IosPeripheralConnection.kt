@@ -24,7 +24,7 @@ internal fun IosPeripheral.handleConnectionCallback(
         if (connected) {
             peripheralContext.processEvent(ConnectionEvent.LinkEstablished)
             // New discovery cycle on connect: increment generation and clear stale handles
-            discoveryGeneration++
+            discoveryGeneration.incrementAndGet()
             nativeCharMap.clear()
             nativeDescMap.clear()
             bridge.discoverServices()

@@ -1,6 +1,7 @@
 package com.atruedev.kmpble.peripheral
 
 import com.atruedev.kmpble.internal.CentralManagerProvider
+import kotlinx.atomicfu.atomic
 import platform.CoreBluetooth.CBCharacteristic
 import platform.CoreBluetooth.CBCharacteristicWriteWithResponse
 import platform.CoreBluetooth.CBCharacteristicWriteWithoutResponse
@@ -13,7 +14,6 @@ import platform.Foundation.NSData
 import platform.Foundation.NSError
 import platform.Foundation.NSNumber
 import platform.darwin.NSObject
-import kotlin.concurrent.Volatile
 
 internal sealed interface AppleCallbackEvent {
     data class DidDiscoverServices(
@@ -62,7 +62,12 @@ internal sealed interface AppleCallbackEvent {
 internal class ApplePeripheralBridge(
     internal val cbPeripheral: CBPeripheral,
 ) {
-    @Volatile internal var onEvent: ((AppleCallbackEvent) -> Unit)? = null
+    private val _onEvent = atomic<((AppleCallbackEvent) -> Unit)?>(null)
+    internal var onEvent: ((AppleCallbackEvent) -> Unit)?
+        get() = _onEvent.value
+        set(value) {
+            _onEvent.value = value
+        }
 
     // Kotlin/Native CBPeripheralDelegateProtocol:
     // didUpdateValueForCharacteristic and didWriteValueForCharacteristic have
@@ -74,7 +79,7 @@ internal class ApplePeripheralBridge(
                 peripheral: CBPeripheral,
                 didDiscoverServices: NSError?,
             ) {
-                onEvent?.invoke(AppleCallbackEvent.DidDiscoverServices(didDiscoverServices))
+                _onEvent.value?.invoke(AppleCallbackEvent.DidDiscoverServices(didDiscoverServices))
             }
 
             override fun peripheral(
@@ -82,7 +87,7 @@ internal class ApplePeripheralBridge(
                 didDiscoverCharacteristicsForService: CBService,
                 error: NSError?,
             ) {
-                onEvent?.invoke(
+                _onEvent.value?.invoke(
                     AppleCallbackEvent.DidDiscoverCharacteristics(
                         didDiscoverCharacteristicsForService.UUID.UUIDString,
                         error,
@@ -99,7 +104,7 @@ internal class ApplePeripheralBridge(
                 didUpdateValueForCharacteristic: CBCharacteristic,
                 error: NSError?,
             ) {
-                onEvent?.invoke(
+                _onEvent.value?.invoke(
                     AppleCallbackEvent.DidUpdateValueForCharacteristic(didUpdateValueForCharacteristic, error),
                 )
             }
@@ -110,7 +115,7 @@ internal class ApplePeripheralBridge(
                 didUpdateValueForDescriptor: CBDescriptor,
                 error: NSError?,
             ) {
-                onEvent?.invoke(
+                _onEvent.value?.invoke(
                     AppleCallbackEvent.DidUpdateValueForDescriptor(didUpdateValueForDescriptor, error),
                 )
             }
@@ -120,7 +125,7 @@ internal class ApplePeripheralBridge(
                 didReadRSSI: NSNumber,
                 error: NSError?,
             ) {
-                onEvent?.invoke(AppleCallbackEvent.DidReadRSSI(didReadRSSI, error))
+                _onEvent.value?.invoke(AppleCallbackEvent.DidReadRSSI(didReadRSSI, error))
             }
 
             override fun peripheral(
@@ -128,7 +133,7 @@ internal class ApplePeripheralBridge(
                 didOpenL2CAPChannel: CBL2CAPChannel?,
                 error: NSError?,
             ) {
-                onEvent?.invoke(AppleCallbackEvent.DidOpenL2CAPChannel(didOpenL2CAPChannel, error))
+                _onEvent.value?.invoke(AppleCallbackEvent.DidOpenL2CAPChannel(didOpenL2CAPChannel, error))
             }
         }
 
@@ -209,7 +214,7 @@ internal class ApplePeripheralBridge(
     }
 
     internal fun close() {
-        onEvent = null
+        _onEvent.value = null
         cbPeripheral.delegate = null
     }
 }

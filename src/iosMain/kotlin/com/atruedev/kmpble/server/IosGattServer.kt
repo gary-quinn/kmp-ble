@@ -7,6 +7,7 @@ import com.atruedev.kmpble.internal.IosPeripheralManagerDelegate
 import com.atruedev.kmpble.internal.PeripheralManagerProvider
 import com.atruedev.kmpble.logging.BleLogEvent
 import com.atruedev.kmpble.logging.logEvent
+import kotlinx.atomicfu.atomic
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineName
@@ -30,7 +31,6 @@ import platform.CoreBluetooth.CBPeripheralManager
 import platform.Foundation.NSData
 import platform.Foundation.NSError
 import kotlin.concurrent.AtomicInt
-import kotlin.concurrent.Volatile
 import kotlin.time.Duration
 import kotlin.uuid.Uuid
 
@@ -111,11 +111,19 @@ internal class IosGattServer(
         mutableMapOf<Uuid, suspend (Identifier, BleData, Boolean) -> GattStatus?>()
     internal val characteristicCache = mutableMapOf<Uuid, CBMutableCharacteristic>()
 
-    @Volatile
-    internal var readyToUpdate = CompletableDeferred<Unit>().apply { complete(Unit) }
+    private val _readyToUpdate = atomic(CompletableDeferred<Unit>().apply { complete(Unit) })
+    internal var readyToUpdate: CompletableDeferred<Unit>
+        get() = _readyToUpdate.value
+        set(value) {
+            _readyToUpdate.value = value
+        }
 
-    @Volatile
-    internal var pendingServiceAdd: CompletableDeferred<NSError?>? = null
+    private val _pendingServiceAdd = atomic<CompletableDeferred<NSError?>?>(null)
+    internal var pendingServiceAdd: CompletableDeferred<NSError?>?
+        get() = _pendingServiceAdd.value
+        set(value) {
+            _pendingServiceAdd.value = value
+        }
 
     internal val isOpen = AtomicInt(0)
     internal val isClosed = AtomicInt(0)

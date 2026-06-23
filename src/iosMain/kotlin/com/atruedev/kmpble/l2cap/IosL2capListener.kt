@@ -3,6 +3,7 @@
 package com.atruedev.kmpble.l2cap
 
 import com.atruedev.kmpble.internal.PeripheralManagerProvider
+import kotlinx.atomicfu.atomic
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -23,7 +24,6 @@ import kotlinx.coroutines.withTimeout
 import platform.CoreBluetooth.CBL2CAPChannel
 import platform.CoreBluetooth.CBL2CAPPSM
 import platform.CoreBluetooth.CBPeripheralManagerStatePoweredOn
-import kotlin.concurrent.Volatile
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Duration.Companion.seconds
 
@@ -31,9 +31,8 @@ internal class IosL2capListener : L2capListener {
     private val _isOpen = MutableStateFlow(false)
     override val isOpen: StateFlow<Boolean> = _isOpen.asStateFlow()
 
-    @Volatile
-    private var _psm: Int = 0
-    override val psm: Int get() = _psm
+    private val _psm = atomic(0)
+    override val psm: Int get() = _psm.value
 
     private val _incoming =
         MutableSharedFlow<L2capChannel>(
@@ -46,11 +45,9 @@ internal class IosL2capListener : L2capListener {
 
     private val acceptedChannels = Channel<CBL2CAPChannel>(Channel.BUFFERED)
 
-    @Volatile
-    private var publishedPsm: CBL2CAPPSM = 0u
+    private val publishedPsm = atomic<UShort>(0.toUShort())
 
-    @Volatile
-    private var closed: Boolean = false
+    private val closed = atomic(false)
 
     private var drainJob: Job? = null
 
@@ -58,7 +55,7 @@ internal class IosL2capListener : L2capListener {
         secure: Boolean,
         mtu: Int?,
     ) {
-        if (closed) throw L2capException.InvalidState("Listener has been closed")
+        if (closed.value) throw L2capException.InvalidState("Listener has been closed")
         if (_isOpen.value) throw L2capException.InvalidState("Listener already open")
 
         val delegate = PeripheralManagerProvider.delegate
@@ -77,7 +74,7 @@ internal class IosL2capListener : L2capListener {
         val publishResult = CompletableDeferred<CBL2CAPPSM>()
 
         delegate.onOpenL2capChannel = { cbChannel, error ->
-            if (closed || cbChannel == null || error != null) {
+            if (closed.value || cbChannel == null || error != null) {
                 cbChannel?.inputStream?.close()
                 cbChannel?.outputStream?.close()
             } else if (acceptedChannels.trySend(cbChannel).isFailure) {
@@ -109,7 +106,7 @@ internal class IosL2capListener : L2capListener {
                     }
                     delegate.onPublishL2cap = null
                 }
-                closed -> {
+                closed.value -> {
                     // Late successful delivery after open() already gave up - clean up.
                     try {
                         manager.unpublishL2CAPChannel(psmAssigned)
@@ -118,7 +115,7 @@ internal class IosL2capListener : L2capListener {
                     delegate.onPublishL2cap = null
                 }
                 else -> {
-                    publishedPsm = psmAssigned
+                    publishedPsm.value = psmAssigned
                     publishResult.complete(psmAssigned)
                     // Success path clears the delegate slot explicitly below.
                 }
@@ -140,19 +137,19 @@ internal class IosL2capListener : L2capListener {
                 // Mark closed BEFORE giving up on the callback so that any
                 // late onPublishL2cap delivery sees `closed == true` and
                 // unpublishes the assigned PSM itself.
-                closed = true
+                closed.value = true
                 delegate.onOpenL2capChannel = null
                 drainJob?.cancel()
                 drainJob = null
                 acceptedChannels.close()
                 // Defensive: if the callback raced ahead and stored the PSM
                 // before we set closed=true, drop it ourselves.
-                if (publishedPsm != 0.toUShort()) {
+                if (publishedPsm.value != 0.toUShort()) {
                     try {
-                        manager.unpublishL2CAPChannel(publishedPsm)
+                        manager.unpublishL2CAPChannel(publishedPsm.value)
                     } catch (_: Throwable) {
                     }
-                    publishedPsm = 0u
+                    publishedPsm.value = 0u
                 }
                 throw when (e) {
                     is L2capException -> e
@@ -170,14 +167,14 @@ internal class IosL2capListener : L2capListener {
         // skips clearing to keep this single deterministic owner.
         delegate.onPublishL2cap = null
 
-        publishedPsm = assigned
-        _psm = assigned.toInt()
+        publishedPsm.value = assigned
+        _psm.value = assigned.toInt()
         _isOpen.value = true
     }
 
     private suspend fun drainAcceptedChannels(mtu: Int) {
         for (cbChannel in acceptedChannels) {
-            if (closed) {
+            if (closed.value) {
                 cbChannel.inputStream?.close()
                 cbChannel.outputStream?.close()
                 continue
@@ -203,17 +200,17 @@ internal class IosL2capListener : L2capListener {
     }
 
     override fun close() {
-        if (closed) return
-        closed = true
+        if (closed.value) return
+        closed.value = true
         _isOpen.value = false
 
         val delegate = PeripheralManagerProvider.delegate
         val manager = PeripheralManagerProvider.manager
         delegate.onOpenL2capChannel = null
 
-        if (publishedPsm != 0.toUShort()) {
+        if (publishedPsm.value != 0.toUShort()) {
             try {
-                manager.unpublishL2CAPChannel(publishedPsm)
+                manager.unpublishL2CAPChannel(publishedPsm.value)
             } catch (_: Throwable) {
             }
         }

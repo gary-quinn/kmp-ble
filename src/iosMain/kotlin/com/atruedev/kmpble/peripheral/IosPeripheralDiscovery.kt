@@ -51,7 +51,7 @@ internal suspend fun IosPeripheral.handleServicesDiscovered(event: AppleCallback
         return
     }
 
-    val generation = discoveryGeneration
+    val generation = discoveryGeneration.value
     val pending = cbServices.map { it.UUID.UUIDString }.toSet()
     currentDiscovery = DiscoveryCycle(generation = generation, pendingServices = pending)
 
@@ -66,7 +66,7 @@ internal suspend fun IosPeripheral.handleCharacteristicsDiscovered(
     if (cycle == null) return // No active discovery cycle (discarded or completed)
 
     // Ignore stale callbacks from previous discovery generations
-    if (cycle.generation != discoveryGeneration) return
+    if (cycle.generation != discoveryGeneration.value) return
 
     (cycle.pendingServices as MutableSet<String>).remove(event.serviceUuid)
 
