@@ -49,7 +49,6 @@ import com.atruedev.kmpble.peripheral.internal.PeripheralRegistry
 import com.atruedev.kmpble.peripheral.internal.findCharacteristic
 import com.atruedev.kmpble.peripheral.internal.findDescriptor
 import com.atruedev.kmpble.quirks.QuirkRegistry
-import kotlinx.atomicfu.atomic
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -93,8 +92,8 @@ public class AndroidPeripheral internal constructor(
     override val mtu: StateFlow<Int> get() = peripheralContext.mtu
     override val dataLengthParameters: StateFlow<DataLengthParameters?> get() = peripheralContext.dataLengthParameters
 
-    private val _closed = atomic(false)
-    internal val isClosed: Boolean get() = _closed.value
+    @Volatile
+    internal var closed = false
 
     /**
      * Confined to [peripheralContext.dispatcher]. Read by [handleConnectionStateChanged]
@@ -165,8 +164,8 @@ public class AndroidPeripheral internal constructor(
 
     @OptIn(ExperimentalBleApi::class)
     override fun close() {
-        if (closed.get()) return
-        closed.set(true)
+        if (closed) return
+        closed = true
         reconnectionHandler.stop()
         pairingRequestHandler.closeSync()
         bondManager.stop()
