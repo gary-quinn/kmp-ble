@@ -154,19 +154,23 @@ internal class FakeGattResponder(
         val config = findConfig(characteristic)
         applyDelay(config)
         checkFailWith(config)
+        // Validate the specific write type against the characteristic property.
+        // A real BLE stack rejects writes when the property bit for the requested
+        // write type is not set in the characteristic declaration.
+        val writeTypePermitted =
+            when (writeType) {
+                WriteType.WithResponse -> characteristic.properties.write
+                WriteType.WithoutResponse -> characteristic.properties.writeWithoutResponse
+                WriteType.Signed -> characteristic.properties.signedWrite
+            }
+        if (!writeTypePermitted) {
+            throw BleException(
+                GattError("write", GattStatus.WriteNotPermitted),
+            )
+        }
         val handler = config?.writeHandler
         if (handler != null) {
             handler(data, writeType)
-        } else {
-            val hasWriteProperty =
-                characteristic.properties.write ||
-                    characteristic.properties.writeWithoutResponse ||
-                    characteristic.properties.signedWrite
-            if (!hasWriteProperty) {
-                throw BleException(
-                    GattError("write", GattStatus.WriteNotPermitted),
-                )
-            }
         }
     }
 
