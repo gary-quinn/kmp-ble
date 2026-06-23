@@ -112,8 +112,19 @@ internal actual class ObservationPersistence actual constructor() {
          * Must be set before any persistence operations.
          * Set once during library initialization (e.g., in Application.onCreate).
          */
-        @Volatile
-        var context: Context? = null
+        private val _context = AtomicBoolean(false)
+        var context: Context?
+            get() = _contextField
+            set(value) {
+                _contextField = value
+                _context.set(value != null)
+            }
+
+        @JvmStatic var _contextField: Context? = null
+            get() = _context.value
+            set(value) {
+                _context.value = value
+            }
 
         private const val PREFS_NAME = "com.atruedev.kmpble.cccd"
         private const val KEY_PREFIX = "obs"

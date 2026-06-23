@@ -1,6 +1,8 @@
 package com.atruedev.kmpble.internal
 
 import com.atruedev.kmpble.adapter.BluetoothAdapterState
+import kotlinx.atomicfu.atomic
+import kotlinx.atomicfu.update
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -17,7 +19,6 @@ import platform.CoreBluetooth.CBCentralManagerStateUnsupported
 import platform.CoreBluetooth.CBPeripheral
 import platform.Foundation.NSError
 import platform.Foundation.NSNumber
-import kotlin.concurrent.Volatile
 
 /**
  * Shared state and logic for CBCentralManager delegates.
@@ -39,19 +40,18 @@ internal class CentralDelegateState {
     internal val restoredPeripherals: SharedFlow<List<CBPeripheral>> = _restoredPeripherals.asSharedFlow()
 
     // Copy-on-write map - reads from CoreBluetooth queue, writes from Kotlin coroutines.
-    // @Volatile ensures visibility across threads. Mutation creates a new map instance.
-    @Volatile
-    private var connectionCallbacks = mapOf<String, (connected: Boolean, error: NSError?) -> Unit>()
+    // Atomic ensures visibility across threads; mutation always creates a new map instance.
+    private val connectionCallbacks = atomic(mapOf<String, (connected: Boolean, error: NSError?) -> Unit>())
 
     internal fun registerConnectionCallback(
         peripheralId: String,
         callback: (connected: Boolean, error: NSError?) -> Unit,
     ) {
-        connectionCallbacks = connectionCallbacks + (peripheralId to callback)
+        connectionCallbacks.update { it + (peripheralId to callback) }
     }
 
     internal fun unregisterConnectionCallback(peripheralId: String) {
-        connectionCallbacks = connectionCallbacks - peripheralId
+        connectionCallbacks.update { it - peripheralId }
     }
 
     internal fun handleAdapterStateUpdate(central: CBCentralManager) {
@@ -84,7 +84,7 @@ internal class CentralDelegateState {
 
     internal fun handleConnect(cbPeripheral: CBPeripheral) {
         val id = cbPeripheral.identifier.UUIDString
-        connectionCallbacks[id]?.invoke(true, null)
+        connectionCallbacks.value[id]?.invoke(true, null)
     }
 
     internal fun handleDisconnect(
@@ -92,7 +92,7 @@ internal class CentralDelegateState {
         error: NSError?,
     ) {
         val id = cbPeripheral.identifier.UUIDString
-        connectionCallbacks[id]?.invoke(false, error)
+        connectionCallbacks.value[id]?.invoke(false, error)
     }
 
     /**
@@ -103,7 +103,7 @@ internal class CentralDelegateState {
         peripheralId: String,
         error: NSError?,
     ) {
-        connectionCallbacks[peripheralId]?.invoke(false, error)
+        connectionCallbacks.value[peripheralId]?.invoke(false, error)
     }
 
     internal fun handleRestoredPeripherals(peripherals: List<CBPeripheral>) {

@@ -13,7 +13,7 @@ import platform.CoreBluetooth.CBPeripheralStateConnected
  * delivered the peripheral as connected.
  */
 internal suspend fun IosPeripheral.restoreFromStateRestorationExt(savedObservations: Set<PersistedObservation>) {
-    if (closed) return
+    if (_closed.value) return
 
     withContext(peripheralContext.dispatcher) {
         for (obs in savedObservations) {

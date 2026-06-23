@@ -44,6 +44,7 @@ import com.atruedev.kmpble.peripheral.internal.PeripheralContext
 import com.atruedev.kmpble.peripheral.internal.PeripheralRegistry
 import com.atruedev.kmpble.peripheral.internal.findCharacteristic
 import com.atruedev.kmpble.peripheral.internal.findDescriptor
+import kotlinx.atomicfu.atomic
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.flow.Flow
@@ -56,7 +57,6 @@ import platform.CoreBluetooth.CBCharacteristic
 import platform.CoreBluetooth.CBDescriptor
 import platform.CoreBluetooth.CBL2CAPChannel
 import platform.CoreBluetooth.CBPeripheral
-import kotlin.concurrent.Volatile
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
@@ -90,15 +90,14 @@ public class IosPeripheral(
     override val mtu: StateFlow<Int> get() = peripheralContext.mtu
     override val dataLengthParameters: StateFlow<DataLengthParameters?> get() = peripheralContext.dataLengthParameters
 
-    @Volatile
-    internal var closed = false
+    internal val _closed = atomic(false)
+    internal val isClosed: Boolean get() = _closed.value
 
     /** Stored during [connect] for GATT ops to reference per-operation timeouts. */
     internal var currentTimeouts: OperationTimeouts = OperationTimeouts()
 
     /** Discovery generation counter - increments on each new discovery cycle to detect stale callbacks. */
-    @Volatile
-    internal var discoveryGeneration = 0
+    internal val discoveryGeneration = atomic(0)
 
     /** Current discovery cycle state, confined to peripheralContext.dispatcher. */
     internal var currentDiscovery: DiscoveryCycle? = null
@@ -177,8 +176,8 @@ public class IosPeripheral(
     override fun removeBond(): BondRemovalResult = bondManager.removeBond()
 
     override fun close() {
-        if (closed) return
-        closed = true
+        if (_closed.value) return
+        _closed.value = true
         reconnectionHandler.stop()
         bondManager.stop()
         pairingRequestHandler.closeSync()
@@ -186,7 +185,7 @@ public class IosPeripheral(
         centralDelegate.unregisterConnectionCallback(identifier.value)
 
         // Invalidate in-flight discovery cycle callbacks before teardown.
-        discoveryGeneration++
+        discoveryGeneration.incrementAndGet()
         currentDiscovery = null
         bridge.close()
 
@@ -202,7 +201,7 @@ public class IosPeripheral(
         return withContext(peripheralContext.dispatcher) {
             val deferred = slots.armDiscovery()
             // New discovery cycle: increment generation to invalidate stale callbacks
-            discoveryGeneration++
+            discoveryGeneration.incrementAndGet()
             // Clear stale native handle mappings from previous cycle
             nativeCharMap.clear()
             nativeDescMap.clear()

@@ -17,7 +17,7 @@ import kotlin.time.Duration.Companion.seconds
  */
 
 internal fun IosPeripheral.checkNotClosed() {
-    check(!closed) { "Peripheral is closed" }
+    check(!_closed.value) { "Peripheral is closed" }
 }
 
 internal fun IosPeripheral.requireNativeCbChar(c: Characteristic): CBCharacteristic =

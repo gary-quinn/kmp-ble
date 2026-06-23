@@ -23,7 +23,7 @@ import kotlin.time.Duration.Companion.seconds
  */
 
 internal fun AndroidPeripheral.checkNotClosed() {
-    check(!closed) { "Peripheral is closed" }
+    check(!_closed.value) { "Peripheral is closed" }
 }
 
 internal fun AndroidPeripheral.requireNativeChar(c: Characteristic): BluetoothGattCharacteristic =
