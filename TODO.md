@@ -44,19 +44,19 @@
 - [x] #368: feat(parity): add BLE Direction Finding (AoA/AoD) API for Bluetooth 5.1+ (PR #427) [enhancement]
 - [x] #318: feat(connection): add LE Connection Subrating support (Bluetooth 5.3) [enhancement]
 - [x] #359: feat(parity): add LE Data Length Extension API for BLE 4.2+ throughput optimization (PR #426) [enhancement]
-- [ ] #332: feat(dfu): design and expose public OTA DFU transport API [enhancement]
+- [x] #332: feat(dfu): design and expose public OTA DFU transport API (PR #430) [enhancement]
 
 ## Testing
 - [x] #339: test(observation): add ObservationPersistence cross-platform roundtrip tests (PR #412) [enhancement, testing]
 - [ ] #335: test(scanner): add Android Scanner integration tests for scan modes, filters, and edge cases [enhancement, testing]
-- [ ] #328: test(connection): add edge-case tests for LE Connection Parameter Update negotiation [enhancement, testing]
-- [ ] #319: test(parity): add cross-platform GATT server integration conformance tests [enhancement, testing]
-- [ ] #312: test(benchmark): add iOS and Android benchmark runners for kmp-ble-benchmark [enhancement, testing]
-- [ ] #311: test(ios): add IosPeripheral GATT event handling integration tests [enhancement, testing]
-- [ ] #305: test(monitoring): add integration tests for PowerMonitor and LePowerController edge cases [enhancement, testing]
+- [x] #328: test(connection): add edge-case tests for LE Connection Parameter Update negotiation (PR #433) [enhancement, testing]
+- [x] #319: test(parity): add cross-platform GATT server integration conformance tests (PR #434) [enhancement, testing]
+- [x] #312: test(benchmark): add iOS and Android benchmark runners for kmp-ble-benchmark (PR #435) [enhancement, testing]
+- [x] #311: test(ios): add IosPeripheral GATT event handling integration tests (PR #436) [enhancement, testing]
+- [x] #305: test(monitoring): add integration tests for PowerMonitor and LePowerController edge cases (PR #437) [enhancement, testing]
 - [ ] #303: test(peripheral): add AndroidPeripheral GATT event handling integration tests [enhancement, testing]
-- [ ] #358: test(gatt): add GATT write-type conformance tests for Write Request vs Write Command [enhancement, testing]
-- [~] #369: test(advertiser): add cross-platform Advertiser conformance tests [enhancement, testing]
+- [x] #358: test(gatt): add GATT write-type conformance tests for Write Request vs Write Command (PR #438) [enhancement, testing]
+- [x] #369: test(advertiser): add cross-platform Advertiser conformance tests (PR #439) [enhancement, testing]
 - [ ] #378: test(l2cap): add L2CAP channel edge-case tests for disconnection and backpressure [enhancement, testing]
 
 ## Refactoring
