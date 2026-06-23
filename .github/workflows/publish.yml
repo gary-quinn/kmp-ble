@@ -67,36 +67,17 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Update Package.swift
+      - name: Upload Package.swift checksum artifact
         run: |
           VERSION=${{ github.ref_name }}
           CHECKSUM=$(swift package compute-checksum build/XCFrameworks/release/KmpBle.xcframework.zip)
-          git fetch origin main
-          git checkout main
-          cat > Package.swift << SWIFT
-          // swift-tools-version:5.9
-          import PackageDescription
+          echo "VERSION=$VERSION" > package-checksum.txt
+          echo "CHECKSUM=$CHECKSUM" >> package-checksum.txt
 
-          let package = Package(
-              name: "KmpBle",
-              platforms: [.iOS(.v15)],
-              products: [
-                  .library(name: "KmpBle", targets: ["KmpBle"]),
-              ],
-              targets: [
-                  .binaryTarget(
-                      name: "KmpBle",
-                      url: "https://github.com/gary-quinn/kmp-ble/releases/download/${VERSION}/KmpBle.xcframework.zip",
-                      checksum: "${CHECKSUM}"
-                  ),
-              ]
-          )
-          SWIFT
-          git config user.email "gary@atruedev.com"
-          git config user.name "Gary Quinn"
-          git add Package.swift
-          git diff --cached --quiet || git commit -m "update Package.swift for ${VERSION}"
-          git push origin main
+      - uses: actions/upload-artifact@eaeb399d4867acaad5ec458c095db6bc2c22c9e3 # v7.0.1
+        with:
+          name: package-checksum
+          path: package-checksum.txt
 
   deploy-api-docs:
     needs: publish
@@ -136,6 +117,40 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
+
+      - name: Download Package.swift checksum
+        uses: actions/download-artifact@5eb6532fd2b9a88089ae413748ffc7c2e85a3258 # v6.0.0
+        with:
+          name: package-checksum
+
+      - name: Read checksum
+        id: pkg
+        run: |
+          cat package-checksum.txt >> $GITHUB_OUTPUT
+
+      - name: Update Package.swift
+        run: |
+          VERSION="${{ steps.pkg.outputs.VERSION }}"
+          CHECKSUM="${{ steps.pkg.outputs.CHECKSUM }}"
+          cat > Package.swift << SWIFT
+          // swift-tools-version:5.9
+          import PackageDescription
+
+          let package = Package(
+              name: "KmpBle",
+              platforms: [.iOS(.v15)],
+              products: [
+                  .library(name: "KmpBle", targets: ["KmpBle"]),
+              ],
+              targets: [
+                  .binaryTarget(
+                      name: "KmpBle",
+                      url: "https://github.com/gary-quinn/kmp-ble/releases/download/${VERSION}/KmpBle.xcframework.zip",
+                      checksum: "${CHECKSUM}"
+                  ),
+              ]
+          )
+          SWIFT
 
       - name: Get release metadata
         id: meta
@@ -216,6 +231,7 @@ jobs:
             - `README.md` - dependency version
             - `CHANGELOG.md` - auto-generated entries from merged PRs
             - `llms.txt` - dependency version
+            - `Package.swift` - XCFramework checksum
 
             Release: ${{ needs.publish.outputs.release_url }}
           branch: update-docs-${{ needs.publish.outputs.version }}
