@@ -61,6 +61,53 @@ public data class ConnectionOptions(
     }
 
     /**
+     * Backward-compatible constructor that maps the legacy [timeout] parameter
+     * to [timeouts.connect].
+     *
+     * @deprecated Use [timeouts] = [OperationTimeouts]`(connect = timeout)` instead.
+     */
+    @Deprecated(
+        message = "Use timeouts = OperationTimeouts(connect = timeout) instead",
+        replaceWith =
+            ReplaceWith(
+                "ConnectionOptions(" +
+                    "autoConnect = autoConnect, " +
+                    "timeouts = OperationTimeouts(connect = timeout), " +
+                    "transportType = transportType, " +
+                    "phyMask = phyMask, " +
+                    "mtuRequest = mtuRequest, " +
+                    "bondingPreference = bondingPreference, " +
+                    "reconnectionStrategy = reconnectionStrategy, " +
+                    "gattOperationTimeout = gattOperationTimeout, " +
+                    "pairingHandler = pairingHandler" +
+                    ")",
+            ),
+        level = DeprecationLevel.WARNING,
+    )
+    public constructor(
+        autoConnect: Boolean = false,
+        timeout: Duration = 30.seconds,
+        transportType: TransportType = TransportType.Auto,
+        phyMask: PhyMask = PhyMask.LE_1M,
+        mtuRequest: Int? = null,
+        bondingPreference: BondingPreference = BondingPreference.IfRequired,
+        reconnectionStrategy: ReconnectionStrategy = ReconnectionStrategy.None,
+        gattOperationTimeout: Duration = 10.seconds,
+        pairingHandler: PairingHandler? = null,
+    ) : this(
+        autoConnect = autoConnect,
+        timeouts = OperationTimeouts(connect = timeout),
+        transportType = transportType,
+        phyMask = phyMask,
+        mtuRequest = mtuRequest,
+        bondingPreference = bondingPreference,
+        reconnectionStrategy = reconnectionStrategy,
+        gattOperationTimeout = gattOperationTimeout,
+        pairingHandler = pairingHandler,
+        gattRetryPolicy = RetryPolicy.NONE,
+    )
+
+    /**
      * Validate this configuration and return a list of advisory warnings.
      *
      * Warnings highlight common misconfigurations that are technically
