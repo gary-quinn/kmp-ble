@@ -16,12 +16,9 @@ import com.atruedev.kmpble.connection.Phy
 import com.atruedev.kmpble.connection.PhyUpdate
 import com.atruedev.kmpble.connection.ReconnectionStrategy
 import com.atruedev.kmpble.connection.State
-import com.atruedev.kmpble.connection.internal.ConnectionEvent
 import com.atruedev.kmpble.connection.internal.ReconnectionHandler
 import com.atruedev.kmpble.direction.DirectionFindingParameters
 import com.atruedev.kmpble.direction.DirectionFindingResult
-import com.atruedev.kmpble.error.ConnectionFailed
-import com.atruedev.kmpble.error.OperationFailed
 import com.atruedev.kmpble.gatt.BackpressureStrategy
 import com.atruedev.kmpble.gatt.Characteristic
 import com.atruedev.kmpble.gatt.Descriptor
@@ -41,18 +38,14 @@ import com.atruedev.kmpble.periodic.PastException
 import com.atruedev.kmpble.periodic.PeriodicAdvertisingSync
 import com.atruedev.kmpble.peripheral.internal.LifecycleSlots
 import com.atruedev.kmpble.peripheral.internal.PeripheralContext
-import com.atruedev.kmpble.peripheral.internal.PeripheralRegistry
 import com.atruedev.kmpble.peripheral.internal.findCharacteristic
 import com.atruedev.kmpble.peripheral.internal.findDescriptor
 import kotlinx.atomicfu.atomic
 import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.emptyFlow
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeout
 import platform.CoreBluetooth.CBCharacteristic
 import platform.CoreBluetooth.CBDescriptor
 import platform.CoreBluetooth.CBL2CAPChannel
@@ -67,7 +60,7 @@ public class IosPeripheral(
     override val identifier: Identifier = Identifier(cbPeripheral.identifier.UUIDString)
     internal val peripheralContext = PeripheralContext(identifier)
     internal val bridge = ApplePeripheralBridge(cbPeripheral)
-    private val centralDelegate = CentralManagerProvider.scanDelegate
+    internal val centralDelegate = CentralManagerProvider.scanDelegate
 
     internal val pendingOps = PendingOperations()
     internal val observationManager = ObservationManager(peripheralContext.dispatcher)
@@ -102,7 +95,7 @@ public class IosPeripheral(
     /** Current discovery cycle state, confined to peripheralContext.dispatcher. */
     internal var currentDiscovery: DiscoveryCycle? = null
 
-    private val reconnectionHandler =
+    internal val reconnectionHandler =
         ReconnectionHandler(
             scope = peripheralContext.scope,
             stateFlow = peripheralContext.state,
@@ -124,95 +117,16 @@ public class IosPeripheral(
         }
     }
 
-    override suspend fun connect(options: ConnectionOptions) {
-        checkNotClosed()
-        currentTimeouts = options.timeouts
-        pairingRequestHandler.setHandler(options.pairingHandler)
-        reconnectionHandler.start(options)
-        bondManager.start()
-        withContext(peripheralContext.dispatcher) {
-            peripheralContext.processEvent(ConnectionEvent.ConnectRequested)
-            peripheralContext.gattQueue.start(options.gattOperationTimeout)
+    override suspend fun connect(options: ConnectionOptions): Unit = connectInternal(options)
 
-            val deferred = slots.armConnect()
-            bridge.connect()
-
-            try {
-                withTimeout(options.timeouts.connect) { deferred.await() }
-            } catch (_: TimeoutCancellationException) {
-                bridge.disconnect()
-                peripheralContext.processEvent(
-                    ConnectionEvent.ConnectionLost(ConnectionFailed("Connection timeout")),
-                )
-            } finally {
-                slots.clearConnect()
-            }
-        }
-    }
-
-    override suspend fun disconnect() {
-        checkNotClosed()
-        reconnectionHandler.stop()
-        bondManager.stop()
-        withContext(peripheralContext.dispatcher) {
-            if (peripheralContext.state.value is State.Disconnected) return@withContext
-            peripheralContext.processEvent(ConnectionEvent.DisconnectRequested)
-            val deferred = slots.armDisconnect()
-            bridge.disconnect()
-
-            try {
-                withTimeout(DISCONNECT_TIMEOUT) { deferred.await() }
-            } catch (_: TimeoutCancellationException) {
-                peripheralContext.processEvent(
-                    ConnectionEvent.ConnectionLost(OperationFailed("Disconnect timeout")),
-                )
-            } finally {
-                slots.clearDisconnect()
-            }
-        }
-    }
+    override suspend fun disconnect(): Unit = disconnectInternal()
 
     @ExperimentalBleApi
     override fun removeBond(): BondRemovalResult = bondManager.removeBond()
 
-    override fun close() {
-        if (_closed.value) return
-        _closed.value = true
-        reconnectionHandler.stop()
-        bondManager.stop()
-        pairingRequestHandler.closeSync()
-        closeL2capChannels()
-        centralDelegate.unregisterConnectionCallback(identifier.value)
+    override fun close(): Unit = closeInternal()
 
-        // Invalidate in-flight discovery cycle callbacks before teardown.
-        discoveryGeneration.incrementAndGet()
-        currentDiscovery = null
-        bridge.close()
-
-        observationManager.onObservationsChanged = null
-        observationManager.clear()
-        StateRestorationHandler.default.clearPersistedObservations(identifier.value)
-        peripheralContext.close()
-        PeripheralRegistry.remove(identifier)
-    }
-
-    override suspend fun refreshServices(): List<DiscoveredService> {
-        checkNotClosed()
-        return withContext(peripheralContext.dispatcher) {
-            val deferred = slots.armDiscovery()
-            // New discovery cycle: increment generation to invalidate stale callbacks
-            discoveryGeneration.incrementAndGet()
-            // Clear stale native handle mappings from previous cycle
-            nativeCharMap.clear()
-            nativeDescMap.clear()
-            bridge.discoverServices()
-            try {
-                withTimeout(currentTimeouts.serviceDiscovery) { deferred.await() }
-            } finally {
-                slots.clearDiscovery()
-            }
-        }
-    }
+    override suspend fun refreshServices(): List<DiscoveredService> = refreshServicesInternal()
 
     override fun findCharacteristic(
         serviceUuid: Uuid,
