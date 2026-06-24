@@ -70,10 +70,10 @@
 - [ ] #370: refactor(ios): decompose IosL2capListener (236 lines) into focused handler modules [enhancement]
 - [ ] #376: refactor(android): decompose AndroidExtendedAdvertiser (260 lines) into focused handler modules [enhancement]
 - [ ] #441: refactor(common): decompose Peripheral.kt (373 lines) into focused handler modules [enhancement]
-- [ ] #459: refactor(ios): decompose IosPeripheral.kt (326 lines) — #367 follow-up [enhancement]
+- [ ] #459: refactor(ios): decompose IosPeripheral.kt (326 lines) - #367 follow-up [enhancement]
 - [ ] #469: refactor(server): decompose AndroidGattServer (287 lines) into focused handler modules [enhancement]
-- [ ] #483: refactor(android): decompose AndroidPeripheralConnection (253 lines) — single responsibility [enhancement]
-- [ ] #487: refactor(android): decompose AndroidGattBridge (253 lines) — GATT callback isolation [enhancement]
+- [ ] #483: refactor(android): decompose AndroidPeripheralConnection (253 lines) - single responsibility [enhancement]
+- [ ] #487: refactor(android): decompose AndroidGattBridge (253 lines) - GATT callback isolation [enhancement]
 - [ ] #490: refactor(common): decompose IsochronousStream.kt (282 lines) into focused modules [enhancement]
 
 ## Competitive Differentiation

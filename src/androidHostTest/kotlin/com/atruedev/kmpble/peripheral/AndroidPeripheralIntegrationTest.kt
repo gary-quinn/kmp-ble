@@ -9,8 +9,10 @@ import android.content.Context
 import com.atruedev.kmpble.connection.State
 import com.atruedev.kmpble.error.GattStatus
 import com.atruedev.kmpble.gatt.internal.ObservationPersistence
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Before
@@ -33,6 +35,7 @@ import kotlin.test.assertTrue
  * callback to verify state transitions, pending op completions, and
  * observation emissions.
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
 class AndroidPeripheralIntegrationTest {
     private lateinit var appContext: Context
@@ -188,7 +191,7 @@ class AndroidPeripheralIntegrationTest {
                 status = BluetoothGatt.GATT_SUCCESS,
             ),
         )
-        // No crash — pendingOps.complete handles missing slot gracefully
+        // No crash - pendingOps.complete handles missing slot gracefully
         peripheral.close()
     }
 
@@ -201,7 +204,7 @@ class AndroidPeripheralIntegrationTest {
                 status = BluetoothGatt.GATT_SUCCESS,
             ),
         )
-        // No crash — pendingOps.complete handles missing slot gracefully
+        // No crash - pendingOps.complete handles missing slot gracefully
         peripheral.close()
     }
 
@@ -225,7 +228,7 @@ class AndroidPeripheralIntegrationTest {
                 ),
             )
 
-            kotlinx.coroutines.delay(100)
+            testScheduler.advanceTimeBy(100)
             assertEquals(247, peripheral.mtu.value)
             assertEquals(244, peripheral.maximumWriteValueLength.value)
             peripheral.close()
@@ -312,7 +315,7 @@ class AndroidPeripheralIntegrationTest {
                 ),
             )
 
-            kotlinx.coroutines.delay(100)
+            testScheduler.advanceTimeBy(100)
             assertNull(peripheral.services.value)
             peripheral.close()
         }
@@ -334,7 +337,7 @@ class AndroidPeripheralIntegrationTest {
                 ),
             )
 
-            kotlinx.coroutines.delay(100)
+            testScheduler.advanceTimeBy(100)
             assertNotNull(peripheral.services.value)
             assertEquals(1, peripheral.services.value!!.size)
             assertEquals(
@@ -358,7 +361,7 @@ class AndroidPeripheralIntegrationTest {
                 ),
             )
 
-            kotlinx.coroutines.delay(100)
+            testScheduler.advanceTimeBy(100)
             assertFalse(
                 peripheral.pendingOps.has(com.atruedev.kmpble.gatt.internal.PendingOp.RssiRead),
             )
@@ -389,7 +392,7 @@ class AndroidPeripheralIntegrationTest {
                 ),
             )
 
-            kotlinx.coroutines.delay(100)
+            testScheduler.advanceTimeBy(100)
             job.cancel()
 
             assertEquals(1, phyUpdates.size)
