@@ -1,6 +1,7 @@
 package com.atruedev.kmpble.scanner
 
 import com.atruedev.kmpble.BleData
+import com.atruedev.kmpble.connection.Phy
 import com.atruedev.kmpble.testing.FakeScanner
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.flow.take
@@ -304,8 +305,8 @@ class AndroidScannerFiltersTest {
                         txPower(0)
                         isConnectable(false)
                         isLegacy(false)
-                        primaryPhy(com.atruedev.kmpble.connection.Phy.LeCoded)
-                        secondaryPhy(com.atruedev.kmpble.connection.Phy.Le2M)
+                        primaryPhy(Phy.LeCoded)
+                        secondaryPhy(Phy.Le2M)
                         advertisingSid(7)
                         periodicAdvertisingInterval(240)
                         dataStatus(DataStatus.Truncated)
@@ -326,8 +327,8 @@ class AndroidScannerFiltersTest {
             assertEquals(0, ad.txPower)
             assertFalse(ad.isConnectable)
             assertFalse(ad.isLegacy)
-            assertEquals(com.atruedev.kmpble.connection.Phy.LeCoded, ad.primaryPhy)
-            assertEquals(com.atruedev.kmpble.connection.Phy.Le2M, ad.secondaryPhy)
+            assertEquals(Phy.LeCoded, ad.primaryPhy)
+            assertEquals(Phy.Le2M, ad.secondaryPhy)
             assertEquals(7, ad.advertisingSid)
             assertEquals(240, ad.periodicAdvertisingInterval)
             assertEquals(DataStatus.Truncated, ad.dataStatus)
