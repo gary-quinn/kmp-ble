@@ -59,6 +59,7 @@ public class FakePeripheral internal constructor(
         ),
 ) : Peripheral {
     private val context = PeripheralContext(identifier)
+    internal val peripheralContext: PeripheralContext get() = context
     internal val observationManager = ObservationManager(observationDispatcher)
     private var closed = false
     internal val cccdWritesState = MutableStateFlow<List<CccdWrite>>(emptyList())

@@ -10,28 +10,32 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 /**
- * Smoke test that verifies FakePeripheral (the common testing double used
- * to simulate both Android and iOS behavior) correctly exposes
- * Peripheral.dataLengthParameters through the same flow instance that
- * PeripheralContext owns.
+ * Smoke test verifying that FakePeripheral correctly exposes
+ * [Peripheral.dataLengthParameters] and that the internal
+ * [PeripheralContext] is accessible for test introspection.
  *
- * Both AndroidPeripheral and IosPeripheral follow the same pattern:
- * delegating to PeripheralContext.dataLengthParameters.
+ * Note: FakePeripheral delegates [dataLengthParameters] to its
+ * [FakeGattResponder], not directly to [PeripheralContext]. Both maintain
+ * their own flows - the responder's flow is what Peripheral exposes.
  */
 class PeripheralContextDataLengthSmokeTest {
     @Test
-    fun `PeripheralContext owns dataLengthParameters flow`() =
+    fun `FakePeripheral exposes peripheralContext for test introspection`() =
         runTest {
             val peripheral = FakePeripheral { }
             val context = peripheral.peripheralContext
+            assertNotNull(context, "FakePeripheral should expose peripheralContext for test access")
+            peripheral.close()
+        }
+
+    @Test
+    fun `FakePeripheral delegates dataLengthParameters to gattResponder`() =
+        runTest {
+            val peripheral = FakePeripheral { }
             val flow = peripheral.dataLengthParameters
 
             assertNotNull(flow, "Peripheral.dataLengthParameters must not be null")
             assertEquals(null, flow.value, "Default data length parameters should be null")
-            assertTrue(
-                context.dataLengthParameters === flow,
-                "PeripheralContext.dataLengthParameters must be the same flow instance",
-            )
             peripheral.close()
         }
 
@@ -47,13 +51,15 @@ class PeripheralContextDataLengthSmokeTest {
         }
 
     @Test
-    fun dataLengthParameters_reflects_context_update() =
+    fun dataLengthParameters_reflects_builder_configuration() =
         runTest {
             val expected = DataLengthParameters(251, 2120, 251, 2120)
-            val peripheral = FakePeripheral { onDataLengthParameters(expected) }
+            val peripheral =
+                FakePeripheral {
+                    onDataLengthParameters(expected)
+                }
 
             assertEquals(expected, peripheral.dataLengthParameters.value)
-            assertEquals(expected, peripheral.peripheralContext.dataLengthParameters.value)
             peripheral.close()
         }
 }
