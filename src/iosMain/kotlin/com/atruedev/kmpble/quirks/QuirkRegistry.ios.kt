@@ -4,7 +4,7 @@ package com.atruedev.kmpble.quirks
  * On iOS, [QuirkProvider] implementations are registered manually
  * rather than discovered via ServiceLoader (which doesn't exist on Kotlin/Native).
  *
- * Call [registerIosProvider] during app startup before [QuirkRegistry.getInstance].
+ * Call [IosQuirkProviders.register] during app startup before [QuirkRegistry.getInstance].
  */
 public object IosQuirkProviders {
     private val providers = mutableListOf<QuirkProvider>()
