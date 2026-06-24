@@ -25,7 +25,7 @@ import kotlin.uuid.ExperimentalUuidApi
  * EmissionPolicy deduplication that run regardless of platform.
  */
 @OptIn(ExperimentalUuidApi::class)
-class AndroidScannerFiltersTest {
+class FakeScannerFiltersTest {
     // =========================================================================
     // Post-filter: name prefix matching (simulated via manual filtering)
     // =========================================================================

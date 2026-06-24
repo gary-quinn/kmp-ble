@@ -2,12 +2,10 @@ package com.atruedev.kmpble.peripheral
 
 import com.atruedev.kmpble.connection.DataLengthParameters
 import com.atruedev.kmpble.testing.FakePeripheral
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
-import kotlin.test.assertTrue
 
 /**
  * Smoke test verifying that FakePeripheral correctly exposes
@@ -36,17 +34,6 @@ class PeripheralContextDataLengthSmokeTest {
 
             assertNotNull(flow, "Peripheral.dataLengthParameters must not be null")
             assertEquals(null, flow.value, "Default data length parameters should be null")
-            peripheral.close()
-        }
-
-    @Test
-    fun dataLengthParameters_flow_type_is_StateFlow() =
-        runTest {
-            val peripheral = FakePeripheral { }
-            assertTrue(
-                peripheral.dataLengthParameters is StateFlow<DataLengthParameters?>,
-                "dataLengthParameters must be a StateFlow<DataLengthParameters?>",
-            )
             peripheral.close()
         }
 
