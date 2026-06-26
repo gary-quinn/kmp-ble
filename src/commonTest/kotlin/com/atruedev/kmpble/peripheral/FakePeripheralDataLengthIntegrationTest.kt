@@ -2,6 +2,7 @@ package com.atruedev.kmpble.peripheral
 
 import com.atruedev.kmpble.connection.DataLengthParameters
 import com.atruedev.kmpble.testing.FakePeripheral
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.launch
@@ -33,7 +34,7 @@ class FakePeripheralDataLengthIntegrationTest {
             val flow = peripheral.dataLengthParameters
 
             assertNotNull(flow, "dataLengthParameters must return a non-null StateFlow")
-            assertTrue(flow is kotlinx.coroutines.flow.StateFlow, "Must be StateFlow")
+            assertTrue(flow is StateFlow, "Must be StateFlow")
             peripheral.close()
         }
 
@@ -64,6 +65,31 @@ class FakePeripheralDataLengthIntegrationTest {
 
             job.join()
             assertEquals(expected, captured, "Flow should emit the configured value")
+            peripheral.close()
+        }
+
+    @Test
+    fun `flow emission updates after reconfiguration`() =
+        runTest {
+            val initial = DataLengthParameters(251, 2120, 251, 2120)
+            val updated = DataLengthParameters(200, 1500, 200, 1500)
+            val peripheral = FakePeripheral { onDataLengthParameters(initial) }
+
+            var captured: DataLengthParameters? = null
+            val job = launch {
+                peripheral.dataLengthParameters.take(2).collectLatest { captured = it }
+            }
+
+            // Wait for first emission (initial value)
+            job.join()
+            assertEquals(initial, captured, "Flow should first emit the configured value")
+
+            // Reconfigure
+            peripheral.apply { onDataLengthParameters(updated) }
+
+            // Wait for second emission
+            job.join()
+            assertEquals(updated, captured, "Flow should emit the updated value after reconfiguration")
             peripheral.close()
         }
 
@@ -143,7 +169,7 @@ class FakePeripheralDataLengthIntegrationTest {
             val expected = DataLengthParameters(150, 1000, 150, 1000)
             val peripheral = FakePeripheral { onDataLengthParameters(expected) }
 
-            repeat(3) { cycle ->
+            repeat(5) { cycle ->
                 peripheral.connect()
                 assertEquals(expected, peripheral.dataLengthParameters.value, "Cycle $cycle after connect")
 
