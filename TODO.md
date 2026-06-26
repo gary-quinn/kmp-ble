@@ -19,7 +19,7 @@
 - [x] #384: fix(concurrency): AdvertisingDataBuilder counter++ is a data race in commonMain -- use atomicfu or document thread-safety (PR #389) [bug]
 - [x] #385: fix(style): use imported Duration.ZERO/INFINITE instead of FQN kotlin.time.Duration.ZERO/INFINITE in OperationTimeoutsTest (PR #390) [bug, style]
 - [x] #391: docs: fix @throws GattException in connectAndDiscover KDoc -- class does not exist [bug, documentation]
-- [ ] #428: test: add FakePeripheral integration tests for dataLengthParameters property [bug, testing]
+- [x] #428: test: add FakePeripheral integration tests for dataLengthParameters property [bug, testing]
 
 ## Enhancements -- High Priority
 - [x] #302: feat(dx): add configurable operation timeouts with sensible defaults (PR #383)
