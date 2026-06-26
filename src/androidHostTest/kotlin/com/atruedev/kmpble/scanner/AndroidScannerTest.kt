@@ -225,7 +225,12 @@ class AndroidScannerTest {
     fun `scanModeToAndroid covers all ScanMode values`() {
         val results = ScanMode.entries.map { it to AndroidScanner.scanModeToAndroid(it) }
         assertEquals(3, results.size)
-        assertTrue(results.all { it.second == ScanSettings.SCAN_MODE_BALANCED || it.second == ScanSettings.SCAN_MODE_LOW_LATENCY })
+        assertTrue(
+            results.all {
+                it.second == ScanSettings.SCAN_MODE_BALANCED ||
+                    it.second == ScanSettings.SCAN_MODE_LOW_LATENCY
+            },
+        )
     }
 
     // =========================================================================
@@ -240,17 +245,19 @@ class AndroidScannerTest {
 
     @Test
     fun `ScannerConfig DSL sets custom scanMode`() {
-        val config = ScannerConfig().apply {
-            scanMode = ScanMode.LowLatency
-        }
+        val config = ScannerConfig()
+            .apply {
+                scanMode = ScanMode.LowLatency
+            }
         assertEquals(ScanMode.LowLatency, config.scanMode)
     }
 
     @Test
     fun `ScannerConfig DSL sets LowPower scanMode`() {
-        val config = ScannerConfig().apply {
-            scanMode = ScanMode.LowPower
-        }
+        val config = ScannerConfig()
+            .apply {
+                scanMode = ScanMode.LowPower
+            }
         assertEquals(ScanMode.LowPower, config.scanMode)
     }
 }
