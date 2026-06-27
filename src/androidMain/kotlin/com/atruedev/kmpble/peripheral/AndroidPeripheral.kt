@@ -68,7 +68,7 @@ public class AndroidPeripheral internal constructor(
 
     override val identifier: Identifier = Identifier(device.address)
     internal val peripheralContext = PeripheralContext(identifier)
-    internal val bridge = AndroidGattBridge(device, context)
+    internal val bridge = atomic<AndroidGattBridge?>(null)
 
     internal val pendingOps = PendingOperations()
     internal val observationManager = ObservationManager(peripheralContext.dispatcher)
@@ -125,7 +125,7 @@ public class AndroidPeripheral internal constructor(
         MutableStateFlow<List<AndroidL2capChannel>>(emptyList())
 
     init {
-        bridge.onEvent = { event -> handleGattEvent(event) }
+        bridge.onEvent.update { { event -> handleGattEvent(event) } }
         observationManager.onObservationsChanged = { observations ->
             observationPersistence.save(identifier.value, observations)
         }
