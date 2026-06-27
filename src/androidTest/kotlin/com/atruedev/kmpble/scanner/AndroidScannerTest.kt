@@ -68,31 +68,21 @@ class AndroidScannerTest {
     }
 
     @Test
-    fun `scanModeToAndroid LowPower returns SCAN_MODE_LOW_POWER`() {
+    fun `scanModeToAndroid LowPower returns SCAN_MODE_BALANCED`() {
         assertEquals(
-            ScanSettings.SCAN_MODE_LOW_POWER,
+            ScanSettings.SCAN_MODE_BALANCED,
             AndroidScanner.scanModeToAndroid(ScanMode.LowPower),
-        )
-    }
-
-    @Test
-    fun `scanModeToAndroid Opportunistic returns SCAN_MODE_OPPORTUNISTIC`() {
-        assertEquals(
-            ScanSettings.SCAN_MODE_OPPORTUNISTIC,
-            AndroidScanner.scanModeToAndroid(ScanMode.Opportunistic),
         )
     }
 
     @Test
     fun `scanModeToAndroid covers all ScanMode enum values`() {
         val results = ScanMode.entries.map { it to AndroidScanner.scanModeToAndroid(it) }
-        assertEquals(4, results.size)
+        assertEquals(3, results.size)
         results.forEach { (_, value) ->
             assertTrue(
                 value == ScanSettings.SCAN_MODE_BALANCED ||
-                    value == ScanSettings.SCAN_MODE_LOW_LATENCY ||
-                    value == ScanSettings.SCAN_MODE_LOW_POWER ||
-                    value == ScanSettings.SCAN_MODE_OPPORTUNISTIC,
+                    value == ScanSettings.SCAN_MODE_LOW_LATENCY,
             )
         }
     }
