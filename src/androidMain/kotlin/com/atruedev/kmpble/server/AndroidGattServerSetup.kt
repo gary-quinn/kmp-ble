@@ -63,13 +63,13 @@ internal suspend fun AndroidGattServerState.openInternal(instanceLock: AtomicBoo
     for (serviceDef in serviceDefinitions) {
         val nativeService = buildNativeService(serviceDef)
         val deferred = CompletableDeferred<Int>()
-        pendingServiceAdd = deferred
+        pendingServiceAdd.update { deferred }
         if (!server.addService(nativeService)) {
-            pendingServiceAdd = null
+            pendingServiceAdd.update { null }
             throw ServerException.OpenFailed("addService returned false for ${serviceDef.uuid}")
         }
         val addStatus = deferred.await()
-        pendingServiceAdd = null
+        pendingServiceAdd.update { null }
         if (addStatus != BluetoothGatt.GATT_SUCCESS) {
             throw ServerException.OpenFailed(
                 "addService failed for ${serviceDef.uuid} with status ${addStatus.toGattStatus()}",
