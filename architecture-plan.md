@@ -1,31 +1,29 @@
-# Issue #441: Decompose Peripheral.kt (373 lines) into focused handler modules
+# Issue #303: Add AndroidPeripheral GATT event handling integration tests
 
 ## Scope
-Decompose Peripheral.kt (373 lines) into focused modules by responsibility:
-- **PeripheralConnection.kt** - connect/disconnect/close/bond/lifecycle (lines 37-48, 119-211)
-- **PeripheralGatt.kt** - GATT operations (read/write/observe/descriptors/MTU) (lines 66-180)
-- **PeripheralInfo.kt** - state discovery/info properties (services/findCharacteristics/findDescriptors/rssi/phy/DLE) (lines 51-65, 247-372)
-- **PeripheralExtensions.kt** - convenience extensions (dump/whenReady/connectAndDiscover) (already extracted)
-- **PeripheralFactory.kt** - Advertisement.toPeripheral() (already extracted)
-- **PeripheralDump.kt** - dump() and related helpers (from PeripheralExtensions.kt)
+Create integration tests for AndroidPeripheral GATT event handling:
+- Notification/indication callbacks
+- Characteristic read/write events
+- Service discovery completion
+- Connection state changes
+- CCCD configuration for observations
 
 ## Files to touch
-- `src/commonMain/kotlin/com/atruedev/kmpble/peripheral/Peripheral.kt` - split into modules
-- `src/commonMain/kotlin/com/atruedev/kmpble/peripheral/PeripheralConnection.kt` (new)
-- `src/commonMain/kotlin/com/atruedev/kmpble/peripheral/PeripheralGatt.kt` (new)
-- `src/commonMain/kotlin/com/atruedev/kmpble/peripheral/PeripheralInfo.kt` (new)
-- `src/commonMain/kotlin/com/atruedev/kmpble/peripheral/PeripheralDump.kt` (new)
+- `src/androidHostTest/kotlin/com/atruedev/kmpble/peripheral/AndroidPeripheralGATTTest.kt` (new)
+- `src/androidMain/kmpble/peripheral/AndroidPeripheral.kt` (read-only)
 
 ## Risks
-- API surface remains identical - no breaking changes
-- Must verify all implementations (AndroidPeripheral, IosPeripheral) still compile after split
-- Test coverage must remain - existing tests should still pass
+- Must match real Android BluetoothGatt callback timing
+- Platform-specific event ordering must be preserved
+- Test must use androidHostTest runner with mocked BluetoothGatt callbacks
 
 ## Implementation Strategy
-1. Create PeripheralConnection.kt with connection/bond methods
-2. Create PeripheralGatt.kt with GATT operations
-3. Create PeripheralInfo.kt with discovery/info properties
-4. Create PeripheralDump.kt with dump() implementation
-5. Delete duplicate content from Peripheral.kt (keep imports/empty interface)
-6. Verify compilation: `./gradlew compileKotlinJvm`
-7. Run tests: `./gradlew allTests`
+1. Create AndroidPeripheralGATTTest.kt with test scenarios
+2. Use androidHostTest runner with mocked Android APIs
+3. Test notification/indication callbacks
+4. Test characteristic read/write events
+5. Test service discovery completion
+6. Test connection state changes
+7. Verify CCCD configuration for observations
+8. Run tests: `./gradlew testAndroidDebugUnitTest`
+9. Verify all tests pass
