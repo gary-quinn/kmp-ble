@@ -53,7 +53,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
@@ -98,7 +97,7 @@ public class AndroidPeripheral internal constructor(
      * invoked from multiple threads (e.g., reconnection handler + user cancel).
      * Uses [AtomicBoolean] so the CAS reads/writes are lock-free.
      */
-    private val closed = AtomicBoolean(false)
+    private val closed = atomic<Boolean>(false)
 
     internal val isClosed: Boolean get() = closed.value
 
@@ -125,7 +124,7 @@ public class AndroidPeripheral internal constructor(
         MutableStateFlow<List<AndroidL2capChannel>>(emptyList())
 
     init {
-        bridge.onEvent = { event -> handleGattEvent(event) }
+        bridge.onEvent.value = { event -> handleGattEvent(event) }
         observationManager.onObservationsChanged = { observations ->
             observationPersistence.save(identifier.value, observations)
         }

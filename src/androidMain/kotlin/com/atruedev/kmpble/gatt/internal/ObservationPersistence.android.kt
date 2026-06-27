@@ -32,7 +32,7 @@ internal actual class ObservationPersistence actual constructor() {
      */
     private val prefs by lazy {
         val ctx =
-            context
+            context.value
                 ?: throw IllegalStateException(
                     "ObservationPersistence.context must be set before use. " +
                         "Call ObservationPersistence.context = applicationContext during initialization.",
