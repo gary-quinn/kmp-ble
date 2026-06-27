@@ -254,7 +254,7 @@ internal class AndroidGattServer(
         } catch (_: SecurityException) {
             // Ignore permission errors on close
         }
-        state.nativeServer = null
+        state.nativeServer.update { null }
 
         // Cancel all pending notifications/indications
         for ((_, deferred) in state.pendingNotifySent) {

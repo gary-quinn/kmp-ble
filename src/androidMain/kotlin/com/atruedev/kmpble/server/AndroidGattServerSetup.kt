@@ -14,6 +14,8 @@ import android.content.Context
 import com.atruedev.kmpble.logging.BleLogEvent
 import com.atruedev.kmpble.logging.logEvent
 import com.atruedev.kmpble.peripheral.toGattStatus
+import kotlinx.atomicfu.atomic
+import kotlinx.atomicfu.update
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.withTimeout
@@ -49,7 +51,7 @@ internal suspend fun AndroidGattServerState.openInternal(instanceLock: AtomicBoo
             throw ServerException.OpenFailed("Missing BLUETOOTH_CONNECT permission", e)
         } ?: throw ServerException.OpenFailed("openGattServer returned null")
 
-    nativeServer = server
+    nativeServer.update { server }
 
     // Register handlers from service definitions
     for (serviceDef in serviceDefinitions) {
@@ -63,13 +65,13 @@ internal suspend fun AndroidGattServerState.openInternal(instanceLock: AtomicBoo
     for (serviceDef in serviceDefinitions) {
         val nativeService = buildNativeService(serviceDef)
         val deferred = CompletableDeferred<Int>()
-        pendingServiceAdd = deferred
+        pendingServiceAdd.update { deferred }
         if (!server.addService(nativeService)) {
-            pendingServiceAdd = null
+            pendingServiceAdd.update { null }
             throw ServerException.OpenFailed("addService returned false for ${serviceDef.uuid}")
         }
         val addStatus = deferred.await()
-        pendingServiceAdd = null
+        pendingServiceAdd.update { null }
         if (addStatus != BluetoothGatt.GATT_SUCCESS) {
             throw ServerException.OpenFailed(
                 "addService failed for ${serviceDef.uuid} with status ${addStatus.toGattStatus()}",
