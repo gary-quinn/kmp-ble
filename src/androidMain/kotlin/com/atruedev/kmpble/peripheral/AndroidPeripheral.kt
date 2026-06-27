@@ -49,10 +49,14 @@ import com.atruedev.kmpble.peripheral.internal.PeripheralRegistry
 import com.atruedev.kmpble.peripheral.internal.findCharacteristic
 import com.atruedev.kmpble.peripheral.internal.findDescriptor
 import com.atruedev.kmpble.quirks.QuirkRegistry
+import kotlinx.atomicfu.update
+import kotlinx.atomicfu.value
+import kotlinx.atomicfu.valueOrNull
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
@@ -92,8 +96,14 @@ public class AndroidPeripheral internal constructor(
     override val mtu: StateFlow<Int> get() = peripheralContext.mtu
     override val dataLengthParameters: StateFlow<DataLengthParameters?> get() = peripheralContext.dataLengthParameters
 
-    @Volatile
-    internal var closed = false
+    /**
+     * Guard for [close]. The check is atomic to prevent double-close races when
+     * invoked from multiple threads (e.g., reconnection handler + user cancel).
+     * Uses [AtomicBoolean] so the CAS reads/writes are lock-free.
+     */
+    private val closed = AtomicBoolean(false)
+
+    internal val isClosed: Boolean get() = closed.value
 
     /**
      * Confined to [peripheralContext.dispatcher]. Read by [handleConnectionStateChanged]
@@ -164,17 +174,17 @@ public class AndroidPeripheral internal constructor(
 
     @OptIn(ExperimentalBleApi::class)
     override fun close() {
-        if (closed) return
-        closed = true
-        reconnectionHandler.stop()
-        pairingRequestHandler.closeSync()
-        bondManager.stop()
-        closeL2capChannels()
-        bridge.close()
-        observationManager.clear()
-        observationPersistence.clear(identifier.value)
-        peripheralContext.close()
-        PeripheralRegistry.remove(identifier)
+        if (closed.compareAndSet(false, true)) {
+            reconnectionHandler.stop()
+            pairingRequestHandler.closeSync()
+            bondManager.stop()
+            closeL2capChannels()
+            bridge.close()
+            observationManager.clear()
+            observationPersistence.clear(identifier.value)
+            peripheralContext.close()
+            PeripheralRegistry.remove(identifier)
+        }
     }
 
     @ExperimentalBleApi

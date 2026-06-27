@@ -15,7 +15,8 @@ import com.atruedev.kmpble.connection.ConnectionOptions
 import com.atruedev.kmpble.connection.TransportType
 import com.atruedev.kmpble.logging.BleLogEvent
 import com.atruedev.kmpble.logging.logEvent
-import kotlin.concurrent.Volatile
+import kotlinx.atomicfu.atomic
+import kotlinx.atomicfu.update
 
 internal class AndroidGattBridge(
     private val device: BluetoothDevice,
@@ -24,9 +25,18 @@ internal class AndroidGattBridge(
     private var callbackThread: HandlerThread? = null
     private var callbackHandler: Handler? = null
 
-    @Volatile private var gatt: BluetoothGatt? = null
+    /**
+     * Atomic reference to the connected GATT handle. Null when no GATT connection
+     * is active. Used across callback thread and main thread.
+     */
+    private val gatt = atomic<BluetoothGatt?>(null)
 
-    @Volatile internal var onEvent: ((GattCallbackEvent) -> Unit)? = null
+    /**
+     * Atomic reference to the event callback handler. Updated when a new GATT
+     * connection is established. Set to null during close() to prevent events
+     * after bridge shutdown.
+     */
+    val onEvent = atomic<((GattCallbackEvent) -> Unit)?>(null)
 
     private val gattCallback =
         object : BluetoothGattCallback() {
@@ -35,14 +45,14 @@ internal class AndroidGattBridge(
                 status: Int,
                 newState: Int,
             ) {
-                onEvent?.invoke(GattCallbackEvent.ConnectionStateChanged(status, newState))
+                onEvent.value?.invoke(GattCallbackEvent.ConnectionStateChanged(status, newState))
             }
 
             override fun onServicesDiscovered(
                 gatt: BluetoothGatt,
                 status: Int,
             ) {
-                onEvent?.invoke(GattCallbackEvent.ServicesDiscovered(status, gatt.services.orEmpty()))
+                onEvent.value?.invoke(GattCallbackEvent.ServicesDiscovered(status, gatt.services.orEmpty()))
             }
 
             override fun onMtuChanged(
@@ -50,7 +60,7 @@ internal class AndroidGattBridge(
                 mtu: Int,
                 status: Int,
             ) {
-                onEvent?.invoke(GattCallbackEvent.MtuChanged(mtu, status))
+                onEvent.value?.invoke(GattCallbackEvent.MtuChanged(mtu, status))
             }
 
             override fun onCharacteristicRead(
@@ -59,7 +69,7 @@ internal class AndroidGattBridge(
                 value: ByteArray,
                 status: Int,
             ) {
-                onEvent?.invoke(GattCallbackEvent.CharacteristicRead(characteristic, value, status))
+                onEvent.value?.invoke(GattCallbackEvent.CharacteristicRead(characteristic, value, status))
             }
 
             override fun onCharacteristicWrite(
@@ -67,7 +77,7 @@ internal class AndroidGattBridge(
                 characteristic: BluetoothGattCharacteristic,
                 status: Int,
             ) {
-                onEvent?.invoke(GattCallbackEvent.CharacteristicWrite(characteristic, status))
+                onEvent.value?.invoke(GattCallbackEvent.CharacteristicWrite(characteristic, status))
             }
 
             override fun onCharacteristicChanged(
@@ -75,7 +85,7 @@ internal class AndroidGattBridge(
                 characteristic: BluetoothGattCharacteristic,
                 value: ByteArray,
             ) {
-                onEvent?.invoke(GattCallbackEvent.CharacteristicChanged(characteristic, value))
+                onEvent.value?.invoke(GattCallbackEvent.CharacteristicChanged(characteristic, value))
             }
 
             override fun onDescriptorRead(
@@ -84,7 +94,7 @@ internal class AndroidGattBridge(
                 status: Int,
                 value: ByteArray,
             ) {
-                onEvent?.invoke(GattCallbackEvent.DescriptorRead(descriptor, value, status))
+                onEvent.value?.invoke(GattCallbackEvent.DescriptorRead(descriptor, value, status))
             }
 
             override fun onDescriptorWrite(
@@ -92,7 +102,7 @@ internal class AndroidGattBridge(
                 descriptor: BluetoothGattDescriptor,
                 status: Int,
             ) {
-                onEvent?.invoke(GattCallbackEvent.DescriptorWrite(descriptor, status))
+                onEvent.value?.invoke(GattCallbackEvent.DescriptorWrite(descriptor, status))
             }
 
             override fun onReadRemoteRssi(
@@ -100,7 +110,7 @@ internal class AndroidGattBridge(
                 rssi: Int,
                 status: Int,
             ) {
-                onEvent?.invoke(GattCallbackEvent.ReadRemoteRssi(rssi, status))
+                onEvent.value?.invoke(GattCallbackEvent.ReadRemoteRssi(rssi, status))
             }
 
             override fun onPhyUpdate(
@@ -109,7 +119,7 @@ internal class AndroidGattBridge(
                 rxPhy: Int,
                 status: Int,
             ) {
-                onEvent?.invoke(GattCallbackEvent.PhyUpdated(txPhy, rxPhy, status))
+                onEvent.value?.invoke(GattCallbackEvent.PhyUpdated(txPhy, rxPhy, status))
             }
 
             override fun onPhyRead(
@@ -118,7 +128,7 @@ internal class AndroidGattBridge(
                 rxPhy: Int,
                 status: Int,
             ) {
-                onEvent?.invoke(GattCallbackEvent.PhyRead(txPhy, rxPhy, status))
+                onEvent.value?.invoke(GattCallbackEvent.PhyRead(txPhy, rxPhy, status))
             }
         }
 
@@ -135,7 +145,7 @@ internal class AndroidGattBridge(
         callbackThread = thread
         callbackHandler = Handler(thread.looper)
 
-        gatt =
+        gatt.update {
             device.connectGatt(
                 context,
                 options.autoConnect,
@@ -144,52 +154,53 @@ internal class AndroidGattBridge(
                 options.phyMask.value,
                 callbackHandler,
             )
-        return gatt
+        }
+        return gatt.value
     }
 
-    internal fun discoverServices(): Boolean = gatt?.discoverServices() ?: false
+    internal fun discoverServices(): Boolean = gatt.value?.discoverServices() ?: false
 
-    internal fun requestMtu(mtu: Int): Boolean = gatt?.requestMtu(mtu) ?: false
+    internal fun requestMtu(mtu: Int): Boolean = gatt.value?.requestMtu(mtu) ?: false
 
-    internal fun requestConnectionPriority(priority: Int): Boolean = gatt?.requestConnectionPriority(priority) ?: false
+    internal fun requestConnectionPriority(priority: Int): Boolean = gatt.value?.requestConnectionPriority(priority) ?: false
 
     internal fun setPreferredPhy(
         txPhyMask: Int,
         rxPhyMask: Int,
         phyOptions: Int,
     ): Boolean {
-        val g = gatt ?: return false
+        val g = gatt.value ?: return false
         g.setPreferredPhy(txPhyMask, rxPhyMask, phyOptions)
         return true
     }
 
     internal fun readPhy(): Boolean {
-        val g = gatt ?: return false
+        val g = gatt.value ?: return false
         g.readPhy()
         return true
     }
 
     internal fun readCharacteristic(characteristic: BluetoothGattCharacteristic): Boolean =
-        gatt?.readCharacteristic(characteristic) ?: false
+        gatt.value?.readCharacteristic(characteristic) ?: false
 
     internal fun writeCharacteristic(
         characteristic: BluetoothGattCharacteristic,
         value: ByteArray,
         writeType: Int,
     ): Boolean {
-        val g = gatt ?: return false
+        val g = gatt.value ?: return false
         val result = g.writeCharacteristic(characteristic, value, writeType)
         return result == BluetoothGatt.GATT_SUCCESS
     }
 
     internal fun readDescriptor(descriptor: BluetoothGattDescriptor): Boolean =
-        gatt?.readDescriptor(descriptor) ?: false
+        gatt.value?.readDescriptor(descriptor) ?: false
 
     internal fun writeDescriptor(
         descriptor: BluetoothGattDescriptor,
         value: ByteArray,
     ): Boolean {
-        val g = gatt ?: return false
+        val g = gatt.value ?: return false
         val result = g.writeDescriptor(descriptor, value)
         return result == BluetoothGatt.GATT_SUCCESS
     }
@@ -197,9 +208,9 @@ internal class AndroidGattBridge(
     internal fun setCharacteristicNotification(
         characteristic: BluetoothGattCharacteristic,
         enable: Boolean,
-    ): Boolean = gatt?.setCharacteristicNotification(characteristic, enable) ?: false
+    ): Boolean = gatt.value?.setCharacteristicNotification(characteristic, enable) ?: false
 
-    internal fun readRemoteRssi(): Boolean = gatt?.readRemoteRssi() ?: false
+    internal fun readRemoteRssi(): Boolean = gatt.value?.readRemoteRssi() ?: false
 
     /**
      * Clears the GATT service cache via the internal `BluetoothGatt.refresh()` API.
@@ -215,7 +226,7 @@ internal class AndroidGattBridge(
      * after bonding. See [com.atruedev.kmpble.quirks.BleQuirks.RefreshServicesOnBond].
      */
     internal fun refreshDeviceCache(): Boolean {
-        val g = gatt ?: return false
+        val g = gatt.value ?: return false
         return try {
             val method = g.javaClass.getMethod("refresh")
             method.invoke(g) as? Boolean ?: false
@@ -232,20 +243,20 @@ internal class AndroidGattBridge(
     }
 
     internal fun disconnect() {
-        gatt?.disconnect()
+        gatt.value?.disconnect()
     }
 
     /** Release the BluetoothGatt handle but keep the bridge reusable for reconnection. */
     internal fun releaseGatt() {
-        gatt?.close()
-        gatt = null
+        gatt.value?.close()
+        gatt.update { null }
     }
 
     /** Terminal - release all resources including the callback thread. */
     internal fun close() {
-        gatt?.close()
-        gatt = null
-        onEvent = null
+        gatt.value?.close()
+        gatt.update { null }
+        onEvent.update { null }
         callbackThread?.quitSafely()
         callbackThread = null
         callbackHandler = null
