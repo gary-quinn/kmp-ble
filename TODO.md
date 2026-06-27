@@ -1,8 +1,9 @@
-# kmp-ble TODO -- 49 issues (33 done, 16 open)
+# kmp-ble TODO -- 49 issues (33 done, 17 open)
 # Implementer: pick first unchecked item, mark [~] while working, [x] when merged.
 # Reviewer: auto-approve + merge green PRs.
 
 ## Critical Bugs
+- [ ] #CRIT: Architectural regression - broken interface extraction merged to main (93a00ea), reverted (209a5a4). Extracted interfaces had missing imports (StateFlow, Flow), no implementations, no cross-platform coverage. Public API surface introduced without compilation verification. Fix: add architecture review gate for public API additions, enforce compileKotlinJvm in PR checklist, redesign #441 extraction approach with proper imports and implementations. [bug, priority: critical, architectural-regression]
 - [x] #424: CRITICAL -- LE Connection Subrating commits pushed directly to main bypassing PR #423. PR #423 is still OPEN (never merged). Revert both commits from main, force-push main back to 8ba9505, merge PR #423 through proper workflow. [bug, priority: critical, process-violation]
 - [x] #396: CRITICAL -- #293 CCC persistence pushed directly to main (commit da3bb55), bypassing PR gates. Hand-rolled JsonArrayEncoder in androidMain (~170 lines) has zero Android-path test coverage. serializeBackpressure/deserializeBackpressure duplicated across androidMain and iosMain. Stale KDoc in ObservationPersistence.kt says "On Android, this is a no-op". Fix: revert, file proper PR, extract shared serialization to commonMain, add Android SharedPreferences roundtrip tests, update KDoc. [bug, priority: critical, process-violation]
 - [x] #397: CRITICAL -- PR #396 merged but autopilot directive items remain unresolved: (1) JsonArrayEncoder (~114 lines hand-rolled JSON parser, androidMain) has ZERO Android-path test coverage -- jvmTest only tests JVM in-memory impl, SharedPreferences code path untested. (2) serializeBackpressure/deserializeBackpressure duplicated identically in androidMain:110-127 AND iosMain:142-159 -- extract to commonMain. (3) Stale KDoc at ObservationPersistence.kt:19 says "On Android, this is a no-op" -- Android now uses SharedPreferences. Fix: extract serialization to commonMain, add androidHostTest for SharedPreferences+JsonArrayEncoder roundtrip, update KDoc. [bug, priority: critical, test-gap]
@@ -19,12 +20,12 @@
 - [x] #384: fix(concurrency): AdvertisingDataBuilder counter++ is a data race in commonMain -- use atomicfu or document thread-safety (PR #389) [bug]
 - [x] #385: fix(style): use imported Duration.ZERO/INFINITE instead of FQN kotlin.time.Duration.ZERO/INFINITE in OperationTimeoutsTest (PR #390) [bug, style]
 - [x] #391: docs: fix @throws GattException in connectAndDiscover KDoc -- class does not exist [bug, documentation]
-|- [~] #428: test: add FakePeripheral integration tests for dataLengthParameters property [bug, testing] (plan: architecture-plans/issue-428.md)
+||- [~] #428: test: add FakePeripheral integration tests for dataLengthParameters property [bug, testing] (plan: architecture-plans/issue-428.md)
 
 ## Enhancements -- High Priority
 - [x] #302: feat(dx): add configurable operation timeouts with sensible defaults (PR #383)
 - [x] #343: feat(advertising): add AdvertisingData builder DSL for scan record construction (PR #382)
-- [x] #357: feat(dx): add connectAndDiscover convenience combining connection and service discovery [enhancement] (PR #388)
+- [x] #357: feat(dx): add connectAndDiscover convenience combining connection and service discovery (PR #388)
 - [x] #289: feat(diff): support simultaneous central and peripheral roles (PR #297)
 - [x] #329: feat(dx): add configurable GATT operation retry policies with exponential backoff (PR #394) [enhancement]
 - [x] #301: feat(gatt): add ATT MTU negotiation API for GATT throughput optimization (PR #395) [enhancement]
@@ -60,7 +61,7 @@
 - [x] #378: test(l2cap): add L2CAP channel edge-case tests for disconnection and backpressure [enhancement, testing]
 - [x] #444: test(dfu): add DFU Transport API integration and conformance tests [enhancement, testing]
 - [x] #440: test(direction): add AoA/AoD Direction Finding integration and conformance tests [enhancement, testing]
-|- [~] #303: test(peripheral): add AndroidPeripheral GATT event handling integration tests [enhancement, testing] (plan: architecture-plans/issue-303.md)
+||- [~] #303: test(peripheral): add AndroidPeripheral GATT event handling integration tests [enhancement, testing] (plan: architecture-plans/issue-303.md)
 - [ ] #335: test(scanner): add Android Scanner integration tests for scan modes, filters, and edge cases [enhancement, testing] (plan: architecture-plans/issue-335.md)
 - [ ] #447: test(connection): add LE Connection Subrating integration and conformance tests [enhancement, testing] (plan: architecture-plans/issue-447.md)
 
@@ -86,18 +87,18 @@
 - [ ] #414: docs(quirks): fix KDoc link registerIosProvider -> IosQuirkProviders.register [docs] (plan: architecture-plans/issue-414.md)
 
 ## Scan Results (2026-06-27)
-| Metric | Value |
-|--------|-------|
-| Latest commit | 6c0cee8 chore(todo): mark #332,#328,#319,#312,#311,#305,#358,#369 as done (#445) |
-| Open issues | 16 |
-| Open PRs | 0 |
-| Stalled PRs | 0 |
-| Largest source file | Peripheral.kt: 373 lines |
-| androidMain files | 47 |
-| iosMain files | 51 |
-| @Volatile remaining | 22 (17+ in iosMain/androidMain, tracked in #449) |
-| GlobalScope | 0 |
-| .lock() | 0 |
-| Mutex() | 0 |
-| synchronized | 0 |
-| ReentrantLock | 0 |
+|| Metric | Value |
+||--------|-------|
+|| Latest commit | 209a5a4 Revert "feat(peripheral): extract connect/disconnect/refreshServices into PeripheralConnection.kt" |
+|| Open issues | 17 |
+|| Open PRs | 1 (PR #538 - CI failing) |
+|| Stalled PRs | 1 (PR #538 - android+android-instrumented failing) |
+|| Largest source file | Peripheral.kt: 373 lines |
+|| androidMain files | 47 |
+|| iosMain files | 51 |
+|| @Volatile remaining | 8 (androidMain only, tracked in #528, #514, #530) |
+|| GlobalScope | 0 |
+|| .lock() | 0 |
+|| Mutex | 0 |
+|| synchronized | 0 |
+|| ReentrantLock | 0 |

@@ -48,3 +48,13 @@ if [ -n "$violations" ]; then
   echo "Use ASCII (-, ', \", ...) or append 'typo-ok' to the line to allow." >&2
   exit 1
 fi
+
+# Architecture gate: check for new public interfaces in new .kt files
+if git diff --cached --name-only --diff-filter=A | grep -q '\.kt$'; then
+  new_files=$(git diff --cached --name-only --diff-filter=A | grep '\.kt$')
+  for f in $new_files; do
+    if grep -E '^(public )?(open |abstract )?class [A-Z]|^(public )?interface [A-Z]|^(public )?fun [a-z][a-zA-Z0-9_]*\(' "$f" | head -1 | grep -qE '^[^(]*\(' && [ ! -f "architecture-plans/issue-$(basename "$f" .kt).md" ]; then
+      echo "WARNING: New public API in $f - ensure architecture-plans/issue-$(basename "$f" .kt).md exists" >&2
+    fi
+  done
+fi
