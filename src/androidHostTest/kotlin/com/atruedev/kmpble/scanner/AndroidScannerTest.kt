@@ -1,5 +1,6 @@
 package com.atruedev.kmpble.scanner
 
+import android.bluetooth.le.ScanSettings
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
