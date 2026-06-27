@@ -11,6 +11,7 @@ import android.content.Context
 import android.os.ParcelUuid
 import com.atruedev.kmpble.logging.BleLogEvent
 import com.atruedev.kmpble.logging.logEvent
+import com.atruedev.kmpble.scanner.internal.toScanEvents
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
