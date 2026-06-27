@@ -245,17 +245,21 @@ class AndroidScannerTest {
 
     @Test
     fun `ScannerConfig DSL sets custom scanMode`() {
-        val config = ScannerConfig().apply {
-            scanMode = ScanMode.LowLatency
-        }
+        val config =
+            ScannerConfig()
+                .apply {
+                    scanMode = ScanMode.LowLatency
+                }
         assertEquals(ScanMode.LowLatency, config.scanMode)
     }
 
     @Test
     fun `ScannerConfig DSL sets LowPower scanMode`() {
-        val config = ScannerConfig().apply {
-            scanMode = ScanMode.LowPower
-        }
+        val config =
+            ScannerConfig()
+                .apply {
+                    scanMode = ScanMode.LowPower
+                }
         assertEquals(ScanMode.LowPower, config.scanMode)
     }
 }
