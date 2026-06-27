@@ -62,11 +62,10 @@
 - [x] #440: test(direction): add AoA/AoD Direction Finding integration and conformance tests [enhancement, testing]
 |- [~] #303: test(peripheral): add AndroidPeripheral GATT event handling integration tests [enhancement, testing] (plan: architecture-plans/issue-303.md)
 - [ ] #335: test(scanner): add Android Scanner integration tests for scan modes, filters, and edge cases [enhancement, testing] (plan: architecture-plans/issue-335.md)
-- [ ] #447: test(connection): add LE Connection Subrating integration and conformance tests [enhancement, testing] (plan: architecture-plans/issue-447.md)
 
 ## Refactoring
 - [ ] #367: refactor(ios): arrest IosPeripheral regrowth (286->300) back below 250 lines [enhancement] (plan: architecture-plans/issue-367.md)
-- [ ] #441: refactor(common): decompose Peripheral.kt (373 lines) into focused handler modules [enhancement] (plan: architecture-plans/issue-441.md)
+- [x] #441: refactor(common): decompose Peripheral.kt (373 lines) into focused handler modules [enhancement] (PR #541)
 
 ## Competitive Differentiation
 - [ ] #446: feat(diff): add RSSI streaming via Connection.rssiFlow for connection quality monitoring [enhancement] (plan: architecture-plans/issue-446.md)
