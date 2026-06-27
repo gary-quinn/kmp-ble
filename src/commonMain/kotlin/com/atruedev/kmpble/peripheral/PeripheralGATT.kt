@@ -38,7 +38,11 @@ internal class PeripheralGATT(
      * @param data The data to write.
      * @param writeType The type of write operation.
      */
-    suspend fun write(characteristic: Characteristic, data: ByteArray, writeType: WriteType) {
+    suspend fun write(
+        characteristic: Characteristic,
+        data: ByteArray,
+        writeType: WriteType,
+    ) {
         // Implementation delegated to GattOperationQueue
     }
 
@@ -49,9 +53,10 @@ internal class PeripheralGATT(
      * @param backpressure The backpressure strategy for delivery.
      * @return Flow of observations.
      */
-    fun observe(characteristic: Characteristic, backpressure: BackpressureStrategy = BackpressureStrategy.Latest): Flow<Observation> {
-        return kotlinx.coroutines.flow.emptyFlow()
-    }
+    fun observe(
+        characteristic: Characteristic,
+        backpressure: BackpressureStrategy = BackpressureStrategy.Latest,
+    ): Flow<Observation> = emptyFlow()
 
     /**
      * Observe raw notification/indication values from a characteristic.
@@ -60,9 +65,10 @@ internal class PeripheralGATT(
      * @param backpressure The backpressure strategy for delivery.
      * @return Flow of raw values.
      */
-    fun observeValues(characteristic: Characteristic, backpressure: BackpressureStrategy = BackpressureStrategy.Latest): Flow<ByteArray> {
-        return kotlinx.coroutines.flow.emptyFlow()
-    }
+    fun observeValues(
+        characteristic: Characteristic,
+        backpressure: BackpressureStrategy = BackpressureStrategy.Latest,
+    ): Flow<ByteArray> = emptyFlow()
 
     /**
      * Negotiate the ATT Maximum Transmission Unit.
@@ -80,5 +86,6 @@ internal class PeripheralGATT(
      *
      * @return Current DLE parameters, or null if unavailable.
      */
-    val dataLengthParameters: StateFlow<DataLengthParameters?> get() = context.dataLengthParameters
+    val dataLengthParameters: StateFlow<DataLengthParameters?>
+        get() = context.dataLengthParameters
 }

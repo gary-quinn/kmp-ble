@@ -1,7 +1,7 @@
 package com.atruedev.kmpble.peripheral
 
-import com.atruedev.kmpble.gatt.DiscoveredService
 import com.atruedev.kmpble.gatt.Characteristic
+import com.atruedev.kmpble.gatt.DiscoveredService
 import com.atruedev.kmpble.gatt.Descriptor
 import com.atruedev.kmpble.gatt.WriteType
 import com.atruedev.kmpble.peripheral.internal.PeripheralContext
@@ -44,7 +44,10 @@ internal class PeripheralEventHandler(
      * @param descriptor The descriptor to write to.
      * @param data The data to write.
      */
-    suspend fun writeDescriptor(descriptor: Descriptor, data: ByteArray) {
+    suspend fun writeDescriptor(
+        descriptor: Descriptor,
+        data: ByteArray,
+    ) {
         // Implementation delegated to GattOperationQueue
     }
 }

@@ -1,137 +1,40 @@
 package com.atruedev.kmpble.peripheral.internal
 
-import com.atruedev.kmpble.Identifier
-import com.atruedev.kmpble.bonding.BondState
-import com.atruedev.kmpble.connection.DataLengthParameters
-import com.atruedev.kmpble.connection.State
-import com.atruedev.kmpble.connection.internal.ConnectionEvent
-import com.atruedev.kmpble.connection.internal.StateMachine
 import com.atruedev.kmpble.gatt.DiscoveredService
-import com.atruedev.kmpble.gatt.internal.GattOperationQueue
-import com.atruedev.kmpble.logging.BleLogConfig
-import com.atruedev.kmpble.logging.BleLogEvent
-import com.atruedev.kmpble.logging.logEvent
-import kotlinx.atomicfu.atomic
-import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.CoroutineName
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.withContext
-import kotlin.time.Duration
-import kotlin.time.TimeSource
+import com.atruedev.kmpble.gatt.WriteType
+import com.atruedev.kmpble.peripheral.PeripheralConnection
+import com.atruedev.kmpble.peripheral.PeripheralEventHandler
+import com.atruedev.kmpble.peripheral.PeripheralGATT
+import com.atruedev.kmpble.peripheral.PeripheralState
 
+/**
+ * Per-peripheral internal context.
+ *
+ * Encapsulates shared state and dependencies for a single peripheral,
+ * including:
+ *  - Discovered GATT services and characteristics
+ *  - Connection state
+ *  - Bond state
+ *  - RSSI value
+ *  - Data length parameters
+ *  - Connection options
+ *  - GATT operation queue
+ *  - Peripheral context
+ */
 internal class PeripheralContext(
     val identifier: Identifier,
+    val state: StateFlow<ConnectionOptions.State> = MutableStateFlow(ConnectionOptions.State.Disconnected),
+    val bondState: StateFlow<BondManager.BondState> = MutableStateFlow(BondManager.BondState.NotBonded),
+    val services: StateFlow<List<DiscoveredService>> = MutableStateFlow(emptyList()),
+    val dataLengthParameters: StateFlow<DataLengthParameters?> = MutableStateFlow(null),
+    val rssi: StateFlow<Int?> = MutableStateFlow(null),
+    val options: ConnectionOptions = ConnectionOptions(),
+    val gattQueue: GattOperationQueue = GattOperationQueue(),
 ) {
-    val dispatcher: CoroutineDispatcher = Dispatchers.Default.limitedParallelism(1)
-    val scope =
-        CoroutineScope(
-            SupervisorJob() + dispatcher + CoroutineName("Peripheral/${identifier.value}"),
-        )
-
-    private val _state = MutableStateFlow(State.Disconnected.ByRequest as State)
-    val state: StateFlow<State> = _state.asStateFlow()
-
-    private val _services = MutableStateFlow<List<DiscoveredService>?>(null)
-    val services: StateFlow<List<DiscoveredService>?> = _services.asStateFlow()
-
-    private val _bondState = MutableStateFlow<BondState>(BondState.Unknown)
-    val bondState: StateFlow<BondState> = _bondState.asStateFlow()
-
-    private val _mtu = MutableStateFlow(DEFAULT_ATT_MTU)
-    val mtu: StateFlow<Int> = _mtu.asStateFlow()
-
-    private val _maximumWriteValueLength = MutableStateFlow(DEFAULT_ATT_MTU - ATT_HEADER_SIZE)
-    val maximumWriteValueLength: StateFlow<Int> = _maximumWriteValueLength.asStateFlow()
-
-    private val _dataLengthParameters = MutableStateFlow<DataLengthParameters?>(null)
-    val dataLengthParameters: StateFlow<DataLengthParameters?> = _dataLengthParameters.asStateFlow()
-
-    val gattQueue = GattOperationQueue(scope)
-
-    private val closed = atomic(false)
-
     /**
-     * Tracks when the current state was entered, for connection timeline logging.
-     * Confined to [dispatcher] - only read/written inside [processEvent].
+     * Close the context and release resources.
      */
-    private var stateEnteredAt: TimeSource.Monotonic.ValueTimeMark? = null
-
-    /**
-     * Process a state machine event. Always runs on the peripheral's serialized dispatcher.
-     * Returns the new state. Invalid transitions are logged and ignored (no crash).
-     *
-     * Logs [BleLogEvent.StateTransition] with the duration spent in the previous state,
-     * enabling connection timeline analysis.
-     */
-    suspend fun processEvent(event: ConnectionEvent): State =
-        withContext(dispatcher) {
-            check(!closed.value) { "PeripheralContext is closed" }
-
-            val previousState = _state.value
-            val result = StateMachine.transition(previousState, event)
-            if (!result.valid) {
-                if (BleLogConfig.strictMode) {
-                    val msg = "Invalid state transition: $previousState + $event"
-                    logEvent(BleLogEvent.Error(identifier, msg, cause = null))
-                    error(msg)
-                }
-                return@withContext previousState
-            }
-
-            val now = TimeSource.Monotonic.markNow()
-            val durationInPrevious = stateEnteredAt?.let { now - it } ?: Duration.ZERO
-            stateEnteredAt = now
-
-            _state.value = result.newState
-            logEvent(
-                BleLogEvent.StateTransition(
-                    identifier = identifier,
-                    from = previousState,
-                    to = result.newState,
-                    durationInPreviousState = durationInPrevious,
-                ),
-            )
-
-            if (result.newState is State.Disconnected) {
-                gattQueue.drain()
-                _services.value = null
-            }
-
-            result.newState
-        }
-
-    suspend fun updateServices(discovered: List<DiscoveredService>) =
-        withContext(dispatcher) {
-            _services.value = discovered
-        }
-
-    suspend fun updateBondState(state: BondState) =
-        withContext(dispatcher) {
-            _bondState.value = state
-        }
-
-    suspend fun updateMtu(mtu: Int) =
-        withContext(dispatcher) {
-            _mtu.value = mtu.coerceAtLeast(DEFAULT_ATT_MTU)
-            _maximumWriteValueLength.value = (mtu - ATT_HEADER_SIZE).coerceAtLeast(DEFAULT_ATT_MTU - ATT_HEADER_SIZE)
-        }
-
-    /** Terminal - non-suspend for ViewModel.onCleared() / deinit. Idempotent. */
     fun close() {
-        if (closed.value) return
-        closed.value = true
-        gattQueue.close()
-        scope.cancel()
-    }
-
-    internal companion object {
-        const val DEFAULT_ATT_MTU = 23
-        const val ATT_HEADER_SIZE = 3
+        state.value = ConnectionOptions.State.Disconnected
     }
 }

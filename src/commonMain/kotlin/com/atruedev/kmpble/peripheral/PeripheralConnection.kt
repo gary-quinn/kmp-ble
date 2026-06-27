@@ -6,14 +6,11 @@ import com.atruedev.kmpble.bonding.BondRemovalResult
 import com.atruedev.kmpble.bonding.BondState
 import com.atruedev.kmpble.connection.ConnectionOptions
 import com.atruedev.kmpble.connection.State
-import com.atruedev.kmpble.gatt.BackpressureStrategy
 import com.atruedev.kmpble.gatt.Characteristic
 import com.atruedev.kmpble.gatt.DiscoveredService
 import com.atruedev.kmpble.gatt.Observation
 import com.atruedev.kmpble.gatt.WriteType
 import com.atruedev.kmpble.peripheral.internal.PeripheralContext
-import com.atruedev.kmpble.gatt.internal.GattOperationQueue
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 
 /**
@@ -77,7 +74,10 @@ internal class PeripheralConnection(
      * @param characteristicUuid The characteristic UUID.
      * @return The characteristic, or null if not found.
      */
-    fun findCharacteristic(serviceUuid: java.util.UUID, characteristicUuid: java.util.UUID): Characteristic? {
+    fun findCharacteristic(
+        serviceUuid: java.util.UUID,
+        characteristicUuid: java.util.UUID,
+    ): Characteristic? {
         val services = context.services.value ?: return null
         return services
             .flatMap { it.characteristics }
@@ -92,7 +92,11 @@ internal class PeripheralConnection(
      * @param descriptorUuid The descriptor UUID.
      * @return The descriptor, or null if not found.
      */
-    fun findDescriptor(serviceUuid: java.util.UUID, characteristicUuid: java.util.UUID, descriptorUuid: java.util.UUID): com.atruedev.kmpble.gatt.Descriptor? {
+    fun findDescriptor(
+        serviceUuid: java.util.UUID,
+        characteristicUuid: java.util.UUID,
+        descriptorUuid: java.util.UUID,
+    ): com.atruedev.kmpble.gatt.Descriptor? {
         val char = findCharacteristic(serviceUuid, characteristicUuid) ?: return null
         return char.descriptors.firstOrNull { it.uuid == descriptorUuid }
     }
