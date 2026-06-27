@@ -106,7 +106,7 @@ internal class AndroidGattServer(
     ) {
         withContext(state.dispatcher) {
             checkOpen()
-            val server = state.nativeServer ?: throw ServerException.NotOpen()
+            val server = state.nativeServer.get() ?: throw ServerException.NotOpen()
             val nativeChar =
                 state.characteristicCache[characteristicUuid]
                     ?: throw ServerException.NotifyFailed("Characteristic $characteristicUuid not found")
@@ -179,7 +179,7 @@ internal class AndroidGattServer(
     ) {
         withContext(state.dispatcher) {
             checkOpen()
-            val server = state.nativeServer ?: throw ServerException.NotOpen()
+            val server = state.nativeServer.get() ?: throw ServerException.NotOpen()
             val nativeChar =
                 state.characteristicCache[characteristicUuid]
                     ?: throw ServerException.NotifyFailed("Characteristic $characteristicUuid not found")
@@ -250,11 +250,11 @@ internal class AndroidGattServer(
 
         // Close native server first - stops all Binder callbacks
         try {
-            state.nativeServer?.close()
+            state.nativeServer.get()?.close()
         } catch (_: SecurityException) {
             // Ignore permission errors on close
         }
-        state.nativeServer = null
+        state.nativeServer.update { null }
 
         // Cancel all pending notifications/indications
         for ((_, deferred) in state.pendingNotifySent) {

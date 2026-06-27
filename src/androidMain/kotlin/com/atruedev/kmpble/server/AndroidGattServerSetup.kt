@@ -49,7 +49,7 @@ internal suspend fun AndroidGattServerState.openInternal(instanceLock: AtomicBoo
             throw ServerException.OpenFailed("Missing BLUETOOTH_CONNECT permission", e)
         } ?: throw ServerException.OpenFailed("openGattServer returned null")
 
-    nativeServer = server
+    nativeServer.update { server }
 
     // Register handlers from service definitions
     for (serviceDef in serviceDefinitions) {

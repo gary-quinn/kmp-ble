@@ -110,7 +110,7 @@ internal class AndroidGattServerCallback(
                 status: Int,
                 service: BluetoothGattService,
             ) {
-                state.pendingServiceAdd?.complete(status)
+                state.pendingServiceAdd.get()?.complete(status)
             }
 
             override fun onMtuChanged(
@@ -130,7 +130,7 @@ internal class AndroidGattServerCallback(
     ) {
         if (!state.isOpen.get()) return
         try {
-            state.nativeServer?.sendResponse(device, requestId, status, offset, value)
+            state.nativeServer.get()?.sendResponse(device, requestId, status, offset, value)
         } catch (_: SecurityException) {
             // Ignore - device disconnected or permission lost
         }
