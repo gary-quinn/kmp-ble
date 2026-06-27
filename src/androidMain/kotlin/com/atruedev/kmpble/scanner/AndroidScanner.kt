@@ -11,7 +11,6 @@ import android.content.Context
 import android.os.ParcelUuid
 import com.atruedev.kmpble.logging.BleLogEvent
 import com.atruedev.kmpble.logging.logEvent
-import com.atruedev.kmpble.scanner.ScanPhy
 import com.atruedev.kmpble.scanner.internal.toScanEvents
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -61,7 +60,7 @@ public class AndroidScanner(
             val settings =
                 ScanSettings
                     .Builder()
-                    .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
+                    .setScanMode(scanModeToAndroid(config.scanMode))
                     .setLegacy(config.legacyOnly)
                     .setPhy(scanPhyToAndroid(config.phy))
                     .build()
@@ -135,6 +134,13 @@ public class AndroidScanner(
                 ScanPhy.Le1M -> BluetoothDevice.PHY_LE_1M
                 ScanPhy.LeCoded -> BluetoothDevice.PHY_LE_CODED
                 ScanPhy.All -> ScanSettings.PHY_LE_ALL_SUPPORTED
+            }
+
+        internal fun scanModeToAndroid(mode: ScanMode): Int =
+            when (mode) {
+                ScanMode.LowPower -> ScanSettings.SCAN_MODE_BALANCED
+                ScanMode.Balanced -> ScanSettings.SCAN_MODE_BALANCED
+                ScanMode.LowLatency -> ScanSettings.SCAN_MODE_LOW_LATENCY
             }
     }
 }

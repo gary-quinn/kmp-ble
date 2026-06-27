@@ -34,6 +34,17 @@ public class ScannerConfig internal constructor() {
     public var legacyOnly: Boolean = true
 
     /**
+     * Scan strategy. Maps to Android `ScanSettings.Builder.setScanMode()`.
+     *
+     * | ------- | ------------------------------------------ |
+     * | Android | `ScanSettings.SCAN_MODE_*` (API 26+).      |
+     * | iOS     | No public API; CoreBluetooth chooses.      |
+     *
+     * Default: [ScanMode.Balanced].
+     */
+    public var scanMode: ScanMode = ScanMode.Balanced
+
+    /**
      * PHY to scan on. Maps to the Android `ScanSettings.Builder.setPhy()` value.
      *
      * - [ScanPhy.Le1M]: 1 Mbps scanning on primary channels (always supported).

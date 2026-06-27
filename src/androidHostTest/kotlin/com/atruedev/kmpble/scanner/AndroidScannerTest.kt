@@ -1,5 +1,6 @@
 package com.atruedev.kmpble.scanner
 
+import android.bluetooth.le.ScanSettings
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -191,5 +192,75 @@ class AndroidScannerTest {
         val result = runCatching { AndroidScanner.buildOsFilters(config.filterGroups) }
         // Accept either success or Stub exception -- the instrumented CI will validate
         assertTrue(result.isSuccess || result.exceptionOrNull() is RuntimeException)
+    }
+
+    // =========================================================================
+    // scanModeToAndroid -- maps ScanMode enum to Android constants
+    // =========================================================================
+
+    @Test
+    fun `scanModeToAndroid LowPower maps to SCAN_MODE_BALANCED`() {
+        assertEquals(
+            ScanSettings.SCAN_MODE_BALANCED,
+            AndroidScanner.scanModeToAndroid(ScanMode.LowPower),
+        )
+    }
+
+    @Test
+    fun `scanModeToAndroid Balanced maps to SCAN_MODE_BALANCED`() {
+        assertEquals(
+            ScanSettings.SCAN_MODE_BALANCED,
+            AndroidScanner.scanModeToAndroid(ScanMode.Balanced),
+        )
+    }
+
+    @Test
+    fun `scanModeToAndroid LowLatency maps to SCAN_MODE_LOW_LATENCY`() {
+        assertEquals(
+            ScanSettings.SCAN_MODE_LOW_LATENCY,
+            AndroidScanner.scanModeToAndroid(ScanMode.LowLatency),
+        )
+    }
+
+    @Test
+    fun `scanModeToAndroid covers all ScanMode values`() {
+        val results = ScanMode.entries.map { it to AndroidScanner.scanModeToAndroid(it) }
+        assertEquals(3, results.size)
+        assertTrue(
+            results.all {
+                it.second == ScanSettings.SCAN_MODE_BALANCED ||
+                    it.second == ScanSettings.SCAN_MODE_LOW_LATENCY
+            },
+        )
+    }
+
+    // =========================================================================
+    // ScannerConfig scanMode -- default and DSL
+    // =========================================================================
+
+    @Test
+    fun `ScannerConfig scanMode defaults to Balanced`() {
+        val config = ScannerConfig()
+        assertEquals(ScanMode.Balanced, config.scanMode)
+    }
+
+    @Test
+    fun `ScannerConfig DSL sets custom scanMode`() {
+        val config =
+            ScannerConfig()
+                .apply {
+                    scanMode = ScanMode.LowLatency
+                }
+        assertEquals(ScanMode.LowLatency, config.scanMode)
+    }
+
+    @Test
+    fun `ScannerConfig DSL sets LowPower scanMode`() {
+        val config =
+            ScannerConfig()
+                .apply {
+                    scanMode = ScanMode.LowPower
+                }
+        assertEquals(ScanMode.LowPower, config.scanMode)
     }
 }

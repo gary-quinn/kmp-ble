@@ -7,7 +7,7 @@
 - [x] #396: CRITICAL -- #293 CCC persistence pushed directly to main (commit da3bb55), bypassing PR gates. Hand-rolled JsonArrayEncoder in androidMain (~170 lines) has zero Android-path test coverage. serializeBackpressure/deserializeBackpressure duplicated across androidMain and iosMain. Stale KDoc in ObservationPersistence.kt says "On Android, this is a no-op". Fix: revert, file proper PR, extract shared serialization to commonMain, add Android SharedPreferences roundtrip tests, update KDoc. [bug, priority: critical, process-violation]
 - [x] #397: CRITICAL -- PR #396 merged but autopilot directive items remain unresolved: (1) JsonArrayEncoder (~114 lines hand-rolled JSON parser, androidMain) has ZERO Android-path test coverage -- jvmTest only tests JVM in-memory impl, SharedPreferences code path untested. (2) serializeBackpressure/deserializeBackpressure duplicated identically in androidMain:110-127 AND iosMain:142-159 -- extract to commonMain. (3) Stale KDoc at ObservationPersistence.kt:19 says "On Android, this is a no-op" -- Android now uses SharedPreferences. Fix: extract serialization to commonMain, add androidHostTest for SharedPreferences+JsonArrayEncoder roundtrip, update KDoc. [bug, priority: critical, test-gap]
 - [x] #366: ConnectionOptions.timeout dead code after per-operation timeouts merge (PR #380) [bug, priority: critical]
-- [~] #449: fix(concurrency): complete @Volatile to atomicfu migration -- #342 follow-up (17+ remaining @Volatile fields in iosMain/androidMain not yet migrated) [bug, priority: critical]
+||- [~] #449: fix(concurrency): complete @Volatile to atomicfu migration -- #342 follow-up (17+ remaining @Volatile fields in iosMain/androidMain not yet migrated) [bug, priority: critical] (plan: architecture-plans/issue-449.md)
 - [x] #342: fix(concurrency): replace @Volatile with kotlinx-atomicfu across all platform sources [bug, priority: critical]
 - [x] #341: GattConformanceTest bypasses buildPeripheral() factory for notification test [bug]
 - [x] #261: BeaconScanner.close() swallows CancellationException in cleanup (PR #381)
@@ -19,7 +19,7 @@
 - [x] #384: fix(concurrency): AdvertisingDataBuilder counter++ is a data race in commonMain -- use atomicfu or document thread-safety (PR #389) [bug]
 - [x] #385: fix(style): use imported Duration.ZERO/INFINITE instead of FQN kotlin.time.Duration.ZERO/INFINITE in OperationTimeoutsTest (PR #390) [bug, style]
 - [x] #391: docs: fix @throws GattException in connectAndDiscover KDoc -- class does not exist [bug, documentation]
-- [~] #428: test: add FakePeripheral integration tests for dataLengthParameters property [bug, testing]
+|- [~] #428: test: add FakePeripheral integration tests for dataLengthParameters property [bug, testing] (plan: architecture-plans/issue-428.md)
 
 ## Enhancements -- High Priority
 - [x] #302: feat(dx): add configurable operation timeouts with sensible defaults (PR #383)
@@ -50,46 +50,46 @@
 
 ## Testing
 - [x] #339: test(observation): add ObservationPersistence cross-platform roundtrip tests (PR #412) [enhancement, testing]
-- [ ] #335: test(scanner): add Android Scanner integration tests for scan modes, filters, and edge cases [enhancement, testing]
 - [x] #328: test(connection): add edge-case tests for LE Connection Parameter Update negotiation (PR #433) [enhancement, testing]
 - [x] #319: test(parity): add cross-platform GATT server integration conformance tests (PR #434) [enhancement, testing]
 - [x] #312: test(benchmark): add iOS and Android benchmark runners for kmp-ble-benchmark (PR #435) [enhancement, testing]
 - [x] #311: test(ios): add IosPeripheral GATT event handling integration tests (PR #436) [enhancement, testing]
 - [x] #305: test(monitoring): add integration tests for PowerMonitor and LePowerController edge cases (PR #437) [enhancement, testing]
-- [ ] #303: test(peripheral): add AndroidPeripheral GATT event handling integration tests [enhancement, testing]
 - [x] #358: test(gatt): add GATT write-type conformance tests for Write Request vs Write Command (PR #438) [enhancement, testing]
 - [x] #369: test(advertiser): add cross-platform Advertiser conformance tests (PR #439) [enhancement, testing]
 - [x] #378: test(l2cap): add L2CAP channel edge-case tests for disconnection and backpressure [enhancement, testing]
 - [x] #444: test(dfu): add DFU Transport API integration and conformance tests [enhancement, testing]
 - [x] #440: test(direction): add AoA/AoD Direction Finding integration and conformance tests [enhancement, testing]
-- [ ] #447: test(connection): add LE Connection Subrating integration and conformance tests [enhancement, testing]
+|- [~] #303: test(peripheral): add AndroidPeripheral GATT event handling integration tests [enhancement, testing] (plan: architecture-plans/issue-303.md)
+- [ ] #335: test(scanner): add Android Scanner integration tests for scan modes, filters, and edge cases [enhancement, testing] (plan: architecture-plans/issue-335.md)
+- [ ] #447: test(connection): add LE Connection Subrating integration and conformance tests [enhancement, testing] (plan: architecture-plans/issue-447.md)
 
 ## Refactoring
-- [ ] #367: refactor(ios): arrest IosPeripheral regrowth (286->300) back below 250 lines [enhancement]
-- [ ] #441: refactor(common): decompose Peripheral.kt (373 lines) into focused handler modules [enhancement]
+- [ ] #367: refactor(ios): arrest IosPeripheral regrowth (286->300) back below 250 lines [enhancement] (plan: architecture-plans/issue-367.md)
+- [ ] #441: refactor(common): decompose Peripheral.kt (373 lines) into focused handler modules [enhancement] (plan: architecture-plans/issue-441.md)
 
 ## Competitive Differentiation
-- [ ] #446: feat(diff): add RSSI streaming via Connection.rssiFlow for connection quality monitoring [enhancement]
-- [ ] #451: feat(diff): add BLE Channel Assessment for interference detection and adaptive PHY selection [enhancement]
-- [ ] #442: feat(diff): add LE Coded PHY awareness to scanner results for long-range discovery [enhancement]
+- [ ] #446: feat(diff): add RSSI streaming via Connection.rssiFlow for connection quality monitoring [enhancement] (plan: architecture-plans/issue-446.md)
+- [ ] #451: feat(diff): add BLE Channel Assessment for interference detection and adaptive PHY selection [enhancement] (plan: architecture-plans/issue-451.md)
+- [ ] #442: feat(diff): add LE Coded PHY awareness to scanner results for long-range discovery [enhancement] (plan: architecture-plans/issue-442.md)
 
 ## DX Improvements
-- [ ] #443: feat(dx): add scanAndConnect convenience combining Scanner and Peripheral lifecycle [enhancement]
-- [ ] #448: feat(dx): add ScanRegion and proximity-based zone entry/exit detection [enhancement]
-- [ ] #452: feat(dx): add ConnectionFailure class for categorized BLE connection error handling [enhancement]
+- [ ] #443: feat(dx): add scanAndConnect convenience combining Scanner and Peripheral lifecycle [enhancement] (plan: architecture-plans/issue-443.md)
+- [ ] #448: feat(dx): add ScanRegion and proximity-based zone entry/exit detection [enhancement] (plan: architecture-plans/issue-448.md)
+- [ ] #452: feat(dx): add ConnectionFailure class for categorized BLE connection error handling [enhancement] (plan: architecture-plans/issue-452.md)
 
 ## Cross-Platform Parity
-- [ ] #450: feat(parity): add prepareWrite/executeWrite reliable long write API for large characteristic values [enhancement]
-- [ ] #453: feat(parity): add L2CAP channel error recovery and graceful close [enhancement]
+- [ ] #450: feat(parity): add prepareWrite/executeWrite reliable long write API for large characteristic values [enhancement] (plan: architecture-plans/issue-450.md)
+- [ ] #453: feat(parity): add L2CAP channel error recovery and graceful close [enhancement] (plan: architecture-plans/issue-453.md)
 
 ## Documentation
-- [ ] #414: docs(quirks): fix KDoc link registerIosProvider -> IosQuirkProviders.register [docs]
+- [ ] #414: docs(quirks): fix KDoc link registerIosProvider -> IosQuirkProviders.register [docs] (plan: architecture-plans/issue-414.md)
 
-## Scan Results (2026-06-23)
+## Scan Results (2026-06-27)
 | Metric | Value |
 |--------|-------|
 | Latest commit | 6c0cee8 chore(todo): mark #332,#328,#319,#312,#311,#305,#358,#369 as done (#445) |
-| Open issues | 21 |
+| Open issues | 16 |
 | Open PRs | 0 |
 | Stalled PRs | 0 |
 | Largest source file | Peripheral.kt: 373 lines |
