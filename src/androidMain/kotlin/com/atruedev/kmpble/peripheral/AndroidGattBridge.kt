@@ -162,7 +162,9 @@ internal class AndroidGattBridge(
 
     internal fun requestMtu(mtu: Int): Boolean = gatt.value?.requestMtu(mtu) ?: false
 
-    internal fun requestConnectionPriority(priority: Int): Boolean = gatt.value?.requestConnectionPriority(priority) ?: false
+    internal fun requestConnectionPriority(
+        priority: Int,
+    ): Boolean = gatt.value?.requestConnectionPriority(priority) ?: false
 
     internal fun setPreferredPhy(
         txPhyMask: Int,
@@ -262,3 +264,5 @@ internal class AndroidGattBridge(
         callbackHandler = null
     }
 }
+
+

@@ -13,9 +13,6 @@ import com.atruedev.kmpble.Identifier
 import com.atruedev.kmpble.error.GattStatus
 import com.atruedev.kmpble.logging.BleLogEvent
 import com.atruedev.kmpble.logging.logEvent
-import kotlinx.atomicfu.atomic
-import kotlinx.atomicfu.update
-import kotlinx.atomicfu.valueOrNull
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher

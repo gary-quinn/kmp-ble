@@ -49,9 +49,6 @@ import com.atruedev.kmpble.peripheral.internal.PeripheralRegistry
 import com.atruedev.kmpble.peripheral.internal.findCharacteristic
 import com.atruedev.kmpble.peripheral.internal.findDescriptor
 import com.atruedev.kmpble.quirks.QuirkRegistry
-import kotlinx.atomicfu.update
-import kotlinx.atomicfu.value
-import kotlinx.atomicfu.valueOrNull
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
