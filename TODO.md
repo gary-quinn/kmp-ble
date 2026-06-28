@@ -7,7 +7,7 @@
 - [x] #396: CRITICAL -- #293 CCC persistence pushed directly to main (commit da3bb55), bypassing PR gates. Hand-rolled JsonArrayEncoder in androidMain (~170 lines) has zero Android-path test coverage. serializeBackpressure/deserializeBackpressure duplicated across androidMain and iosMain. Stale KDoc in ObservationPersistence.kt says "On Android, this is a no-op". Fix: revert, file proper PR, extract shared serialization to commonMain, add Android SharedPreferences roundtrip tests, update KDoc. [bug, priority: critical, process-violation]
 - [x] #397: CRITICAL -- PR #396 merged but autopilot directive items remain unresolved: (1) JsonArrayEncoder (~114 lines hand-rolled JSON parser, androidMain) has ZERO Android-path test coverage -- jvmTest only tests JVM in-memory impl, SharedPreferences code path untested. (2) serializeBackpressure/deserializeBackpressure duplicated identically in androidMain:110-127 AND iosMain:142-159 -- extract to commonMain. (3) Stale KDoc at ObservationPersistence.kt:19 says "On Android, this is a no-op" -- Android now uses SharedPreferences. Fix: extract serialization to commonMain, add androidHostTest for SharedPreferences+JsonArrayEncoder roundtrip, update KDoc. [bug, priority: critical, test-gap]
 - [x] #366: ConnectionOptions.timeout dead code after per-operation timeouts merge (PR #380) [bug, priority: critical]
-||- [~] #449: fix(concurrency): complete @Volatile to atomicfu migration -- #342 follow-up (17+ remaining @Volatile fields in iosMain/androidMain not yet migrated) [bug, priority: critical] (plan: architecture-plans/issue-449.md)
+|- [~] #449: fix(concurrency): complete @Volatile to atomicfu migration -- #342 follow-up (8 remaining @Volatile fields in iosMain/androidMain) [bug, priority: critical]
 - [x] #342: fix(concurrency): replace @Volatile with kotlinx-atomicfu across all platform sources [bug, priority: critical]
 - [x] #341: GattConformanceTest bypasses buildPeripheral() factory for notification test [bug]
 - [x] #261: BeaconScanner.close() swallows CancellationException in cleanup (PR #381)
@@ -95,7 +95,7 @@
 | Largest source file | Peripheral.kt: 373 lines |
 | androidMain files | 47 |
 | iosMain files | 51 |
-| @Volatile remaining | 22 (17+ in iosMain/androidMain, tracked in #449) |
+|| @Volatile remaining | 8 (in iosMain/androidMain, tracked in #449) |
 | GlobalScope | 0 |
 | .lock() | 0 |
 | Mutex() | 0 |
