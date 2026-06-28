@@ -61,7 +61,7 @@
 - [x] #444: test(dfu): add DFU Transport API integration and conformance tests [enhancement, testing]
 - [x] #440: test(direction): add AoA/AoD Direction Finding integration and conformance tests [enhancement, testing]
 |- [~] #303: test(peripheral): add AndroidPeripheral GATT event handling integration tests [enhancement, testing] (plan: architecture-plans/issue-303.md)
-- [ ] #335: test(scanner): add Android Scanner integration tests for scan modes, filters, and edge cases [enhancement, testing] (plan: architecture-plans/issue-335.md)
+|- [~] #335: test(scanner): add Android Scanner integration tests for scan modes, filters, and edge cases (PR #554) [enhancement, testing] (plan: architecture-plans/issue-335.md)
 - [ ] #447: test(connection): add LE Connection Subrating integration and conformance tests [enhancement, testing] (plan: architecture-plans/issue-447.md)
 
 ## Refactoring
