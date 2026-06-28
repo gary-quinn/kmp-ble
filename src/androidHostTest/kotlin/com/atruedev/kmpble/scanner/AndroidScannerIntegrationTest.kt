@@ -1,6 +1,5 @@
 package com.atruedev.kmpble.scanner
 
-import android.bluetooth.le.ScanFilter
 import android.bluetooth.le.ScanSettings
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -17,7 +16,6 @@ import kotlin.time.Duration.Companion.seconds
  * See architecture-plans/issue-335.md for the full plan.
  */
 class AndroidScannerIntegrationTest {
-
     // =========================================================================
     // Scan Mode coverage
     // =========================================================================
@@ -542,13 +540,14 @@ class AndroidScannerIntegrationTest {
 
     @Test
     fun `ScannerConfig.default sets all defaults`() {
-        val config = ScannerConfig().apply {
-            timeout = null
-            emission = EmissionPolicy.All
-            legacyOnly = true
-            phy = ScanPhy.Le1M
-            scanMode = ScanMode.LowPower
-        }
+        val config =
+            ScannerConfig().apply {
+                timeout = null
+                emission = EmissionPolicy.All
+                legacyOnly = true
+                phy = ScanPhy.Le1M
+                scanMode = ScanMode.LowPower
+            }
         ScannerConfig.default(config)
 
         assertEquals(ScanPhy.All, config.phy)
