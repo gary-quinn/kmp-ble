@@ -422,7 +422,7 @@ class AndroidScannerIntegrationTest {
             }
         assertEquals("A", (config.filterGroups[0][0] as ScanPredicate.Name).exact)
         assertEquals(
-            java.util.UUID.fromString("0000180d-0000-1000-8000-00805f9b34fb"),
+            java.util.UUID.fromString("0000180d-0000-1000-8000-00805f9b34fb").toString(),
             (config.filterGroups[1][0] as ScanPredicate.ServiceUuid).uuid.toString(),
         )
     }
