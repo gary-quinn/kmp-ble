@@ -367,7 +367,7 @@ class AndroidScannerIntegrationTest {
                 filters { match { serviceUuid("180d") } }
             }
         assertEquals(1, config.filterGroups.size)
-        assertEquals(3, config.filterGroups[0].size) // serviceUuid (OS) + 2 post-filters in DSL
+        assertEquals(1, config.filterGroups[0].size) // just serviceUuid
     }
 
     @Test
