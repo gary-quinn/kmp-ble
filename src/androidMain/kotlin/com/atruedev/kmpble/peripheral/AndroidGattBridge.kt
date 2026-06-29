@@ -15,7 +15,7 @@ import com.atruedev.kmpble.connection.ConnectionOptions
 import com.atruedev.kmpble.connection.TransportType
 import com.atruedev.kmpble.logging.BleLogEvent
 import com.atruedev.kmpble.logging.logEvent
-import kotlin.concurrent.Volatile
+import kotlinx.atomicfu.atomic
 
 internal class AndroidGattBridge(
     private val device: BluetoothDevice,
@@ -24,9 +24,12 @@ internal class AndroidGattBridge(
     private var callbackThread: HandlerThread? = null
     private var callbackHandler: Handler? = null
 
-    @Volatile private var gatt: BluetoothGatt? = null
+    private val _gatt = atomic<BluetoothGatt?>(null)
 
-    @Volatile internal var onEvent: ((GattCallbackEvent) -> Unit)? = null
+    private val _onEvent = atomic<((GattCallbackEvent) -> Unit)?>(null)
+    internal var onEvent: ((GattCallbackEvent) -> Unit)?
+        get() = _onEvent.value
+        set(value) { _onEvent.value = value }
 
     private val gattCallback =
         object : BluetoothGattCallback() {
@@ -135,7 +138,7 @@ internal class AndroidGattBridge(
         callbackThread = thread
         callbackHandler = Handler(thread.looper)
 
-        gatt =
+        _gatt.value =
             device.connectGatt(
                 context,
                 options.autoConnect,
@@ -144,52 +147,52 @@ internal class AndroidGattBridge(
                 options.phyMask.value,
                 callbackHandler,
             )
-        return gatt
+        return _gatt.value
     }
 
-    internal fun discoverServices(): Boolean = gatt?.discoverServices() ?: false
+    internal fun discoverServices(): Boolean = _gatt.value?.discoverServices() ?: false
 
-    internal fun requestMtu(mtu: Int): Boolean = gatt?.requestMtu(mtu) ?: false
+    internal fun requestMtu(mtu: Int): Boolean = _gatt.value?.requestMtu(mtu) ?: false
 
-    internal fun requestConnectionPriority(priority: Int): Boolean = gatt?.requestConnectionPriority(priority) ?: false
+    internal fun requestConnectionPriority(priority: Int): Boolean = _gatt.value?.requestConnectionPriority(priority) ?: false
 
     internal fun setPreferredPhy(
         txPhyMask: Int,
         rxPhyMask: Int,
         phyOptions: Int,
     ): Boolean {
-        val g = gatt ?: return false
+        val g = _gatt.value ?: return false
         g.setPreferredPhy(txPhyMask, rxPhyMask, phyOptions)
         return true
     }
 
     internal fun readPhy(): Boolean {
-        val g = gatt ?: return false
+        val g = _gatt.value ?: return false
         g.readPhy()
         return true
     }
 
     internal fun readCharacteristic(characteristic: BluetoothGattCharacteristic): Boolean =
-        gatt?.readCharacteristic(characteristic) ?: false
+        _gatt.value?.readCharacteristic(characteristic) ?: false
 
     internal fun writeCharacteristic(
         characteristic: BluetoothGattCharacteristic,
         value: ByteArray,
         writeType: Int,
     ): Boolean {
-        val g = gatt ?: return false
+        val g = _gatt.value ?: return false
         val result = g.writeCharacteristic(characteristic, value, writeType)
         return result == BluetoothGatt.GATT_SUCCESS
     }
 
     internal fun readDescriptor(descriptor: BluetoothGattDescriptor): Boolean =
-        gatt?.readDescriptor(descriptor) ?: false
+        _gatt.value?.readDescriptor(descriptor) ?: false
 
     internal fun writeDescriptor(
         descriptor: BluetoothGattDescriptor,
         value: ByteArray,
     ): Boolean {
-        val g = gatt ?: return false
+        val g = _gatt.value ?: return false
         val result = g.writeDescriptor(descriptor, value)
         return result == BluetoothGatt.GATT_SUCCESS
     }
@@ -197,9 +200,9 @@ internal class AndroidGattBridge(
     internal fun setCharacteristicNotification(
         characteristic: BluetoothGattCharacteristic,
         enable: Boolean,
-    ): Boolean = gatt?.setCharacteristicNotification(characteristic, enable) ?: false
+    ): Boolean = _gatt.value?.setCharacteristicNotification(characteristic, enable) ?: false
 
-    internal fun readRemoteRssi(): Boolean = gatt?.readRemoteRssi() ?: false
+    internal fun readRemoteRssi(): Boolean = _gatt.value?.readRemoteRssi() ?: false
 
     /**
      * Clears the GATT service cache via the internal `BluetoothGatt.refresh()` API.
@@ -215,7 +218,7 @@ internal class AndroidGattBridge(
      * after bonding. See [com.atruedev.kmpble.quirks.BleQuirks.RefreshServicesOnBond].
      */
     internal fun refreshDeviceCache(): Boolean {
-        val g = gatt ?: return false
+        val g = _gatt.value ?: return false
         return try {
             val method = g.javaClass.getMethod("refresh")
             method.invoke(g) as? Boolean ?: false
@@ -232,19 +235,19 @@ internal class AndroidGattBridge(
     }
 
     internal fun disconnect() {
-        gatt?.disconnect()
+        _gatt.value?.disconnect()
     }
 
     /** Release the BluetoothGatt handle but keep the bridge reusable for reconnection. */
     internal fun releaseGatt() {
-        gatt?.close()
-        gatt = null
+        _gatt.value?.close()
+        _gatt.value = null
     }
 
     /** Terminal - release all resources including the callback thread. */
     internal fun close() {
-        gatt?.close()
-        gatt = null
+        _gatt.value?.close()
+        _gatt.value = null
         onEvent = null
         callbackThread?.quitSafely()
         callbackThread = null

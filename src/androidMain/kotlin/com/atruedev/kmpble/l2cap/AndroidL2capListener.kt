@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.atomicfu.atomic
 import java.io.IOException
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.coroutines.coroutineContext
@@ -29,9 +30,8 @@ internal class AndroidL2capListener(
     private val _isOpen = MutableStateFlow(false)
     override val isOpen: StateFlow<Boolean> = _isOpen.asStateFlow()
 
-    @Volatile
-    private var _psm: Int = 0
-    override val psm: Int get() = _psm
+    private val _psm = atomic(0)
+    override val psm: Int get() = _psm.value
 
     private val _incoming =
         MutableSharedFlow<L2capChannel>(
@@ -45,8 +45,8 @@ internal class AndroidL2capListener(
     private var serverSocket: BluetoothServerSocket? = null
     private var acceptJob: Job? = null
 
-    @Volatile
-    private var closed: Boolean = false
+    private val _closed = atomic(false)
+    private val closed: Boolean get() = _closed.value
 
     override suspend fun open(
         secure: Boolean,
@@ -78,7 +78,7 @@ internal class AndroidL2capListener(
 
         val assignedPsm = socket.psm
         serverSocket = socket
-        _psm = assignedPsm
+        _psm.value = assignedPsm
         _isOpen.value = true
 
         acceptJob = scope.launch { acceptLoop(socket, assignedPsm) }
@@ -131,7 +131,7 @@ internal class AndroidL2capListener(
 
     override fun close() {
         if (closed) return
-        closed = true
+        _closed.value = true
         _isOpen.value = false
 
         try {

@@ -30,7 +30,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
-import kotlin.concurrent.Volatile
+import kotlinx.atomicfu.AtomicRef
+import kotlinx.atomicfu.atomic
 import kotlin.uuid.Uuid
 
 /**
@@ -40,7 +41,7 @@ import kotlin.uuid.Uuid
  * All mutable state is accessed exclusively on [dispatcher] (limitedParallelism(1))
  * unless noted otherwise. Thread-safe fields accessed from Binder threads:
  * - [pendingNotifySent]: ConcurrentHashMap, CompletableDeferred.complete is safe
- * - [pendingServiceAdd]: @Volatile, CompletableDeferred.complete is safe
+ * - [pendingServiceAdd]: atomicfu AtomicRef, CompletableDeferred.complete is safe
  * - [isOpen]/[isClosed]: AtomicBoolean for atomic visibility
  */
 internal class AndroidGattServerState(
@@ -173,12 +174,16 @@ internal class AndroidGattServerState(
     // --- Thread-safe fields ---
     val pendingNotifySent = ConcurrentHashMap<String, CompletableDeferred<Int>>()
 
-    @Volatile
-    var pendingServiceAdd: CompletableDeferred<Int>? = null
+    private val _pendingServiceAdd = atomic<CompletableDeferred<Int>?>(null)
+    var pendingServiceAdd: CompletableDeferred<Int>?
+        get() = _pendingServiceAdd.value
+        set(value) { _pendingServiceAdd.value = value }
 
     // --- Native server ---
-    @Volatile
-    var nativeServer: BluetoothGattServer? = null
+    private val _nativeServer = atomic<BluetoothGattServer?>(null)
+    var nativeServer: BluetoothGattServer?
+        get() = _nativeServer.value
+        set(value) { _nativeServer.value = value }
 
     // --- Lifecycle flags ---
     val isOpen = AtomicBoolean(false)
