@@ -157,7 +157,7 @@ class AndroidScannerIntegrationTest {
                         manufacturerData(
                             companyId = 0x004C,
                             data = byteArrayOf(0x01, 0x02),
-                            mask = byteArrayOf(0xFF, 0x00),
+                            mask = byteArrayOf(0xFF.toByte(), 0x00.toByte()),
                         )
                     }
                 }
@@ -187,7 +187,7 @@ class AndroidScannerIntegrationTest {
                         serviceData(
                             "180d",
                             byteArrayOf(0x01),
-                            mask = byteArrayOf(0xFF),
+                            mask = byteArrayOf(0xFF.toByte()),
                         )
                     }
                 }
