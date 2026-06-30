@@ -1,7 +1,7 @@
 package com.atruedev.kmpble.testing
 
-import com.atruedev.kmpble.connection.State
-import com.atruedev.kmpble.connection.internal.ConnectionEvent
+import com.atruedev.kmpble.peripheral.state.ConnectionState
+import com.atruedev.kmpble.peripheral.state.StateTransitionEvent
 import com.atruedev.kmpble.error.BleError
 import com.atruedev.kmpble.error.ConnectionLost
 import com.atruedev.kmpble.gatt.DiscoveredService
@@ -21,38 +21,38 @@ internal class FakeConnectionSimulator(
     private val cccdWritesState: MutableStateFlow<List<FakePeripheral.CccdWrite>>,
     private val closedFlag: () -> Boolean,
 ) {
-    /** Drives the state machine with a [ConnectionEvent]. */
-    internal suspend fun simulateEvent(event: ConnectionEvent): State {
+    /** Drives the state machine with a [StateTransitionEvent]. */
+    internal suspend fun simulateEvent(event: StateTransitionEvent): ConnectionState {
         checkNotClosed()
         return context.processEvent(event)
     }
 
     /**
-     * Drives the state machine from [State.Connected.Ready] to
-     * [State.Connected.BondingChange].
+     * Drives the state machine from [ConnectionState.Connected.Ready] to
+     * [ConnectionState.Connected.BondingChange].
      */
     public suspend fun simulateBondStateChange() {
         checkNotClosed()
-        context.processEvent(ConnectionEvent.BondStateChanged)
+        context.processEvent(StateTransitionEvent.BondStateChanged)
     }
 
     /**
-     * Drives the state machine from [State.Connected.Ready] to
-     * [State.Connected.ServiceChanged]. Services remain populated (now stale)
+     * Drives the state machine from [ConnectionState.Connected.Ready] to
+     * [ConnectionState.Connected.ServiceChanged]. Services remain populated (now stale)
      * until rediscovery completes.
      */
     public suspend fun simulateServiceChangedIndication() {
         checkNotClosed()
-        context.processEvent(ConnectionEvent.ServiceChangedIndication)
+        context.processEvent(StateTransitionEvent.ServiceChangedIndication)
     }
 
     /**
-     * Drives the state machine from [State.Connected.ServiceChanged] back to
-     * [State.Connected.Ready].
+     * Drives the state machine from [ConnectionState.Connected.ServiceChanged] back to
+     * [ConnectionState.Connected.Ready].
      */
     public suspend fun simulateRediscoverySucceeded() {
         checkNotClosed()
-        context.processEvent(ConnectionEvent.RediscoverySucceeded)
+        context.processEvent(StateTransitionEvent.RediscoverySucceeded)
     }
 
     /**
@@ -61,7 +61,7 @@ internal class FakeConnectionSimulator(
      */
     public suspend fun simulateDisconnect(error: BleError = ConnectionLost("Simulated disconnect")) {
         checkNotClosed()
-        context.processEvent(ConnectionEvent.ConnectionLost(error))
+        context.processEvent(StateTransitionEvent.ConnectionLost(error))
         observationManager.onDisconnect()
     }
 
@@ -77,15 +77,15 @@ internal class FakeConnectionSimulator(
             fakeServices = newServices
         }
 
-        context.processEvent(ConnectionEvent.ConnectRequested)
+        context.processEvent(StateTransitionEvent.ConnectRequested)
         context.gattQueue.start()
-        context.processEvent(ConnectionEvent.LinkEstablished)
-        context.processEvent(ConnectionEvent.ServicesDiscovered)
+        context.processEvent(StateTransitionEvent.LinkEstablished)
+        context.processEvent(StateTransitionEvent.ServicesDiscovered)
         context.updateServices(fakeServices)
 
         resubscribeObservations()
 
-        context.processEvent(ConnectionEvent.ConfigurationComplete)
+        context.processEvent(StateTransitionEvent.ConfigurationComplete)
     }
 
     private suspend fun resubscribeObservations() {
@@ -116,7 +116,7 @@ internal class FakeConnectionSimulator(
     public suspend fun simulatePermanentDisconnect() {
         checkNotClosed()
         context.processEvent(
-            ConnectionEvent.ConnectionLost(ConnectionLost("Max attempts exhausted")),
+            StateTransitionEvent.ConnectionLost(ConnectionLost("Max attempts exhausted")),
         )
         observationManager.onPermanentDisconnect()
     }

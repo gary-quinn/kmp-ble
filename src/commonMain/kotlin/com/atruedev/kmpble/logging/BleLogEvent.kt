@@ -1,7 +1,7 @@
 package com.atruedev.kmpble.logging
 
 import com.atruedev.kmpble.Identifier
-import com.atruedev.kmpble.connection.State
+import com.atruedev.kmpble.peripheral.state.ConnectionState
 import com.atruedev.kmpble.error.GattStatus
 import kotlin.time.Duration
 import kotlin.uuid.Uuid
@@ -45,8 +45,8 @@ public sealed interface BleLogEvent {
      */
     public data class StateTransition(
         val identifier: Identifier,
-        val from: State,
-        val to: State,
+        val from: ConnectionState,
+        val to: ConnectionState,
         val durationInPreviousState: Duration = Duration.ZERO,
     ) : BleLogEvent {
         override val formatted: String get() {

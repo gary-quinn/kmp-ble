@@ -1,6 +1,6 @@
 package com.atruedev.kmpble.monitoring
 
-import com.atruedev.kmpble.connection.State
+import com.atruedev.kmpble.peripheral.state.ConnectionState
 import com.atruedev.kmpble.peripheral.Peripheral
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -59,7 +59,7 @@ public class PowerMonitor(
             scope.launch {
                 try {
                     peripheral.state.collect { state ->
-                        if (state !is State.Connected) {
+                        if (state !is ConnectionState.Connected) {
                             _pathLoss.update { null }
                         }
                     }

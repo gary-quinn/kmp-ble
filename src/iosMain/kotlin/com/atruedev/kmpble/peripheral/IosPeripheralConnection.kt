@@ -1,8 +1,8 @@
 package com.atruedev.kmpble.peripheral
 
 import com.atruedev.kmpble.connection.ConnectionOptions
-import com.atruedev.kmpble.connection.State
-import com.atruedev.kmpble.connection.internal.ConnectionEvent
+import com.atruedev.kmpble.peripheral.state.ConnectionState
+import com.atruedev.kmpble.peripheral.state.StateTransitionEvent
 import com.atruedev.kmpble.error.ConnectionFailed
 import com.atruedev.kmpble.error.ConnectionFailureReason
 import com.atruedev.kmpble.error.ConnectionLost
@@ -28,7 +28,7 @@ internal suspend fun IosPeripheral.connectInternal(options: ConnectionOptions) {
     reconnectionHandler.start(options)
     bondManager.start()
     withContext(peripheralContext.dispatcher) {
-        peripheralContext.processEvent(ConnectionEvent.ConnectRequested)
+        peripheralContext.processEvent(StateTransitionEvent.ConnectRequested)
         peripheralContext.gattQueue.start(options.gattOperationTimeout)
 
         val deferred = slots.armConnect()
@@ -39,7 +39,7 @@ internal suspend fun IosPeripheral.connectInternal(options: ConnectionOptions) {
         } catch (_: TimeoutCancellationException) {
             bridge.disconnect()
             peripheralContext.processEvent(
-                ConnectionEvent.ConnectionLost(ConnectionFailed("Connection timeout")),
+                StateTransitionEvent.ConnectionLost(ConnectionFailed("Connection timeout")),
             )
         } finally {
             slots.clearConnect()
@@ -52,8 +52,8 @@ internal suspend fun IosPeripheral.disconnectInternal() {
     reconnectionHandler.stop()
     bondManager.stop()
     withContext(peripheralContext.dispatcher) {
-        if (peripheralContext.state.value is State.Disconnected) return@withContext
-        peripheralContext.processEvent(ConnectionEvent.DisconnectRequested)
+        if (peripheralContext.state.value is ConnectionState.Disconnected) return@withContext
+        peripheralContext.processEvent(StateTransitionEvent.DisconnectRequested)
         val deferred = slots.armDisconnect()
         bridge.disconnect()
 
@@ -61,7 +61,7 @@ internal suspend fun IosPeripheral.disconnectInternal() {
             withTimeout(DISCONNECT_TIMEOUT) { deferred.await() }
         } catch (_: TimeoutCancellationException) {
             peripheralContext.processEvent(
-                ConnectionEvent.ConnectionLost(OperationFailed("Disconnect timeout")),
+                StateTransitionEvent.ConnectionLost(OperationFailed("Disconnect timeout")),
             )
         } finally {
             slots.clearDisconnect()
@@ -75,7 +75,7 @@ internal fun IosPeripheral.handleConnectionCallback(
 ) {
     peripheralContext.scope.launch {
         if (connected) {
-            peripheralContext.processEvent(ConnectionEvent.LinkEstablished)
+            peripheralContext.processEvent(StateTransitionEvent.LinkEstablished)
             // New discovery cycle on connect: increment generation and clear stale handles
             discoveryGeneration.incrementAndGet()
             nativeCharMap.clear()
@@ -95,11 +95,11 @@ internal fun IosPeripheral.handleConnectionCallback(
                 ConnectionLost("Disconnected")
             }
 
-        if (peripheralContext.state.value is State.Disconnecting.Requested) {
-            peripheralContext.processEvent(ConnectionEvent.ConnectionLost(bleError))
+        if (peripheralContext.state.value is ConnectionState.Disconnecting.Requested) {
+            peripheralContext.processEvent(StateTransitionEvent.ConnectionLost(bleError))
             slots.completeDisconnect()
         } else {
-            peripheralContext.processEvent(ConnectionEvent.ConnectionLost(bleError))
+            peripheralContext.processEvent(StateTransitionEvent.ConnectionLost(bleError))
         }
         onDisconnectCleanup()
         slots.completeConnect()

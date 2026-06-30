@@ -1,7 +1,7 @@
 package com.atruedev.kmpble.conformance
 
 import com.atruedev.kmpble.connection.ConnectionOptions
-import com.atruedev.kmpble.connection.State
+import com.atruedev.kmpble.peripheral.state.ConnectionState
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertNotNull
@@ -26,7 +26,7 @@ public abstract class ConnectionConformanceTest : BleConformanceTest() {
 
             peripheral.connect(ConnectionOptions())
 
-            assertTrue(peripheral.state.value is State.Connected)
+            assertTrue(peripheral.state.value is ConnectionState.Connected)
             peripheral.close()
         }
 
@@ -45,7 +45,7 @@ public abstract class ConnectionConformanceTest : BleConformanceTest() {
 
             val state = peripheral.state.value
             assertTrue(
-                state is State.Disconnecting || state is State.Disconnected,
+                state is ConnectionState.Disconnecting || state is ConnectionState.Disconnected,
                 "Expected Disconnecting or Disconnected, got $state",
             )
             peripheral.close()
@@ -62,11 +62,11 @@ public abstract class ConnectionConformanceTest : BleConformanceTest() {
                 }
 
             peripheral.connect(ConnectionOptions())
-            assertTrue(peripheral.state.value is State.Connected)
+            assertTrue(peripheral.state.value is ConnectionState.Connected)
 
             peripheral.disconnect()
             peripheral.connect(ConnectionOptions())
-            assertTrue(peripheral.state.value is State.Connected)
+            assertTrue(peripheral.state.value is ConnectionState.Connected)
 
             peripheral.close()
         }

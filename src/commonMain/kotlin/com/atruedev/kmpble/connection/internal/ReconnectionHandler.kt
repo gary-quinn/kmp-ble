@@ -2,7 +2,7 @@ package com.atruedev.kmpble.connection.internal
 
 import com.atruedev.kmpble.connection.ConnectionOptions
 import com.atruedev.kmpble.connection.ReconnectionStrategy
-import com.atruedev.kmpble.connection.State
+import com.atruedev.kmpble.peripheral.state.ConnectionState
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job

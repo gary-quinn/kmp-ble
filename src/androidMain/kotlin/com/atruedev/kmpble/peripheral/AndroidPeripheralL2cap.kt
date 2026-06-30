@@ -5,7 +5,7 @@ package com.atruedev.kmpble.peripheral
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothDevice
 import com.atruedev.kmpble.connection.Phy
-import com.atruedev.kmpble.connection.State
+import com.atruedev.kmpble.peripheral.state.ConnectionState
 import com.atruedev.kmpble.l2cap.AndroidL2capChannel
 import com.atruedev.kmpble.l2cap.BluetoothL2capSocket
 import com.atruedev.kmpble.l2cap.L2capChannel
@@ -47,7 +47,7 @@ internal suspend fun AndroidPeripheral.openL2capChannelInternal(
     if (mtu != null) require(mtu > 0) { "mtu must be positive, was $mtu" }
 
     val current = state.value
-    if (current !is State.Connected.Ready) {
+    if (current !is ConnectionState.Connected.Ready) {
         throw L2capException.NotConnected("Peripheral is not connected and ready (state: $current)")
     }
 

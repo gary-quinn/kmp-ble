@@ -7,8 +7,8 @@ import android.bluetooth.BluetoothGattCharacteristic
 import com.atruedev.kmpble.connection.ConnectionSubratingParameters
 import com.atruedev.kmpble.connection.ConnectionSubratingResult
 import com.atruedev.kmpble.connection.PhyUpdate
-import com.atruedev.kmpble.connection.State
-import com.atruedev.kmpble.connection.internal.ConnectionEvent
+import com.atruedev.kmpble.peripheral.state.ConnectionState
+import com.atruedev.kmpble.peripheral.state.StateTransitionEvent
 import com.atruedev.kmpble.error.BleException
 import com.atruedev.kmpble.error.GattError
 import com.atruedev.kmpble.error.ServiceDiscoveryError
@@ -74,17 +74,17 @@ internal suspend fun AndroidPeripheral.handleServicesDiscovered(event: GattCallb
     val status = event.status.toGattStatus()
     if (!status.isSuccess()) {
         val discoveryError = ServiceDiscoveryError(serviceUuid = null, status = status)
-        peripheralContext.processEvent(ConnectionEvent.DiscoveryFailed(discoveryError))
+        peripheralContext.processEvent(StateTransitionEvent.DiscoveryFailed(discoveryError))
         slots.completeConnect()
         slots.failDiscovery(BleException(discoveryError))
         return
     }
 
     val discovered = event.services.map { it.toDiscoveredService(this) }
-    peripheralContext.processEvent(ConnectionEvent.ServicesDiscovered)
+    peripheralContext.processEvent(StateTransitionEvent.ServicesDiscovered)
     peripheralContext.updateServices(discovered)
     resubscribeObservations()
-    peripheralContext.processEvent(ConnectionEvent.ConfigurationComplete)
+    peripheralContext.processEvent(StateTransitionEvent.ConfigurationComplete)
     slots.completeConnect()
     slots.completeDiscovery(discovered)
 }
@@ -222,7 +222,7 @@ internal suspend fun AndroidPeripheral.enableNotifications(characteristic: Chara
  * back into the consumer's collector.
  */
 internal fun AndroidPeripheral.disableNotificationsBestEffort(characteristic: Characteristic) {
-    if (peripheralContext.state.value !is State.Connected) return
+    if (peripheralContext.state.value !is ConnectionState.Connected) return
     val native = nativeCharMap[characteristic] ?: return
     bridge.setCharacteristicNotification(native, false)
     val cccd = native.getDescriptor(UUID.fromString(CCCD_UUID.toString())) ?: return

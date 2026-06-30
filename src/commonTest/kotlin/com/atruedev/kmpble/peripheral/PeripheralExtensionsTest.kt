@@ -1,7 +1,7 @@
 package com.atruedev.kmpble.peripheral
 
 import com.atruedev.kmpble.connection.ConnectionOptions
-import com.atruedev.kmpble.connection.State
+import com.atruedev.kmpble.peripheral.state.ConnectionState
 import com.atruedev.kmpble.scanner.uuidFrom
 import com.atruedev.kmpble.testing.FakePeripheral
 import kotlinx.coroutines.test.runTest
@@ -39,7 +39,7 @@ class PeripheralExtensionsTest {
     fun dumpShowsStateWhenNotConnected() {
         val peripheral = createPeripheral()
         val output = peripheral.dump()
-        assertContains(output, "ByRequest") // State.Disconnected.ByRequest is the initial state
+        assertContains(output, "ByRequest") // ConnectionState.Disconnected.ByRequest is the initial state
     }
 
     @Test
@@ -86,7 +86,7 @@ class PeripheralExtensionsTest {
             var blockExecuted = false
 
             peripheral.whenReady {
-                assertIs<State.Connected.Ready>(state.value)
+                assertIs<ConnectionState.Connected.Ready>(state.value)
                 blockExecuted = true
             }
 
@@ -143,6 +143,6 @@ class PeripheralExtensionsTest {
             // it transitions to Disconnected state instead.
             // The real platform implementations throw BleException.
             peripheral.connectAndDiscover()
-            assertIs<State.Disconnected>(peripheral.state.value)
+            assertIs<ConnectionState.Disconnected>(peripheral.state.value)
         }
 }

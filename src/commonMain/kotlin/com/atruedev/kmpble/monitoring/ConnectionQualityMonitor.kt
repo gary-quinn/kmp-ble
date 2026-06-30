@@ -1,6 +1,6 @@
 package com.atruedev.kmpble.monitoring
 
-import com.atruedev.kmpble.connection.State
+import com.atruedev.kmpble.peripheral.state.ConnectionState
 import com.atruedev.kmpble.peripheral.Peripheral
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -83,7 +83,7 @@ public class ConnectionQualityMonitor(
     private fun updateFromState(state: State) {
         _connectionQuality.update { current ->
             val wasConnected = current.isConnected
-            val isNowConnected = state is State.Connected
+            val isNowConnected = state is ConnectionState.Connected
 
             when {
                 isNowConnected && !wasConnected ->

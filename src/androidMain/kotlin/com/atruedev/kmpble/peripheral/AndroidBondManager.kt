@@ -11,7 +11,7 @@ import android.content.IntentFilter
 import com.atruedev.kmpble.ExperimentalBleApi
 import com.atruedev.kmpble.bonding.BondRemovalResult
 import com.atruedev.kmpble.bonding.BondState
-import com.atruedev.kmpble.connection.internal.ConnectionEvent
+import com.atruedev.kmpble.peripheral.state.StateTransitionEvent
 import com.atruedev.kmpble.peripheral.internal.PeripheralContext
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.StateFlow
@@ -125,7 +125,7 @@ internal class AndroidBondManager(
                         when (state) {
                             BluetoothDevice.BOND_BONDED -> {
                                 peripheralContext.updateBondState(BondState.Bonded)
-                                peripheralContext.processEvent(ConnectionEvent.BondSucceeded)
+                                peripheralContext.processEvent(StateTransitionEvent.BondSucceeded)
                                 bondComplete?.complete(true)
                             }
                             BluetoothDevice.BOND_BONDING -> {
@@ -135,14 +135,14 @@ internal class AndroidBondManager(
                                 peripheralContext.updateBondState(BondState.NotBonded)
                                 if (previousState == BluetoothDevice.BOND_BONDING) {
                                     peripheralContext.processEvent(
-                                        ConnectionEvent.BondFailed(
+                                        StateTransitionEvent.BondFailed(
                                             com.atruedev.kmpble.error
                                                 .ConnectionFailed(reason = "Bonding failed"),
                                         ),
                                     )
                                     bondComplete?.complete(false)
                                 } else {
-                                    peripheralContext.processEvent(ConnectionEvent.BondStateChanged)
+                                    peripheralContext.processEvent(StateTransitionEvent.BondStateChanged)
                                 }
                             }
                         }

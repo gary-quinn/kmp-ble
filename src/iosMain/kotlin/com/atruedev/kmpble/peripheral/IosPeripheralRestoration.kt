@@ -1,6 +1,6 @@
 package com.atruedev.kmpble.peripheral
 
-import com.atruedev.kmpble.connection.internal.ConnectionEvent
+import com.atruedev.kmpble.peripheral.state.StateTransitionEvent
 import com.atruedev.kmpble.gatt.internal.PersistedObservation
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
@@ -21,9 +21,9 @@ internal suspend fun IosPeripheral.restoreFromStateRestorationExt(savedObservati
         }
 
         if (cbPeripheral.state == CBPeripheralStateConnected) {
-            peripheralContext.processEvent(ConnectionEvent.ConnectRequested)
+            peripheralContext.processEvent(StateTransitionEvent.ConnectRequested)
             peripheralContext.gattQueue.start()
-            peripheralContext.processEvent(ConnectionEvent.LinkEstablished)
+            peripheralContext.processEvent(StateTransitionEvent.LinkEstablished)
 
             val deferred = slots.armConnect()
             bridge.discoverServices()

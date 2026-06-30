@@ -3,7 +3,7 @@ package com.atruedev.kmpble.conformance
 import com.atruedev.kmpble.connection.ConnectionOptions
 import com.atruedev.kmpble.connection.ConnectionSubratingParameters
 import com.atruedev.kmpble.connection.ConnectionSubratingResult
-import com.atruedev.kmpble.connection.State
+import com.atruedev.kmpble.peripheral.state.ConnectionState
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -360,7 +360,7 @@ public abstract class ConnectionSubratingConformanceTest : BleConformanceTest() 
 
             peripheral.connect(ConnectionOptions())
 
-            assertTrue(peripheral.state.value is State.Connected)
+            assertTrue(peripheral.state.value is ConnectionState.Connected)
 
             val params =
                 ConnectionSubratingParameters(
@@ -372,7 +372,7 @@ public abstract class ConnectionSubratingConformanceTest : BleConformanceTest() 
 
             peripheral.requestConnectionSubrating(params)
 
-            assertTrue(peripheral.state.value is State.Connected)
+            assertTrue(peripheral.state.value is ConnectionState.Connected)
 
             peripheral.close()
         }

@@ -2,7 +2,7 @@ package com.atruedev.kmpble.peripheral
 
 import com.atruedev.kmpble.Identifier
 import com.atruedev.kmpble.connection.ConnectionOptions
-import com.atruedev.kmpble.connection.State
+import com.atruedev.kmpble.peripheral.state.ConnectionState
 import com.atruedev.kmpble.gatt.BackpressureStrategy
 import com.atruedev.kmpble.gatt.Observation
 import com.atruedev.kmpble.scanner.ScanEvent
@@ -110,7 +110,7 @@ class BleIntegrationJvmTest {
             peripheral.disconnect()
 
             // Peripheral should be in disconnected state
-            assertIs<State.Disconnected.ByRequest>(peripheral.state.value)
+            assertIs<ConnectionState.Disconnected.ByRequest>(peripheral.state.value)
 
             // Cleanup
             IntegrationTestFixtures.scanner.close()

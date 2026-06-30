@@ -1,6 +1,6 @@
 package com.atruedev.kmpble.peripheral
 
-import com.atruedev.kmpble.connection.State
+import com.atruedev.kmpble.peripheral.state.ConnectionState
 import com.atruedev.kmpble.error.BleException
 import com.atruedev.kmpble.error.GattError
 import com.atruedev.kmpble.gatt.BackpressureStrategy
@@ -66,7 +66,7 @@ internal fun IosPeripheral.observeGatt(
         characteristic = characteristic,
         backpressure = backpressure,
         observationManager = observationManager,
-        isReady = { peripheralContext.state.value is State.Connected.Ready },
+        isReady = { peripheralContext.state.value is ConnectionState.Connected.Ready },
         enable = ::enableNotifications,
         disable = ::disableNotifications,
         mapper = ObservationToObservation,
@@ -82,7 +82,7 @@ internal fun IosPeripheral.observeValuesGatt(
         characteristic = characteristic,
         backpressure = backpressure,
         observationManager = observationManager,
-        isReady = { peripheralContext.state.value is State.Connected.Ready },
+        isReady = { peripheralContext.state.value is ConnectionState.Connected.Ready },
         enable = ::enableNotifications,
         disable = ::disableNotifications,
         mapper = ObservationToBytes,
