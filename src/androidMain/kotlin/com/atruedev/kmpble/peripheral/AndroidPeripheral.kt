@@ -95,8 +95,8 @@ public class AndroidPeripheral internal constructor(
     private var _lastConnectionOptions: ConnectionOptions? = null
     override val lastConnectionOptions: ConnectionOptions? get() = _lastConnectionOptions
 
-    private val _closed = atomic(false)
-    internal val closed: Boolean get() = _closed.value
+    private val _closed = java.util.concurrent.atomic.AtomicBoolean(false)
+    internal val closed: Boolean get() = _closed.get()
 
     /**
      * Confined to [peripheralContext.dispatcher]. Read by [handleConnectionStateChanged]
