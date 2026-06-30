@@ -11,6 +11,9 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
@@ -245,5 +248,310 @@ class ObservationPersistenceAndroidHostTest {
         val restored = persistence.restore(peripheralId)
         assertEquals(1, restored.size)
         assertEquals(BackpressureStrategy.Latest, restored.first().backpressure)
+    }
+
+    // --- Direct BackpressureStrategy serialization/deserialization ---
+
+    @Test
+    fun serializeLatestBackpressureToLatestString() {
+        assertEquals("latest", serializeBackpressure(BackpressureStrategy.Latest))
+    }
+
+    @Test
+    fun serializeBufferBackpressureToBufferFormat() {
+        assertEquals("buffer:64", serializeBackpressure(BackpressureStrategy.Buffer(64)))
+    }
+
+    @Test
+    fun serializeUnboundedBackpressureToUnboundedString() {
+        assertEquals("unbounded", serializeBackpressure(BackpressureStrategy.Unbounded))
+    }
+
+    @Test
+    fun deserializeLatestFromString() {
+        assertEquals(BackpressureStrategy.Latest, deserializeBackpressure("latest"))
+    }
+
+    @Test
+    fun deserializeBufferFromString() {
+        assertEquals(BackpressureStrategy.Buffer(128), deserializeBackpressure("buffer:128"))
+    }
+
+    @Test
+    fun deserializeUnboundedFromString() {
+        assertEquals(BackpressureStrategy.Unbounded, deserializeBackpressure("unbounded"))
+    }
+
+    @Test
+    fun deserializeNullDefaultsToLatest() {
+        assertEquals(BackpressureStrategy.Latest, deserializeBackpressure(null))
+    }
+
+    @Test
+    fun deserializeUnknownDefaultsToLatest() {
+        assertEquals(BackpressureStrategy.Latest, deserializeBackpressure("garbage"))
+    }
+
+    @Test
+    fun deserializeBufferWithNonNumericCapacityUsesDefault64() {
+        assertEquals(
+            BackpressureStrategy.Buffer(64),
+            deserializeBackpressure("buffer:notanumber"),
+        )
+    }
+
+    // --- Direct JsonArrayEncoder encode/decode ---
+
+    @Test
+    fun encodeEmptyListProducesEmptyArray() {
+        assertEquals("[]", JsonArrayEncoder.encode(emptyList()))
+    }
+
+    @Test
+    fun encodeSingleEntryProducesValidJson() {
+        val entries = listOf(
+            mapOf(
+                "s" to serviceUuid.toString(),
+                "c" to charUuid.toString(),
+                "bp" to "latest",
+            ),
+        )
+        val json = JsonArrayEncoder.encode(entries)
+        assertTrue(json.startsWith("["))
+        assertTrue(json.endsWith("]"))
+        assertTrue(json.contains("\"s\""))
+        assertTrue(json.contains("\"c\""))
+        assertTrue(json.contains("\"bp\""))
+        assertTrue(json.contains("latest"))
+    }
+
+    @Test
+    fun encodeMultipleEntriesProducesValidJson() {
+        val entries = listOf(
+            mapOf("s" to serviceUuid.toString(), "c" to charUuid.toString(), "bp" to "latest"),
+            mapOf("s" to serviceUuid.toString(), "c" to charUuid2.toString(), "bp" to "buffer:32"),
+        )
+        val json = JsonArrayEncoder.encode(entries)
+        assertTrue(json.contains("latest"))
+        assertTrue(json.contains("buffer:32"))
+    }
+
+    @Test
+    fun decodeEmptyArrayProducesEmptyList() {
+        val result = JsonArrayEncoder.decode("[]")
+        assertTrue(result.isEmpty())
+    }
+
+    @Test
+    fun decodeSingleEntryWithAllFields() {
+        val json = """[{"s":"$serviceUuid","c":"$charUuid","bp":"latest"}]"""
+        val result = JsonArrayEncoder.decode(json)
+        assertEquals(1, result.size)
+        assertEquals(serviceUuid.toString(), result[0]["s"])
+        assertEquals(charUuid.toString(), result[0]["c"])
+        assertEquals("latest", result[0]["bp"])
+    }
+
+    @Test
+    fun decodeInvalidJsonProducesEmptyList() {
+        val result = JsonArrayEncoder.decode("not json at all")
+        assertTrue(result.isEmpty())
+    }
+
+    @Test
+    fun encodeThenDecodeRoundtripPreservesAllEntries() {
+        val entries = listOf(
+            mapOf(
+                "s" to serviceUuid.toString(),
+                "c" to charUuid.toString(),
+                "bp" to "buffer:128",
+            ),
+            mapOf(
+                "s" to Uuid.parse("0000180f-0000-1000-8000-00805f9b34fb").toString(),
+                "c" to Uuid.parse("00002a19-0000-1000-8000-00805f9b34fb").toString(),
+                "bp" to "unbounded",
+            ),
+        )
+        val encoded = JsonArrayEncoder.encode(entries)
+        val decoded = JsonArrayEncoder.decode(encoded)
+        assertEquals(entries.size, decoded.size)
+        entries.forEachIndexed { index, expected ->
+            assertEquals(expected["s"], decoded[index]["s"])
+            assertEquals(expected["c"], decoded[index]["c"])
+            assertEquals(expected["bp"], decoded[index]["bp"])
+        }
+    }
+
+    // --- Edge case tests ---
+
+    @Test
+    fun bufferZeroCapacitySurvivesRoundtrip() {
+        val persistence = ObservationPersistence()
+        val observations = setOf(
+            PersistedObservation(
+                ObservationKey(serviceUuid, charUuid),
+                BackpressureStrategy.Buffer(0),
+            ),
+        )
+        persistence.save(peripheralId, observations)
+        val restored = persistence.restore(peripheralId)
+
+        assertEquals(1, restored.size)
+        assertEquals(BackpressureStrategy.Buffer(0), restored.first().backpressure)
+    }
+
+    @Test
+    fun bufferMaxCapacitySurvivesRoundtrip() {
+        val persistence = ObservationPersistence()
+        val observations = setOf(
+            PersistedObservation(
+                ObservationKey(serviceUuid, charUuid),
+                BackpressureStrategy.Buffer(Int.MAX_VALUE),
+            ),
+        )
+        persistence.save(peripheralId, observations)
+        val restored = persistence.restore(peripheralId)
+
+        assertEquals(1, restored.size)
+        assertEquals(BackpressureStrategy.Buffer(Int.MAX_VALUE), restored.first().backpressure)
+    }
+
+    @Test
+    fun truncatedJsonArrayProducesEmptySet() {
+        val prefs = appContext.getSharedPreferences("com.atruedev.kmpble.cccd", Context.MODE_PRIVATE)
+        prefs.edit().putString("obs.$peripheralId", """[{"s":"test""").commit()
+
+        val persistence = ObservationPersistence()
+        val restored = persistence.restore(peripheralId)
+        assertTrue(restored.isEmpty())
+    }
+
+    @Test
+    fun jsonWithExtraFieldsStillDecodesCorrectly() {
+        val prefs = appContext.getSharedPreferences("com.atruedev.kmpble.cccd", Context.MODE_PRIVATE)
+        val json =
+            """[{"s":"$serviceUuid","c":"$charUuid","bp":"latest","extra":"should be ignored"}]"""
+        prefs.edit().putString("obs.$peripheralId", json).commit()
+
+        val persistence = ObservationPersistence()
+        val restored = persistence.restore(peripheralId)
+
+        assertEquals(1, restored.size)
+        assertEquals(BackpressureStrategy.Latest, restored.first().backpressure)
+    }
+
+    @Test
+    fun invalidUuidFormatIsSkipped() {
+        val prefs = appContext.getSharedPreferences("com.atruedev.kmpble.cccd", Context.MODE_PRIVATE)
+        prefs.edit().putString("obs.$peripheralId", """[{"s":"not-a-uuid","c":"also-bad","bp":"latest"}]""").commit()
+
+        val persistence = ObservationPersistence()
+        val restored = persistence.restore(peripheralId)
+        assertTrue(restored.isEmpty(), "Invalid UUIDs should be skipped")
+    }
+
+    @Test
+    fun missingServiceFieldSkipsEntry() {
+        val prefs = appContext.getSharedPreferences("com.atruedev.kmpble.cccd", Context.MODE_PRIVATE)
+        prefs.edit().putString("obs.$peripheralId", """[{"c":"$charUuid","bp":"latest"}]""").commit()
+
+        val persistence = ObservationPersistence()
+        val restored = persistence.restore(peripheralId)
+        assertTrue(restored.isEmpty())
+    }
+
+    @Test
+    fun missingCharFieldSkipsEntry() {
+        val prefs = appContext.getSharedPreferences("com.atruedev.kmpble.cccd", Context.MODE_PRIVATE)
+        prefs.edit().putString("obs.$peripheralId", """[{"s":"$serviceUuid","bp":"latest"}]""").commit()
+
+        val persistence = ObservationPersistence()
+        val restored = persistence.restore(peripheralId)
+        assertTrue(restored.isEmpty())
+    }
+
+    @Test
+    fun specialCharactersInPeripheralId() {
+        val persistence = ObservationPersistence()
+        val specialId = "test-peripheral-with-dashes"
+
+        persistence.save(specialId, setOf(
+            PersistedObservation(
+                ObservationKey(serviceUuid, charUuid),
+                BackpressureStrategy.Latest,
+            ),
+        ))
+        val restored = persistence.restore(specialId)
+        assertEquals(1, restored.size)
+    }
+
+    @Test
+    fun emptyPeripheralIdWorks() {
+        val persistence = ObservationPersistence()
+        persistence.save("", setOf(
+            PersistedObservation(
+                ObservationKey(serviceUuid, charUuid),
+                BackpressureStrategy.Latest,
+            ),
+        ))
+        val restored = persistence.restore("")
+        assertEquals(1, restored.size)
+    }
+
+    @Test
+    fun largeNumberOfObservationsRoundtripsCorrectly() {
+        val persistence = ObservationPersistence()
+        val service = Uuid.parse("0000180d-0000-1000-8000-00805f9b34fb")
+        val largeSet = (1..100).map { index ->
+            PersistedObservation(
+                ObservationKey(service, Uuid.parse("00002a37-0000-1000-8000-00805f9b34fb")),
+                BackpressureStrategy.Latest,
+            )
+        }.toSet()
+
+        persistence.save(peripheralId, largeSet)
+        val restored = persistence.restore(peripheralId)
+        assertEquals(100, restored.size)
+    }
+
+    @Test
+    fun saveThenRestoreTwiceReturnsSameData() {
+        val persistence = ObservationPersistence()
+        persistence.save(peripheralId, setOf(
+            PersistedObservation(
+                ObservationKey(serviceUuid, charUuid),
+                BackpressureStrategy.Latest,
+            ),
+        ))
+
+        val first = persistence.restore(peripheralId)
+        assertEquals(1, first.size)
+
+        val second = persistence.restore(peripheralId)
+        assertEquals(1, second.size)
+    }
+
+    @Test
+    fun saveOverwriteUpdatesPersistedState() {
+        val persistence = ObservationPersistence()
+        val original = setOf(
+            PersistedObservation(
+                ObservationKey(serviceUuid, charUuid),
+                BackpressureStrategy.Latest,
+            ),
+        )
+        persistence.save(peripheralId, original)
+        assertEquals(1, persistence.restore(peripheralId).size)
+
+        val updated = setOf(
+            PersistedObservation(
+                ObservationKey(serviceUuid, charUuid2),
+                BackpressureStrategy.Buffer(64),
+            ),
+        )
+        persistence.save(peripheralId, updated)
+        val restored = persistence.restore(peripheralId)
+        assertEquals(1, restored.size)
+        assertEquals(BackpressureStrategy.Buffer(64), restored.first().backpressure)
     }
 }
