@@ -120,7 +120,7 @@ public class IosPeripheral(
         }
     }
 
-    override suspend fun connect(options: ConnectionOptions): Unit {
+    override suspend fun connect(options: ConnectionOptions) {
         _lastConnectionOptions = options
         connectInternal(options)
     }
