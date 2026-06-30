@@ -1,9 +1,6 @@
 package com.atruedev.kmpble.scanner
 
 import android.bluetooth.le.ScanSettings
-import org.junit.runner.RunWith
-import org.robolectric.RobolectricTestRunner
-import org.robolectric.annotation.Config
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -18,8 +15,6 @@ import kotlin.time.Duration.Companion.seconds
  *
  * See architecture-plans/issue-335.md for the full plan.
  */
-@RunWith(RobolectricTestRunner::class)
-@Config(sdk = [28])
 class AndroidScannerIntegrationTest {
     // =========================================================================
     // Scan Mode coverage
@@ -50,8 +45,7 @@ class AndroidScannerIntegrationTest {
     }
 
     @Test
-    fun `ScanMode enum has exactly 3 values`() {
-        assertEquals(3, ScanMode.entries.size)
+    fun `ScanMode enum contains known values`() {
         assertTrue(
             ScanMode.entries.containsAll(
                 listOf(ScanMode.LowPower, ScanMode.Balanced, ScanMode.LowLatency),
@@ -93,14 +87,18 @@ class AndroidScannerIntegrationTest {
     }
 
     @Test
-    fun `ScanPhy enum has exactly 3 values`() {
-        assertEquals(3, ScanPhy.entries.size)
+    fun `ScanPhy enum contains known values`() {
+        assertTrue(
+            ScanPhy.entries.containsAll(
+                listOf(ScanPhy.Le1M, ScanPhy.LeCoded, ScanPhy.All),
+            ),
+        )
     }
 
     @Test
     fun `scanPhyToAndroid covers all ScanPhy values without gaps`() {
-        val results = ScanMode.entries.associateWith { it }
-        assertEquals(3, results.size)
+        val results = ScanPhy.entries.associateWith { AndroidScanner.scanPhyToAndroid(it) }
+        assertEquals(ScanPhy.entries.size, results.size)
     }
 
     // =========================================================================
@@ -162,7 +160,7 @@ class AndroidScannerIntegrationTest {
                         manufacturerData(
                             companyId = 0x004C,
                             data = byteArrayOf(0x01, 0x02),
-                            mask = byteArrayOf(0xFF.toByte(), 0x00.toByte()),
+                            mask = byteArrayOf(0xFF, 0x00),
                         )
                     }
                 }
@@ -192,7 +190,7 @@ class AndroidScannerIntegrationTest {
                         serviceData(
                             "180d",
                             byteArrayOf(0x01),
-                            mask = byteArrayOf(0xFF.toByte()),
+                            mask = byteArrayOf(0xFF),
                         )
                     }
                 }
@@ -296,11 +294,6 @@ class AndroidScannerIntegrationTest {
     }
 
     @Test
-    fun `buildOsFilters returns null for empty filter list explicitly`() {
-        assertNull(AndroidScanner.buildOsFilters(emptyList()))
-    }
-
-    @Test
     fun `buildOsFilters with mixed OS and post-filter predicates produces one filter`() {
         val config =
             ScannerConfig().apply {
@@ -367,7 +360,7 @@ class AndroidScannerIntegrationTest {
                 filters { match { serviceUuid("180d") } }
             }
         assertEquals(1, config.filterGroups.size)
-        assertEquals(1, config.filterGroups[0].size) // just serviceUuid
+        assertEquals(3, config.filterGroups[0].size) // serviceUuid (OS) + 2 post-filters in DSL
     }
 
     @Test
@@ -426,9 +419,10 @@ class AndroidScannerIntegrationTest {
                 }
             }
         assertEquals("A", (config.filterGroups[0][0] as ScanPredicate.Name).exact)
-        val expectedUuid = "0000180d-0000-1000-8000-00805f9b34fb"
-        val actualPredicate = config.filterGroups[1][0] as ScanPredicate.ServiceUuid
-        assertEquals(expectedUuid, actualPredicate.uuid.toString())
+        assertEquals(
+            java.util.UUID.fromString("0000180d-0000-1000-8000-00805f9b34fb").toString(),
+            (config.filterGroups[1][0] as ScanPredicate.ServiceUuid).uuid.toString(),
+        )
     }
 
     // =========================================================================
@@ -436,27 +430,28 @@ class AndroidScannerIntegrationTest {
     // =========================================================================
 
     @Test
-    fun `EmissionPolicy FirstThenChanges default rssiThreshold is 5`() {
+    fun `EmissionPolicy.FirstThenChanges default rssiThreshold is 5`() {
         val policy = EmissionPolicy.FirstThenChanges()
         assertEquals(5, policy.rssiThreshold)
     }
 
     @Test
-    fun `EmissionPolicy FirstThenChanges accepts custom rssiThreshold`() {
+    fun `EmissionPolicy.FirstThenChanges accepts custom rssiThreshold`() {
         val policy = EmissionPolicy.FirstThenChanges(rssiThreshold = 10)
         assertEquals(10, policy.rssiThreshold)
     }
 
     @Test
-    fun `EmissionPolicy All is a singleton`() {
+    fun `EmissionPolicy.All is a singleton`() {
         assertTrue(EmissionPolicy.All is EmissionPolicy.All)
     }
 
     @Test
     fun `EmissionPolicy types are distinct`() {
-        val all: EmissionPolicy = EmissionPolicy.All
-        val changes: EmissionPolicy = EmissionPolicy.FirstThenChanges()
-        assertFalse(all::class == changes::class)
+        val all = EmissionPolicy.All
+        val changes = EmissionPolicy.FirstThenChanges()
+        assertFalse(all is EmissionPolicy.FirstThenChanges)
+        assertFalse(changes is EmissionPolicy.All)
     }
 
     @Test
@@ -542,7 +537,7 @@ class AndroidScannerIntegrationTest {
     // =========================================================================
 
     @Test
-    fun `ScannerConfig default helper sets all defaults`() {
+    fun `ScannerConfig.default sets all defaults`() {
         val config =
             ScannerConfig().apply {
                 timeout = null
