@@ -92,8 +92,11 @@ public class AndroidPeripheral internal constructor(
     override val mtu: StateFlow<Int> get() = peripheralContext.mtu
     override val dataLengthParameters: StateFlow<DataLengthParameters?> get() = peripheralContext.dataLengthParameters
 
-    @Volatile
-    internal var closed = false
+    private var _lastConnectionOptions: ConnectionOptions? = null
+    override val lastConnectionOptions: ConnectionOptions? get() = _lastConnectionOptions
+
+    private val _closed = atomic(false)
+    internal val closed: Boolean get() = _closed.value
 
     /**
      * Confined to [peripheralContext.dispatcher]. Read by [handleConnectionStateChanged]
@@ -134,6 +137,7 @@ public class AndroidPeripheral internal constructor(
 
     @OptIn(ExperimentalBleApi::class)
     override suspend fun connect(options: ConnectionOptions) {
+        _lastConnectionOptions = options
         connectInternal(options)
     }
 

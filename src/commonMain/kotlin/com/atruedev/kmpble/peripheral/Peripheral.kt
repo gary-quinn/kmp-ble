@@ -39,6 +39,15 @@ public interface Peripheral : AutoCloseable {
 
     public suspend fun disconnect()
 
+    /**
+     * The [ConnectionOptions] used for the most recent [connect] call,
+     * or `null` if [connect] has never been invoked on this peripheral.
+     *
+     * Used by [com.atruedev.kmpble.peripheral.reconnect] to re-establish
+     * a connection with the same configuration after disconnect.
+     */
+    public val lastConnectionOptions: ConnectionOptions?
+
     override fun close()
 
     public val state: StateFlow<State>
