@@ -15,7 +15,6 @@ import com.atruedev.kmpble.connection.OperationTimeouts
 import com.atruedev.kmpble.connection.Phy
 import com.atruedev.kmpble.connection.PhyUpdate
 import com.atruedev.kmpble.connection.ReconnectionStrategy
-import com.atruedev.kmpble.peripheral.state.State
 import com.atruedev.kmpble.connection.internal.ReconnectionHandler
 import com.atruedev.kmpble.direction.DirectionFindingParameters
 import com.atruedev.kmpble.direction.DirectionFindingResult
@@ -40,6 +39,7 @@ import com.atruedev.kmpble.peripheral.internal.LifecycleSlots
 import com.atruedev.kmpble.peripheral.internal.PeripheralContext
 import com.atruedev.kmpble.peripheral.internal.findCharacteristic
 import com.atruedev.kmpble.peripheral.internal.findDescriptor
+import com.atruedev.kmpble.peripheral.state.State
 import kotlinx.atomicfu.atomic
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.Flow

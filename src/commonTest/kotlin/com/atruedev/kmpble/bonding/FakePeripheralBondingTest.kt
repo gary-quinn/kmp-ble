@@ -1,8 +1,8 @@
 package com.atruedev.kmpble.bonding
 
-import com.atruedev.kmpble.peripheral.state.State
-import com.atruedev.kmpble.peripheral.state.ConnectionEvent
 import com.atruedev.kmpble.error.ConnectionFailed
+import com.atruedev.kmpble.peripheral.state.ConnectionEvent
+import com.atruedev.kmpble.peripheral.state.State
 import com.atruedev.kmpble.testing.FakePeripheral
 import com.atruedev.kmpble.testing.simulateEvent
 import kotlinx.coroutines.test.runTest

@@ -10,8 +10,6 @@ import com.atruedev.kmpble.connection.ConnectionSubratingResult
 import com.atruedev.kmpble.connection.DataLengthParameters
 import com.atruedev.kmpble.connection.Phy
 import com.atruedev.kmpble.connection.PhyUpdate
-import com.atruedev.kmpble.peripheral.state.State
-import com.atruedev.kmpble.peripheral.state.ConnectionEvent
 import com.atruedev.kmpble.direction.DirectionFindingParameters
 import com.atruedev.kmpble.direction.DirectionFindingResult
 import com.atruedev.kmpble.error.ConnectionFailed
@@ -29,6 +27,8 @@ import com.atruedev.kmpble.periodic.PeriodicAdvertisingSync
 import com.atruedev.kmpble.peripheral.Peripheral
 import com.atruedev.kmpble.peripheral.PhyResult
 import com.atruedev.kmpble.peripheral.internal.PeripheralContext
+import com.atruedev.kmpble.peripheral.state.ConnectionEvent
+import com.atruedev.kmpble.peripheral.state.State
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow

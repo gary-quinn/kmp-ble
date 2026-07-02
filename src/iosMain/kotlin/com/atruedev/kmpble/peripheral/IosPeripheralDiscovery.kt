@@ -1,12 +1,12 @@
 package com.atruedev.kmpble.peripheral
 
-import com.atruedev.kmpble.peripheral.state.ConnectionEvent
 import com.atruedev.kmpble.error.BleException
 import com.atruedev.kmpble.error.ServiceDiscoveryError
 import com.atruedev.kmpble.gatt.Characteristic
 import com.atruedev.kmpble.gatt.Descriptor
 import com.atruedev.kmpble.gatt.DiscoveredService
 import com.atruedev.kmpble.peripheral.internal.findCharacteristic
+import com.atruedev.kmpble.peripheral.state.ConnectionEvent
 import com.atruedev.kmpble.scanner.uuidFrom
 import platform.CoreBluetooth.CBCharacteristic
 import platform.CoreBluetooth.CBCharacteristicPropertyAuthenticatedSignedWrites

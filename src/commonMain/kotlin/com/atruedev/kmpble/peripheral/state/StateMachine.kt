@@ -29,22 +29,42 @@ internal object StateMachine {
             // --- Connecting.Transport ---
             on<State.Connecting.Transport, ConnectionEvent.LinkEstablished> { _, _ -> State.Connecting.Discovering }
             on<State.Connecting.Transport, ConnectionEvent.BondRequired> { _, _ -> State.Connecting.Authenticating }
-            on<State.Connecting.Transport, ConnectionEvent.ConnectionLost> { _, e -> State.Disconnected.ByError(e.extractError()) }
+            on<State.Connecting.Transport, ConnectionEvent.ConnectionLost> {
+                _,
+                e,
+                ->
+                State.Disconnected.ByError(e.extractError())
+            }
             on<State.Connecting.Transport, ConnectionEvent.DisconnectRequested> { _, _ -> State.Disconnected.ByRequest }
 
             // --- Connecting.Authenticating ---
             on<State.Connecting.Authenticating, ConnectionEvent.BondSucceeded> { _, _ -> State.Connecting.Discovering }
-            on<State.Connecting.Authenticating, ConnectionEvent.BondFailed> { _, e -> State.Disconnected.ByError(e.extractError()) }
+            on<State.Connecting.Authenticating, ConnectionEvent.BondFailed> {
+                _,
+                e,
+                ->
+                State.Disconnected.ByError(e.extractError())
+            }
             on<State.Connecting.Authenticating, ConnectionEvent.ConnectionLost> {
                 _,
                 e,
                 ->
                 State.Disconnected.ByError(e.extractError())
             }
-            on<State.Connecting.Authenticating, ConnectionEvent.DisconnectRequested> { _, _ -> State.Disconnected.ByRequest }
+            on<State.Connecting.Authenticating, ConnectionEvent.DisconnectRequested> {
+                _,
+                _,
+                ->
+                State.Disconnected.ByRequest
+            }
 
             // --- Connecting.Discovering ---
-            on<State.Connecting.Discovering, ConnectionEvent.ServicesDiscovered> { _, _ -> State.Connecting.Configuring }
+            on<State.Connecting.Discovering, ConnectionEvent.ServicesDiscovered> {
+                _,
+                _,
+                ->
+                State.Connecting.Configuring
+            }
             on<State.Connecting.Discovering, ConnectionEvent.DiscoveryFailed> {
                 _,
                 e,
@@ -57,7 +77,12 @@ internal object StateMachine {
                 ->
                 State.Disconnected.ByError(e.extractError())
             }
-            on<State.Connecting.Discovering, ConnectionEvent.DisconnectRequested> { _, _ -> State.Disconnected.ByRequest }
+            on<State.Connecting.Discovering, ConnectionEvent.DisconnectRequested> {
+                _,
+                _,
+                ->
+                State.Disconnected.ByRequest
+            }
 
             // --- Connecting.Configuring ---
             on<State.Connecting.Configuring, ConnectionEvent.ConfigurationComplete> { _, _ -> State.Connected.Ready }
@@ -67,39 +92,74 @@ internal object StateMachine {
                 ->
                 State.Disconnected.ByError(e.extractError())
             }
-            on<State.Connecting.Configuring, ConnectionEvent.InsufficientAuthentication> { _, _ -> State.Connecting.Authenticating }
+            on<State.Connecting.Configuring, ConnectionEvent.InsufficientAuthentication> {
+                _,
+                _,
+                ->
+                State.Connecting.Authenticating
+            }
             on<State.Connecting.Configuring, ConnectionEvent.ConnectionLost> {
                 _,
                 e,
                 ->
                 State.Disconnected.ByError(e.extractError())
             }
-            on<State.Connecting.Configuring, ConnectionEvent.DisconnectRequested> { _, _ -> State.Disconnected.ByRequest }
+            on<State.Connecting.Configuring, ConnectionEvent.DisconnectRequested> {
+                _,
+                _,
+                ->
+                State.Disconnected.ByRequest
+            }
 
             // --- Connected.Ready ---
             on<State.Connected.Ready, ConnectionEvent.BondStateChanged> { _, _ -> State.Connected.BondingChange }
-            on<State.Connected.Ready, ConnectionEvent.ServiceChangedIndication> { _, _ -> State.Connected.ServiceChanged }
+            on<State.Connected.Ready, ConnectionEvent.ServiceChangedIndication> {
+                _,
+                _,
+                ->
+                State.Connected.ServiceChanged
+            }
             on<State.Connected.Ready, ConnectionEvent.DisconnectRequested> { _, _ -> State.Disconnecting.Requested }
             on<State.Connected.Ready, ConnectionEvent.ConnectionLost> { _, _ -> State.Disconnecting.Error }
 
             // --- Connected.BondingChange ---
             on<State.Connected.BondingChange, ConnectionEvent.BondChangeProcessed> { _, _ -> State.Connected.Ready }
-            on<State.Connected.BondingChange, ConnectionEvent.ServiceChangedIndication> { _, _ -> State.Connected.ServiceChanged }
+            on<State.Connected.BondingChange, ConnectionEvent.ServiceChangedIndication> {
+                _,
+                _,
+                ->
+                State.Connected.ServiceChanged
+            }
             on<State.Connected.BondingChange, ConnectionEvent.ConnectionLost> { _, _ -> State.Disconnecting.Error }
-            on<State.Connected.BondingChange, ConnectionEvent.DisconnectRequested> { _, _ -> State.Disconnecting.Requested }
+            on<State.Connected.BondingChange, ConnectionEvent.DisconnectRequested> {
+                _,
+                _,
+                ->
+                State.Disconnecting.Requested
+            }
 
             // --- Connected.ServiceChanged ---
             on<State.Connected.ServiceChanged, ConnectionEvent.RediscoverySucceeded> { _, _ -> State.Connected.Ready }
             on<State.Connected.ServiceChanged, ConnectionEvent.RediscoveryFailed> { _, _ -> State.Disconnecting.Error }
             on<State.Connected.ServiceChanged, ConnectionEvent.ConnectionLost> { _, _ -> State.Disconnecting.Error }
-            on<State.Connected.ServiceChanged, ConnectionEvent.DisconnectRequested> { _, _ -> State.Disconnecting.Requested }
+            on<State.Connected.ServiceChanged, ConnectionEvent.DisconnectRequested> {
+                _,
+                _,
+                ->
+                State.Disconnecting.Requested
+            }
 
             // --- Disconnecting.Requested ---
             on<State.Disconnecting.Requested, ConnectionEvent.ConnectionLost> { _, _ -> State.Disconnected.ByRequest }
 
             // --- Disconnecting.Error ---
             on<State.Disconnecting.Error, ConnectionEvent.SupervisionTimeout> { _, _ -> State.Disconnected.ByTimeout }
-            on<State.Disconnecting.Error, ConnectionEvent.ConnectionLost> { _, e -> State.Disconnected.ByError(e.extractError()) }
+            on<State.Disconnecting.Error, ConnectionEvent.ConnectionLost> {
+                _,
+                e,
+                ->
+                State.Disconnected.ByError(e.extractError())
+            }
         }
 
     /**

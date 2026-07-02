@@ -3,14 +3,14 @@ package com.atruedev.kmpble.peripheral.internal
 import com.atruedev.kmpble.Identifier
 import com.atruedev.kmpble.bonding.BondState
 import com.atruedev.kmpble.connection.DataLengthParameters
-import com.atruedev.kmpble.peripheral.state.State
-import com.atruedev.kmpble.peripheral.state.ConnectionEvent
-import com.atruedev.kmpble.peripheral.state.StateMachine
 import com.atruedev.kmpble.gatt.DiscoveredService
 import com.atruedev.kmpble.gatt.internal.GattOperationQueue
 import com.atruedev.kmpble.logging.BleLogConfig
 import com.atruedev.kmpble.logging.BleLogEvent
 import com.atruedev.kmpble.logging.logEvent
+import com.atruedev.kmpble.peripheral.state.ConnectionEvent
+import com.atruedev.kmpble.peripheral.state.State
+import com.atruedev.kmpble.peripheral.state.StateMachine
 import kotlinx.atomicfu.atomic
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineName

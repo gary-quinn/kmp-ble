@@ -1,7 +1,7 @@
 package com.atruedev.kmpble.monitoring
 
-import com.atruedev.kmpble.peripheral.state.State
 import com.atruedev.kmpble.peripheral.Peripheral
+import com.atruedev.kmpble.peripheral.state.State
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job

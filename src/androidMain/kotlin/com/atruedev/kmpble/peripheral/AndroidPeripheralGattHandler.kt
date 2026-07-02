@@ -7,8 +7,6 @@ import android.bluetooth.BluetoothGattCharacteristic
 import com.atruedev.kmpble.connection.ConnectionSubratingParameters
 import com.atruedev.kmpble.connection.ConnectionSubratingResult
 import com.atruedev.kmpble.connection.PhyUpdate
-import com.atruedev.kmpble.peripheral.state.State
-import com.atruedev.kmpble.peripheral.state.ConnectionEvent
 import com.atruedev.kmpble.error.BleException
 import com.atruedev.kmpble.error.GattError
 import com.atruedev.kmpble.error.ServiceDiscoveryError
@@ -24,6 +22,8 @@ import com.atruedev.kmpble.gatt.internal.GattResult
 import com.atruedev.kmpble.gatt.internal.PendingOp
 import com.atruedev.kmpble.gatt.internal.PhyUpdateResult
 import com.atruedev.kmpble.peripheral.internal.awaitGatt
+import com.atruedev.kmpble.peripheral.state.ConnectionEvent
+import com.atruedev.kmpble.peripheral.state.State
 import kotlinx.coroutines.launch
 import java.util.UUID
 import kotlin.uuid.Uuid

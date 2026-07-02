@@ -1,12 +1,12 @@
 package com.atruedev.kmpble.testing
 
 import com.atruedev.kmpble.connection.Phy
-import com.atruedev.kmpble.peripheral.state.State
-import com.atruedev.kmpble.peripheral.state.ConnectionEvent
 import com.atruedev.kmpble.error.BleError
 import com.atruedev.kmpble.error.ConnectionLost
 import com.atruedev.kmpble.gatt.DiscoveredService
 import com.atruedev.kmpble.gatt.internal.ObservationManager
+import com.atruedev.kmpble.peripheral.state.ConnectionEvent
+import com.atruedev.kmpble.peripheral.state.State
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
