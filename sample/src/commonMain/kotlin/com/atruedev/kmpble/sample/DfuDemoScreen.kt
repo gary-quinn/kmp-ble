@@ -27,7 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.atruedev.kmpble.connection.State
+import com.atruedev.kmpble.peripheral.state.State
 import com.atruedev.kmpble.dfu.DfuError
 import com.atruedev.kmpble.dfu.DfuProgress
 import com.atruedev.kmpble.scanner.Advertisement

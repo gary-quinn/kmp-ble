@@ -29,7 +29,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.atruedev.kmpble.connection.State
+import com.atruedev.kmpble.peripheral.state.State
 import com.atruedev.kmpble.profiles.heartrate.BodySensorLocation
 import com.atruedev.kmpble.profiles.heartrate.HeartRateMeasurement
 import com.atruedev.kmpble.scanner.Advertisement

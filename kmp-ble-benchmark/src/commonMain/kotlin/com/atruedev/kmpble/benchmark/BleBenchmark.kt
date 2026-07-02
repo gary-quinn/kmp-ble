@@ -54,7 +54,7 @@ public class BleBenchmark(
      * Measure the time to connect to a peripheral.
      *
      * Starts timing before [Peripheral.connect], stops when the connection
-     * state reaches [com.atruedev.kmpble.connection.State.Connected].
+     * state reaches [com.atruedev.kmpble.peripheral.state.State.Connected].
      *
      * @param peripheral The peripheral to connect to (must be disconnected).
      * @param options Connection configuration.

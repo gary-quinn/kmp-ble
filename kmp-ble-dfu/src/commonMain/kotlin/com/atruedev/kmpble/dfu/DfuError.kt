@@ -9,7 +9,7 @@ package com.atruedev.kmpble.dfu
  */
 public sealed interface DfuError {
 
-    /** Peripheral was not in [Connected][com.atruedev.kmpble.connection.State.Connected] state when the DFU started. */
+    /** Peripheral was not in [Connected][com.atruedev.kmpble.peripheral.state.State.Connected] state when the DFU started. */
     public data class NotConnected(
         override val message: String = "Peripheral is not connected",
     ) : Exception(message), DfuError

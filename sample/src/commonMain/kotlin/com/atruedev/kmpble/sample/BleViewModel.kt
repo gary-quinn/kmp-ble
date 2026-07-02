@@ -10,7 +10,7 @@ import com.atruedev.kmpble.bonding.BondRemovalResult
 import com.atruedev.kmpble.codec.BleDecoder
 import com.atruedev.kmpble.codec.read
 import com.atruedev.kmpble.connection.ConnectionOptions
-import com.atruedev.kmpble.connection.State
+import com.atruedev.kmpble.peripheral.state.State
 import com.atruedev.kmpble.dfu.DfuController
 import com.atruedev.kmpble.dfu.DfuOptions
 import com.atruedev.kmpble.dfu.DfuProgress

@@ -29,7 +29,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.atruedev.kmpble.ServiceUuid
 import com.atruedev.kmpble.codec.BleDecoder
 import com.atruedev.kmpble.codec.map
-import com.atruedev.kmpble.connection.State
+import com.atruedev.kmpble.peripheral.state.State
 import com.atruedev.kmpble.scanner.Advertisement
 import com.atruedev.kmpble.scanner.uuidFrom
 import kotlin.uuid.ExperimentalUuidApi
