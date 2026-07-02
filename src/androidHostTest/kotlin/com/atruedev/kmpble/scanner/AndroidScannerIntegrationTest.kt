@@ -1,6 +1,9 @@
 package com.atruedev.kmpble.scanner
 
 import android.bluetooth.le.ScanSettings
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -15,6 +18,8 @@ import kotlin.time.Duration.Companion.seconds
  *
  * See architecture-plans/issue-335.md for the full plan.
  */
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [28])
 class AndroidScannerIntegrationTest {
     // =========================================================================
     // Scan Mode coverage
