@@ -3,7 +3,6 @@ package com.atruedev.kmpble.peripheral
 import com.atruedev.kmpble.connection.ConnectionOptions
 import com.atruedev.kmpble.connection.PhyMask
 import com.atruedev.kmpble.peripheral.state.State
-import com.atruedev.kmpble.scanner.uuidFrom
 import com.atruedev.kmpble.testing.FakePeripheral
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
@@ -19,15 +18,15 @@ import kotlin.test.assertTrue
  * re-discovers services, and handles edge cases correctly.
  */
 class ReconnectTest {
-
     @Test
     fun reconnect_throwsWhenNoPreviousConnection() =
         runTest {
-            val peripheral = FakePeripheral {
-                service("180d") {
-                    characteristic("2a37") { properties(read = true) }
+            val peripheral =
+                FakePeripheral {
+                    service("180d") {
+                        characteristic("2a37") { properties(read = true) }
+                    }
                 }
-            }
 
             assertFailsWith<IllegalStateException> {
                 peripheral.reconnect()
@@ -37,11 +36,12 @@ class ReconnectTest {
     @Test
     fun reconnect_connectsAfterDisconnect() =
         runTest {
-            val peripheral = FakePeripheral {
-                service("180d") {
-                    characteristic("2a37") { properties(read = true) }
+            val peripheral =
+                FakePeripheral {
+                    service("180d") {
+                        characteristic("2a37") { properties(read = true) }
+                    }
                 }
-            }
 
             peripheral.connect()
             peripheral.disconnect()
@@ -54,14 +54,15 @@ class ReconnectTest {
     @Test
     fun reconnect_rediscoverServicesAfterDisconnect() =
         runTest {
-            val peripheral = FakePeripheral {
-                service("180d") {
-                    characteristic("2a37") { properties(read = true) }
+            val peripheral =
+                FakePeripheral {
+                    service("180d") {
+                        characteristic("2a37") { properties(read = true) }
+                    }
+                    service("180f") {
+                        characteristic("2a19") { properties(read = true) }
+                    }
                 }
-                service("180f") {
-                    characteristic("2a19") { properties(read = true) }
-                }
-            }
 
             peripheral.connect()
             peripheral.disconnect()
@@ -76,11 +77,12 @@ class ReconnectTest {
     @Test
     fun reconnect_usesDefaultOptionsWhenConnectHadDefaults() =
         runTest {
-            val peripheral = FakePeripheral {
-                service("180d") {
-                    characteristic("2a37") { properties(read = true) }
+            val peripheral =
+                FakePeripheral {
+                    service("180d") {
+                        characteristic("2a37") { properties(read = true) }
+                    }
                 }
-            }
 
             peripheral.connect()
             peripheral.disconnect()
@@ -93,16 +95,18 @@ class ReconnectTest {
     @Test
     fun reconnect_usesCustomOptionsFromPreviousConnect() =
         runTest {
-            val options = ConnectionOptions(
-                autoConnect = false,
-                phyMask = PhyMask.LE_2M,
-                mtuRequest = 185,
-            )
-            val peripheral = FakePeripheral {
-                service("180d") {
-                    characteristic("2a37") { properties(read = true) }
+            val options =
+                ConnectionOptions(
+                    autoConnect = false,
+                    phyMask = PhyMask.LE_2M,
+                    mtuRequest = 185,
+                )
+            val peripheral =
+                FakePeripheral {
+                    service("180d") {
+                        characteristic("2a37") { properties(read = true) }
+                    }
                 }
-            }
 
             peripheral.connect(options)
             peripheral.disconnect()
@@ -116,11 +120,12 @@ class ReconnectTest {
     @Test
     fun reconnect_whileAlreadyConnected_throwsError() =
         runTest {
-            val peripheral = FakePeripheral {
-                service("180d") {
-                    characteristic("2a37") { properties(read = true) }
+            val peripheral =
+                FakePeripheral {
+                    service("180d") {
+                        characteristic("2a37") { properties(read = true) }
+                    }
                 }
-            }
 
             peripheral.connect()
 
@@ -136,11 +141,12 @@ class ReconnectTest {
         runTest {
             val connectAttempts = mutableListOf<Int>()
 
-            val peripheral = FakePeripheral {
-                service("180d") {
-                    characteristic("2a37") { properties(read = true) }
+            val peripheral =
+                FakePeripheral {
+                    service("180d") {
+                        characteristic("2a37") { properties(read = true) }
+                    }
                 }
-            }
 
             // First connect
             peripheral.connect()

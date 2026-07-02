@@ -31,11 +31,12 @@ import kotlin.uuid.ExperimentalUuidApi
  */
 @OptIn(ExperimentalUuidApi::class)
 public suspend fun Peripheral.reconnect() {
-    val lastOptions = lastConnectionOptions
-        ?: throw IllegalStateException(
-            "Cannot reconnect: connect() has not been called yet. " +
-                "Call connect(options) first, then use reconnect() after disconnect.",
-        )
+    val lastOptions =
+        lastConnectionOptions
+            ?: throw IllegalStateException(
+                "Cannot reconnect: connect() has not been called yet. " +
+                    "Call connect(options) first, then use reconnect() after disconnect.",
+            )
 
     check(state.value !is State.Connected.Ready) {
         "Cannot reconnect: peripheral is already connected"

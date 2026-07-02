@@ -169,8 +169,8 @@ public class AndroidPeripheral internal constructor(
 
     @OptIn(ExperimentalBleApi::class)
     override fun close() {
-        if (closed) return
-        closed = true
+        if (_closed.get()) return
+        _closed.set(true)
         reconnectionHandler.stop()
         pairingRequestHandler.closeSync()
         bondManager.stop()
