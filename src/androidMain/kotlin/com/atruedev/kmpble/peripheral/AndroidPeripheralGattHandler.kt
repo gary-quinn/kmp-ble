@@ -36,7 +36,7 @@ import kotlin.uuid.Uuid
 internal fun AndroidPeripheral.handleGattEvent(event: GattCallbackEvent) {
     peripheralContext.scope.launch {
         when (event) {
-            is GattCallbackEvent.StateChanged -> handleStateChanged(event)
+            is GattCallbackEvent.ConnectionStateChanged -> handleConnectionStateChanged(event)
             is GattCallbackEvent.ServicesDiscovered -> handleServicesDiscovered(event)
             is GattCallbackEvent.MtuChanged -> handleMtuChanged(event)
             is GattCallbackEvent.CharacteristicRead ->

@@ -30,12 +30,12 @@ internal class AndroidGattBridge(
 
     private val gattCallback =
         object : BluetoothGattCallback() {
-            override fun onStateChange(
+            override fun onConnectionStateChange(
                 gatt: BluetoothGatt,
                 status: Int,
                 newState: Int,
             ) {
-                onEvent?.invoke(GattCallbackEvent.StateChanged(status, newState))
+                onEvent?.invoke(GattCallbackEvent.ConnectionStateChanged(status, newState))
             }
 
             override fun onServicesDiscovered(

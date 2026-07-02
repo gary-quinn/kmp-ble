@@ -14,7 +14,7 @@ import kotlinx.coroutines.launch
  *
  * Extracted from [AndroidGattServerCallback] during decomposition (PR #243).
  */
-internal fun AndroidGattServerCallback.handleStateChange(
+internal fun AndroidGattServerCallback.handleConnectionStateChange(
     device: BluetoothDevice,
     status: Int,
     newState: Int,

@@ -107,7 +107,7 @@ class AndroidPeripheralGATTTest {
 
         // Act - Simulate connection state change via the bridge
         peripheral.bridge.onEvent?.invoke(
-            GattCallbackEvent.StateChanged(
+            GattCallbackEvent.ConnectionStateChanged(
                 status = BluetoothGatt.GATT_SUCCESS,
                 newState = BluetoothGatt.STATE_CONNECTED,
             ),
@@ -125,7 +125,7 @@ class AndroidPeripheralGATTTest {
 
         // First connect
         peripheral.bridge.onEvent?.invoke(
-            GattCallbackEvent.StateChanged(
+            GattCallbackEvent.ConnectionStateChanged(
                 status = BluetoothGatt.GATT_SUCCESS,
                 newState = BluetoothGatt.STATE_CONNECTED,
             ),
@@ -133,7 +133,7 @@ class AndroidPeripheralGATTTest {
 
         // Act - Simulate disconnection
         peripheral.bridge.onEvent?.invoke(
-            GattCallbackEvent.StateChanged(
+            GattCallbackEvent.ConnectionStateChanged(
                 status = BluetoothGatt.GATT_SUCCESS,
                 newState = BluetoothGatt.STATE_DISCONNECTED,
             ),

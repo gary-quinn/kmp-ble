@@ -96,7 +96,7 @@ public class AndroidPeripheral internal constructor(
     internal var closed = false
 
     /**
-     * Confined to [peripheralContext.dispatcher]. Read by [handleStateChanged]
+     * Confined to [peripheralContext.dispatcher]. Read by [handleConnectionStateChanged]
      * to decide whether bonding is required for the freshly-established link.
      */
     internal var currentConnectionOptions: ConnectionOptions? = null

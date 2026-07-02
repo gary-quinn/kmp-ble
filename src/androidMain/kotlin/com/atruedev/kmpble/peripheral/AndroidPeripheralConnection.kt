@@ -120,7 +120,7 @@ internal suspend fun AndroidPeripheral.connectWithRetry(options: ConnectionOptio
     }
 }
 
-internal suspend fun AndroidPeripheral.handleStateChanged(event: GattCallbackEvent.StateChanged) {
+internal suspend fun AndroidPeripheral.handleConnectionStateChanged(event: GattCallbackEvent.ConnectionStateChanged) {
     val status = event.status.toGattStatus()
     when (event.newState) {
         BluetoothProfile.STATE_CONNECTED -> handleLinkUp(status, event.status)

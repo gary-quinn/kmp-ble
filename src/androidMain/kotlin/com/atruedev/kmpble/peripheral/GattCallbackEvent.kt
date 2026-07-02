@@ -9,7 +9,7 @@ import android.bluetooth.BluetoothGattService
  * through the [AndroidGattBridge] to platform-specific handlers.
  */
 internal sealed interface GattCallbackEvent {
-    data class StateChanged(
+    data class ConnectionStateChanged(
         val status: Int,
         val newState: Int,
     ) : GattCallbackEvent
