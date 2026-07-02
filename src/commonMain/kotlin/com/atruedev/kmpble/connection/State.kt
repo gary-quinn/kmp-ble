@@ -2,8 +2,6 @@
 
 package com.atruedev.kmpble.connection
 
-import com.atruedev.kmpble.peripheral.state
-
 @Deprecated(
     message = "State moved to com.atruedev.kmpble.peripheral.state.State",
     replaceWith =
