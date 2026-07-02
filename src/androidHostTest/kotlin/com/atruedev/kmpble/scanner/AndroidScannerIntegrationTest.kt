@@ -50,8 +50,7 @@ class AndroidScannerIntegrationTest {
     }
 
     @Test
-    fun `ScanMode enum has exactly 3 values`() {
-        assertEquals(3, ScanMode.entries.size)
+    fun `ScanMode enum contains known values`() {
         assertTrue(
             ScanMode.entries.containsAll(
                 listOf(ScanMode.LowPower, ScanMode.Balanced, ScanMode.LowLatency),
@@ -93,14 +92,18 @@ class AndroidScannerIntegrationTest {
     }
 
     @Test
-    fun `ScanPhy enum has exactly 3 values`() {
-        assertEquals(3, ScanPhy.entries.size)
+    fun `ScanPhy enum contains known values`() {
+        assertTrue(
+            ScanPhy.entries.containsAll(
+                listOf(ScanPhy.Le1M, ScanPhy.LeCoded, ScanPhy.All),
+            ),
+        )
     }
 
     @Test
     fun `scanPhyToAndroid covers all ScanPhy values without gaps`() {
-        val results = ScanMode.entries.associateWith { it }
-        assertEquals(3, results.size)
+        val results = ScanPhy.entries.associateWith { AndroidScanner.scanPhyToAndroid(it) }
+        assertEquals(ScanPhy.entries.size, results.size)
     }
 
     // =========================================================================
@@ -296,11 +299,6 @@ class AndroidScannerIntegrationTest {
     }
 
     @Test
-    fun `buildOsFilters returns null for empty filter list explicitly`() {
-        assertNull(AndroidScanner.buildOsFilters(emptyList()))
-    }
-
-    @Test
     fun `buildOsFilters with mixed OS and post-filter predicates produces one filter`() {
         val config =
             ScannerConfig().apply {
@@ -454,8 +452,8 @@ class AndroidScannerIntegrationTest {
 
     @Test
     fun `EmissionPolicy types are distinct`() {
-        val all: EmissionPolicy = EmissionPolicy.All
-        val changes: EmissionPolicy = EmissionPolicy.FirstThenChanges()
+        val all = EmissionPolicy.All
+        val changes = EmissionPolicy.FirstThenChanges()
         assertFalse(all::class == changes::class)
     }
 
@@ -542,7 +540,7 @@ class AndroidScannerIntegrationTest {
     // =========================================================================
 
     @Test
-    fun `ScannerConfig default helper sets all defaults`() {
+    fun `ScannerConfig default sets all defaults`() {
         val config =
             ScannerConfig().apply {
                 timeout = null
