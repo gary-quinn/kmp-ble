@@ -160,7 +160,7 @@ class AndroidScannerIntegrationTest {
                         manufacturerData(
                             companyId = 0x004C,
                             data = byteArrayOf(0x01, 0x02),
-                            mask = byteArrayOf(0xFF, 0x00),
+                            mask = byteArrayOf(0xFF.toByte(), 0x00.toByte()),
                         )
                     }
                 }
@@ -190,7 +190,7 @@ class AndroidScannerIntegrationTest {
                         serviceData(
                             "180d",
                             byteArrayOf(0x01),
-                            mask = byteArrayOf(0xFF),
+                            mask = byteArrayOf(0xFF.toByte()),
                         )
                     }
                 }
@@ -419,9 +419,9 @@ class AndroidScannerIntegrationTest {
                 }
             }
         assertEquals("A", (config.filterGroups[0][0] as ScanPredicate.Name).exact)
-        val expectedUuid = java.util.UUID.fromString("0000180d-0000-1000-8000-00805f9b34fb")
+        val expectedUuid = "0000180d-0000-1000-8000-00805f9b34fb"
         val actualPredicate = config.filterGroups[1][0] as ScanPredicate.ServiceUuid
-        assertEquals(expectedUuid, actualPredicate.uuid)
+        assertEquals(expectedUuid, actualPredicate.uuid.toString())
     }
 
     // =========================================================================
@@ -429,19 +429,19 @@ class AndroidScannerIntegrationTest {
     // =========================================================================
 
     @Test
-    fun `EmissionPolicy.FirstThenChanges default rssiThreshold is 5`() {
+    fun `EmissionPolicy FirstThenChanges default rssiThreshold is 5`() {
         val policy = EmissionPolicy.FirstThenChanges()
         assertEquals(5, policy.rssiThreshold)
     }
 
     @Test
-    fun `EmissionPolicy.FirstThenChanges accepts custom rssiThreshold`() {
+    fun `EmissionPolicy FirstThenChanges accepts custom rssiThreshold`() {
         val policy = EmissionPolicy.FirstThenChanges(rssiThreshold = 10)
         assertEquals(10, policy.rssiThreshold)
     }
 
     @Test
-    fun `EmissionPolicy.All is a singleton`() {
+    fun `EmissionPolicy All is a singleton`() {
         assertTrue(EmissionPolicy.All is EmissionPolicy.All)
     }
 
@@ -449,8 +449,7 @@ class AndroidScannerIntegrationTest {
     fun `EmissionPolicy types are distinct`() {
         val all = EmissionPolicy.All
         val changes = EmissionPolicy.FirstThenChanges()
-        assertFalse(all is EmissionPolicy.FirstThenChanges)
-        assertFalse(changes is EmissionPolicy.All)
+        assertFalse(all::class == changes::class)
     }
 
     @Test
@@ -536,7 +535,7 @@ class AndroidScannerIntegrationTest {
     // =========================================================================
 
     @Test
-    fun `ScannerConfig.default sets all defaults`() {
+    fun `ScannerConfig default sets all defaults`() {
         val config =
             ScannerConfig().apply {
                 timeout = null
