@@ -53,6 +53,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
@@ -92,8 +93,11 @@ public class AndroidPeripheral internal constructor(
     override val mtu: StateFlow<Int> get() = peripheralContext.mtu
     override val dataLengthParameters: StateFlow<DataLengthParameters?> get() = peripheralContext.dataLengthParameters
 
-    @Volatile
-    internal var closed = false
+    private var _lastConnectionOptions: ConnectionOptions? = null
+    override val lastConnectionOptions: ConnectionOptions? get() = _lastConnectionOptions
+
+    private val _closed = AtomicBoolean(false)
+    internal val closed: Boolean get() = _closed.get()
 
     /**
      * Confined to [peripheralContext.dispatcher]. Read by [handleConnectionStateChanged]
@@ -134,6 +138,7 @@ public class AndroidPeripheral internal constructor(
 
     @OptIn(ExperimentalBleApi::class)
     override suspend fun connect(options: ConnectionOptions) {
+        _lastConnectionOptions = options
         connectInternal(options)
     }
 
@@ -164,8 +169,8 @@ public class AndroidPeripheral internal constructor(
 
     @OptIn(ExperimentalBleApi::class)
     override fun close() {
-        if (closed) return
-        closed = true
+        if (_closed.get()) return
+        _closed.set(true)
         reconnectionHandler.stop()
         pairingRequestHandler.closeSync()
         bondManager.stop()

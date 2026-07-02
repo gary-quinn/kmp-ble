@@ -81,6 +81,9 @@ public class IosPeripheral(
     override val services: StateFlow<List<DiscoveredService>?> get() = peripheralContext.services
     override val maximumWriteValueLength: StateFlow<Int> get() = peripheralContext.maximumWriteValueLength
     override val mtu: StateFlow<Int> get() = peripheralContext.mtu
+    internal var _lastConnectionOptions: ConnectionOptions? = null
+    override val lastConnectionOptions: ConnectionOptions? get() = _lastConnectionOptions
+
     override val dataLengthParameters: StateFlow<DataLengthParameters?> get() = peripheralContext.dataLengthParameters
 
     internal val _closed = atomic(false)
@@ -117,7 +120,10 @@ public class IosPeripheral(
         }
     }
 
-    override suspend fun connect(options: ConnectionOptions): Unit = connectInternal(options)
+    override suspend fun connect(options: ConnectionOptions) {
+        _lastConnectionOptions = options
+        connectInternal(options)
+    }
 
     override suspend fun disconnect(): Unit = disconnectInternal()
 

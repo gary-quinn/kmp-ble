@@ -62,6 +62,8 @@ public class FakePeripheral internal constructor(
     internal val peripheralContext: PeripheralContext get() = context
     internal val observationManager = ObservationManager(observationDispatcher)
     private var closed = false
+    private var _lastConnectionOptions: ConnectionOptions? = null
+    override val lastConnectionOptions: ConnectionOptions? get() = _lastConnectionOptions
     internal val cccdWritesState = MutableStateFlow<List<CccdWrite>>(emptyList())
 
     internal val connectionSimulator =
@@ -100,6 +102,7 @@ public class FakePeripheral internal constructor(
 
     override suspend fun connect(options: ConnectionOptions) {
         checkNotClosed()
+        _lastConnectionOptions = options
         context.processEvent(ConnectionEvent.ConnectRequested)
         context.gattQueue.start()
 
