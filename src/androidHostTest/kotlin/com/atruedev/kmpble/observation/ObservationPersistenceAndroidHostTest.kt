@@ -513,20 +513,19 @@ class ObservationPersistenceAndroidHostTest {
     @Test
     fun largeNumberOfObservationsRoundtripsCorrectly() {
         val persistence = ObservationPersistence()
-        val service = Uuid.parse("0000180d-0000-1000-8000-00805f9b34fb")
-        val largeSet =
+        val observations =
             (1..100)
                 .map { index ->
+                    val suffix = index.toString(16).padStart(2, '0')
+                    val uniqueUuid =
+                        Uuid.parse("00002a37-0000-1000-8000-00805f9b34$suffix")
                     PersistedObservation(
-                        ObservationKey(
-                            service,
-                            Uuid.parse("00002a37-0000-1000-8000-00805f9b3${index.toString(16).padStart(2, '0')}"),
-                        ),
+                        ObservationKey(uniqueUuid, uniqueUuid),
                         BackpressureStrategy.Latest,
                     )
                 }.toSet()
 
-        persistence.save(peripheralId, largeSet)
+        persistence.save(peripheralId, observations)
         val restored = persistence.restore(peripheralId)
         assertEquals(100, restored.size)
     }
