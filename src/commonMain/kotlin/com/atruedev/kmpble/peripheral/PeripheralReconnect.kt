@@ -1,7 +1,7 @@
 package com.atruedev.kmpble.peripheral
 
 import com.atruedev.kmpble.connection.ConnectionOptions
-import com.atruedev.kmpble.connection.State
+import com.atruedev.kmpble.peripheral.state.State
 import kotlin.uuid.ExperimentalUuidApi
 
 /**
