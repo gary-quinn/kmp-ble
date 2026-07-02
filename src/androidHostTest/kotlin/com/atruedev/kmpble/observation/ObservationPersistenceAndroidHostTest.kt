@@ -518,7 +518,10 @@ class ObservationPersistenceAndroidHostTest {
             (1..100)
                 .map { index ->
                     PersistedObservation(
-                        ObservationKey(service, Uuid.parse("00002a37-0000-1000-8000-00805f9b34fb")),
+                        ObservationKey(
+                            service,
+                            Uuid.parse("00002a37-0000-1000-8000-00805f9b3${index.toString(16).padStart(2, '0')}"),
+                        ),
                         BackpressureStrategy.Latest,
                     )
                 }.toSet()
