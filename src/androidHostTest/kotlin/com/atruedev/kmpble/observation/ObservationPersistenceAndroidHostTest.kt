@@ -516,11 +516,9 @@ class ObservationPersistenceAndroidHostTest {
         val observations =
             (1..100)
                 .map { index ->
-                    val suffix = index.toString(16).padStart(2, '0')
-                    val uniqueUuid =
-                        Uuid.parse("00002a37-0000-1000-8000-00805f9b34$suffix")
+                    val charUuid = Uuid.fromLongs(0, index.toLong())
                     PersistedObservation(
-                        ObservationKey(uniqueUuid, uniqueUuid),
+                        ObservationKey(serviceUuid, charUuid),
                         BackpressureStrategy.Latest,
                     )
                 }.toSet()
