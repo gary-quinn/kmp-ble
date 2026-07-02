@@ -1,7 +1,7 @@
 package com.atruedev.kmpble.peripheral
 
-import com.atruedev.kmpble.connection.internal.ConnectionEvent
 import com.atruedev.kmpble.gatt.internal.PersistedObservation
+import com.atruedev.kmpble.peripheral.state.ConnectionEvent
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import platform.CoreBluetooth.CBPeripheralStateConnected

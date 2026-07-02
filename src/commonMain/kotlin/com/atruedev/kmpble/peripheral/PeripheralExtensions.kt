@@ -12,7 +12,7 @@ import kotlin.uuid.Uuid
  * Returns a human-readable GATT service/characteristic/descriptor tree.
  *
  * Useful for debugging - answers "what does this device expose?" in one call.
- * Only meaningful after service discovery completes (i.e., in [com.atruedev.kmpble.connection.State.Connected.Ready]).
+ * Only meaningful after service discovery completes (i.e., in [com.atruedev.kmpble.peripheral.state.State.Connected.Ready]).
  *
  * Takes a consistent snapshot of [Peripheral.state] and [Peripheral.services] before formatting,
  * so the output is internally coherent even under concurrent state changes.

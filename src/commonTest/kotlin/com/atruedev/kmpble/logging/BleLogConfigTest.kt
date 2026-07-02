@@ -1,9 +1,9 @@
 package com.atruedev.kmpble.logging
 
 import com.atruedev.kmpble.Identifier
-import com.atruedev.kmpble.connection.State
-import com.atruedev.kmpble.connection.internal.ConnectionEvent
 import com.atruedev.kmpble.peripheral.internal.PeripheralContext
+import com.atruedev.kmpble.peripheral.state.ConnectionEvent
+import com.atruedev.kmpble.peripheral.state.State
 import kotlinx.coroutines.test.runTest
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest

@@ -2,9 +2,9 @@ package com.atruedev.kmpble.benchmark
 
 import com.atruedev.kmpble.ExperimentalBleApi
 import com.atruedev.kmpble.connection.ConnectionOptions
-import com.atruedev.kmpble.connection.State
 import com.atruedev.kmpble.error.ConnectionLost
 import com.atruedev.kmpble.gatt.WriteType
+import com.atruedev.kmpble.peripheral.state.State
 import com.atruedev.kmpble.scanner.uuidFrom
 import com.atruedev.kmpble.testing.FakeL2capChannel
 import com.atruedev.kmpble.testing.FakePeripheralBuilder

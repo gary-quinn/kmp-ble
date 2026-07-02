@@ -2,9 +2,9 @@ package com.atruedev.kmpble.connection.internal
 
 import com.atruedev.kmpble.connection.ConnectionOptions
 import com.atruedev.kmpble.connection.ReconnectionStrategy
-import com.atruedev.kmpble.connection.State
 import com.atruedev.kmpble.error.BleException
 import com.atruedev.kmpble.error.ConnectionFailed
+import com.atruedev.kmpble.peripheral.state.State
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay

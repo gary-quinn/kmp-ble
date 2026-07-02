@@ -1,6 +1,7 @@
 package com.atruedev.kmpble.connection
 
 import com.atruedev.kmpble.connection.internal.ReconnectionHandler
+import com.atruedev.kmpble.peripheral.state.State
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlin.random.Random
 import kotlin.test.Test

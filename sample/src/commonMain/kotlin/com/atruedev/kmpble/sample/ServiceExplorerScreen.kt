@@ -44,11 +44,11 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.atruedev.kmpble.ExperimentalBleApi
-import com.atruedev.kmpble.connection.State
 import com.atruedev.kmpble.gatt.Characteristic
 import com.atruedev.kmpble.gatt.DiscoveredService
 import com.atruedev.kmpble.gatt.Observation
 import com.atruedev.kmpble.gatt.WriteType
+import com.atruedev.kmpble.peripheral.state.State
 import com.atruedev.kmpble.scanner.Advertisement
 
 @OptIn(ExperimentalMaterial3Api::class)

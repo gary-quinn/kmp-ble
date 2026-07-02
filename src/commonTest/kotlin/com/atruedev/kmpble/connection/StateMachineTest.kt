@@ -1,9 +1,9 @@
 package com.atruedev.kmpble.connection
 
-import com.atruedev.kmpble.connection.internal.ConnectionEvent
-import com.atruedev.kmpble.connection.internal.StateMachine
-import com.atruedev.kmpble.error.ConnectionLost
 import com.atruedev.kmpble.error.OperationFailed
+import com.atruedev.kmpble.peripheral.state.ConnectionEvent
+import com.atruedev.kmpble.peripheral.state.State
+import com.atruedev.kmpble.peripheral.state.StateMachine
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse

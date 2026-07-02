@@ -50,7 +50,7 @@ import com.atruedev.kmpble.connection.BondingPreference
 import com.atruedev.kmpble.connection.ConnectionOptions
 import com.atruedev.kmpble.connection.ConnectionRecipe
 import com.atruedev.kmpble.connection.ReconnectionStrategy
-import com.atruedev.kmpble.connection.State
+import com.atruedev.kmpble.peripheral.state.State
 import com.atruedev.kmpble.scanner.Advertisement
 import kotlin.uuid.ExperimentalUuidApi
 

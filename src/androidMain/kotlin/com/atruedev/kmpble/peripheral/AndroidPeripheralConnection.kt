@@ -8,14 +8,14 @@ import android.bluetooth.BluetoothProfile
 import com.atruedev.kmpble.ExperimentalBleApi
 import com.atruedev.kmpble.connection.BondingPreference
 import com.atruedev.kmpble.connection.ConnectionOptions
-import com.atruedev.kmpble.connection.State
-import com.atruedev.kmpble.connection.internal.ConnectionEvent
 import com.atruedev.kmpble.error.ConnectionFailed
 import com.atruedev.kmpble.error.ConnectionFailureReason
 import com.atruedev.kmpble.error.ConnectionLost
 import com.atruedev.kmpble.error.OperationFailed
 import com.atruedev.kmpble.logging.BleLogEvent
 import com.atruedev.kmpble.logging.logEvent
+import com.atruedev.kmpble.peripheral.state.ConnectionEvent
+import com.atruedev.kmpble.peripheral.state.State
 import com.atruedev.kmpble.quirks.BleQuirks
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.delay

@@ -13,7 +13,6 @@ import com.atruedev.kmpble.connection.ConnectionSubratingResult
 import com.atruedev.kmpble.connection.DataLengthParameters
 import com.atruedev.kmpble.connection.Phy
 import com.atruedev.kmpble.connection.PhyUpdate
-import com.atruedev.kmpble.connection.State
 import com.atruedev.kmpble.direction.DirectionFindingParameters
 import com.atruedev.kmpble.direction.DirectionFindingResult
 import com.atruedev.kmpble.gatt.BackpressureStrategy
@@ -25,6 +24,7 @@ import com.atruedev.kmpble.gatt.WriteType
 import com.atruedev.kmpble.isochronous.IsochronousChannel
 import com.atruedev.kmpble.l2cap.L2capChannel
 import com.atruedev.kmpble.periodic.PeriodicAdvertisingSync
+import com.atruedev.kmpble.peripheral.state.State
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import kotlin.uuid.ExperimentalUuidApi

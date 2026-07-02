@@ -1,6 +1,6 @@
 package com.atruedev.kmpble.dfu
 
-import com.atruedev.kmpble.connection.State
+import com.atruedev.kmpble.peripheral.state.State
 import com.atruedev.kmpble.dfu.firmware.FirmwarePackage
 import com.atruedev.kmpble.dfu.internal.DfuSession
 import com.atruedev.kmpble.dfu.protocol.DfuProtocol

@@ -1,4 +1,4 @@
-package com.atruedev.kmpble.connection.internal
+package com.atruedev.kmpble.peripheral.state
 
 import com.atruedev.kmpble.error.BleError
 

@@ -8,7 +8,6 @@ import com.atruedev.kmpble.connection.ConnectionSubratingResult
 import com.atruedev.kmpble.connection.DataLengthParameters
 import com.atruedev.kmpble.connection.Phy
 import com.atruedev.kmpble.connection.PhyUpdate
-import com.atruedev.kmpble.connection.State
 import com.atruedev.kmpble.direction.DirectionFindingParameters
 import com.atruedev.kmpble.direction.DirectionFindingResult
 import com.atruedev.kmpble.error.BleException
@@ -30,6 +29,7 @@ import com.atruedev.kmpble.periodic.PastException
 import com.atruedev.kmpble.periodic.PeriodicAdvertisingSync
 import com.atruedev.kmpble.peripheral.PhyResult
 import com.atruedev.kmpble.peripheral.internal.PeripheralContext
+import com.atruedev.kmpble.peripheral.state.State
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay

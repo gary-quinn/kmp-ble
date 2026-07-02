@@ -1,8 +1,8 @@
 package com.atruedev.kmpble.logging
 
 import com.atruedev.kmpble.Identifier
-import com.atruedev.kmpble.connection.State
 import com.atruedev.kmpble.error.GattStatus
+import com.atruedev.kmpble.peripheral.state.State
 import kotlin.time.Duration
 import kotlin.uuid.Uuid
 

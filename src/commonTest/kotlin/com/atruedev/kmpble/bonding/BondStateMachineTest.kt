@@ -1,10 +1,10 @@
 package com.atruedev.kmpble.bonding
 
-import com.atruedev.kmpble.connection.State
-import com.atruedev.kmpble.connection.internal.ConnectionEvent
-import com.atruedev.kmpble.connection.internal.StateMachine
 import com.atruedev.kmpble.error.ConnectionFailed
 import com.atruedev.kmpble.error.ConnectionLost
+import com.atruedev.kmpble.peripheral.state.ConnectionEvent
+import com.atruedev.kmpble.peripheral.state.State
+import com.atruedev.kmpble.peripheral.state.StateMachine
 import kotlin.test.Test
 import kotlin.test.assertIs
 import kotlin.test.assertTrue

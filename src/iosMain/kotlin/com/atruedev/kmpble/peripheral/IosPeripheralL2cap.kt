@@ -1,10 +1,10 @@
 package com.atruedev.kmpble.peripheral
 
-import com.atruedev.kmpble.connection.State
 import com.atruedev.kmpble.l2cap.DEFAULT_L2CAP_MTU
 import com.atruedev.kmpble.l2cap.IosL2capChannel
 import com.atruedev.kmpble.l2cap.L2capChannel
 import com.atruedev.kmpble.l2cap.L2capException
+import com.atruedev.kmpble.peripheral.state.State
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.TimeoutCancellationException

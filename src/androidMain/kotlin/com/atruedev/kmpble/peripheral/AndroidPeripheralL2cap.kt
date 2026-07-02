@@ -5,13 +5,13 @@ package com.atruedev.kmpble.peripheral
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothDevice
 import com.atruedev.kmpble.connection.Phy
-import com.atruedev.kmpble.connection.State
 import com.atruedev.kmpble.l2cap.AndroidL2capChannel
 import com.atruedev.kmpble.l2cap.BluetoothL2capSocket
 import com.atruedev.kmpble.l2cap.L2capChannel
 import com.atruedev.kmpble.l2cap.L2capException
 import com.atruedev.kmpble.logging.BleLogEvent
 import com.atruedev.kmpble.logging.logEvent
+import com.atruedev.kmpble.peripheral.state.State
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.getAndUpdate

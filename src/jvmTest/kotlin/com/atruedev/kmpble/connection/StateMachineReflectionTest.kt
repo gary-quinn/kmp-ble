@@ -1,6 +1,7 @@
 package com.atruedev.kmpble.connection
 
-import com.atruedev.kmpble.connection.internal.StateMachine
+import com.atruedev.kmpble.peripheral.state.State
+import com.atruedev.kmpble.peripheral.state.StateMachine
 import kotlin.test.Test
 import kotlin.test.assertTrue
 

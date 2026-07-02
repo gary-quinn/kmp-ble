@@ -1,7 +1,7 @@
 package com.atruedev.kmpble.peripheral
 
 import com.atruedev.kmpble.connection.ConnectionOptions
-import com.atruedev.kmpble.connection.State
+import com.atruedev.kmpble.peripheral.state.State
 import com.atruedev.kmpble.scanner.uuidFrom
 import com.atruedev.kmpble.testing.FakePeripheral
 import kotlinx.coroutines.test.runTest

@@ -2,9 +2,9 @@ package com.atruedev.kmpble.peripheral
 
 import com.atruedev.kmpble.Identifier
 import com.atruedev.kmpble.connection.ConnectionOptions
-import com.atruedev.kmpble.connection.State
 import com.atruedev.kmpble.gatt.BackpressureStrategy
 import com.atruedev.kmpble.gatt.Observation
+import com.atruedev.kmpble.peripheral.state.State
 import com.atruedev.kmpble.scanner.ScanEvent
 import com.atruedev.kmpble.testing.FakePeripheralBuilder
 import com.atruedev.kmpble.testing.IntegrationTestFixtures

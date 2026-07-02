@@ -3,7 +3,7 @@ package com.atruedev.kmpble.conformance
 import com.atruedev.kmpble.connection.ConnectionOptions
 import com.atruedev.kmpble.connection.ConnectionSubratingParameters
 import com.atruedev.kmpble.connection.ConnectionSubratingResult
-import com.atruedev.kmpble.connection.State
+import com.atruedev.kmpble.peripheral.state.State
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals

@@ -1,6 +1,5 @@
 package com.atruedev.kmpble.peripheral
 
-import com.atruedev.kmpble.connection.State
 import com.atruedev.kmpble.error.BleException
 import com.atruedev.kmpble.error.GattError
 import com.atruedev.kmpble.gatt.BackpressureStrategy
@@ -14,6 +13,7 @@ import com.atruedev.kmpble.peripheral.internal.ObservationToBytes
 import com.atruedev.kmpble.peripheral.internal.ObservationToObservation
 import com.atruedev.kmpble.peripheral.internal.awaitGatt
 import com.atruedev.kmpble.peripheral.internal.buildObservationFlow
+import com.atruedev.kmpble.peripheral.state.State
 import kotlinx.coroutines.flow.Flow
 import platform.CoreBluetooth.CBCharacteristicWriteWithResponse
 

@@ -5,7 +5,6 @@ package com.atruedev.kmpble.peripheral
 import android.annotation.SuppressLint
 import com.atruedev.kmpble.connection.ConnectionSubratingParameters
 import com.atruedev.kmpble.connection.ConnectionSubratingResult
-import com.atruedev.kmpble.connection.State
 import com.atruedev.kmpble.error.BleException
 import com.atruedev.kmpble.error.GattError
 import com.atruedev.kmpble.error.OperationFailed
@@ -21,6 +20,7 @@ import com.atruedev.kmpble.peripheral.internal.ObservationToBytes
 import com.atruedev.kmpble.peripheral.internal.ObservationToObservation
 import com.atruedev.kmpble.peripheral.internal.awaitGatt
 import com.atruedev.kmpble.peripheral.internal.buildObservationFlow
+import com.atruedev.kmpble.peripheral.state.State
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
