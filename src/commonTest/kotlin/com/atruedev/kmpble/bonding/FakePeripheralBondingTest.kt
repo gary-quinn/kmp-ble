@@ -1,7 +1,7 @@
 package com.atruedev.kmpble.bonding
 
-import com.atruedev.kmpble.peripheral.state.ConnectionState
-import com.atruedev.kmpble.peripheral.state.StateTransitionEvent
+import com.atruedev.kmpble.peripheral.state.State
+import com.atruedev.kmpble.peripheral.state.ConnectionEvent
 import com.atruedev.kmpble.error.ConnectionFailed
 import com.atruedev.kmpble.testing.FakePeripheral
 import com.atruedev.kmpble.testing.simulateEvent
@@ -27,14 +27,14 @@ class FakePeripheralBondingTest {
                     }
                 }
 
-            peripheral.simulateEvent(StateTransitionEvent.ConnectRequested)
-            assertIs<ConnectionState.Connecting.Transport>(peripheral.state.value)
+            peripheral.simulateEvent(ConnectionEvent.ConnectRequested)
+            assertIs<State.Connecting.Transport>(peripheral.state.value)
 
-            peripheral.simulateEvent(StateTransitionEvent.BondRequired)
-            assertIs<ConnectionState.Connecting.Authenticating>(peripheral.state.value)
+            peripheral.simulateEvent(ConnectionEvent.BondRequired)
+            assertIs<State.Connecting.Authenticating>(peripheral.state.value)
 
-            peripheral.simulateEvent(StateTransitionEvent.BondSucceeded)
-            assertIs<ConnectionState.Connecting.Discovering>(peripheral.state.value)
+            peripheral.simulateEvent(ConnectionEvent.BondSucceeded)
+            assertIs<State.Connecting.Discovering>(peripheral.state.value)
         }
 
     @Test
@@ -42,13 +42,13 @@ class FakePeripheralBondingTest {
         runTest {
             val peripheral = FakePeripheral {}
 
-            peripheral.simulateEvent(StateTransitionEvent.ConnectRequested)
-            peripheral.simulateEvent(StateTransitionEvent.BondRequired)
+            peripheral.simulateEvent(ConnectionEvent.ConnectRequested)
+            peripheral.simulateEvent(ConnectionEvent.BondRequired)
 
             peripheral.simulateEvent(
-                StateTransitionEvent.BondFailed(ConnectionFailed("User rejected pairing")),
+                ConnectionEvent.BondFailed(ConnectionFailed("User rejected pairing")),
             )
-            assertIs<ConnectionState.Disconnected.ByError>(peripheral.state.value)
+            assertIs<State.Disconnected.ByError>(peripheral.state.value)
         }
 
     @Test
@@ -61,12 +61,12 @@ class FakePeripheralBondingTest {
                     }
                 }
             peripheral.connect()
-            assertIs<ConnectionState.Connected.Ready>(peripheral.state.value)
+            assertIs<State.Connected.Ready>(peripheral.state.value)
 
-            peripheral.simulateEvent(StateTransitionEvent.BondStateChanged)
-            assertIs<ConnectionState.Connected.BondingChange>(peripheral.state.value)
+            peripheral.simulateEvent(ConnectionEvent.BondStateChanged)
+            assertIs<State.Connected.BondingChange>(peripheral.state.value)
 
-            peripheral.simulateEvent(StateTransitionEvent.BondChangeProcessed)
-            assertIs<ConnectionState.Connected.Ready>(peripheral.state.value)
+            peripheral.simulateEvent(ConnectionEvent.BondChangeProcessed)
+            assertIs<State.Connected.Ready>(peripheral.state.value)
         }
 }

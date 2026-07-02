@@ -1,6 +1,6 @@
 package com.atruedev.kmpble.peripheral
 
-import com.atruedev.kmpble.peripheral.state.ConnectionState
+import com.atruedev.kmpble.peripheral.state.State
 import com.atruedev.kmpble.l2cap.DEFAULT_L2CAP_MTU
 import com.atruedev.kmpble.l2cap.IosL2capChannel
 import com.atruedev.kmpble.l2cap.L2capChannel
@@ -25,7 +25,7 @@ internal suspend fun IosPeripheral.openL2capChannelInternal(
 ): L2capChannel {
     checkNotClosed()
     if (mtu != null) require(mtu > 0) { "mtu must be positive, was $mtu" }
-    if (peripheralContext.state.value !is ConnectionState.Connected) {
+    if (peripheralContext.state.value !is State.Connected) {
         throw L2capException.NotConnected("Peripheral is not connected (state: ${peripheralContext.state.value})")
     }
 

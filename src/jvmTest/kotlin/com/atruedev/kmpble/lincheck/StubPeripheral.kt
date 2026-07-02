@@ -12,7 +12,7 @@ import com.atruedev.kmpble.connection.ConnectionSubratingResult
 import com.atruedev.kmpble.connection.DataLengthParameters
 import com.atruedev.kmpble.connection.Phy
 import com.atruedev.kmpble.connection.PhyUpdate
-import com.atruedev.kmpble.peripheral.state.ConnectionState
+import com.atruedev.kmpble.peripheral.state.State
 import com.atruedev.kmpble.direction.DirectionFindingParameters
 import com.atruedev.kmpble.direction.DirectionFindingResult
 import com.atruedev.kmpble.gatt.BackpressureStrategy
@@ -41,7 +41,7 @@ import kotlin.uuid.Uuid
 internal class StubPeripheral(
     override val identifier: Identifier,
 ) : Peripheral {
-    override val state: StateFlow<ConnectionState> = MutableStateFlow(ConnectionState.Disconnected.ByRequest)
+    override val state: StateFlow<State> = MutableStateFlow(State.Disconnected.ByRequest)
     override val bondState: StateFlow<BondState> = MutableStateFlow(BondState.Unknown)
     override val services: StateFlow<List<DiscoveredService>?> = MutableStateFlow(null)
     override val maximumWriteValueLength: StateFlow<Int> = MutableStateFlow(20)

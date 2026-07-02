@@ -22,7 +22,7 @@ import com.atruedev.kmpble.connection.OperationTimeouts
 import com.atruedev.kmpble.connection.Phy
 import com.atruedev.kmpble.connection.PhyUpdate
 import com.atruedev.kmpble.connection.ReconnectionStrategy
-import com.atruedev.kmpble.peripheral.state.ConnectionState
+import com.atruedev.kmpble.peripheral.state.State
 import com.atruedev.kmpble.connection.internal.ReconnectionHandler
 import com.atruedev.kmpble.direction.DirectionFindingParameters
 import com.atruedev.kmpble.direction.DirectionFindingResult
@@ -85,7 +85,7 @@ public class AndroidPeripheral internal constructor(
     internal val pairingRequestHandler =
         AndroidPairingRequestHandler(device, context, peripheralContext.scope, peripheralContext.dispatcher)
 
-    override val state: StateFlow<ConnectionState> get() = peripheralContext.state
+    override val state: StateFlow<State> get() = peripheralContext.state
     override val bondState: StateFlow<BondState> get() = bondManager.bondState
     override val services: StateFlow<List<DiscoveredService>?> get() = peripheralContext.services
     override val maximumWriteValueLength: StateFlow<Int> get() = peripheralContext.maximumWriteValueLength
@@ -96,7 +96,7 @@ public class AndroidPeripheral internal constructor(
     internal var closed = false
 
     /**
-     * Confined to [peripheralContext.dispatcher]. Read by [handleConnectionStateChanged]
+     * Confined to [peripheralContext.dispatcher]. Read by [handleStateChanged]
      * to decide whether bonding is required for the freshly-established link.
      */
     internal var currentConnectionOptions: ConnectionOptions? = null

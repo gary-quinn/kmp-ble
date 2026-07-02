@@ -8,12 +8,12 @@ import com.atruedev.kmpble.error.BleError
  * Observe via [com.atruedev.kmpble.peripheral.Peripheral.state]. The state machine uses a
  * declarative transition table with no invalid transitions possible at compile time.
  */
-public sealed interface ConnectionState {
+public sealed interface State {
     /** Stable display name for logging. Derived from class name with K/N null fallback. */
     public val displayName: String get() = this::class.simpleName ?: "Unknown"
 
     /** The peripheral is establishing a connection. */
-    public sealed interface Connecting : ConnectionState {
+    public sealed interface Connecting : State {
         /** BLE transport link is being established. */
         public data object Transport : Connecting
 
@@ -28,7 +28,7 @@ public sealed interface ConnectionState {
     }
 
     /** The peripheral is connected and operational. */
-    public sealed interface Connected : ConnectionState {
+    public sealed interface Connected : State {
         /** Fully connected - GATT operations may be performed. */
         public data object Ready : Connected
 
@@ -40,7 +40,7 @@ public sealed interface ConnectionState {
     }
 
     /** The peripheral is in the process of disconnecting. */
-    public sealed interface Disconnecting : ConnectionState {
+    public sealed interface Disconnecting : State {
         /** Disconnect was initiated by the local device. */
         public data object Requested : Disconnecting
 
@@ -49,7 +49,7 @@ public sealed interface ConnectionState {
     }
 
     /** The peripheral is disconnected. */
-    public sealed interface Disconnected : ConnectionState {
+    public sealed interface Disconnected : State {
         /** Disconnected by a local [com.atruedev.kmpble.peripheral.Peripheral.disconnect] call. */
         public data object ByRequest : Disconnected
 

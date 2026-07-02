@@ -11,8 +11,8 @@ import com.atruedev.kmpble.connection.ConnectionSubratingResult
 import com.atruedev.kmpble.connection.DataLengthParameters
 import com.atruedev.kmpble.connection.Phy
 import com.atruedev.kmpble.connection.PhyUpdate
-import com.atruedev.kmpble.peripheral.state.ConnectionState
-import com.atruedev.kmpble.peripheral.state.StateTransitionEvent
+import com.atruedev.kmpble.peripheral.state.State
+import com.atruedev.kmpble.peripheral.state.ConnectionEvent
 import com.atruedev.kmpble.gatt.BackpressureStrategy
 import com.atruedev.kmpble.gatt.Characteristic
 import com.atruedev.kmpble.gatt.Descriptor
@@ -107,15 +107,15 @@ class AndroidPeripheralGATTTest {
 
         // Act - Simulate connection state change via the bridge
         peripheral.bridge.onEvent?.invoke(
-            GattCallbackEvent.ConnectionStateChanged(
+            GattCallbackEvent.StateChanged(
                 status = BluetoothGatt.GATT_SUCCESS,
                 newState = BluetoothGatt.STATE_CONNECTED,
             ),
         )
 
         // Assert
-        val newState = stateFlow.first { it is ConnectionState.Connected }
-        assertEquals(ConnectionState.Connected::class, newState::class)
+        val newState = stateFlow.first { it is State.Connected }
+        assertEquals(State.Connected::class, newState::class)
     }
 
     @Test
@@ -125,7 +125,7 @@ class AndroidPeripheralGATTTest {
 
         // First connect
         peripheral.bridge.onEvent?.invoke(
-            GattCallbackEvent.ConnectionStateChanged(
+            GattCallbackEvent.StateChanged(
                 status = BluetoothGatt.GATT_SUCCESS,
                 newState = BluetoothGatt.STATE_CONNECTED,
             ),
@@ -133,15 +133,15 @@ class AndroidPeripheralGATTTest {
 
         // Act - Simulate disconnection
         peripheral.bridge.onEvent?.invoke(
-            GattCallbackEvent.ConnectionStateChanged(
+            GattCallbackEvent.StateChanged(
                 status = BluetoothGatt.GATT_SUCCESS,
                 newState = BluetoothGatt.STATE_DISCONNECTED,
             ),
         )
 
         // Assert
-        val disconnectedState = stateFlow.first { it is ConnectionState.Disconnected }
-        assertEquals(ConnectionState.Disconnected::class, disconnectedState::class)
+        val disconnectedState = stateFlow.first { it is State.Disconnected }
+        assertEquals(State.Disconnected::class, disconnectedState::class)
     }
 
     // =========================================================================

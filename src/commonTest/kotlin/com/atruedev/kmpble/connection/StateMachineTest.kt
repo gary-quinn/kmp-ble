@@ -1,8 +1,8 @@
 package com.atruedev.kmpble.connection
 
-import com.atruedev.kmpble.peripheral.state.ConnectionState
-import com.atruedev.kmpble.peripheral.state.StateTransitionEvent
-import com.atruedev.kmpble.peripheral.state.ConnectionStateMachine
+import com.atruedev.kmpble.peripheral.state.State
+import com.atruedev.kmpble.peripheral.state.ConnectionEvent
+import com.atruedev.kmpble.peripheral.state.StateMachine
 import com.atruedev.kmpble.error.OperationFailed
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -14,10 +14,10 @@ class StateMachineTest {
     private val testError = OperationFailed("test")
 
     private fun transition(
-        from: ConnectionState,
-        event: StateTransitionEvent,
-    ): ConnectionState {
-        val result = ConnectionStateMachine.transition(from, event)
+        from: State,
+        event: ConnectionEvent,
+    ): State {
+        val result = StateMachine.transition(from, event)
         assertTrue(
             result.valid,
             "Expected valid transition from ${from::class.simpleName} + ${event::class.simpleName}",
@@ -26,10 +26,10 @@ class StateMachineTest {
     }
 
     private fun assertInvalid(
-        from: ConnectionState,
-        event: StateTransitionEvent,
+        from: State,
+        event: ConnectionEvent,
     ) {
-        val result = ConnectionStateMachine.transition(from, event)
+        val result = StateMachine.transition(from, event)
         assertFalse(
             result.valid,
             "Expected invalid transition from ${from::class.simpleName} + ${event::class.simpleName}",
@@ -41,150 +41,150 @@ class StateMachineTest {
 
     @Test
     fun fullConnectionLifecycle() {
-        var s: ConnectionState = ConnectionState.Disconnected.ByRequest
-        s = transition(s, StateTransitionEvent.ConnectRequested)
-        assertIs<ConnectionState.Connecting.Transport>(s)
+        var s: State = State.Disconnected.ByRequest
+        s = transition(s, ConnectionEvent.ConnectRequested)
+        assertIs<State.Connecting.Transport>(s)
 
-        s = transition(s, StateTransitionEvent.LinkEstablished)
-        assertIs<ConnectionState.Connecting.Discovering>(s)
+        s = transition(s, ConnectionEvent.LinkEstablished)
+        assertIs<State.Connecting.Discovering>(s)
 
-        s = transition(s, StateTransitionEvent.ServicesDiscovered)
-        assertIs<ConnectionState.Connecting.Configuring>(s)
+        s = transition(s, ConnectionEvent.ServicesDiscovered)
+        assertIs<State.Connecting.Configuring>(s)
 
-        s = transition(s, StateTransitionEvent.ConfigurationComplete)
-        assertIs<ConnectionState.Connected.Ready>(s)
+        s = transition(s, ConnectionEvent.ConfigurationComplete)
+        assertIs<State.Connected.Ready>(s)
 
-        s = transition(s, StateTransitionEvent.DisconnectRequested)
-        assertIs<ConnectionState.Disconnecting.Requested>(s)
+        s = transition(s, ConnectionEvent.DisconnectRequested)
+        assertIs<State.Disconnecting.Requested>(s)
 
-        s = transition(s, StateTransitionEvent.ConnectionLost(testError))
-        assertIs<ConnectionState.Disconnected.ByRequest>(s)
+        s = transition(s, ConnectionEvent.ConnectionLost(testError))
+        assertIs<State.Disconnected.ByRequest>(s)
     }
 
     // --- Connecting with bonding ---
 
     @Test
     fun connectionWithBonding() {
-        var s: ConnectionState = ConnectionState.Disconnected.ByRequest
-        s = transition(s, StateTransitionEvent.ConnectRequested)
-        s = transition(s, StateTransitionEvent.BondRequired)
-        assertIs<ConnectionState.Connecting.Authenticating>(s)
+        var s: State = State.Disconnected.ByRequest
+        s = transition(s, ConnectionEvent.ConnectRequested)
+        s = transition(s, ConnectionEvent.BondRequired)
+        assertIs<State.Connecting.Authenticating>(s)
 
-        s = transition(s, StateTransitionEvent.BondSucceeded)
-        assertIs<ConnectionState.Connecting.Discovering>(s)
+        s = transition(s, ConnectionEvent.BondSucceeded)
+        assertIs<State.Connecting.Discovering>(s)
     }
 
     @Test
     fun bondFailureDisconnects() {
-        var s: ConnectionState = ConnectionState.Disconnected.ByRequest
-        s = transition(s, StateTransitionEvent.ConnectRequested)
-        s = transition(s, StateTransitionEvent.BondRequired)
-        s = transition(s, StateTransitionEvent.BondFailed(testError))
-        assertIs<ConnectionState.Disconnected.ByError>(s)
+        var s: State = State.Disconnected.ByRequest
+        s = transition(s, ConnectionEvent.ConnectRequested)
+        s = transition(s, ConnectionEvent.BondRequired)
+        s = transition(s, ConnectionEvent.BondFailed(testError))
+        assertIs<State.Disconnected.ByError>(s)
     }
 
     // --- Implicit bonding during configuring ---
 
     @Test
     fun implicitBondDuringConfiguring() {
-        var s: ConnectionState = ConnectionState.Connecting.Configuring
-        s = transition(s, StateTransitionEvent.InsufficientAuthentication)
-        assertIs<ConnectionState.Connecting.Authenticating>(s)
+        var s: State = State.Connecting.Configuring
+        s = transition(s, ConnectionEvent.InsufficientAuthentication)
+        assertIs<State.Connecting.Authenticating>(s)
     }
 
     // --- Connected state events ---
 
     @Test
     fun serviceChangedInConnectedReady() {
-        var s: ConnectionState = ConnectionState.Connected.Ready
-        s = transition(s, StateTransitionEvent.ServiceChangedIndication)
-        assertIs<ConnectionState.Connected.ServiceChanged>(s)
+        var s: State = State.Connected.Ready
+        s = transition(s, ConnectionEvent.ServiceChangedIndication)
+        assertIs<State.Connected.ServiceChanged>(s)
 
-        s = transition(s, StateTransitionEvent.RediscoverySucceeded)
-        assertIs<ConnectionState.Connected.Ready>(s)
+        s = transition(s, ConnectionEvent.RediscoverySucceeded)
+        assertIs<State.Connected.Ready>(s)
     }
 
     @Test
     fun bondingChangeInConnectedReady() {
-        var s: ConnectionState = ConnectionState.Connected.Ready
-        s = transition(s, StateTransitionEvent.BondStateChanged)
-        assertIs<ConnectionState.Connected.BondingChange>(s)
+        var s: State = State.Connected.Ready
+        s = transition(s, ConnectionEvent.BondStateChanged)
+        assertIs<State.Connected.BondingChange>(s)
 
-        s = transition(s, StateTransitionEvent.BondChangeProcessed)
-        assertIs<ConnectionState.Connected.Ready>(s)
+        s = transition(s, ConnectionEvent.BondChangeProcessed)
+        assertIs<State.Connected.Ready>(s)
     }
 
     @Test
     fun serviceChangedPreemptsBondingChange() {
-        var s: ConnectionState = ConnectionState.Connected.BondingChange
-        s = transition(s, StateTransitionEvent.ServiceChangedIndication)
-        assertIs<ConnectionState.Connected.ServiceChanged>(s)
+        var s: State = State.Connected.BondingChange
+        s = transition(s, ConnectionEvent.ServiceChangedIndication)
+        assertIs<State.Connected.ServiceChanged>(s)
     }
 
     // --- Connection lost ---
 
     @Test
     fun connectionLostFromReady() {
-        val s = transition(ConnectionState.Connected.Ready, StateTransitionEvent.ConnectionLost(testError))
-        assertIs<ConnectionState.Disconnecting.Error>(s)
+        val s = transition(State.Connected.Ready, ConnectionEvent.ConnectionLost(testError))
+        assertIs<State.Disconnecting.Error>(s)
     }
 
     @Test
     fun connectionLostDuringDiscovery() {
-        val s = transition(ConnectionState.Connecting.Discovering, StateTransitionEvent.ConnectionLost(testError))
-        assertIs<ConnectionState.Disconnected.ByError>(s)
+        val s = transition(State.Connecting.Discovering, ConnectionEvent.ConnectionLost(testError))
+        assertIs<State.Disconnected.ByError>(s)
     }
 
     @Test
     fun discoveryFailure() {
-        val s = transition(ConnectionState.Connecting.Discovering, StateTransitionEvent.DiscoveryFailed(testError))
-        assertIs<ConnectionState.Disconnected.ByError>(s)
+        val s = transition(State.Connecting.Discovering, ConnectionEvent.DiscoveryFailed(testError))
+        assertIs<State.Disconnected.ByError>(s)
     }
 
     // --- Disconnecting terminal states ---
 
     @Test
     fun disconnectingErrorToByTimeout() {
-        val s = transition(ConnectionState.Disconnecting.Error, StateTransitionEvent.SupervisionTimeout)
-        assertIs<ConnectionState.Disconnected.ByTimeout>(s)
+        val s = transition(State.Disconnecting.Error, ConnectionEvent.SupervisionTimeout)
+        assertIs<State.Disconnected.ByTimeout>(s)
     }
 
     @Test
     fun disconnectingErrorToByError() {
-        val s = transition(ConnectionState.Disconnecting.Error, StateTransitionEvent.ConnectionLost(testError))
-        assertIs<ConnectionState.Disconnected.ByError>(s)
+        val s = transition(State.Disconnecting.Error, ConnectionEvent.ConnectionLost(testError))
+        assertIs<State.Disconnected.ByError>(s)
     }
 
     // --- Wildcard transitions ---
 
     @Test
     fun adapterOffFromAnyConnectedState() {
-        assertIs<ConnectionState.Disconnected.BySystemEvent>(
-            transition(ConnectionState.Connected.Ready, StateTransitionEvent.AdapterOff),
+        assertIs<State.Disconnected.BySystemEvent>(
+            transition(State.Connected.Ready, ConnectionEvent.AdapterOff),
         )
-        assertIs<ConnectionState.Disconnected.BySystemEvent>(
-            transition(ConnectionState.Connecting.Transport, StateTransitionEvent.AdapterOff),
+        assertIs<State.Disconnected.BySystemEvent>(
+            transition(State.Connecting.Transport, ConnectionEvent.AdapterOff),
         )
-        assertIs<ConnectionState.Disconnected.BySystemEvent>(
-            transition(ConnectionState.Connecting.Discovering, StateTransitionEvent.AdapterOff),
+        assertIs<State.Disconnected.BySystemEvent>(
+            transition(State.Connecting.Discovering, ConnectionEvent.AdapterOff),
         )
-        assertIs<ConnectionState.Disconnected.BySystemEvent>(
-            transition(ConnectionState.Disconnecting.Requested, StateTransitionEvent.AdapterOff),
+        assertIs<State.Disconnected.BySystemEvent>(
+            transition(State.Disconnecting.Requested, ConnectionEvent.AdapterOff),
         )
     }
 
     @Test
     fun adapterOffFromDisconnectedIsInvalid() {
-        assertInvalid(ConnectionState.Disconnected.ByRequest, StateTransitionEvent.AdapterOff)
+        assertInvalid(State.Disconnected.ByRequest, ConnectionEvent.AdapterOff)
     }
 
     @Test
     fun remoteDisconnectedFromAnyConnectedState() {
-        assertIs<ConnectionState.Disconnected.ByRemote>(
-            transition(ConnectionState.Connected.Ready, StateTransitionEvent.RemoteDisconnected),
+        assertIs<State.Disconnected.ByRemote>(
+            transition(State.Connected.Ready, ConnectionEvent.RemoteDisconnected),
         )
-        assertIs<ConnectionState.Disconnected.ByRemote>(
-            transition(ConnectionState.Connecting.Configuring, StateTransitionEvent.RemoteDisconnected),
+        assertIs<State.Disconnected.ByRemote>(
+            transition(State.Connecting.Configuring, ConnectionEvent.RemoteDisconnected),
         )
     }
 
@@ -192,12 +192,12 @@ class StateMachineTest {
 
     @Test
     fun invalidTransitionFromDisconnected() {
-        assertInvalid(ConnectionState.Disconnected.ByRequest, StateTransitionEvent.ServicesDiscovered)
+        assertInvalid(State.Disconnected.ByRequest, ConnectionEvent.ServicesDiscovered)
     }
 
     @Test
     fun invalidTransitionFromConnectedReady() {
-        assertInvalid(ConnectionState.Connected.Ready, StateTransitionEvent.ConnectRequested)
+        assertInvalid(State.Connected.Ready, ConnectionEvent.ConnectRequested)
     }
 
     // --- Reconnection from any Disconnected subtype ---
@@ -206,15 +206,15 @@ class StateMachineTest {
     fun connectFromAllDisconnectedSubtypes() {
         val subtypes =
             listOf(
-                ConnectionState.Disconnected.ByRequest,
-                ConnectionState.Disconnected.ByRemote,
-                ConnectionState.Disconnected.ByError(testError),
-                ConnectionState.Disconnected.ByTimeout,
-                ConnectionState.Disconnected.BySystemEvent,
+                State.Disconnected.ByRequest,
+                State.Disconnected.ByRemote,
+                State.Disconnected.ByError(testError),
+                State.Disconnected.ByTimeout,
+                State.Disconnected.BySystemEvent,
             )
         for (disconnected in subtypes) {
-            val s = transition(disconnected, StateTransitionEvent.ConnectRequested)
-            assertIs<ConnectionState.Connecting.Transport>(s, "Failed from $disconnected")
+            val s = transition(disconnected, ConnectionEvent.ConnectRequested)
+            assertIs<State.Connecting.Transport>(s, "Failed from $disconnected")
         }
     }
 
@@ -222,17 +222,17 @@ class StateMachineTest {
 
     @Test
     fun disconnectRequestedDuringConnecting() {
-        assertIs<ConnectionState.Disconnected.ByRequest>(
-            transition(ConnectionState.Connecting.Transport, StateTransitionEvent.DisconnectRequested),
+        assertIs<State.Disconnected.ByRequest>(
+            transition(State.Connecting.Transport, ConnectionEvent.DisconnectRequested),
         )
-        assertIs<ConnectionState.Disconnected.ByRequest>(
-            transition(ConnectionState.Connecting.Authenticating, StateTransitionEvent.DisconnectRequested),
+        assertIs<State.Disconnected.ByRequest>(
+            transition(State.Connecting.Authenticating, ConnectionEvent.DisconnectRequested),
         )
-        assertIs<ConnectionState.Disconnected.ByRequest>(
-            transition(ConnectionState.Connecting.Discovering, StateTransitionEvent.DisconnectRequested),
+        assertIs<State.Disconnected.ByRequest>(
+            transition(State.Connecting.Discovering, ConnectionEvent.DisconnectRequested),
         )
-        assertIs<ConnectionState.Disconnected.ByRequest>(
-            transition(ConnectionState.Connecting.Configuring, StateTransitionEvent.DisconnectRequested),
+        assertIs<State.Disconnected.ByRequest>(
+            transition(State.Connecting.Configuring, ConnectionEvent.DisconnectRequested),
         )
     }
 }

@@ -20,7 +20,7 @@ class ReconnectionHandlerTest {
     private fun handler(random: Random = noJitter) =
         ReconnectionHandler(
             scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Job()),
-            stateFlow = MutableStateFlow(ConnectionState.Disconnected.ByRequest),
+            stateFlow = MutableStateFlow(State.Disconnected.ByRequest),
             connectAction = {},
             random = random,
         )

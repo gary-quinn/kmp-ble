@@ -25,12 +25,12 @@ internal class AndroidGattServerCallback(
 ) {
     val callback: BluetoothGattServerCallback =
         object : BluetoothGattServerCallback() {
-            override fun onConnectionStateChange(
+            override fun onStateChange(
                 device: BluetoothDevice,
                 status: Int,
                 newState: Int,
             ) {
-                handleConnectionStateChange(device, status, newState)
+                handleStateChange(device, status, newState)
             }
 
             override fun onCharacteristicReadRequest(

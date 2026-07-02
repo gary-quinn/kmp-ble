@@ -1,6 +1,6 @@
 package com.atruedev.kmpble.peripheral
 
-import com.atruedev.kmpble.peripheral.state.StateTransitionEvent
+import com.atruedev.kmpble.peripheral.state.ConnectionEvent
 import com.atruedev.kmpble.error.BleException
 import com.atruedev.kmpble.error.ServiceDiscoveryError
 import com.atruedev.kmpble.gatt.Characteristic
@@ -37,7 +37,7 @@ internal suspend fun IosPeripheral.handleServicesDiscovered(event: AppleCallback
     if (event.error != null) {
         val status = event.error.toGattStatus()
         val discoveryError = ServiceDiscoveryError(serviceUuid = null, status = status)
-        peripheralContext.processEvent(StateTransitionEvent.DiscoveryFailed(discoveryError))
+        peripheralContext.processEvent(ConnectionEvent.DiscoveryFailed(discoveryError))
         slots.completeConnect()
         slots.failDiscovery(BleException(discoveryError))
         currentDiscovery = null
@@ -73,7 +73,7 @@ internal suspend fun IosPeripheral.handleCharacteristicsDiscovered(
     if (event.error != null) {
         val status = event.error.toGattStatus()
         peripheralContext.processEvent(
-            StateTransitionEvent.DiscoveryFailed(ServiceDiscoveryError(serviceUuid = event.serviceUuid, status = status)),
+            ConnectionEvent.DiscoveryFailed(ServiceDiscoveryError(serviceUuid = event.serviceUuid, status = status)),
         )
         currentDiscovery = null
         slots.completeConnect()
@@ -95,10 +95,10 @@ internal suspend fun IosPeripheral.handleCharacteristicsDiscovered(
 
 @OptIn(ExperimentalUuidApi::class)
 internal suspend fun IosPeripheral.finishDiscovery(discovered: List<DiscoveredService>) {
-    peripheralContext.processEvent(StateTransitionEvent.ServicesDiscovered)
+    peripheralContext.processEvent(ConnectionEvent.ServicesDiscovered)
     peripheralContext.updateServices(discovered)
     resubscribeObservations()
-    peripheralContext.processEvent(StateTransitionEvent.ConfigurationComplete)
+    peripheralContext.processEvent(ConnectionEvent.ConfigurationComplete)
     slots.completeConnect()
     slots.completeDiscovery(discovered)
 }

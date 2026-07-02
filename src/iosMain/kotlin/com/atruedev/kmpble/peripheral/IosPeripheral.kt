@@ -15,7 +15,7 @@ import com.atruedev.kmpble.connection.OperationTimeouts
 import com.atruedev.kmpble.connection.Phy
 import com.atruedev.kmpble.connection.PhyUpdate
 import com.atruedev.kmpble.connection.ReconnectionStrategy
-import com.atruedev.kmpble.peripheral.state.ConnectionState
+import com.atruedev.kmpble.peripheral.state.State
 import com.atruedev.kmpble.connection.internal.ReconnectionHandler
 import com.atruedev.kmpble.direction.DirectionFindingParameters
 import com.atruedev.kmpble.direction.DirectionFindingResult
@@ -75,7 +75,7 @@ public class IosPeripheral(
     @ExperimentalBleApi
     internal val pairingRequestHandler = IosPairingRequestHandler(identifier)
 
-    override val state: StateFlow<ConnectionState> get() = peripheralContext.state
+    override val state: StateFlow<State> get() = peripheralContext.state
     override val bondState: StateFlow<BondState> get() = peripheralContext.bondState
     internal val bondManager = IosBondManager(peripheralContext)
     override val services: StateFlow<List<DiscoveredService>?> get() = peripheralContext.services
@@ -164,7 +164,7 @@ public class IosPeripheral(
     }
 
     internal fun disableNotifications(characteristic: Characteristic) {
-        if (peripheralContext.state.value !is ConnectionState.Connected) return
+        if (peripheralContext.state.value !is State.Connected) return
         val native = nativeCharMap[characteristic] ?: return
         bridge.setNotifyValue(false, native)
     }

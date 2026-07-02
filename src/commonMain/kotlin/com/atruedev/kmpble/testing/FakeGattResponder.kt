@@ -8,7 +8,7 @@ import com.atruedev.kmpble.connection.ConnectionSubratingResult
 import com.atruedev.kmpble.connection.DataLengthParameters
 import com.atruedev.kmpble.connection.Phy
 import com.atruedev.kmpble.connection.PhyUpdate
-import com.atruedev.kmpble.peripheral.state.ConnectionState
+import com.atruedev.kmpble.peripheral.state.State
 import com.atruedev.kmpble.direction.DirectionFindingParameters
 import com.atruedev.kmpble.direction.DirectionFindingResult
 import com.atruedev.kmpble.error.BleException
@@ -96,7 +96,7 @@ internal class FakeGattResponder(
     }
 
     internal fun checkConnected() {
-        check(context.state.value is ConnectionState.Connected) {
+        check(context.state.value is State.Connected) {
             "Peripheral is not connected (state: ${context.state.value})"
         }
     }
@@ -231,7 +231,7 @@ internal class FakeGattResponder(
             val eventFlow = observationManager.subscribe(serviceUuid, charUuid, backpressure)
             eventFlow.collect { event -> mapper(event) }
         }.onStart {
-            if (context.state.value is ConnectionState.Connected.Ready) {
+            if (context.state.value is State.Connected.Ready) {
                 recordCccdWrite(serviceUuid, charUuid, enabled = true)
             }
         }.applyBackpressure(backpressure)
@@ -241,7 +241,7 @@ internal class FakeGattResponder(
                 coroutineScope {
                     launch(NonCancellable) {
                         val wasLastCollector = observationManager.unsubscribe(serviceUuid, charUuid)
-                        if (wasLastCollector && context.state.value is ConnectionState.Connected) {
+                        if (wasLastCollector && context.state.value is State.Connected) {
                             recordCccdWrite(serviceUuid, charUuid, enabled = false)
                         }
                     }
@@ -265,7 +265,7 @@ internal class FakeGattResponder(
     ): L2capChannel {
         checkNotClosed()
         if (mtu != null) require(mtu > 0) { "mtu must be positive, was $mtu" }
-        if (context.state.value !is ConnectionState.Connected) {
+        if (context.state.value !is State.Connected) {
             throw L2capException.NotConnected("Peripheral is not connected (state: ${context.state.value})")
         }
         val handler =
@@ -276,7 +276,7 @@ internal class FakeGattResponder(
 
     suspend fun openIsochronousChannel(): IsochronousChannel {
         checkNotClosed()
-        if (context.state.value !is ConnectionState.Connected) {
+        if (context.state.value !is State.Connected) {
             throw IsochronousException.NotConnected(
                 "Peripheral is not connected (state: ${context.state.value})",
             )
@@ -291,7 +291,7 @@ internal class FakeGattResponder(
 
     suspend fun receivePastSync(): PeriodicAdvertisingSync {
         checkNotClosed()
-        if (context.state.value !is ConnectionState.Connected) {
+        if (context.state.value !is State.Connected) {
             throw PastException.NotConnected(
                 "Peripheral is not connected (state: ${context.state.value})",
             )

@@ -8,8 +8,8 @@ import android.bluetooth.BluetoothProfile
 import com.atruedev.kmpble.ExperimentalBleApi
 import com.atruedev.kmpble.connection.BondingPreference
 import com.atruedev.kmpble.connection.ConnectionOptions
-import com.atruedev.kmpble.peripheral.state.ConnectionState
-import com.atruedev.kmpble.peripheral.state.StateTransitionEvent
+import com.atruedev.kmpble.peripheral.state.State
+import com.atruedev.kmpble.peripheral.state.ConnectionEvent
 import com.atruedev.kmpble.error.ConnectionFailed
 import com.atruedev.kmpble.error.ConnectionFailureReason
 import com.atruedev.kmpble.error.ConnectionLost
@@ -81,14 +81,14 @@ internal suspend fun AndroidPeripheral.connectWithRetry(options: ConnectionOptio
             )
         }
 
-        peripheralContext.processEvent(StateTransitionEvent.ConnectRequested)
+        peripheralContext.processEvent(ConnectionEvent.ConnectRequested)
         peripheralContext.gattQueue.start(options.gattOperationTimeout)
 
         val deferred = slots.armConnect()
         val gatt = bridge.connect(options)
         if (gatt == null) {
             peripheralContext.processEvent(
-                StateTransitionEvent.ConnectionLost(
+                ConnectionEvent.ConnectionLost(
                     ConnectionFailed("connectGatt returned null", ConnectionFailureReason.UNKNOWN_DEVICE),
                 ),
             )
@@ -103,7 +103,7 @@ internal suspend fun AndroidPeripheral.connectWithRetry(options: ConnectionOptio
             bridge.disconnect()
             bridge.releaseGatt()
             peripheralContext.processEvent(
-                StateTransitionEvent.ConnectionLost(
+                ConnectionEvent.ConnectionLost(
                     ConnectionFailed("Connection timeout after $timeout", ConnectionFailureReason.TIMEOUT),
                 ),
             )
@@ -111,7 +111,7 @@ internal suspend fun AndroidPeripheral.connectWithRetry(options: ConnectionOptio
             slots.clearConnect()
         }
 
-        if (peripheralContext.state.value is ConnectionState.Connected) return
+        if (peripheralContext.state.value is State.Connected) return
 
         if (attempt < maxAttempts - 1) {
             bridge.releaseGatt()
@@ -120,7 +120,7 @@ internal suspend fun AndroidPeripheral.connectWithRetry(options: ConnectionOptio
     }
 }
 
-internal suspend fun AndroidPeripheral.handleConnectionStateChanged(event: GattCallbackEvent.ConnectionStateChanged) {
+internal suspend fun AndroidPeripheral.handleStateChanged(event: GattCallbackEvent.StateChanged) {
     val status = event.status.toGattStatus()
     when (event.newState) {
         BluetoothProfile.STATE_CONNECTED -> handleLinkUp(status, event.status)
@@ -134,7 +134,7 @@ internal suspend fun AndroidPeripheral.handleLinkUp(
 ) {
     if (!status.isSuccess()) {
         peripheralContext.processEvent(
-            StateTransitionEvent.ConnectionLost(
+            ConnectionEvent.ConnectionLost(
                 ConnectionFailed("GATT status: $status", ConnectionFailureReason.GATT_ERROR, rawStatus),
             ),
         )
@@ -142,7 +142,7 @@ internal suspend fun AndroidPeripheral.handleLinkUp(
         return
     }
 
-    peripheralContext.processEvent(StateTransitionEvent.LinkEstablished)
+    peripheralContext.processEvent(ConnectionEvent.LinkEstablished)
     if (!bondIfRequiredForLink()) return
     bridge.discoverServices()
 }
@@ -156,7 +156,7 @@ internal suspend fun AndroidPeripheral.bondIfRequiredForLink(): Boolean {
     if (pref != BondingPreference.Required) return true
     if (device.bondState == BluetoothDevice.BOND_BONDED) return true
 
-    peripheralContext.processEvent(StateTransitionEvent.BondRequired)
+    peripheralContext.processEvent(ConnectionEvent.BondRequired)
     val bondTimeout = quirkRegistry.resolve(BleQuirks.BondStateTimeout)
     val bonded =
         try {
@@ -174,7 +174,7 @@ internal suspend fun AndroidPeripheral.bondIfRequiredForLink(): Boolean {
 
     if (!bonded) {
         peripheralContext.processEvent(
-            StateTransitionEvent.BondFailed(
+            ConnectionEvent.BondFailed(
                 ConnectionFailed("Bonding rejected or timed out", ConnectionFailureReason.BONDING_FAILED),
             ),
         )
@@ -197,12 +197,12 @@ internal suspend fun AndroidPeripheral.bondIfRequiredForLink(): Boolean {
 }
 
 internal suspend fun AndroidPeripheral.handleLinkDown(rawStatus: Int) {
-    if (peripheralContext.state.value is ConnectionState.Disconnecting.Requested) {
-        peripheralContext.processEvent(StateTransitionEvent.ConnectionLost(OperationFailed("disconnect")))
+    if (peripheralContext.state.value is State.Disconnecting.Requested) {
+        peripheralContext.processEvent(ConnectionEvent.ConnectionLost(OperationFailed("disconnect")))
         slots.completeDisconnect()
     } else {
         peripheralContext.processEvent(
-            StateTransitionEvent.ConnectionLost(
+            ConnectionEvent.ConnectionLost(
                 ConnectionLost("Remote disconnect", ConnectionFailureReason.LINK_LOSS, rawStatus),
             ),
         )
@@ -234,8 +234,8 @@ internal suspend fun AndroidPeripheral.disconnectInternal() {
     bondManager.stop()
     withContext(peripheralContext.dispatcher) {
         pairingRequestHandler.stop()
-        if (peripheralContext.state.value is ConnectionState.Disconnected) return@withContext
-        peripheralContext.processEvent(StateTransitionEvent.DisconnectRequested)
+        if (peripheralContext.state.value is State.Disconnected) return@withContext
+        peripheralContext.processEvent(ConnectionEvent.DisconnectRequested)
         val deferred = slots.armDisconnect()
         bridge.disconnect()
 
@@ -243,7 +243,7 @@ internal suspend fun AndroidPeripheral.disconnectInternal() {
             withTimeout(DISCONNECT_TIMEOUT) { deferred.await() }
         } catch (_: TimeoutCancellationException) {
             peripheralContext.processEvent(
-                StateTransitionEvent.ConnectionLost(OperationFailed("Disconnect timeout")),
+                ConnectionEvent.ConnectionLost(OperationFailed("Disconnect timeout")),
             )
         } finally {
             slots.clearDisconnect()

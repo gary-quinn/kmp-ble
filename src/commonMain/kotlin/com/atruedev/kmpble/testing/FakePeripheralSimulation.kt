@@ -1,8 +1,8 @@
 package com.atruedev.kmpble.testing
 
 import com.atruedev.kmpble.connection.Phy
-import com.atruedev.kmpble.peripheral.state.ConnectionState
-import com.atruedev.kmpble.peripheral.state.StateTransitionEvent
+import com.atruedev.kmpble.peripheral.state.State
+import com.atruedev.kmpble.peripheral.state.ConnectionEvent
 import com.atruedev.kmpble.error.BleError
 import com.atruedev.kmpble.error.ConnectionLost
 import com.atruedev.kmpble.gatt.DiscoveredService
@@ -11,18 +11,18 @@ import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
 @OptIn(ExperimentalUuidApi::class)
-internal suspend fun FakePeripheral.simulateEvent(event: StateTransitionEvent): ConnectionState =
+internal suspend fun FakePeripheral.simulateEvent(event: ConnectionEvent): State =
     connectionSimulator.simulateEvent(event)
 
-/** Drives the state machine from [ConnectionState.Connected.Ready] to [ConnectionState.Connected.BondingChange]. */
+/** Drives the state machine from [State.Connected.Ready] to [State.Connected.BondingChange]. */
 @OptIn(ExperimentalUuidApi::class)
 public suspend fun FakePeripheral.simulateBondStateChange() {
     connectionSimulator.simulateBondStateChange()
 }
 
 /**
- * Drives the state machine from [ConnectionState.Connected.Ready] to
- * [ConnectionState.Connected.ServiceChanged]. Services remain populated (now stale)
+ * Drives the state machine from [State.Connected.Ready] to
+ * [State.Connected.ServiceChanged]. Services remain populated (now stale)
  * until rediscovery completes.
  */
 @OptIn(ExperimentalUuidApi::class)
@@ -31,8 +31,8 @@ public suspend fun FakePeripheral.simulateServiceChangedIndication() {
 }
 
 /**
- * Drives the state machine from [ConnectionState.Connected.ServiceChanged] back to
- * [ConnectionState.Connected.Ready].
+ * Drives the state machine from [State.Connected.ServiceChanged] back to
+ * [State.Connected.Ready].
  */
 @OptIn(ExperimentalUuidApi::class)
 public suspend fun FakePeripheral.simulateRediscoverySucceeded() {

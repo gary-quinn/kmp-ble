@@ -5,8 +5,8 @@ import com.atruedev.kmpble.connection.ConnectionParameterUpdateResult
 import com.atruedev.kmpble.connection.ConnectionParameters
 import com.atruedev.kmpble.connection.ConnectionPriority
 import com.atruedev.kmpble.connection.Phy
-import com.atruedev.kmpble.peripheral.state.ConnectionState
-import com.atruedev.kmpble.peripheral.state.StateTransitionEvent
+import com.atruedev.kmpble.peripheral.state.State
+import com.atruedev.kmpble.peripheral.state.ConnectionEvent
 import com.atruedev.kmpble.error.ConnectionLost
 import com.atruedev.kmpble.isochronous.IsochronousException
 import com.atruedev.kmpble.scanner.uuidFrom
@@ -41,7 +41,7 @@ class FakePeripheralTest {
     fun initialStateIsDisconnected() =
         runTest {
             val peripheral = createPeripheral()
-            assertIs<ConnectionState.Disconnected>(peripheral.state.value)
+            assertIs<State.Disconnected>(peripheral.state.value)
         }
 
     @Test
@@ -49,7 +49,7 @@ class FakePeripheralTest {
         runTest {
             val peripheral = createPeripheral()
             peripheral.connect()
-            assertIs<ConnectionState.Connected.Ready>(peripheral.state.value)
+            assertIs<State.Connected.Ready>(peripheral.state.value)
         }
 
     @Test
@@ -58,7 +58,7 @@ class FakePeripheralTest {
             val peripheral = createPeripheral()
             peripheral.connect()
             peripheral.disconnect()
-            assertIs<ConnectionState.Disconnected.ByRequest>(peripheral.state.value)
+            assertIs<State.Disconnected.ByRequest>(peripheral.state.value)
         }
 
     @Test
@@ -133,7 +133,7 @@ class FakePeripheralTest {
                 }
 
             peripheral.connect()
-            assertIs<ConnectionState.Disconnected.ByError>(peripheral.state.value)
+            assertIs<State.Disconnected.ByError>(peripheral.state.value)
         }
 
     @Test
@@ -143,7 +143,7 @@ class FakePeripheralTest {
             peripheral.connect()
             peripheral.disconnect()
             peripheral.connect()
-            assertIs<ConnectionState.Connected.Ready>(peripheral.state.value)
+            assertIs<State.Connected.Ready>(peripheral.state.value)
             assertNotNull(peripheral.services.value)
         }
 
@@ -154,18 +154,18 @@ class FakePeripheralTest {
         runTest {
             val peripheral = createPeripheral()
 
-            val s1 = peripheral.simulateEvent(StateTransitionEvent.ConnectRequested)
-            assertIs<ConnectionState.Connecting.Transport>(s1)
-            assertIs<ConnectionState.Connecting.Transport>(peripheral.state.value)
+            val s1 = peripheral.simulateEvent(ConnectionEvent.ConnectRequested)
+            assertIs<State.Connecting.Transport>(s1)
+            assertIs<State.Connecting.Transport>(peripheral.state.value)
 
-            val s2 = peripheral.simulateEvent(StateTransitionEvent.LinkEstablished)
-            assertIs<ConnectionState.Connecting.Discovering>(s2)
+            val s2 = peripheral.simulateEvent(ConnectionEvent.LinkEstablished)
+            assertIs<State.Connecting.Discovering>(s2)
 
-            val s3 = peripheral.simulateEvent(StateTransitionEvent.ServicesDiscovered)
-            assertIs<ConnectionState.Connecting.Configuring>(s3)
+            val s3 = peripheral.simulateEvent(ConnectionEvent.ServicesDiscovered)
+            assertIs<State.Connecting.Configuring>(s3)
 
-            val s4 = peripheral.simulateEvent(StateTransitionEvent.ConfigurationComplete)
-            assertIs<ConnectionState.Connected.Ready>(s4)
+            val s4 = peripheral.simulateEvent(ConnectionEvent.ConfigurationComplete)
+            assertIs<State.Connected.Ready>(s4)
         }
 
     @Test
@@ -175,8 +175,8 @@ class FakePeripheralTest {
             peripheral.connect()
 
             val error = ConnectionLost("link supervision timeout")
-            val s = peripheral.simulateEvent(StateTransitionEvent.ConnectionLost(error))
-            assertIs<ConnectionState.Disconnecting.Error>(s)
+            val s = peripheral.simulateEvent(ConnectionEvent.ConnectionLost(error))
+            assertIs<State.Disconnecting.Error>(s)
         }
 
     @Test
@@ -185,8 +185,8 @@ class FakePeripheralTest {
             val peripheral = createPeripheral()
             peripheral.connect()
 
-            val s = peripheral.simulateEvent(StateTransitionEvent.AdapterOff)
-            assertIs<ConnectionState.Disconnected.BySystemEvent>(s)
+            val s = peripheral.simulateEvent(ConnectionEvent.AdapterOff)
+            assertIs<State.Disconnected.BySystemEvent>(s)
         }
 
     @OptIn(ExperimentalBleApi::class)

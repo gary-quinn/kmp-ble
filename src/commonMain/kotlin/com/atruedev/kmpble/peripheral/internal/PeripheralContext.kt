@@ -3,9 +3,9 @@ package com.atruedev.kmpble.peripheral.internal
 import com.atruedev.kmpble.Identifier
 import com.atruedev.kmpble.bonding.BondState
 import com.atruedev.kmpble.connection.DataLengthParameters
-import com.atruedev.kmpble.peripheral.state.ConnectionState
-import com.atruedev.kmpble.peripheral.state.StateTransitionEvent
-import com.atruedev.kmpble.peripheral.state.ConnectionStateMachine
+import com.atruedev.kmpble.peripheral.state.State
+import com.atruedev.kmpble.peripheral.state.ConnectionEvent
+import com.atruedev.kmpble.peripheral.state.StateMachine
 import com.atruedev.kmpble.gatt.DiscoveredService
 import com.atruedev.kmpble.gatt.internal.GattOperationQueue
 import com.atruedev.kmpble.logging.BleLogConfig
@@ -34,8 +34,8 @@ internal class PeripheralContext(
             SupervisorJob() + dispatcher + CoroutineName("Peripheral/${identifier.value}"),
         )
 
-    private val _state = MutableStateFlow(ConnectionState.Disconnected.ByRequest as ConnectionState)
-    val state: StateFlow<ConnectionState> = _state.asStateFlow()
+    private val _state = MutableStateFlow(State.Disconnected.ByRequest as State)
+    val state: StateFlow<State> = _state.asStateFlow()
 
     private val _services = MutableStateFlow<List<DiscoveredService>?>(null)
     val services: StateFlow<List<DiscoveredService>?> = _services.asStateFlow()
@@ -69,12 +69,12 @@ internal class PeripheralContext(
      * Logs [BleLogEvent.StateTransition] with the duration spent in the previous state,
      * enabling connection timeline analysis.
      */
-    suspend fun processEvent(event: StateTransitionEvent): ConnectionState =
+    suspend fun processEvent(event: ConnectionEvent): State =
         withContext(dispatcher) {
             check(!closed.value) { "PeripheralContext is closed" }
 
             val previousState = _state.value
-            val result = ConnectionStateMachine.transition(previousState, event)
+            val result = StateMachine.transition(previousState, event)
             if (!result.valid) {
                 if (BleLogConfig.strictMode) {
                     val msg = "Invalid state transition: $previousState + $event"
@@ -98,7 +98,7 @@ internal class PeripheralContext(
                 ),
             )
 
-            if (result.newState is ConnectionState.Disconnected) {
+            if (result.newState is State.Disconnected) {
                 gattQueue.drain()
                 _services.value = null
             }

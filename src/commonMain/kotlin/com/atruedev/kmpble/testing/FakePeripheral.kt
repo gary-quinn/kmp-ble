@@ -10,8 +10,8 @@ import com.atruedev.kmpble.connection.ConnectionSubratingResult
 import com.atruedev.kmpble.connection.DataLengthParameters
 import com.atruedev.kmpble.connection.Phy
 import com.atruedev.kmpble.connection.PhyUpdate
-import com.atruedev.kmpble.peripheral.state.ConnectionState
-import com.atruedev.kmpble.peripheral.state.StateTransitionEvent
+import com.atruedev.kmpble.peripheral.state.State
+import com.atruedev.kmpble.peripheral.state.ConnectionEvent
 import com.atruedev.kmpble.direction.DirectionFindingParameters
 import com.atruedev.kmpble.direction.DirectionFindingResult
 import com.atruedev.kmpble.error.ConnectionFailed
@@ -92,7 +92,7 @@ public class FakePeripheral internal constructor(
         val enabled: Boolean,
     )
 
-    override val state: StateFlow<ConnectionState> get() = context.state
+    override val state: StateFlow<State> get() = context.state
     override val bondState: StateFlow<com.atruedev.kmpble.bonding.BondState> get() = context.bondState
     override val services: StateFlow<List<DiscoveredService>?> get() = context.services
     override val maximumWriteValueLength: StateFlow<Int> get() = context.maximumWriteValueLength
@@ -100,30 +100,30 @@ public class FakePeripheral internal constructor(
 
     override suspend fun connect(options: ConnectionOptions) {
         checkNotClosed()
-        context.processEvent(StateTransitionEvent.ConnectRequested)
+        context.processEvent(ConnectionEvent.ConnectRequested)
         context.gattQueue.start()
 
         val result = onConnectHandler()
         if (result.isSuccess) {
-            context.processEvent(StateTransitionEvent.LinkEstablished)
-            context.processEvent(StateTransitionEvent.ServicesDiscovered)
+            context.processEvent(ConnectionEvent.LinkEstablished)
+            context.processEvent(ConnectionEvent.ServicesDiscovered)
             context.updateServices(fakeServices)
-            context.processEvent(StateTransitionEvent.ConfigurationComplete)
+            context.processEvent(ConnectionEvent.ConfigurationComplete)
         } else {
             val error =
                 ConnectionFailed(
                     result.exceptionOrNull()?.message ?: "Connection failed",
                 )
-            context.processEvent(StateTransitionEvent.ConnectionLost(error))
+            context.processEvent(ConnectionEvent.ConnectionLost(error))
         }
     }
 
     override suspend fun disconnect() {
         checkNotClosed()
-        if (context.state.value is ConnectionState.Disconnected) return
-        context.processEvent(StateTransitionEvent.DisconnectRequested)
+        if (context.state.value is State.Disconnected) return
+        context.processEvent(ConnectionEvent.DisconnectRequested)
         onDisconnectHandler()
-        context.processEvent(StateTransitionEvent.ConnectionLost(OperationFailed("disconnect")))
+        context.processEvent(ConnectionEvent.ConnectionLost(OperationFailed("disconnect")))
     }
 
     @com.atruedev.kmpble.ExperimentalBleApi

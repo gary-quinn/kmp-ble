@@ -98,13 +98,13 @@ public class IsochronousStream private constructor(
         Failed,
     }
 
-    private val _state = MutableStateFlow<ConnectionState>(State.Idle)
+    private val _state = MutableStateFlow<State>(State.Idle)
     private var sequenceNumber: Long = 0L
 
     /**
      * Current stream lifecycle state.
      */
-    public val state: StateFlow<ConnectionState> = _state.asStateFlow()
+    public val state: StateFlow<State> = _state.asStateFlow()
 
     /**
      * Whether the stream is currently open and streaming.
