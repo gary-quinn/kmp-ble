@@ -53,6 +53,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
@@ -95,7 +96,7 @@ public class AndroidPeripheral internal constructor(
     private var _lastConnectionOptions: ConnectionOptions? = null
     override val lastConnectionOptions: ConnectionOptions? get() = _lastConnectionOptions
 
-    private val _closed = java.util.concurrent.atomic.AtomicBoolean(false)
+    private val _closed = AtomicBoolean(false)
     internal val closed: Boolean get() = _closed.get()
 
     /**
