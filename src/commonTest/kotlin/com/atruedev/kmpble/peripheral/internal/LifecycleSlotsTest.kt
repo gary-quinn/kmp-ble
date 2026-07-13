@@ -1,5 +1,7 @@
 package com.atruedev.kmpble.peripheral.internal
 
+import com.atruedev.kmpble.error.BleException
+import com.atruedev.kmpble.error.OperationFailed
 import com.atruedev.kmpble.gatt.DiscoveredService
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -64,7 +66,7 @@ class LifecycleSlotsTest {
     fun armDiscovery_succeedsAgainAfterFailure() {
         val slots = LifecycleSlots()
         val first = slots.armDiscovery()
-        slots.failDiscovery(RuntimeException("discovery failed"))
+        slots.failDiscovery(BleException(OperationFailed("discovery failed")))
         assertTrue(first.isCompleted)
 
         slots.armDiscovery()
@@ -166,7 +168,7 @@ class LifecycleSlotsTest {
     @Test
     fun failDiscovery_onUnarmedSlot_doesNotThrow() {
         val slots = LifecycleSlots()
-        slots.failDiscovery(RuntimeException("no discovery in flight"))
+        slots.failDiscovery(BleException(OperationFailed("no discovery in flight")))
     }
 
     @Test

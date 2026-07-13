@@ -24,19 +24,28 @@ internal suspend fun IosPeripheral.restoreFromStateRestorationExt(savedObservati
             // A connect callback's own discovery cycle may already cover this peripheral.
             if (!slots.tryArmDiscovery()) return@withContext
 
-            peripheralContext.processEvent(ConnectionEvent.ConnectRequested)
-            peripheralContext.gattQueue.start()
-            peripheralContext.processEvent(ConnectionEvent.LinkEstablished)
-            discoveryGeneration.incrementAndGet()
-            nativeCharMap.clear()
-            nativeDescMap.clear()
-
-            val deferred = slots.armConnect()
-            bridge.discoverServices()
+            // The discovery slot armed above only guards against that race; it isn't what we
+            // wait on below. armConnect() separately blocks a concurrent explicit connect()
+            // call, and its deferred is what finishDiscovery() completes once discovery
+            // finishes, so it's what we await. Wrapped in try/finally so a race on armConnect()
+            // itself (e.g. a concurrent connect()) still releases the discovery slot instead of
+            // leaking it.
             try {
-                withTimeout(currentTimeouts.serviceDiscovery) { deferred.await() }
+                peripheralContext.processEvent(ConnectionEvent.ConnectRequested)
+                peripheralContext.gattQueue.start()
+                peripheralContext.processEvent(ConnectionEvent.LinkEstablished)
+                discoveryGeneration.incrementAndGet()
+                nativeCharMap.clear()
+                nativeDescMap.clear()
+
+                val deferred = slots.armConnect()
+                bridge.discoverServices()
+                try {
+                    withTimeout(currentTimeouts.serviceDiscovery) { deferred.await() }
+                } finally {
+                    slots.clearConnect()
+                }
             } finally {
-                slots.clearConnect()
                 slots.clearDiscovery()
             }
         }

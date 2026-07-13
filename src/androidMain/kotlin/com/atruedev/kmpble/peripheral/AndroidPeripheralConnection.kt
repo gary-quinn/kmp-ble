@@ -147,6 +147,10 @@ internal suspend fun AndroidPeripheral.handleLinkUp(
     if (!bondIfRequiredForLink()) return
     // Duplicate STATE_CONNECTED callback; a discovery cycle already in flight covers it.
     if (!slots.tryArmDiscovery()) return
+    // No generation counter or native-map clear here (unlike IosPeripheral): Android's
+    // BluetoothGattCharacteristic/BluetoothGattDescriptor instances stay valid for the life of
+    // the BluetoothGatt connection, so a fresh discoverServices() doesn't invalidate handles
+    // the way CoreBluetooth replacing CBService/CBCharacteristic objects does on iOS.
     bridge.discoverServices()
 }
 
@@ -200,14 +204,17 @@ internal suspend fun AndroidPeripheral.bondIfRequiredForLink(): Boolean {
 }
 
 internal suspend fun AndroidPeripheral.handleLinkDown(rawStatus: Int) {
+    // Captured once, before processEvent() below can transition the state machine - this is
+    // "was a disconnect() call in flight", not derivable from bleError's type.
+    val disconnectRequested = peripheralContext.state.value is State.Disconnecting.Requested
     val bleError =
-        if (peripheralContext.state.value is State.Disconnecting.Requested) {
+        if (disconnectRequested) {
             OperationFailed("disconnect")
         } else {
             ConnectionLost("Remote disconnect", ConnectionFailureReason.LINK_LOSS, rawStatus)
         }
     peripheralContext.processEvent(ConnectionEvent.ConnectionLost(bleError))
-    if (bleError is OperationFailed) slots.completeDisconnect()
+    if (disconnectRequested) slots.completeDisconnect()
     onDisconnectCleanup()
     // Release a discovery cycle left in flight by the disconnect, so the next
     // connect's tryArmDiscovery() isn't permanently blocked by this slot.
