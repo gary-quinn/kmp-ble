@@ -21,9 +21,15 @@ internal suspend fun IosPeripheral.restoreFromStateRestorationExt(savedObservati
         }
 
         if (cbPeripheral.state == CBPeripheralStateConnected) {
+            // A connect callback's own discovery cycle may already cover this peripheral.
+            if (!slots.tryArmDiscovery()) return@withContext
+
             peripheralContext.processEvent(ConnectionEvent.ConnectRequested)
             peripheralContext.gattQueue.start()
             peripheralContext.processEvent(ConnectionEvent.LinkEstablished)
+            discoveryGeneration.incrementAndGet()
+            nativeCharMap.clear()
+            nativeDescMap.clear()
 
             val deferred = slots.armConnect()
             bridge.discoverServices()
@@ -31,6 +37,7 @@ internal suspend fun IosPeripheral.restoreFromStateRestorationExt(savedObservati
                 withTimeout(currentTimeouts.serviceDiscovery) { deferred.await() }
             } finally {
                 slots.clearConnect()
+                slots.clearDiscovery()
             }
         }
     }

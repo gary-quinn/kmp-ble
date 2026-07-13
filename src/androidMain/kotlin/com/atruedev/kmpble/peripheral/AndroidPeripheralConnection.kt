@@ -8,6 +8,7 @@ import android.bluetooth.BluetoothProfile
 import com.atruedev.kmpble.ExperimentalBleApi
 import com.atruedev.kmpble.connection.BondingPreference
 import com.atruedev.kmpble.connection.ConnectionOptions
+import com.atruedev.kmpble.error.BleException
 import com.atruedev.kmpble.error.ConnectionFailed
 import com.atruedev.kmpble.error.ConnectionFailureReason
 import com.atruedev.kmpble.error.ConnectionLost
@@ -144,6 +145,8 @@ internal suspend fun AndroidPeripheral.handleLinkUp(
 
     peripheralContext.processEvent(ConnectionEvent.LinkEstablished)
     if (!bondIfRequiredForLink()) return
+    // Duplicate STATE_CONNECTED callback; a discovery cycle already in flight covers it.
+    if (!slots.tryArmDiscovery()) return
     bridge.discoverServices()
 }
 
@@ -197,17 +200,18 @@ internal suspend fun AndroidPeripheral.bondIfRequiredForLink(): Boolean {
 }
 
 internal suspend fun AndroidPeripheral.handleLinkDown(rawStatus: Int) {
-    if (peripheralContext.state.value is State.Disconnecting.Requested) {
-        peripheralContext.processEvent(ConnectionEvent.ConnectionLost(OperationFailed("disconnect")))
-        slots.completeDisconnect()
-    } else {
-        peripheralContext.processEvent(
-            ConnectionEvent.ConnectionLost(
-                ConnectionLost("Remote disconnect", ConnectionFailureReason.LINK_LOSS, rawStatus),
-            ),
-        )
-    }
+    val bleError =
+        if (peripheralContext.state.value is State.Disconnecting.Requested) {
+            OperationFailed("disconnect")
+        } else {
+            ConnectionLost("Remote disconnect", ConnectionFailureReason.LINK_LOSS, rawStatus)
+        }
+    peripheralContext.processEvent(ConnectionEvent.ConnectionLost(bleError))
+    if (bleError is OperationFailed) slots.completeDisconnect()
     onDisconnectCleanup()
+    // Release a discovery cycle left in flight by the disconnect, so the next
+    // connect's tryArmDiscovery() isn't permanently blocked by this slot.
+    slots.failDiscovery(BleException(bleError))
     slots.completeConnect()
 }
 

@@ -1,6 +1,7 @@
 package com.atruedev.kmpble.peripheral
 
 import com.atruedev.kmpble.connection.ConnectionOptions
+import com.atruedev.kmpble.error.BleException
 import com.atruedev.kmpble.error.ConnectionFailed
 import com.atruedev.kmpble.error.ConnectionFailureReason
 import com.atruedev.kmpble.error.ConnectionLost
@@ -76,18 +77,8 @@ internal fun IosPeripheral.handleConnectionCallback(
     peripheralContext.scope.launch {
         if (connected) {
             peripheralContext.processEvent(ConnectionEvent.LinkEstablished)
-            try {
-                slots.armDiscovery()
-            } catch (_: IllegalStateException) {
-                // CoreBluetooth redelivered a "connected" callback while a discovery cycle from
-                // an earlier callback is still in flight (observed when the OS auto-reconnects an
-                // already-bonded/retrieved peripheral around the same time our own connect()
-                // completes). Starting a second discoverServices() here would race the in-flight
-                // cycle - CoreBluetooth replaces its CBService/CBCharacteristic objects on every
-                // new discovery pass, so the stale cycle's callbacks end up referencing freed
-                // memory and crash. The in-flight cycle already covers this connection.
-                return@launch
-            }
+            // Duplicate "connected" callback; a discovery cycle already in flight covers it.
+            if (!slots.tryArmDiscovery()) return@launch
             // New discovery cycle on connect: increment generation and clear stale handles
             discoveryGeneration.incrementAndGet()
             nativeCharMap.clear()
@@ -114,6 +105,9 @@ internal fun IosPeripheral.handleConnectionCallback(
             peripheralContext.processEvent(ConnectionEvent.ConnectionLost(bleError))
         }
         onDisconnectCleanup()
+        // Release a discovery cycle left in flight by the disconnect, so the next
+        // connect's tryArmDiscovery() isn't permanently blocked by this slot.
+        slots.failDiscovery(BleException(bleError))
         slots.completeConnect()
     }
 }

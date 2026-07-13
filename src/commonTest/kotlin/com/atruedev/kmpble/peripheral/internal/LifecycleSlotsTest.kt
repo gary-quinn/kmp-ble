@@ -2,27 +2,52 @@ package com.atruedev.kmpble.peripheral.internal
 
 import com.atruedev.kmpble.gatt.DiscoveredService
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
-/**
- * Verifies the re-entrancy guard [LifecycleSlots] relies on to prevent overlapping
- * connect/discovery/disconnect cycles on a single peripheral.
- *
- * [LifecycleSlots.armDiscovery] is the guard `IosPeripheral.handleConnectionCallback`
- * uses to reject a duplicate "connected" callback from CoreBluetooth (e.g. the OS
- * auto-reconnecting an already-bonded peripheral while our own connect() is also
- * completing) instead of starting a second, overlapping discoverServices() cycle.
- */
+/** Tests for [LifecycleSlots]'s re-entrancy guards on the connect/discovery/disconnect slots. */
 class LifecycleSlotsTest {
+    // -- armConnect --
+
+    @Test
+    fun armConnect_throwsWhenAlreadyArmed() {
+        val slots = LifecycleSlots()
+        slots.armConnect()
+
+        val exception = assertFailsWith<IllegalStateException> { slots.armConnect() }
+        assertEquals("connect() is already in progress on this peripheral", exception.message)
+    }
+
+    @Test
+    fun armConnect_succeedsAgainAfterComplete() {
+        val slots = LifecycleSlots()
+        val first = slots.armConnect()
+        slots.completeConnect()
+        assertTrue(first.isCompleted)
+
+        slots.armConnect()
+    }
+
+    @Test
+    fun armConnect_succeedsAgainAfterClear() {
+        val slots = LifecycleSlots()
+        slots.armConnect()
+        slots.clearConnect()
+
+        slots.armConnect()
+    }
+
+    // -- armDiscovery --
+
     @Test
     fun armDiscovery_throwsWhenAlreadyArmed() {
         val slots = LifecycleSlots()
         slots.armDiscovery()
 
-        assertFailsWith<IllegalStateException> {
-            slots.armDiscovery()
-        }
+        val exception = assertFailsWith<IllegalStateException> { slots.armDiscovery() }
+        assertEquals("service discovery is already in progress", exception.message)
     }
 
     @Test
@@ -32,7 +57,6 @@ class LifecycleSlotsTest {
         slots.completeDiscovery(emptyList<DiscoveredService>())
         assertTrue(first.isCompleted)
 
-        // Should not throw: the slot was cleared by completeDiscovery().
         slots.armDiscovery()
     }
 
@@ -43,7 +67,6 @@ class LifecycleSlotsTest {
         slots.failDiscovery(RuntimeException("discovery failed"))
         assertTrue(first.isCompleted)
 
-        // Should not throw: the slot was cleared by failDiscovery().
         slots.armDiscovery()
     }
 
@@ -53,17 +76,118 @@ class LifecycleSlotsTest {
         slots.armDiscovery()
         slots.clearDiscovery()
 
-        // Should not throw: the slot was cleared by clearDiscovery().
         slots.armDiscovery()
     }
 
-    @Test
-    fun armConnect_andArmDiscovery_areIndependentSlots() {
-        val slots = LifecycleSlots()
-        slots.armConnect()
+    // -- tryArmDiscovery --
 
-        // A connect already in flight must not block arming discovery - they are
-        // independent lifecycle slots.
+    @Test
+    fun tryArmDiscovery_returnsTrueWhenNotArmed() {
+        val slots = LifecycleSlots()
+        assertTrue(slots.tryArmDiscovery())
+    }
+
+    @Test
+    fun tryArmDiscovery_returnsFalseWithoutThrowingWhenAlreadyArmed() {
+        val slots = LifecycleSlots()
+        slots.armDiscovery()
+
+        assertFalse(slots.tryArmDiscovery())
+    }
+
+    @Test
+    fun tryArmDiscovery_returnsTrueAgainAfterCompletion() {
+        val slots = LifecycleSlots()
+        slots.tryArmDiscovery()
+        slots.completeDiscovery(emptyList<DiscoveredService>())
+
+        assertTrue(slots.tryArmDiscovery())
+    }
+
+    @Test
+    fun tryArmDiscovery_andArmDiscovery_shareTheSameSlot() {
+        val slots = LifecycleSlots()
+        slots.tryArmDiscovery()
+
+        assertFailsWith<IllegalStateException> { slots.armDiscovery() }
+    }
+
+    // -- armDisconnect --
+
+    @Test
+    fun armDisconnect_throwsWhenAlreadyArmed() {
+        val slots = LifecycleSlots()
+        slots.armDisconnect()
+
+        val exception = assertFailsWith<IllegalStateException> { slots.armDisconnect() }
+        assertEquals("disconnect() is already in progress on this peripheral", exception.message)
+    }
+
+    @Test
+    fun armDisconnect_succeedsAgainAfterComplete() {
+        val slots = LifecycleSlots()
+        val first = slots.armDisconnect()
+        slots.completeDisconnect()
+        assertTrue(first.isCompleted)
+
+        slots.armDisconnect()
+    }
+
+    @Test
+    fun armDisconnect_succeedsAgainAfterClear() {
+        val slots = LifecycleSlots()
+        slots.armDisconnect()
+        slots.clearDisconnect()
+
+        slots.armDisconnect()
+    }
+
+    // -- the three slots don't share state --
+
+    @Test
+    fun connectDiscoveryAndDisconnect_areIndependentSlots() {
+        val slots = LifecycleSlots()
+
+        slots.armConnect()
+        assertTrue(slots.tryArmDiscovery())
+        // Real usage never disconnects mid-connect, but LifecycleSlots has no cross-slot
+        // coupling - each guard only checks its own slot, so this must not throw.
+        slots.armDisconnect()
+    }
+
+    // -- completing/failing/clearing a slot that was never armed is a no-op, not a crash --
+
+    @Test
+    fun completeDiscovery_onUnarmedSlot_doesNotThrow() {
+        val slots = LifecycleSlots()
+        slots.completeDiscovery(emptyList<DiscoveredService>())
+    }
+
+    @Test
+    fun failDiscovery_onUnarmedSlot_doesNotThrow() {
+        val slots = LifecycleSlots()
+        slots.failDiscovery(RuntimeException("no discovery in flight"))
+    }
+
+    @Test
+    fun completeConnect_onUnarmedSlot_doesNotThrow() {
+        val slots = LifecycleSlots()
+        slots.completeConnect()
+    }
+
+    @Test
+    fun completeDisconnect_onUnarmedSlot_doesNotThrow() {
+        val slots = LifecycleSlots()
+        slots.completeDisconnect()
+    }
+
+    @Test
+    fun clearDiscovery_isIdempotent() {
+        val slots = LifecycleSlots()
+        slots.armDiscovery()
+        slots.clearDiscovery()
+        slots.clearDiscovery()
+
         slots.armDiscovery()
     }
 }
