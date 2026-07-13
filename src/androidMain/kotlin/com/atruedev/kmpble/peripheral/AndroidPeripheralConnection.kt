@@ -8,6 +8,7 @@ import android.bluetooth.BluetoothProfile
 import com.atruedev.kmpble.ExperimentalBleApi
 import com.atruedev.kmpble.connection.BondingPreference
 import com.atruedev.kmpble.connection.ConnectionOptions
+import com.atruedev.kmpble.error.BleException
 import com.atruedev.kmpble.error.ConnectionFailed
 import com.atruedev.kmpble.error.ConnectionFailureReason
 import com.atruedev.kmpble.error.ConnectionLost
@@ -17,6 +18,7 @@ import com.atruedev.kmpble.logging.logEvent
 import com.atruedev.kmpble.peripheral.state.ConnectionEvent
 import com.atruedev.kmpble.peripheral.state.State
 import com.atruedev.kmpble.quirks.BleQuirks
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -144,7 +146,32 @@ internal suspend fun AndroidPeripheral.handleLinkUp(
 
     peripheralContext.processEvent(ConnectionEvent.LinkEstablished)
     if (!bondIfRequiredForLink()) return
-    bridge.discoverServices()
+    // Duplicate STATE_CONNECTED callback; a discovery cycle already in flight covers it.
+    if (!slots.tryArmDiscovery()) return
+    // No generation counter or native-map clear here (unlike IosPeripheral): Android's
+    // BluetoothGattCharacteristic/BluetoothGattDescriptor instances stay valid for the life of
+    // the BluetoothGatt connection, so a fresh discoverServices() doesn't invalidate handles
+    // the way CoreBluetooth replacing CBService/CBCharacteristic objects does on iOS.
+    //
+    // Unlike CoreBluetooth's void discoverServices, BluetoothGatt.discoverServices() reports
+    // "didn't start" via a false return (not an exception) - and it can also throw
+    // SecurityException if permissions are revoked mid-call. Either way, if discovery never
+    // starts, no GATT callback will ever arrive to release the slot armed above.
+    val started =
+        try {
+            bridge.discoverServices()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            logEvent(BleLogEvent.Error(identifier, "discoverServices() threw", cause = e))
+            false
+        }
+    if (!started) {
+        val failure = OperationFailed("discoverServices() did not start")
+        peripheralContext.processEvent(ConnectionEvent.DiscoveryFailed(failure))
+        slots.failDiscovery(BleException(failure))
+        slots.completeConnect()
+    }
 }
 
 /**
@@ -197,17 +224,21 @@ internal suspend fun AndroidPeripheral.bondIfRequiredForLink(): Boolean {
 }
 
 internal suspend fun AndroidPeripheral.handleLinkDown(rawStatus: Int) {
-    if (peripheralContext.state.value is State.Disconnecting.Requested) {
-        peripheralContext.processEvent(ConnectionEvent.ConnectionLost(OperationFailed("disconnect")))
-        slots.completeDisconnect()
-    } else {
-        peripheralContext.processEvent(
-            ConnectionEvent.ConnectionLost(
-                ConnectionLost("Remote disconnect", ConnectionFailureReason.LINK_LOSS, rawStatus),
-            ),
-        )
-    }
+    // Captured once, before processEvent() below can transition the state machine - this is
+    // "was a disconnect() call in flight", not derivable from bleError's type.
+    val disconnectRequested = peripheralContext.state.value is State.Disconnecting.Requested
+    val bleError =
+        if (disconnectRequested) {
+            OperationFailed("disconnect")
+        } else {
+            ConnectionLost("Remote disconnect", ConnectionFailureReason.LINK_LOSS, rawStatus)
+        }
+    peripheralContext.processEvent(ConnectionEvent.ConnectionLost(bleError))
+    if (disconnectRequested) slots.completeDisconnect()
     onDisconnectCleanup()
+    // Release a discovery cycle left in flight by the disconnect, so the next
+    // connect's tryArmDiscovery() isn't permanently blocked by this slot.
+    slots.failDiscovery(BleException(bleError))
     slots.completeConnect()
 }
 

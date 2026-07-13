@@ -27,6 +27,18 @@ internal class LifecycleSlots {
         return CompletableDeferred<List<DiscoveredService>>().also { discovery = it }
     }
 
+    /**
+     * Same guard as [armDiscovery], but returns `false` instead of throwing when a cycle
+     * is already in flight. For callers reacting to a platform callback (connection
+     * established, state restoration) where a duplicate/overlapping delivery is an
+     * expected possibility, not a caller bug worth surfacing as an exception.
+     */
+    fun tryArmDiscovery(): Boolean {
+        if (discovery != null) return false
+        discovery = CompletableDeferred()
+        return true
+    }
+
     fun armDisconnect(): CompletableDeferred<Unit> {
         check(disconnect == null) { "disconnect() is already in progress on this peripheral" }
         return CompletableDeferred<Unit>().also { disconnect = it }

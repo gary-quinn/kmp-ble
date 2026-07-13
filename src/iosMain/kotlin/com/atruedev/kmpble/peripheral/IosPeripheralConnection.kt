@@ -1,12 +1,14 @@
 package com.atruedev.kmpble.peripheral
 
 import com.atruedev.kmpble.connection.ConnectionOptions
+import com.atruedev.kmpble.error.BleException
 import com.atruedev.kmpble.error.ConnectionFailed
 import com.atruedev.kmpble.error.ConnectionFailureReason
 import com.atruedev.kmpble.error.ConnectionLost
 import com.atruedev.kmpble.error.OperationFailed
 import com.atruedev.kmpble.peripheral.state.ConnectionEvent
 import com.atruedev.kmpble.peripheral.state.State
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -76,11 +78,26 @@ internal fun IosPeripheral.handleConnectionCallback(
     peripheralContext.scope.launch {
         if (connected) {
             peripheralContext.processEvent(ConnectionEvent.LinkEstablished)
+            // Duplicate "connected" callback; a discovery cycle already in flight covers it.
+            if (!slots.tryArmDiscovery()) return@launch
             // New discovery cycle on connect: increment generation and clear stale handles
             discoveryGeneration.incrementAndGet()
             nativeCharMap.clear()
             nativeDescMap.clear()
-            bridge.discoverServices()
+            try {
+                bridge.discoverServices()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                // discoverServices() is just a delegate/property assignment plus a void ObjC
+                // call - failures are normally reported later via the async callback, not a
+                // throw. If it does throw, the discovery slot armed above would otherwise leak
+                // forever (no callback will ever arrive to release it).
+                val failure = OperationFailed("discoverServices() failed: ${e.message}")
+                peripheralContext.processEvent(ConnectionEvent.DiscoveryFailed(failure))
+                slots.failDiscovery(BleException(failure))
+                slots.completeConnect()
+            }
             return@launch
         }
 
@@ -102,6 +119,9 @@ internal fun IosPeripheral.handleConnectionCallback(
             peripheralContext.processEvent(ConnectionEvent.ConnectionLost(bleError))
         }
         onDisconnectCleanup()
+        // Release a discovery cycle left in flight by the disconnect, so the next
+        // connect's tryArmDiscovery() isn't permanently blocked by this slot.
+        slots.failDiscovery(BleException(bleError))
         slots.completeConnect()
     }
 }
