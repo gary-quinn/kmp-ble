@@ -24,6 +24,152 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _Changes on `main` that have not yet been tagged for release._
 
+---
+
+## [0.10.0] - 2026-07-13
+
+### Added
+- feat(benchmark): add BleBenchmark utility for operation latency and throughput
+- feat(sample): add BleQuickstart end-to-end code examples and update README
+- feat(error): add recoveryHint to all BleError types
+- feat(monitoring): add ConnectionQualityMonitor with RSSI and connection lifecycle tracking
+- feat(conformance): add cross-platform conformance test harness
+- feat(l2cap): add L2CAP conformance tests to BleConformanceTest
+- feat(beacon): add iBeacon and Eddystone scanning support
+- feat(phy): add readPhy() and phyUpdate flow to Peripheral (#263)
+- feat(server): add periodic advertising support to ExtendedAdvertiser
+- feat(connection): add LE Connection Parameter Update request support
+- feat(cache): add GattCache for fast GATT service reconnection
+- feat(monitoring): add PowerMonitor for LE path loss tracking
+- feat(scanner): add PHY selection for BLE scanning parameters
+- feat(power): add LePowerController for active peer power adjustment
+- feat(scanner): add LE Coded PHY long-range scanning support with dedicated ScanPhy enum
+- feat(ios): add IosPairingRequestHandler for GATT server pairing parity
+- feat(dx): add ConnectionOptions presets and ScannerConfig.default
+- feat(scanner): add AdvertisingDataBuilder DSL for scan record construction
+- feat(dx): add connectAndDiscover convenience combining connection and service discovery
+- feat(le-audio): add openIsochronousChannel to Peripheral interface
+- feat(retry): add configurable GATT operation retry policies with exponential backoff
+- feat(gatt): add mtu StateFlow and document requestMtu for MTU negotiation API
+- feat(gatt): persist CCC descriptor states for seamless GATT reconnection
+- feat(connection): add ConnectionParamPreset enums for common BLE connection configurations
+- feat(connection): add ConnectionOptions.validate() warnings for common misconfigurations
+- feat(error): add ServiceDiscoveryError, CharacteristicError, and ConnectionFailureReason
+- feat(logging): add platform loggers and integrate scan lifecycle logging
+- feat(ios): add IosBondManager for bond/pairing management parity
+- feat(adapter): add BleCapabilities for Bluetooth 5.x feature detection
+- feat(quirks): add iOS device quirk detection, move core types to commonMain
+- feat(periodic): add Periodic Advertising Sync Transfer (PAST) API for BLE 5.1
+- feat(le-audio): add IsochronousStream streaming API for BLE 5.2+
+- feat(connection): add LE Connection Subrating API for Bluetooth 5.3
+- feat(parity): add LE Data Length Extension API for Peripheral
+- feat(direction): add BLE Direction Finding (AoA/AoD) API for Bluetooth 5.1+
+- feat(dfu): expose public OTA DFU transport API
+- feat(scanner): add configurable scanMode to ScannerConfig
+
+### Changed
+- ci(dependabot): bump gradle/actions from 6.1.0 to 6.2.0
+- test(benchmark): add cross-platform benchmark comparison tests
+- chore(release): prep v0.8.5 -- version bump, Package.swift, docs
+- refactor(benchmark): extract duplicated try-catch into benchmarkTimed helper
+- refactor(benchmark): extract benchmark package to separate kmp-ble-benchmark module
+- refactor(server): decompose AndroidGattServer (1003 loc) into 5 focused files
+- refactor(server): decompose AndroidGattServerCallback (444→126 loc)
+- refactor(android): decompose AndroidPeripheral 876->334 loc via extension functions
+- refactor(ios): decompose IosPeripheral 713->390 loc via extension functions
+- refactor(ios): decompose IosGattServer 684->390 loc via extension functions
+- refactor(ios): decompose IosGattServer 390->228 loc (second pass)
+- refactor(android): extract GattCallbackEvent sealed interface from AndroidGattBridge
+- refactor(android): decompose AndroidPeripheral 380->236 via extension functions (#306)
+- refactor(peripheral): trim verbose KDoc in Peripheral interface (300->216 lines)
+- refactor(testing): extract FakePeripheral simulation methods to extension functions
+- chore: add .hermes/ and TODO.md to gitignore
+- chore: remove pipeline comment from gitignore
+- refactor(testing): extract stub GATT methods to FakeGattResponderStubs extension file
+- refactor(beacon): extract beacon parsing internals to BeaconParser.kt
+- refactor(ios): decompose IosPeripheral facade from 411 to 286 lines via extension functions
+- test(scanner): add Android Scanner integration tests for scan modes, filters, and edge cases
+- test(conformance): split BleConformanceTest into focused files
+- test(dfu): add integration tests for OTA DFU transport layers
+- style(dfu): replace FQN type names with imports in DFU tests
+- test(connection): add edge-case tests for ReconnectionHandler backoff and cancellation
+- chore(connection): remove duplicate timeouts param, delete dead PeripheralTimeout.kt
+- ci(dependabot): bump actions/checkout from 6.0.3 to 7.0.0
+- ci(dependabot): bump actions/setup-java from 5.2.0 to 5.3.0
+- build(dependabot): bump gradle-wrapper from 9.5.1 to 9.6.0
+- build(dependabot): bump org.jetbrains.kotlinx:atomicfu from 0.27.0 to 0.33.0
+- test(observation): add ObservationPersistence cross-platform roundtrip tests
+- chore(todo): mark #424 and #318 as done (PR #423 merged)
+- chore(todo): mark #368 and #359 as done
+- test(parity): add DataLengthParameters test coverage for DLE API
+- test(connection): add edge-case tests for Connection Parameter Update negotiation
+- test(gatt): add cross-platform GATT server conformance tests
+- test(benchmark): add iOS and Android benchmark runners for kmp-ble-benchmark
+- test(ios): add IosPeripheral GATT event handling integration tests
+- test(monitoring): add PowerMonitor and LePowerController edge case tests
+- test(gatt): add GATT write-type conformance tests for Write Request vs Write Command
+- test(advertiser): add cross-platform Advertiser conformance tests
+- chore(todo): mark 8 testing/completed items as done with PR references
+- test(peripheral): add platform smoke tests for dataLengthParameters (#428)
+- refactor(ios): decompose IosPeripheral (326->240 lines) by extracting connect/disconnect/close/refreshServices
+- test(peripheral): add FakePeripheral dataLengthParameters integration tests
+- build(dependabot): bump com.vanniktech.maven.publish from 0.36.0 to 0.37.0
+- ci(dependabot): bump actions/setup-java from 5.3.0 to 5.4.0
+- ci(dependabot): bump actions/cache from 5.0.5 to 6.1.0
+- build(dependabot): bump gradle-wrapper from 9.6.0 to 9.6.1
+- test(scanner): add Android Scanner integration tests for scan modes, filters, and edge cases (#335)
+- ci(dependabot): bump reactivecircus/android-emulator-runner from 2.37.0 to 2.38.0
+- ci(dependabot): bump actions/setup-java from 5.4.0 to 5.5.0
+
+### Fixed
+- fix: pass null to scanForPeripheralsWithServices, not service filter UUIDs
+- fix(ios): prevent CoreBluetooth crash on repeated service discovery
+- fix(ios): conditionally implement willRestoreState only when state restoration enabled
+- fix(kmp-314): replace qualified kotlinx.coroutines names with imports
+- fix(server): add WHY comments for runBlocking in close() methods
+- fix(ci): use last docs-update merge commit as changelog baseline
+- fix(server): rethrow CancellationException in notify() async catch block
+- fix(android): rethrow CancellationException in pairing handler scope.launch
+- fix(android): convert expression-body overrides to block bodies for explicitApi()
+- fix(android): rethrow CancellationException in periodic advertising callback scope.launch
+- fix(cache): replace synchronized blocks with Mutex in AndroidGattCache
+- fix(cache): replace Mutex with single-threaded dispatcher in AndroidGattCache
+- fix(concurrency): replace @Volatile with kotlinx-atomicfu in commonMain
+- fix(test): use buildPeripheral factory in Gatt notification test
+- fix(connection): remove dead ConnectionOptions.timeout, wire OperationTimeouts
+- fix(concurrency): use atomicfu for AdvertisingDataBuilder counter to eliminate data race
+- fix(style): replace FQN Duration.ZERO/INFINITE with imported Duration in OperationTimeoutsTest
+- fix(persistence): extract shared serialization to commonMain, add Android SharedPreferences roundtrip tests
+- fix(ios): remove dead createBond() from IosBondManager
+- fix(concurrency): use atomic for QuirkRegistry cached singleton
+- fix(style): replace FQN kotlin.time.Duration with import in IosOemQuirkProvider
+- fix(isochronous): wire IsochronousStreamConfig parameters into stream behavior
+- fix(style): resolve dangling KDoc [createSync] reference in PeriodicAdvertisingSync
+- fix(style): replace FQN PeriodicAdvertisingParameters with import in PeriodicReport
+- fix(concurrency): complete @Volatile to atomicfu migration
+- fix(connection): add deprecated timeout constructor shim to ConnectionOptions
+- fix(ci): update Package.swift via PR instead of direct push to main
+- fix(test): resolve KMP-WD1 build-break and fix test compilation issues
+- fix(style): replace FQN Phy references with import in AndroidScannerFiltersTest
+- fix(test): rename AndroidScannerFiltersTest to FakeScannerFiltersTest and remove redundant StateFlow assertion
+- fix(concurrency): migrate @Volatile fields to atomicfu
+- fix(ios): reject duplicate connect callback to prevent overlapping discovery cycles
+- fix(ci): update upload/download-artifact SHAs to verified v4 tags
+
+### Other
+- docs(changelog): populate v0.8.4 release notes with all changes since v0.8.3
+- docs(l2cap): add architecture documentation for L2CAP subsystem
+- docs(parity): add platform API surface parity audit
+- docs(setup): add platform setup guides and troubleshooting for iOS and Android
+- docs(api): add API quick reference with code snippets for common BLE workflows
+- docs(migration): add v0.8.x to v0.9.0 migration guide with breaking changes and new features
+- docs(dx): add production integration patterns and BLE recovery guide
+- docs(background): add background BLE operation patterns for iOS and Android
+- docs(beacon): clarify CancellationException comment in BeaconScanner.close()
+- docs(peripheral): fix @throws GattException reference to BleException in connectAndDiscover KDoc
+- docs(quirks): fix KDoc link registerIosProvider -> IosQuirkProviders.register
+
+
 ### Added
 - feat(roles): add `SimultaneousRoleManager` for concurrent central and peripheral operation (Closes #289)
 
@@ -633,7 +779,8 @@ _No notable changes._
 
 ---
 
-[Unreleased]: https://github.com/gary-quinn/kmp-ble/compare/v0.8.5...HEAD
+[Unreleased]: https://github.com/gary-quinn/kmp-ble/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/gary-quinn/kmp-ble/compare/v0.9.0...v0.10.0
 [0.8.5]: https://github.com/gary-quinn/kmp-ble/compare/v0.8.4...v0.8.5
 [0.8.4]: https://github.com/gary-quinn/kmp-ble/compare/v0.8.3...v0.8.4
 [0.8.3]: https://github.com/gary-quinn/kmp-ble/compare/v0.8.2...v0.8.3
