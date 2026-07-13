@@ -76,6 +76,18 @@ internal fun IosPeripheral.handleConnectionCallback(
     peripheralContext.scope.launch {
         if (connected) {
             peripheralContext.processEvent(ConnectionEvent.LinkEstablished)
+            try {
+                slots.armDiscovery()
+            } catch (_: IllegalStateException) {
+                // CoreBluetooth redelivered a "connected" callback while a discovery cycle from
+                // an earlier callback is still in flight (observed when the OS auto-reconnects an
+                // already-bonded/retrieved peripheral around the same time our own connect()
+                // completes). Starting a second discoverServices() here would race the in-flight
+                // cycle - CoreBluetooth replaces its CBService/CBCharacteristic objects on every
+                // new discovery pass, so the stale cycle's callbacks end up referencing freed
+                // memory and crash. The in-flight cycle already covers this connection.
+                return@launch
+            }
             // New discovery cycle on connect: increment generation and clear stale handles
             discoveryGeneration.incrementAndGet()
             nativeCharMap.clear()
