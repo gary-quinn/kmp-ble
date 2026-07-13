@@ -18,6 +18,7 @@ import com.atruedev.kmpble.logging.logEvent
 import com.atruedev.kmpble.peripheral.state.ConnectionEvent
 import com.atruedev.kmpble.peripheral.state.State
 import com.atruedev.kmpble.quirks.BleQuirks
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -151,7 +152,26 @@ internal suspend fun AndroidPeripheral.handleLinkUp(
     // BluetoothGattCharacteristic/BluetoothGattDescriptor instances stay valid for the life of
     // the BluetoothGatt connection, so a fresh discoverServices() doesn't invalidate handles
     // the way CoreBluetooth replacing CBService/CBCharacteristic objects does on iOS.
-    bridge.discoverServices()
+    //
+    // Unlike CoreBluetooth's void discoverServices, BluetoothGatt.discoverServices() reports
+    // "didn't start" via a false return (not an exception) - and it can also throw
+    // SecurityException if permissions are revoked mid-call. Either way, if discovery never
+    // starts, no GATT callback will ever arrive to release the slot armed above.
+    val started =
+        try {
+            bridge.discoverServices()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            logEvent(BleLogEvent.Error(identifier, "discoverServices() threw", cause = e))
+            false
+        }
+    if (!started) {
+        val failure = OperationFailed("discoverServices() did not start")
+        peripheralContext.processEvent(ConnectionEvent.DiscoveryFailed(failure))
+        slots.failDiscovery(BleException(failure))
+        slots.completeConnect()
+    }
 }
 
 /**

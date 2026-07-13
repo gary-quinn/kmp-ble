@@ -8,6 +8,7 @@ import com.atruedev.kmpble.error.ConnectionLost
 import com.atruedev.kmpble.error.OperationFailed
 import com.atruedev.kmpble.peripheral.state.ConnectionEvent
 import com.atruedev.kmpble.peripheral.state.State
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -83,7 +84,20 @@ internal fun IosPeripheral.handleConnectionCallback(
             discoveryGeneration.incrementAndGet()
             nativeCharMap.clear()
             nativeDescMap.clear()
-            bridge.discoverServices()
+            try {
+                bridge.discoverServices()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                // discoverServices() is just a delegate/property assignment plus a void ObjC
+                // call - failures are normally reported later via the async callback, not a
+                // throw. If it does throw, the discovery slot armed above would otherwise leak
+                // forever (no callback will ever arrive to release it).
+                val failure = OperationFailed("discoverServices() failed: ${e.message}")
+                peripheralContext.processEvent(ConnectionEvent.DiscoveryFailed(failure))
+                slots.failDiscovery(BleException(failure))
+                slots.completeConnect()
+            }
             return@launch
         }
 
