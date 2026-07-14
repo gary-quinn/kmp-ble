@@ -238,10 +238,4 @@ jobs:
           base: main
           delete-branch: true
 
-      - name: Auto-approve and merge PR
-        if: steps.create-pr.outputs.pull-request-number
-        run: |
-          gh pr review --approve "${{ steps.create-pr.outputs.pull-request-url }}"
-          gh pr merge --squash "${{ steps.create-pr.outputs.pull-request-url }}"
-        env:
-          GITHUB_TOKEN: ${{ secrets.AUTO_MERGE_PAT }}
+
