@@ -76,12 +76,32 @@ public class AndroidScanner(
         }
 
     public companion object {
+        /**
+         * Builds native `ScanFilter`s from the OR-of-AND-groups DSL. [ScanPredicate.NamePrefix]
+         * and [ScanPredicate.MinRssi] have no `ScanFilter` equivalent (Android only supports
+         * exact device-name matching, and RSSI filtering is applied post-scan) - such a
+         * predicate-less group must still contribute an unconditional ("match anything") filter
+         * to the returned list, not be dropped. Dropping it would silently turn what the DSL
+         * documents as OR-of-AND-groups into an AND against whichever *other* groups happen to
+         * have an OS-representable predicate - e.g. `filters { match { namePrefix("Foo") };
+         * match { serviceUuid(uuid) } }` would incorrectly require the advertisement to also
+         * carry `uuid`, when the intent was "name starts with Foo, OR advertises uuid".
+         *
+         * When *every* group lacks an OS-representable predicate, there is nothing for the
+         * controller to filter on at all, so this returns `null` (matching
+         * `BluetoothLeScanner.startScan`'s "report everything" behavior) rather than a list of
+         * redundant match-anything filters.
+         */
         @OptIn(ExperimentalUuidApi::class)
         internal fun buildOsFilters(filterGroups: List<List<ScanPredicate>>): List<ScanFilter>? {
             if (filterGroups.isEmpty()) return null
 
-            return filterGroups
-                .mapNotNull { andGroup ->
+            // Only calls builder.build() when the group actually has an OS-representable
+            // predicate - deferring the wildcard case avoids invoking ScanFilter.Builder.build()
+            // (a real Android SDK call) for groups that may turn out to be unnecessary,
+            // per the early-return below when no group has any OS predicate at all.
+            val builtOrNull: List<ScanFilter?> =
+                filterGroups.map { andGroup ->
                     val builder = ScanFilter.Builder()
                     var hasOsPredicate = false
 
@@ -127,7 +147,10 @@ public class AndroidScanner(
                     }
 
                     if (hasOsPredicate) builder.build() else null
-                }.ifEmpty { null }
+                }
+
+            if (builtOrNull.all { it == null }) return null
+            return builtOrNull.map { it ?: ScanFilter.Builder().build() }
         }
 
         internal fun scanPhyToAndroid(phy: ScanPhy): Int =

@@ -317,6 +317,49 @@ class AndroidScannerIntegrationTest {
         assertNotNull(result[0].serviceUuid)
     }
 
+    @Test
+    fun `buildOsFilters keeps a post-filter-only group as a wildcard when another group has an OS predicate`() {
+        // Regression test: a namePrefix-only group used to be silently dropped
+        // (mapNotNull returned null for it), leaving serviceUuid as the ONLY native
+        // filter - turning "name starts with X OR advertises uuid" into an
+        // accidental AND against uuid alone. It must now survive as an
+        // unconditional (wildcard) ScanFilter so the OR-of-AND-groups contract in
+        // the ScannerConfig.filters KDoc actually holds at the OS level too.
+        val config =
+            ScannerConfig().apply {
+                filters {
+                    match { namePrefix("Foo") }
+                    match { serviceUuid("180d") }
+                }
+            }
+        val result = AndroidScanner.buildOsFilters(config.filterGroups)
+        assertNotNull(result)
+        assertEquals(2, result.size)
+
+        val wildcard = result.first { it.serviceUuid == null }
+        assertNull(wildcard.deviceName)
+        assertNull(wildcard.serviceUuid)
+
+        val serviceUuidFilter = result.first { it.serviceUuid != null }
+        assertNotNull(serviceUuidFilter.serviceUuid)
+    }
+
+    @Test
+    fun `buildOsFilters with three groups where only the middle one has an OS predicate keeps all three`() {
+        val config =
+            ScannerConfig().apply {
+                filters {
+                    match { namePrefix("A") }
+                    match { serviceUuid("180d") }
+                    match { rssi(-60) }
+                }
+            }
+        val result = AndroidScanner.buildOsFilters(config.filterGroups)
+        assertNotNull(result)
+        assertEquals(3, result.size)
+        assertEquals(1, result.count { it.serviceUuid != null })
+    }
+
     // =========================================================================
     // ScannerConfig -- scan mode defaults and DSL
     // =========================================================================
