@@ -57,6 +57,7 @@ public class AndroidScanner(
                 }
 
             val osFilters = buildOsFilters(config.filterGroups)
+            legacyOnlyScanWarning(config.legacyOnly)?.let { logEvent(it) }
             val settings =
                 ScanSettings
                     .Builder()
@@ -142,5 +143,28 @@ public class AndroidScanner(
                 ScanMode.Balanced -> ScanSettings.SCAN_MODE_BALANCED
                 ScanMode.LowLatency -> ScanSettings.SCAN_MODE_LOW_LATENCY
             }
+
+        /**
+         * `legacyOnly` defaults to `true`, which maps to `ScanSettings.Builder.setLegacy(true)`
+         * and makes the controller silently drop BLE 5.0 Extended Advertising PDUs before
+         * `onScanResult` - no error, no `ScanEvent`. Returns a warning to log once per scan
+         * start so that failure mode is at least diagnosable (see #576); returns `null` when
+         * `legacyOnly` is `false`, since extended advertisements are received normally then.
+         */
+        internal fun legacyOnlyScanWarning(legacyOnly: Boolean): BleLogEvent.Warning? {
+            if (!legacyOnly) return null
+            return BleLogEvent.Warning(
+                identifier = null,
+                message =
+                    "Scanning with legacyOnly=true (default): BLE 5.0 Extended Advertising " +
+                        "peripherals are silently dropped before onScanResult, with no error or " +
+                        "ScanEvent.Failed. A peripheral advertising a name plus service UUID(s) " +
+                        "that exceed the legacy 31-byte payload falls back to Extended " +
+                        "Advertising and will appear to simply not be advertising. iOS is " +
+                        "unaffected (CoreBluetooth ignores this setting). Set legacyOnly = false " +
+                        "to receive extended advertisements. " +
+                        "https://github.com/gary-quinn/kmp-ble/issues/576",
+            )
+        }
     }
 }
