@@ -88,6 +88,18 @@ public sealed interface BleLogEvent {
         override val formatted: String get() = "[${identifier?.value ?: "global"}] ERROR: $message"
     }
 
+    /**
+     * A non-fatal condition worth surfacing - typically a configuration choice that
+     * silently changes behavior on one platform but not another, where there is no
+     * exception or failed operation to attach the warning to.
+     */
+    public data class Warning(
+        val identifier: Identifier?,
+        val message: String,
+    ) : BleLogEvent {
+        override val formatted: String get() = "[${identifier?.value ?: "global"}] WARN: $message"
+    }
+
     public data class StateRestoration(
         val identifier: Identifier?,
         val event: String,

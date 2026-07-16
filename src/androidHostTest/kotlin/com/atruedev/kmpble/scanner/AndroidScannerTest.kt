@@ -3,6 +3,7 @@ package com.atruedev.kmpble.scanner
 import android.bluetooth.le.ScanSettings
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
@@ -69,6 +70,24 @@ class AndroidScannerTest {
         assertTrue(config.emission is EmissionPolicy.All)
         assertEquals(false, config.legacyOnly)
         assertEquals(ScanPhy.LeCoded, config.phy)
+    }
+
+    // =========================================================================
+    // legacyOnlyScanWarning -- pure function, safe in unit test context
+    // =========================================================================
+
+    @Test
+    fun `legacyOnlyScanWarning returns a warning when legacyOnly is true`() {
+        val warning = AndroidScanner.legacyOnlyScanWarning(true)
+        assertNotNull(warning)
+        assertNull(warning.identifier)
+        assertTrue(warning.message.contains("Extended Advertising"))
+        assertTrue(warning.message.contains("legacyOnly = false"))
+    }
+
+    @Test
+    fun `legacyOnlyScanWarning returns null when legacyOnly is false`() {
+        assertNull(AndroidScanner.legacyOnlyScanWarning(false))
     }
 
     @Test
