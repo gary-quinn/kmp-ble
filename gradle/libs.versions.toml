@@ -2,7 +2,7 @@
 kotlin = "2.4.10"
 dokka = "2.2.0"
 ktlint = "14.2.0"
-agp = "9.2.1"
+agp = "9.3.0"
 coroutines = "1.11.0"
 lincheck = "3.6"
 turbine = "1.2.1"
