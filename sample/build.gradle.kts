@@ -18,10 +18,20 @@ kotlin {
             libs.versions.androidCompileSdk
                 .get()
                 .toInt()
-        minSdk =
-            libs.versions.androidMinSdk
-                .get()
-                .toInt()
+
+        defaultConfig {
+            applicationId = "com.atruedev.kmpble.sample"
+            minSdk =
+                libs.versions.androidMinSdk
+                    .get()
+                    .toInt()
+            targetSdk =
+                libs.versions.androidTargetSdk
+                    .get()
+                    .toInt()
+            versionCode = 1
+            versionName = "1.0"
+        }
     }
 
     listOf(
@@ -58,17 +68,5 @@ kotlin {
             implementation(libs.kotlinx.coroutines.android)
             implementation(libs.androidx.activity.compose)
         }
-    }
-}
-
-android {
-    defaultConfig {
-        applicationId = "com.atruedev.kmpble.sample"
-        targetSdk =
-            libs.versions.androidTargetSdk
-                .get()
-                .toInt()
-        versionCode = 1
-        versionName = "1.0"
     }
 }
