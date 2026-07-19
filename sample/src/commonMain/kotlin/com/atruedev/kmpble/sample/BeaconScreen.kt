@@ -260,20 +260,21 @@ private fun Beacon.toEntry(): BeaconEntry =
                 firstLine = this.url,
                 secondLine = "TxPower: ${this.txPower}",
             )
-        is Beacon.EddystoneTLM ->
+        is Beacon.EddystoneTLM -> {
+            val battery = batteryVoltageMv
+            val tempC = temperatureCelsius
             BeaconEntry(
                 id = beaconKey(this),
                 type = "Eddystone-TLM",
                 rssi = source.rssi,
                 firstLine =
                     buildString {
-                        this.batteryVoltageMv?.let { append("Battery: ${it}mV  ") }
-                        this.temperatureCelsius?.let { append("Temp: ${"%.1f".format(it)}C  ") }
+                        battery?.let { append("Battery: ${it}mV  ") }
+                        tempC?.let { append("Temp: ${"%.1f".format(it)}C  ") }
                     }.trimEnd(),
-                secondLine = "Adv count: ${this.advertisementCount}  |  Uptime: ${"%.0f".format(
-                    this.uptimeSeconds,
-                )}s",
+                secondLine = "Adv count: $advertisementCount  |  Uptime: ${"%.0f".format(uptimeSeconds)}s",
             )
+        }
     }
 
 @Composable
