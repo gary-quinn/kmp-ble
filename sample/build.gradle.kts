@@ -1,7 +1,7 @@
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.kotlin.serialization)
-    alias(libs.plugins.android.library)
+    alias(libs.plugins.android.application)
     alias(libs.plugins.compose.multiplatform)
     alias(libs.plugins.compose.compiler)
     alias(libs.plugins.ktlint)
@@ -58,5 +58,17 @@ kotlin {
             implementation(libs.kotlinx.coroutines.android)
             implementation(libs.androidx.activity.compose)
         }
+    }
+}
+
+android {
+    defaultConfig {
+        applicationId = "com.atruedev.kmpble.sample"
+        targetSdk =
+            libs.versions.androidTargetSdk
+                .get()
+                .toInt()
+        versionCode = 1
+        versionName = "1.0"
     }
 }

@@ -1,13 +1,14 @@
-package com.atruedev.kmpble.sample.android
+package com.atruedev.kmpble.sample
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import com.atruedev.kmpble.sample.App
+import androidx.activity.enableEdgeToEdge
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
         setContent { App() }
     }
 }

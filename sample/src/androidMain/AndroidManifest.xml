@@ -11,7 +11,7 @@
 
     <application
         android:label="kmp-ble Sample"
-        android:theme="@android:style/Theme.Material.Light.NoActionBar">
+        android:supportsRtl="true">
 
         <activity
             android:name=".MainActivity"
