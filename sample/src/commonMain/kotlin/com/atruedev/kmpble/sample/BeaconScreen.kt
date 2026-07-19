@@ -36,16 +36,10 @@ import com.atruedev.kmpble.beacon.Beacon
 import com.atruedev.kmpble.beacon.BeaconEvent
 import com.atruedev.kmpble.beacon.BeaconScanner
 import com.atruedev.kmpble.scanner.Scanner
-import com.atruedev.kmpble.scanner.uuidFrom
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import kotlin.uuid.ExperimentalUuidApi
-
-@OptIn(ExperimentalUuidApi::class)
-private val EDDYSTONE_SERVICE = uuidFrom("FEAA")
 
 @Immutable
 private data class BeaconEntry(
@@ -147,9 +141,10 @@ fun BeaconScreen(onBack: () -> Unit) {
             scanError?.let { error ->
                 Card(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.errorContainer,
-                    ),
+                    colors =
+                        CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer,
+                        ),
                 ) {
                     Text(
                         text = error,
@@ -270,11 +265,14 @@ private fun Beacon.toEntry(): BeaconEntry =
                 id = beaconKey(this),
                 type = "Eddystone-TLM",
                 rssi = source.rssi,
-                firstLine = buildString {
-                    this.batteryVoltageMv?.let { append("Battery: ${it}mV  ") }
-                    this.temperatureCelsius?.let { append("Temp: ${"%.1f".format(it)}C  ") }
-                }.trimEnd(),
-                secondLine = "Adv count: ${this.advertisementCount}  |  Uptime: ${"%.0f".format(this.uptimeSeconds)}s",
+                firstLine =
+                    buildString {
+                        this.batteryVoltageMv?.let { append("Battery: ${it}mV  ") }
+                        this.temperatureCelsius?.let { append("Temp: ${"%.1f".format(it)}C  ") }
+                    }.trimEnd(),
+                secondLine = "Adv count: ${this.advertisementCount}  |  Uptime: ${"%.0f".format(
+                    this.uptimeSeconds,
+                )}s",
             )
     }
 

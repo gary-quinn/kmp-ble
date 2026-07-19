@@ -6,10 +6,6 @@ import com.atruedev.kmpble.ExperimentalBleApi
 import com.atruedev.kmpble.benchmark.LatencyTracker
 import com.atruedev.kmpble.benchmark.ThroughputMeter
 import com.atruedev.kmpble.benchmark.bleStopwatch
-import com.atruedev.kmpble.monitoring.ConnectionQuality
-import com.atruedev.kmpble.monitoring.ConnectionQualityMonitor
-import com.atruedev.kmpble.monitoring.PathLossReading
-import com.atruedev.kmpble.monitoring.PowerMonitor
 import com.atruedev.kmpble.bonding.BondRemovalResult
 import com.atruedev.kmpble.codec.BleDecoder
 import com.atruedev.kmpble.codec.read
@@ -22,6 +18,10 @@ import com.atruedev.kmpble.gatt.BackpressureStrategy
 import com.atruedev.kmpble.gatt.Characteristic
 import com.atruedev.kmpble.gatt.Observation
 import com.atruedev.kmpble.gatt.WriteType
+import com.atruedev.kmpble.monitoring.ConnectionQuality
+import com.atruedev.kmpble.monitoring.ConnectionQualityMonitor
+import com.atruedev.kmpble.monitoring.PathLossReading
+import com.atruedev.kmpble.monitoring.PowerMonitor
 import com.atruedev.kmpble.peripheral.Peripheral
 import com.atruedev.kmpble.peripheral.PhyResult
 import com.atruedev.kmpble.peripheral.dump
@@ -38,10 +38,10 @@ import com.atruedev.kmpble.scanner.Advertisement
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.uuid.Uuid
