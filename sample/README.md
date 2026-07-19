@@ -202,7 +202,7 @@ App.kt (navigation)
 
 ```bash
 # Android
-./gradlew :sample:installDebug
+./gradlew :sample-android:installDebug
 
 # iOS
 open iosApp/iosApp.xcodeproj
