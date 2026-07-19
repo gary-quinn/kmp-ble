@@ -270,7 +270,7 @@ private fun Beacon.toEntry(): BeaconEntry =
                 firstLine =
                     buildString {
                         battery?.let { append("Battery: ${it}mV  ") }
-                        tempC?.let { append("Temp: ${roundOne(it)}C  ") }
+                        tempC?.let { append("Temp: ${roundOne(it.toDouble())}C  ") }
                     }.trimEnd(),
                 secondLine = "Adv count: $advertisementCount  |  Uptime: ${uptimeSeconds.toLong()}s",
             )
@@ -285,4 +285,11 @@ private fun rssiColor(rssi: Int) =
         else -> MaterialTheme.colorScheme.error
     }
 
-private fun ByteArray.toHex(): String = joinToString("") { "%02X".format(it) }
+private fun ByteArray.toHex(): String =
+    joinToString("") {
+        it
+            .toUByte()
+            .toString(16)
+            .padStart(2, '0')
+            .uppercase()
+    }
