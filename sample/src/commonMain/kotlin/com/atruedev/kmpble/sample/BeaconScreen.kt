@@ -270,9 +270,9 @@ private fun Beacon.toEntry(): BeaconEntry =
                 firstLine =
                     buildString {
                         battery?.let { append("Battery: ${it}mV  ") }
-                        tempC?.let { append("Temp: ${"%.1f".format(it)}C  ") }
+                        tempC?.let { append("Temp: ${roundOne(it)}C  ") }
                     }.trimEnd(),
-                secondLine = "Adv count: $advertisementCount  |  Uptime: ${"%.0f".format(uptimeSeconds)}s",
+                secondLine = "Adv count: $advertisementCount  |  Uptime: ${uptimeSeconds.toLong()}s",
             )
         }
     }
