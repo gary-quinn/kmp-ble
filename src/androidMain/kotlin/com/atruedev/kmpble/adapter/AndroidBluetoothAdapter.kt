@@ -56,7 +56,7 @@ public class AndroidBluetoothAdapter(
             }
         }.stateIn(
             scope = scope,
-            started = SharingStarted.Lazily,
+            started = SharingStarted.Eagerly,
             initialValue = currentState(),
         )
 
