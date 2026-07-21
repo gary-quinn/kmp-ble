@@ -18,7 +18,12 @@ import com.atruedev.kmpble.gatt.BackpressureStrategy
 import com.atruedev.kmpble.gatt.Characteristic
 import com.atruedev.kmpble.gatt.Observation
 import com.atruedev.kmpble.gatt.WriteType
+import com.atruedev.kmpble.monitoring.ConnectionQuality
+import com.atruedev.kmpble.monitoring.ConnectionQualityMonitor
+import com.atruedev.kmpble.monitoring.PathLossReading
+import com.atruedev.kmpble.monitoring.PowerMonitor
 import com.atruedev.kmpble.peripheral.Peripheral
+import com.atruedev.kmpble.peripheral.PhyResult
 import com.atruedev.kmpble.peripheral.dump
 import com.atruedev.kmpble.peripheral.state.State
 import com.atruedev.kmpble.peripheral.toPeripheral
@@ -31,10 +36,12 @@ import com.atruedev.kmpble.profiles.heartrate.heartRateMeasurements
 import com.atruedev.kmpble.profiles.heartrate.readBodySensorLocation
 import com.atruedev.kmpble.scanner.Advertisement
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.uuid.Uuid
@@ -66,6 +73,9 @@ class BleViewModel(
     private val _mtu = MutableStateFlow(23)
     val mtu: StateFlow<Int> = _mtu.asStateFlow()
 
+    private val _phyResult = MutableStateFlow<PhyResult?>(null)
+    val phyResult: StateFlow<PhyResult?> = _phyResult.asStateFlow()
+
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
@@ -75,6 +85,58 @@ class BleViewModel(
 
     private val _benchmarkResult = MutableStateFlow<String?>(null)
     val benchmarkResult: StateFlow<String?> = _benchmarkResult.asStateFlow()
+
+    // -- Connection monitoring --
+
+    private val _connectionQuality = MutableStateFlow(ConnectionQuality())
+    val connectionQuality: StateFlow<ConnectionQuality> = _connectionQuality.asStateFlow()
+
+    private val _pathLoss = MutableStateFlow<PathLossReading?>(null)
+    val pathLoss: StateFlow<PathLossReading?> = _pathLoss.asStateFlow()
+
+    private var qualityMonitor: ConnectionQualityMonitor? = null
+    private var powerMonitor: PowerMonitor? = null
+    private var rssiPollJob: Job? = null
+
+    fun startMonitoring() {
+        if (qualityMonitor != null) return
+        val qm = ConnectionQualityMonitor(peripheral, viewModelScope)
+        qualityMonitor = qm
+        qm.start()
+        viewModelScope.launch {
+            qm.connectionQuality.collect { _connectionQuality.value = it }
+        }
+
+        val pm = PowerMonitor(peripheral, viewModelScope)
+        powerMonitor = pm
+        pm.start()
+        viewModelScope.launch {
+            pm.pathLoss.collect { _pathLoss.value = it }
+        }
+
+        rssiPollJob =
+            viewModelScope.launch {
+                while (isActive) {
+                    try {
+                        val rssi = peripheral.readRssi()
+                        qm.recordRssi(rssi)
+                        pm.recordRssi(rssi)
+                    } catch (_: Exception) {
+                        // RSSI read failures are non-fatal during monitoring
+                    }
+                    delay(2000)
+                }
+            }
+    }
+
+    fun stopMonitoring() {
+        rssiPollJob?.cancel()
+        rssiPollJob = null
+        qualityMonitor?.stop()
+        powerMonitor?.stop()
+        qualityMonitor = null
+        powerMonitor = null
+    }
 
     // -- Profile operations (scoped to viewModelScope, no Peripheral leakage) --
 
@@ -227,6 +289,11 @@ class BleViewModel(
         launchWithErrorHandling { _rssi.value = peripheral.readRssi() }
     }
 
+    @OptIn(ExperimentalBleApi::class)
+    fun readPhyInfo() {
+        launchWithErrorHandling { _phyResult.value = peripheral.readPhy() }
+    }
+
     fun requestMtu(mtu: Int) {
         launchWithErrorHandling { _mtu.value = peripheral.requestMtu(mtu) }
     }
@@ -247,6 +314,7 @@ class BleViewModel(
     }
 
     fun releaseConnection() {
+        stopMonitoring()
         dfuJob?.cancel()
         dfuController = null
         l2cap.close()

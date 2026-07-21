@@ -50,6 +50,7 @@ import com.atruedev.kmpble.connection.BondingPreference
 import com.atruedev.kmpble.connection.ConnectionOptions
 import com.atruedev.kmpble.connection.ConnectionRecipe
 import com.atruedev.kmpble.connection.ReconnectionStrategy
+import com.atruedev.kmpble.peripheral.PhyResult
 import com.atruedev.kmpble.peripheral.state.State
 import com.atruedev.kmpble.scanner.Advertisement
 import kotlin.uuid.ExperimentalUuidApi
@@ -65,6 +66,7 @@ fun DeviceDetailScreen(
     onDeviceInfoDemo: () -> Unit,
     onDfuDemo: () -> Unit,
     onCodecDemo: () -> Unit,
+    onMonitor: () -> Unit,
 ) {
     val vm = viewModel(key = advertisement.identifier.value) { BleViewModel(advertisement) }
 
@@ -74,6 +76,7 @@ fun DeviceDetailScreen(
     val rssi by vm.rssi.collectAsState()
     val mtu by vm.mtu.collectAsState()
     val maxWriteLen by vm.maximumWriteValueLength.collectAsState()
+    val phyResult by vm.phyResult.collectAsState()
     val error by vm.error.collectAsState()
     val pairingEvent by vm.pairing.event.collectAsState()
 
@@ -117,7 +120,7 @@ fun DeviceDetailScreen(
             item { ConnectionSection(state, bond, vm) }
 
             if (isConnected) {
-                item { InfoSection(rssi, mtu, maxWriteLen, vm) }
+                item { InfoSection(rssi, mtu, maxWriteLen, phyResult, vm) }
             }
 
             item {
@@ -164,6 +167,12 @@ fun DeviceDetailScreen(
                             title = "Codec Examples",
                             description = "Typed read/write with BleCodec instead of raw bytes",
                             onClick = onCodecDemo,
+                        )
+
+                        NavigationCard(
+                            title = "Connection Monitor",
+                            description = "Connection health, RSSI history, and path loss tracking",
+                            onClick = onMonitor,
                         )
                     }
                 }
@@ -361,6 +370,7 @@ private fun InfoSection(
     rssi: Int?,
     mtu: Int,
     maxWriteLen: Int,
+    phyResult: PhyResult?,
     vm: BleViewModel,
 ) {
     var mtuInput by remember { mutableStateOf("512") }
@@ -374,6 +384,10 @@ private fun InfoSection(
             Text("MTU: $mtu", style = MaterialTheme.typography.bodySmall)
             Text("Max write length: $maxWriteLen", style = MaterialTheme.typography.bodySmall)
 
+            phyResult?.let { phy ->
+                Text("PHY: tx=${phy.tx} rx=${phy.rx}", style = MaterialTheme.typography.bodySmall)
+            } ?: Text("PHY: --", style = MaterialTheme.typography.bodySmall)
+
             Spacer(Modifier.height(8.dp))
 
             Row(
@@ -381,6 +395,8 @@ private fun InfoSection(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 OutlinedButton(onClick = { vm.readRssi() }) { Text("Read RSSI") }
+
+                OutlinedButton(onClick = { vm.readPhyInfo() }) { Text("Read PHY") }
 
                 OutlinedTextField(
                     value = mtuInput,

@@ -47,6 +47,12 @@ sealed interface Screen {
     ) : Screen
 
     data object Server : Screen
+
+    data object Beacon : Screen
+
+    data class Monitor(
+        val advertisement: Advertisement,
+    ) : Screen
 }
 
 @Composable
@@ -71,8 +77,10 @@ fun App() {
                     when (val screen = currentScreen) {
                         Screen.Scanner ->
                             ScannerScreen(
+                                capabilities = adapter.capabilities,
                                 onDeviceSelected = { currentScreen = Screen.DeviceDetail(it) },
                                 onServerTapped = { currentScreen = Screen.Server },
+                                onBeaconTapped = { currentScreen = Screen.Beacon },
                             )
                         is Screen.DeviceDetail ->
                             DeviceDetailScreen(
@@ -84,6 +92,7 @@ fun App() {
                                 onDeviceInfoDemo = { currentScreen = Screen.DeviceInfoDemo(screen.advertisement) },
                                 onDfuDemo = { currentScreen = Screen.DfuDemo(screen.advertisement) },
                                 onCodecDemo = { currentScreen = Screen.CodecDemo(screen.advertisement) },
+                                onMonitor = { currentScreen = Screen.Monitor(screen.advertisement) },
                             )
                         is Screen.ServiceExplorer ->
                             ServiceExplorerScreen(
@@ -118,6 +127,15 @@ fun App() {
                         Screen.Server ->
                             ServerScreen(
                                 onBack = { currentScreen = Screen.Scanner },
+                            )
+                        Screen.Beacon ->
+                            BeaconScreen(
+                                onBack = { currentScreen = Screen.Scanner },
+                            )
+                        is Screen.Monitor ->
+                            MonitorScreen(
+                                advertisement = screen.advertisement,
+                                onBack = { currentScreen = Screen.DeviceDetail(screen.advertisement) },
                             )
                     }
                 }

@@ -20,6 +20,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -41,6 +42,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.atruedev.kmpble.Identifier
 import com.atruedev.kmpble.ServiceUuid
+import com.atruedev.kmpble.adapter.BleCapabilities
 import com.atruedev.kmpble.scanner.Advertisement
 import com.atruedev.kmpble.scanner.EmissionPolicy
 import com.atruedev.kmpble.scanner.ScanEvent
@@ -92,8 +94,10 @@ private fun Advertisement.toScannedDevice() =
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun ScannerScreen(
+    capabilities: BleCapabilities,
     onDeviceSelected: (Advertisement) -> Unit,
     onServerTapped: () -> Unit = {},
+    onBeaconTapped: () -> Unit = {},
 ) {
     var devices by remember { mutableStateOf(emptyList<ScannedDevice>()) }
     var scanError by remember { mutableStateOf<String?>(null) }
@@ -157,6 +161,9 @@ fun ScannerScreen(
             TopAppBar(
                 title = { Text("BLE Explorer") },
                 actions = {
+                    TextButton(onClick = onBeaconTapped) {
+                        Text("Beacons")
+                    }
                     TextButton(onClick = onServerTapped) {
                         Text("Server")
                     }
@@ -186,6 +193,42 @@ fun ScannerScreen(
                     onCheckedChange = { legacyOnly = !it },
                 )
             }
+
+            // BLE 5.x Capabilities
+            FlowRow(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                if (capabilities.supportsLe2mPhy) {
+                    CapabilityChip("2M PHY")
+                }
+                if (capabilities.supportsLeCodedPhy) {
+                    CapabilityChip("Coded PHY")
+                }
+                if (capabilities.supportsExtendedAdvertising) {
+                    CapabilityChip("Ext Adv")
+                }
+                if (capabilities.supportsPeriodicAdvertising) {
+                    CapabilityChip("Per Adv")
+                }
+                if (capabilities.supportsLeAudio) {
+                    CapabilityChip("LE Audio")
+                }
+                if (capabilities.supportsLePowerControl) {
+                    CapabilityChip("Pwr Ctrl")
+                }
+                if (capabilities.supportsDirectionFinding) {
+                    CapabilityChip("AoA/AoD")
+                }
+                if (capabilities.supportsConnectionSubrating) {
+                    CapabilityChip("Subrating")
+                }
+                if (capabilities.supportsPast) {
+                    CapabilityChip("PAST")
+                }
+            }
+
+            Spacer(Modifier.height(4.dp))
 
             FlowRow(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
@@ -384,3 +427,17 @@ private val WELL_KNOWN_SERVICES: Map<Uuid, String> =
 
 @OptIn(ExperimentalUuidApi::class)
 private fun wellKnownServiceName(uuid: Uuid): String? = WELL_KNOWN_SERVICES[uuid]
+
+@Composable
+private fun CapabilityChip(label: String) {
+    FilterChip(
+        selected = true,
+        onClick = {},
+        label = { Text(label, style = MaterialTheme.typography.labelSmall) },
+        colors =
+            FilterChipDefaults.filterChipColors(
+                selectedContainerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                selectedLabelColor = MaterialTheme.colorScheme.onTertiaryContainer,
+            ),
+    )
+}
