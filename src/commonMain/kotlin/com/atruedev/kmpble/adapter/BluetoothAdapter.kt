@@ -1,5 +1,6 @@
 package com.atruedev.kmpble.adapter
 
+import com.atruedev.kmpble.Identifier
 import kotlinx.coroutines.flow.StateFlow
 
 /**
@@ -23,6 +24,21 @@ public interface BluetoothAdapter {
      * than catching errors after attempting the operation.
      */
     public val capabilities: BleCapabilities
+
+    /**
+     * Returns the set of currently bonded (paired) devices on this device.
+     *
+     * Bonded devices have exchanged link keys and can establish encrypted
+     * connections without re-pairing. Use this to build "reconnect to known
+     * device" flows without scanning.
+     *
+     * **Android**: Maps to `BluetoothAdapter.getBondedDevices()`. Returns
+     * the system's bonded device list, which persists across app restarts.
+     *
+     * **iOS**: Returns an empty list. CoreBluetooth does not expose a
+     * system-wide bonded device API; users manage bonds via Settings > Bluetooth.
+     */
+    public fun getBondedDevices(): List<Identifier>
 
     public fun close()
 }
