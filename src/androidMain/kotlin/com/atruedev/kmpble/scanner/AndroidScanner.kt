@@ -38,9 +38,16 @@ public class AndroidScanner(
     private fun createRawScanFlow(): Flow<Advertisement> =
         callbackFlow {
             val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
-            val leScanner =
-                bluetoothManager.adapter?.bluetoothLeScanner
-                    ?: throw IllegalStateException("BluetoothLeScanner not available. Is Bluetooth enabled?")
+            val leScanner = bluetoothManager.adapter?.bluetoothLeScanner
+            if (leScanner == null) {
+                close(
+                    ScanFailedException(
+                        ERROR_SCANNER_NOT_AVAILABLE,
+                        "BluetoothLeScanner not available. Is Bluetooth enabled?",
+                    ),
+                )
+                return@callbackFlow
+            }
 
             val callback =
                 object : ScanCallback() {
@@ -76,6 +83,12 @@ public class AndroidScanner(
         }
 
     public companion object {
+        /**
+         * Error code for [ScanFailedException] when [BluetoothLeScanner] is not available
+         * (e.g. Bluetooth is off or adapter is null).
+         */
+        public const val ERROR_SCANNER_NOT_AVAILABLE: Int = -1
+
         /**
          * Builds native `ScanFilter`s from the OR-of-AND-groups DSL. [ScanPredicate.NamePrefix]
          * and [ScanPredicate.MinRssi] have no `ScanFilter` equivalent (Android only supports

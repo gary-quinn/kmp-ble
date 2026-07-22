@@ -27,4 +27,5 @@ public sealed interface ScanEvent {
 
 public class ScanFailedException(
     public val errorCode: Int,
-) : Exception("BLE scan failed with error code: $errorCode")
+    message: String? = null,
+) : Exception(message ?: "BLE scan failed with error code: $errorCode")
