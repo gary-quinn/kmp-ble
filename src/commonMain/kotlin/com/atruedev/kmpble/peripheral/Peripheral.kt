@@ -59,11 +59,11 @@ public interface Peripheral : AutoCloseable {
      *
      * Derived from bond state transitions. On Android, also responds to
      * `BluetoothGattCallback.onEncryptionChange()` when available (API 26+).
-     * iOS infers from bond state only — CoreBluetooth has no encryption API.
+     * iOS infers from bond state only -- CoreBluetooth has no encryption API.
      *
      * Transitions follow the BLE pairing flow:
      * ```
-     * NONE  →  STARTING  →  ESTABLISHED
+     * NONE  ->  STARTING  ->  ESTABLISHED
      * ```
      * Resets to [EncryptionLevel.NONE] on disconnect or bond removal.
      */

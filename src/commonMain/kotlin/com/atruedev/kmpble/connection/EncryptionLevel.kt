@@ -17,9 +17,9 @@ package com.atruedev.kmpble.connection
  *
  * State transitions follow the BLE pairing flow:
  * ```
- * NONE  →  STARTING  →  ESTABLISHED
- *   ↑                      │
- *   └──────────────────────┘  (on disconnect or bond removal)
+ * NONE  ->  STARTING  ->  ESTABLISHED
+ *   ^                        |
+ *   +------------------------+  (on disconnect or bond removal)
  * ```
  */
 public enum class EncryptionLevel {
