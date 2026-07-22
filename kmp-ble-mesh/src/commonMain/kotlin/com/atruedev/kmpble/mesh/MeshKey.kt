@@ -1,5 +1,7 @@
 package com.atruedev.kmpble.mesh
 
+import kotlin.jvm.JvmInline
+
 /**
  * Key types used in BLE Mesh networking.
  *

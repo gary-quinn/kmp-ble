@@ -1,5 +1,7 @@
 package com.atruedev.kmpble.mesh
 
+import kotlin.jvm.JvmInline
+
 /**
  * Protocol Data Units for BLE Mesh networking.
  *

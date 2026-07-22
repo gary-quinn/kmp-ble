@@ -1,6 +1,7 @@
 package com.atruedev.kmpble.mesh.models.generic
 
 import com.atruedev.kmpble.mesh.*
+import kotlin.jvm.JvmInline
 import com.atruedev.kmpble.mesh.network.AccessLayer
 import com.atruedev.kmpble.mesh.network.OnOffOpcodes
 import kotlinx.coroutines.flow.Flow

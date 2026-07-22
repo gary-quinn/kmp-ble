@@ -1,5 +1,6 @@
 package com.atruedev.kmpble.mesh
 
+import kotlin.jvm.JvmInline
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
