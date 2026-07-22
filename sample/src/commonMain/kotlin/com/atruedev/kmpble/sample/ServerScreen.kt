@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -22,13 +23,16 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -452,6 +456,8 @@ private fun ExtendedAdvertiserCard(
     activeSets: Set<Int>,
     vm: ServerViewModel,
 ) {
+    var periodic by remember { mutableStateOf(false) }
+
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text("Extended Advertiser (BLE 5.0)", style = MaterialTheme.typography.titleSmall)
@@ -467,15 +473,35 @@ private fun ExtendedAdvertiserCard(
 
             Text("Active sets: ${activeSets.size}", style = MaterialTheme.typography.bodySmall)
 
+            Spacer(Modifier.height(4.dp))
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Periodic Advertising", style = MaterialTheme.typography.bodySmall)
+                Spacer(Modifier.width(8.dp))
+                Switch(checked = periodic, onCheckedChange = { periodic = it })
+            }
+
             Spacer(Modifier.height(8.dp))
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(onClick = {
-                    vm.startExtendedSet(Phy.Le1M, Phy.Le2M, "$SAMPLE_NAME_PREFIX Ext", AdvertiseInterval.Balanced)
+                    vm.startExtendedSet(
+                        Phy.Le1M,
+                        Phy.Le2M,
+                        "$SAMPLE_NAME_PREFIX Ext",
+                        AdvertiseInterval.Balanced,
+                        periodic,
+                    )
                 }) { Text("Add Set (1M/2M)") }
 
                 Button(onClick = {
-                    vm.startExtendedSet(Phy.LeCoded, Phy.LeCoded, "$SAMPLE_NAME_PREFIX LR", AdvertiseInterval.LowPower)
+                    vm.startExtendedSet(
+                        Phy.LeCoded,
+                        Phy.LeCoded,
+                        "$SAMPLE_NAME_PREFIX LR",
+                        AdvertiseInterval.LowPower,
+                        periodic,
+                    )
                 }) { Text("Add Set (Coded)") }
             }
 

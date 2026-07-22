@@ -1,12 +1,12 @@
 plugins {
-    id("com.android.application")
+    alias(libs.plugins.android.application)
     alias(libs.plugins.compose.multiplatform)
     alias(libs.plugins.compose.compiler)
     alias(libs.plugins.ktlint)
 }
 
 android {
-    namespace = "com.atruedev.kmpble.sample.android"
+    namespace = "com.atruedev.kmpble.sample"
     compileSdk =
         libs.versions.androidCompileSdk
             .get()

@@ -15,6 +15,7 @@ import com.atruedev.kmpble.server.Advertiser
 import com.atruedev.kmpble.server.ExtendedAdvertiseConfig
 import com.atruedev.kmpble.server.ExtendedAdvertiser
 import com.atruedev.kmpble.server.GattServer
+import com.atruedev.kmpble.server.PeriodicAdvertisingParameters
 import com.atruedev.kmpble.server.ServerConnectionEvent
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -137,6 +138,7 @@ class ServerViewModel : ViewModel() {
         secondary: Phy,
         name: String,
         interval: AdvertiseInterval,
+        periodic: Boolean = false,
     ) {
         launchWithErrorHandling {
             extAdvertiser.startAdvertisingSet(
@@ -147,6 +149,12 @@ class ServerViewModel : ViewModel() {
                     primaryPhy = primary,
                     secondaryPhy = secondary,
                     interval = interval,
+                    periodicAdvertising =
+                        if (periodic) {
+                            PeriodicAdvertisingParameters(includeTxPower = true)
+                        } else {
+                            null
+                        },
                 ),
             )
         }
