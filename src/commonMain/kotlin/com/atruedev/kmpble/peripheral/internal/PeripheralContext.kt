@@ -3,6 +3,7 @@ package com.atruedev.kmpble.peripheral.internal
 import com.atruedev.kmpble.Identifier
 import com.atruedev.kmpble.bonding.BondState
 import com.atruedev.kmpble.connection.DataLengthParameters
+import com.atruedev.kmpble.connection.EncryptionLevel
 import com.atruedev.kmpble.gatt.DiscoveredService
 import com.atruedev.kmpble.gatt.internal.GattOperationQueue
 import com.atruedev.kmpble.logging.BleLogConfig
@@ -42,6 +43,9 @@ internal class PeripheralContext(
 
     private val _bondState = MutableStateFlow<BondState>(BondState.Unknown)
     val bondState: StateFlow<BondState> = _bondState.asStateFlow()
+
+    private val _encryptionLevel = MutableStateFlow(EncryptionLevel.NONE)
+    val encryptionLevel: StateFlow<EncryptionLevel> = _encryptionLevel.asStateFlow()
 
     private val _mtu = MutableStateFlow(DEFAULT_ATT_MTU)
     val mtu: StateFlow<Int> = _mtu.asStateFlow()
@@ -101,6 +105,7 @@ internal class PeripheralContext(
             if (result.newState is State.Disconnected) {
                 gattQueue.drain()
                 _services.value = null
+                _encryptionLevel.value = EncryptionLevel.NONE
             }
 
             result.newState
@@ -114,6 +119,14 @@ internal class PeripheralContext(
     suspend fun updateBondState(state: BondState) =
         withContext(dispatcher) {
             _bondState.value = state
+            _encryptionLevel.value =
+                when (state) {
+                    BondState.Bonding -> EncryptionLevel.STARTING
+                    BondState.Bonded -> EncryptionLevel.ESTABLISHED
+                    BondState.NotBonded,
+                    BondState.Unknown,
+                    -> EncryptionLevel.NONE
+                }
         }
 
     suspend fun updateMtu(mtu: Int) =

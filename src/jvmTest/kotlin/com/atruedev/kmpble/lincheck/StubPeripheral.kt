@@ -10,6 +10,7 @@ import com.atruedev.kmpble.connection.ConnectionPriority
 import com.atruedev.kmpble.connection.ConnectionSubratingParameters
 import com.atruedev.kmpble.connection.ConnectionSubratingResult
 import com.atruedev.kmpble.connection.DataLengthParameters
+import com.atruedev.kmpble.connection.EncryptionLevel
 import com.atruedev.kmpble.connection.Phy
 import com.atruedev.kmpble.connection.PhyUpdate
 import com.atruedev.kmpble.direction.DirectionFindingParameters
@@ -43,6 +44,7 @@ internal class StubPeripheral(
 ) : Peripheral {
     override val state: StateFlow<State> = MutableStateFlow(State.Disconnected.ByRequest)
     override val bondState: StateFlow<BondState> = MutableStateFlow(BondState.Unknown)
+    override val encryptionLevel: StateFlow<EncryptionLevel> = MutableStateFlow(EncryptionLevel.NONE)
     override val services: StateFlow<List<DiscoveredService>?> = MutableStateFlow(null)
     override val maximumWriteValueLength: StateFlow<Int> = MutableStateFlow(20)
     override val mtu: StateFlow<Int> = MutableStateFlow(23)
