@@ -6,6 +6,7 @@ import android.annotation.SuppressLint
 import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothServerSocket
 import android.content.Context
+import kotlinx.atomicfu.atomic
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -29,9 +30,8 @@ internal class AndroidL2capListener(
     private val _isOpen = MutableStateFlow(false)
     override val isOpen: StateFlow<Boolean> = _isOpen.asStateFlow()
 
-    @Volatile
-    private var _psm: Int = 0
-    override val psm: Int get() = _psm
+    private val _psm = atomic(0)
+    override val psm: Int get() = _psm.value
 
     private val _incoming =
         MutableSharedFlow<L2capChannel>(
@@ -45,14 +45,13 @@ internal class AndroidL2capListener(
     private var serverSocket: BluetoothServerSocket? = null
     private var acceptJob: Job? = null
 
-    @Volatile
-    private var closed: Boolean = false
+    private val closed = atomic(false)
 
     override suspend fun open(
         secure: Boolean,
         mtu: Int?,
     ) {
-        if (closed) throw L2capException.InvalidState("Listener has been closed")
+        if (closed.value) throw L2capException.InvalidState("Listener has been closed")
         if (_isOpen.value) throw L2capException.InvalidState("Listener already open")
 
         val adapter =
@@ -78,7 +77,7 @@ internal class AndroidL2capListener(
 
         val assignedPsm = socket.psm
         serverSocket = socket
-        _psm = assignedPsm
+        _psm.value = assignedPsm
         _isOpen.value = true
 
         acceptJob = scope.launch { acceptLoop(socket, assignedPsm) }
@@ -89,7 +88,7 @@ internal class AndroidL2capListener(
         assignedPsm: Int,
     ) {
         try {
-            while (coroutineContext[Job]?.isActive == true && !closed) {
+            while (coroutineContext[Job]?.isActive == true && !closed.value) {
                 val accepted =
                     try {
                         serverSocket.accept()
@@ -97,7 +96,7 @@ internal class AndroidL2capListener(
                         break
                     }
 
-                if (closed) {
+                if (closed.value) {
                     try {
                         accepted.close()
                     } catch (_: IOException) {
@@ -130,8 +129,8 @@ internal class AndroidL2capListener(
     }
 
     override fun close() {
-        if (closed) return
-        closed = true
+        if (closed.value) return
+        closed.value = true
         _isOpen.value = false
 
         try {

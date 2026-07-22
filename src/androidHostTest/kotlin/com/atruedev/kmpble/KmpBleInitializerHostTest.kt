@@ -18,7 +18,7 @@ class KmpBleInitializerHostTest {
         val field = KmpBle::class.java.getDeclaredField("appContext")
         field.isAccessible = true
         field.set(KmpBle, null)
-        ObservationPersistence.context = null
+        ObservationPersistence.context.value = null
     }
 
     @Test
@@ -41,14 +41,14 @@ class KmpBleInitializerHostTest {
 
     @Test
     fun init_alsoWiresObservationPersistenceContext() {
-        assertNull(ObservationPersistence.context)
+        assertNull(ObservationPersistence.context.value)
 
         val appContext = RuntimeEnvironment.getApplication()
         KmpBle.init(appContext)
 
         // Peripheral.close() calls into ObservationPersistence unconditionally; without
         // this wiring it throws IllegalStateException on every close() (see KmpBle.init()).
-        assertSame(KmpBle.requireContext(), ObservationPersistence.context)
+        assertSame(KmpBle.requireContext(), ObservationPersistence.context.value)
     }
 
     @Test

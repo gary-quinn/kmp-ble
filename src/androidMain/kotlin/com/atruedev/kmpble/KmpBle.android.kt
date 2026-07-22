@@ -15,7 +15,7 @@ public object KmpBle {
         // entry point every consumer already calls - is responsible for wiring it up.
         // Without this, close() throws IllegalStateException unconditionally and the
         // failure leaves the peripheral registry wedged (see AndroidPeripheral.close()).
-        ObservationPersistence.context = appContext
+        ObservationPersistence.context.value = appContext
     }
 
     internal fun requireContext(): Context {

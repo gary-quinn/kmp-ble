@@ -49,7 +49,7 @@ internal suspend fun AndroidGattServerState.openInternal(instanceLock: AtomicBoo
             throw ServerException.OpenFailed("Missing BLUETOOTH_CONNECT permission", e)
         } ?: throw ServerException.OpenFailed("openGattServer returned null")
 
-    nativeServer = server
+    nativeServer.value = server
 
     // Register handlers from service definitions
     for (serviceDef in serviceDefinitions) {
@@ -63,13 +63,13 @@ internal suspend fun AndroidGattServerState.openInternal(instanceLock: AtomicBoo
     for (serviceDef in serviceDefinitions) {
         val nativeService = buildNativeService(serviceDef)
         val deferred = CompletableDeferred<Int>()
-        pendingServiceAdd = deferred
+        pendingServiceAdd.value = deferred
         if (!server.addService(nativeService)) {
-            pendingServiceAdd = null
+            pendingServiceAdd.value = null
             throw ServerException.OpenFailed("addService returned false for ${serviceDef.uuid}")
         }
         val addStatus = deferred.await()
-        pendingServiceAdd = null
+        pendingServiceAdd.value = null
         if (addStatus != BluetoothGatt.GATT_SUCCESS) {
             throw ServerException.OpenFailed(
                 "addService failed for ${serviceDef.uuid} with status ${addStatus.toGattStatus()}",

@@ -1,6 +1,7 @@
 package com.atruedev.kmpble.gatt.internal
 
 import android.content.Context
+import kotlinx.atomicfu.atomic
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
@@ -31,7 +32,7 @@ internal actual class ObservationPersistence actual constructor() {
      */
     private val prefs by lazy {
         val ctx =
-            context
+            context.value
                 ?: throw IllegalStateException(
                     "ObservationPersistence.context must be set before use. " +
                         "Call ObservationPersistence.context = applicationContext during initialization.",
@@ -112,8 +113,7 @@ internal actual class ObservationPersistence actual constructor() {
          * Must be set before any persistence operations.
          * Set once during library initialization (e.g., in Application.onCreate).
          */
-        @Volatile
-        var context: Context? = null
+        val context = atomic<Context?>(null)
 
         private const val PREFS_NAME = "com.atruedev.kmpble.cccd"
         private const val KEY_PREFIX = "obs"
