@@ -12,6 +12,7 @@ import android.content.Context
 import android.os.Handler
 import android.os.HandlerThread
 import com.atruedev.kmpble.connection.ConnectionOptions
+import com.atruedev.kmpble.connection.ConnectionPriority
 import com.atruedev.kmpble.connection.TransportType
 import com.atruedev.kmpble.logging.BleLogEvent
 import com.atruedev.kmpble.logging.logEvent
@@ -149,6 +150,27 @@ internal class AndroidGattBridge(
                 options.phyMask.value,
                 callbackHandler,
             )
+        // Request connection priority immediately so the initial link-layer
+        // negotiation uses the caller's preferred interval, not the platform
+        // default (~30-50ms). This reduces time-to-connected when callers
+        // opt into ConnectionPriority.High for scan-then-connect flows.
+        val androidPriority =
+            when (options.connectionPriority) {
+                ConnectionPriority.Balanced -> BluetoothGatt.CONNECTION_PRIORITY_BALANCED
+                ConnectionPriority.High -> BluetoothGatt.CONNECTION_PRIORITY_HIGH
+                ConnectionPriority.LowPower -> BluetoothGatt.CONNECTION_PRIORITY_LOW_POWER
+            }
+        val priorityApplied = _gatt.value?.requestConnectionPriority(androidPriority) ?: false
+        if (!priorityApplied) {
+            logEvent(
+                BleLogEvent.Warning(
+                    identifier = null,
+                    message =
+                        "requestConnectionPriority(${options.connectionPriority}) " +
+                            "returned false - priority not applied",
+                ),
+            )
+        }
         return _gatt.value
     }
 

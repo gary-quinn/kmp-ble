@@ -33,6 +33,20 @@ public data class ConnectionOptions(
     val mtuRequest: Int? = null,
     val bondingPreference: BondingPreference = BondingPreference.IfRequired,
     val reconnectionStrategy: ReconnectionStrategy = ReconnectionStrategy.None,
+    /**
+     * Connection priority hint requested from the central during the initial
+     * [connect][com.atruedev.kmpble.peripheral.Peripheral.connect] call.
+     *
+     * Applying [ConnectionPriority.High] before the link-layer connection
+     * negotiation completes reduces time-to-connected for the initial
+     * connection, trading power for speed. Defaults to [ConnectionPriority.Balanced]
+     * (Android default ~30-50ms interval).
+     *
+     * Android maps to `BluetoothGatt.requestConnectionPriority()`, called
+     * immediately after `connectGatt()`. iOS is a no-op (CoreBluetooth has
+     * no public API).
+     */
+    val connectionPriority: ConnectionPriority = ConnectionPriority.Balanced,
     val gattOperationTimeout: Duration = 10.seconds,
     /**
      * Handler for pairing events that require user interaction.
@@ -78,6 +92,7 @@ public data class ConnectionOptions(
                     "mtuRequest = mtuRequest, " +
                     "bondingPreference = bondingPreference, " +
                     "reconnectionStrategy = reconnectionStrategy, " +
+                    "connectionPriority = connectionPriority, " +
                     "gattOperationTimeout = gattOperationTimeout, " +
                     "pairingHandler = pairingHandler" +
                     ")",
@@ -92,6 +107,7 @@ public data class ConnectionOptions(
         mtuRequest: Int? = null,
         bondingPreference: BondingPreference = BondingPreference.IfRequired,
         reconnectionStrategy: ReconnectionStrategy = ReconnectionStrategy.None,
+        connectionPriority: ConnectionPriority = ConnectionPriority.Balanced,
         gattOperationTimeout: Duration = 10.seconds,
         pairingHandler: PairingHandler? = null,
     ) : this(
@@ -102,6 +118,7 @@ public data class ConnectionOptions(
         mtuRequest = mtuRequest,
         bondingPreference = bondingPreference,
         reconnectionStrategy = reconnectionStrategy,
+        connectionPriority = connectionPriority,
         gattOperationTimeout = gattOperationTimeout,
         pairingHandler = pairingHandler,
         gattRetryPolicy = RetryPolicy.NONE,
