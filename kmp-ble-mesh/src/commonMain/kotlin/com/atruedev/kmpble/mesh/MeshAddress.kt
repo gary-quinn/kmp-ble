@@ -108,7 +108,7 @@ public sealed interface MeshAddress : Comparable<MeshAddress> {
     }
 
     public companion object {
-        /** The unassigned address (0x0000) — indicates no address assigned. */
+        /** The unassigned address (0x0000) -- indicates no address assigned. */
         public val UNASSIGNED: UShort = 0x0000u
 
         /** Create an address from a raw 16-bit value. */

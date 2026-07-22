@@ -21,13 +21,13 @@ public data class NetworkPdu(
     /** IV Index least significant bit (0 = normal, 1 = IV update in progress). */
     val ivi: Int,
 
-    /** Network ID — 7-bit value identifying the NetKey (derived via K3). */
+    /** Network ID -- 7-bit value identifying the NetKey (derived via K3). */
     val nid: Int,
 
     /** Control (1) or Access (0) message indicator. */
     val ctl: Int,
 
-    /** Time-To-Live — remaining hop count before message is dropped. */
+    /** Time-To-Live -- remaining hop count before message is dropped. */
     val ttl: Int,
 
     /** 24-bit sequence number for replay protection. */
@@ -73,10 +73,10 @@ public data class TransportPdu(
     /** Whether this is a segmented message. */
     val isSegmented: Boolean,
 
-    /** Application Key Flag — true if encrypted with AppKey, false for DeviceKey. */
+    /** Application Key Flag -- true if encrypted with AppKey, false for DeviceKey. */
     val akf: Boolean,
 
-    /** Application Identifier — 6-bit value derived from AppKey (via K4). */
+    /** Application Identifier -- 6-bit value derived from AppKey (via K4). */
     val aid: Int,
 
     /** Sequence number (24-bit, lower portion). */

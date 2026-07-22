@@ -8,7 +8,7 @@ import com.atruedev.kmpble.mesh.crypto.NonceGenerator
 import com.atruedev.kmpble.mesh.internal.ReplayProtectionList
 
 /**
- * Network Layer — encrypts/decrypts Network PDUs using NetKey.
+ * Network Layer -- encrypts/decrypts Network PDUs using NetKey.
  *
  * The Network Layer is responsible for:
  * - Encrypting transport PDUs with AES-128-CCM using the NetKey

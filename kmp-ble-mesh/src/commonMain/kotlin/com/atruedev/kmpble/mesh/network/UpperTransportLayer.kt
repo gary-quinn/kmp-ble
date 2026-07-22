@@ -5,7 +5,7 @@ import com.atruedev.kmpble.mesh.crypto.AesCcm
 import com.atruedev.kmpble.mesh.crypto.NonceGenerator
 
 /**
- * Upper Transport Layer — AppKey/DeviceKey encryption.
+ * Upper Transport Layer -- AppKey/DeviceKey encryption.
  *
  * Encrypts Access Layer PDUs with either an ApplicationKey (for model
  * messages) or a DeviceKey (for configuration/health messages).

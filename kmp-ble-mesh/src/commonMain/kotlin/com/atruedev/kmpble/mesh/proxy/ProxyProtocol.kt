@@ -5,7 +5,7 @@ import com.atruedev.kmpble.mesh.ProxyPdu
 import com.atruedev.kmpble.mesh.ProxySarType
 
 /**
- * Proxy Protocol — PDUs, SAR, and message formatting for the GATT Proxy bearer.
+ * Proxy Protocol -- PDUs, SAR, and message formatting for the GATT Proxy bearer.
  *
  * The GATT Proxy bearer carries Proxy PDUs over the Mesh Proxy Service
  * (UUID 1828). Each Proxy PDU consists of a SAR byte, a message type byte,

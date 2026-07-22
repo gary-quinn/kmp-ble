@@ -41,7 +41,7 @@ internal class IvIndexTracker(
         return if (ivi == 0) {
             _ivIndex.value
         } else {
-            // IV Update in progress — use next IV Index
+            // IV Update in progress -- use next IV Index
             IvIndex(_ivIndex.value.value - 1u)
         }
     }

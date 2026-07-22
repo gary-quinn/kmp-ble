@@ -4,7 +4,7 @@ import com.atruedev.kmpble.mesh.AccessMessage
 import com.atruedev.kmpble.mesh.MeshOpcode
 
 /**
- * Access Layer — formats and parses application-level mesh messages.
+ * Access Layer -- formats and parses application-level mesh messages.
  *
  * The Access Layer handles:
  * - Opcode encoding (1, 2, or 3 bytes depending on value)

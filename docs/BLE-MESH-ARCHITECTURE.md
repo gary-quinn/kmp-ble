@@ -2,7 +2,7 @@
 
 > **Status:** Architecture Design | **Author:** Gary Quinn | **Date:** 2026-07-22
 >
-> Architecture document for the `kmp-ble-mesh` module — Bluetooth Mesh networking on Android, iOS, and JVM.
+> Architecture document for the `kmp-ble-mesh` module -- Bluetooth Mesh networking on Android, iOS, and JVM.
 
 ---
 
@@ -280,9 +280,9 @@ graph TD
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
 | **API levels** | Raw PDU + High-level model API | Power users need raw access for custom/vendor models; typical users want typed model APIs. Matches existing pattern: `Peripheral.read/write` + `peripheral.heartRateMeasurements()` |
-| **Crypto strategy** | Pure Kotlin AES-128-CCM + platform ECDH | AES-128-CCM is a well-defined algorithm with spec test vectors — a pure Kotlin implementation is portable, auditable, and avoids iOS CCM API gaps. ECDH P-256 uses platform hardware-backed keystores for security. |
+| **Crypto strategy** | Pure Kotlin AES-128-CCM + platform ECDH | AES-128-CCM is a well-defined algorithm with spec test vectors -- a pure Kotlin implementation is portable, auditable, and avoids iOS CCM API gaps. ECDH P-256 uses platform hardware-backed keystores for security. |
 | **Crypto fallback** | Pure Kotlin fallback for ALL primitives | If platform crypto fails (rare but possible on some Android OEMs), fallback to pure Kotlin ensures mesh still works. The pure Kotlin impl is production-quality, not just a test stub. |
-| **Persistence** | SPI `MeshStateStore` with `InMemory` default | Consumers own their storage backend (DataStore, Keychain, file). Sequence numbers MUST survive crashes — making this a consumer responsibility with clear documentation is safer than a hidden default. |
+| **Persistence** | SPI `MeshStateStore` with `InMemory` default | Consumers own their storage backend (DataStore, Keychain, file). Sequence numbers MUST survive crashes -- making this a consumer responsibility with clear documentation is safer than a hidden default. |
 | **Concurrency** | `limitedParallelism(1)` dispatcher per proxy + `Mutex` on shared network state | Proven pattern from core library. Per-proxy serialization prevents GATT queue corruption. Mutex on shared state prevents race between incoming message handler and user API calls. |
 | **Bearer abstraction** | Asymmetric: read from both ADV+GATT, write only via GATT | Reflects platform reality. Phone cannot TX on ADV bearer. Making this explicit in the type system prevents impossible operations. |
 | **Proxy redundancy** | Single proxy with reconnect; multi-proxy in phase 4 | 95% of mesh deployments have one proxy node in phone range. Multi-proxy adds significant complexity (two IV Index sources, duplicate PDU filtering). Design for it but don't build it yet. |
@@ -805,7 +805,7 @@ sequenceDiagram
 1. **Proxy SAR** (GATT-level): Splits Network PDUs across GATT writes/notifications when PDU > (MTU-3)
 2. **Mesh Transport SAR** (mesh-level): Splits Access messages across Network PDUs when payload > 15 bytes
 
-These must not be conflated. The Proxy layer is transparent to the mesh stack — it reassembles Network PDUs before passing them up.
+These must not be conflated. The Proxy layer is transparent to the mesh stack -- it reassembles Network PDUs before passing them up.
 
 ### 8.3 Bearer Abstraction
 
@@ -935,10 +935,10 @@ graph TB
 ```
 
 **Key concurrency rules:**
-1. GATT callbacks complete `CompletableDeferred` values — they NEVER touch shared state directly
+1. GATT callbacks complete `CompletableDeferred` values -- they NEVER touch shared state directly
 2. The proxy dispatcher (`limitedParallelism(1)`) serializes all proxy-bound operations: writes, SAR reassembly, PDU processing
-3. Shared network state is guarded by `Mutex` — both the proxy dispatcher and consumer coroutines acquire it
-4. Sequence number allocation is atomic via `AtomicInt` (atomicfu) — no mutex needed for increment-only counter
+3. Shared network state is guarded by `Mutex` -- both the proxy dispatcher and consumer coroutines acquire it
+4. Sequence number allocation is atomic via `AtomicInt` (atomicfu) -- no mutex needed for increment-only counter
 5. Consumer API calls run on the caller's coroutine context, acquiring the mutex only when reading/writing shared state
 
 ---
@@ -1376,7 +1376,7 @@ graph TB
 | Decision | Pros | Cons | Chosen Because |
 |----------|------|------|----------------|
 | **Pure Kotlin AES-128-CCM** | Single implementation, portable, auditable, deterministic behavior across platforms | ~2-5x slower than hardware AES (negligible for 30-byte PDUs) | iOS lacks CCM API; single code path avoids platform-specific CCM bugs |
-| **Asymmetric bearer (RX ADV + GATT, TX GATT only)** | Matches platform reality, type-safe (can't accidentally TX on ADV) | Abstraction is not clean — `send()` on ADV bearer throws | Platform constraint, not design choice. Making it explicit prevents bugs |
+| **Asymmetric bearer (RX ADV + GATT, TX GATT only)** | Matches platform reality, type-safe (can't accidentally TX on ADV) | Abstraction is not clean -- `send()` on ADV bearer throws | Platform constraint, not design choice. Making it explicit prevents bugs |
 | **SPI persistence vs built-in** | Consumers own storage; can use secure enclave/keychain for keys | More work for consumer; risk of incorrect implementation | Security-critical data (keys) should be in platform-secure storage. Library can't know the right backend |
 | **`limitedParallelism(1)` per proxy** | No locks, simple reasoning, matches core library pattern | One slow operation blocks all proxy traffic (mitigated by timeouts) | Proven pattern; mesh message latency is dominated by BLE connection interval (7.5-30ms), not dispatcher overhead |
 | **`Mutex` on shared state** | Simple, familiar to Kotlin devs, composable with suspend | Potential contention if many concurrent callers (unlikely for BLE) | Mesh operations are inherently serial (one proxy connection). Contention is theoretical, not practical |

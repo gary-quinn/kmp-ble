@@ -9,7 +9,7 @@ import kotlinx.atomicfu.atomic
  *
  * Each element on a node has its own sequence number that increments
  * for every outbound message. Sequence numbers are critical for replay
- * protection — a (SEQ, IV Index, SRC) tuple must never repeat.
+ * protection -- a (SEQ, IV Index, SRC) tuple must never repeat.
  *
  * On IV Index update, all sequence numbers reset to 0.
  */
@@ -71,7 +71,7 @@ internal class ReplayProtectionList(
             evictIfNeeded()
             true
         } else if (entry.ivIndex.value < ivIndex.value) {
-            // New IV Index — reset tracking for this source
+            // New IV Index -- reset tracking for this source
             entries[src] = ReplayEntry(seq, ivIndex)
             true
         } else if (entry.ivIndex.value == ivIndex.value && seq > entry.lastSequence) {

@@ -14,11 +14,11 @@ import kotlin.time.Duration.Companion.seconds
  * Implements the BLE Mesh provisioning protocol state machine.
  *
  * Runs the 5-phase provisioning protocol:
- * 1. Invitation — send attention timer
- * 2. Capabilities Exchange — device reports its features
- * 3. Public Key Exchange — ECDH P-256 key agreement
- * 4. Authentication — OOB confirmation and random exchange
- * 5. Data Distribution — encrypted provisioning data delivery
+ * 1. Invitation -- send attention timer
+ * 2. Capabilities Exchange -- device reports its features
+ * 3. Public Key Exchange -- ECDH P-256 key agreement
+ * 4. Authentication -- OOB confirmation and random exchange
+ * 5. Data Distribution -- encrypted provisioning data delivery
  */
 internal class ProvisioningStateMachine(
     private val bearer: ProvisioningBearer,
@@ -121,7 +121,7 @@ internal class ProvisioningStateMachine(
 
         val receivedDeviceConfirm = devConfirm.copyOfRange(1, devConfirm.size)
         require(expectedDeviceConfirm.contentEquals(receivedDeviceConfirm)) {
-            "Device confirmation mismatch — OOB authentication failed"
+            "Device confirmation mismatch -- OOB authentication failed"
         }
 
         authValue = oobAuth.getRawAuthValueForCrypto()

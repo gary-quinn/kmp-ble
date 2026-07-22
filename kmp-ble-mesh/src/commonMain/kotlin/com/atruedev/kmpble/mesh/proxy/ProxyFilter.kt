@@ -14,14 +14,14 @@ import com.atruedev.kmpble.mesh.MeshAddress
 public sealed interface ProxyFilter {
     /**
      * Only receive messages addressed to the specified addresses.
-     * This is the recommended filter for smartphones — only receive
+     * This is the recommended filter for smartphones -- only receive
      * messages for our unicast address and subscribed group addresses.
      */
     public data class Whitelist(val addresses: Set<MeshAddress>) : ProxyFilter
 
     /**
      * Receive all messages EXCEPT those addressed to the specified addresses.
-     * Use with caution — broad filters increase GATT bandwidth usage.
+     * Use with caution -- broad filters increase GATT bandwidth usage.
      */
     public data class Blacklist(val addresses: Set<MeshAddress>) : ProxyFilter
 

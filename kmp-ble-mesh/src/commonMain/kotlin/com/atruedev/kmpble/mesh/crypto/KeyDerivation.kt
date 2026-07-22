@@ -138,7 +138,7 @@ internal object KeyDerivation {
 
 /** Result of the k2 key derivation function. */
 internal data class K2Result(
-    /** Network ID — 7-bit value identifying the NetKey. */
+    /** Network ID -- 7-bit value identifying the NetKey. */
     val nid: Int,
     /** 16-byte encryption key. */
     val encryptionKey: ByteArray,

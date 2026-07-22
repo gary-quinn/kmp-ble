@@ -3,7 +3,7 @@ package com.atruedev.kmpble.mesh.network
 import com.atruedev.kmpble.mesh.TransportPdu
 
 /**
- * Lower Transport Layer — Segmentation and Reassembly (SAR).
+ * Lower Transport Layer -- Segmentation and Reassembly (SAR).
  *
  * Segments large Upper Transport PDUs into multiple Lower Transport PDUs
  * for transmission over the ADV bearer (29-byte max per Network PDU).

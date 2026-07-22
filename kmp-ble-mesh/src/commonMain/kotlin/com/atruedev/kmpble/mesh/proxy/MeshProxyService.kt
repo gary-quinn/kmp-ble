@@ -15,10 +15,10 @@ public object MeshProxyService {
     /** Mesh Proxy Service UUID (SIG-assigned 16-bit UUID). */
     public val SERVICE_UUID: Uuid = Uuid.parse("00001828-0000-1000-8000-00805F9B34FB")
 
-    /** Mesh Proxy Data In characteristic — smartphone writes PDUs to send. */
+    /** Mesh Proxy Data In characteristic -- smartphone writes PDUs to send. */
     public val DATA_IN_UUID: Uuid = Uuid.parse("00002ADD-0000-1000-8000-00805F9B34FB")
 
-    /** Mesh Proxy Data Out characteristic — smartphone receives PDUs via notification. */
+    /** Mesh Proxy Data Out characteristic -- smartphone receives PDUs via notification. */
     public val DATA_OUT_UUID: Uuid = Uuid.parse("00002ADE-0000-1000-8000-00805F9B34FB")
 
     /** Mesh Provisioning Service UUID (for PB-GATT provisioning). */

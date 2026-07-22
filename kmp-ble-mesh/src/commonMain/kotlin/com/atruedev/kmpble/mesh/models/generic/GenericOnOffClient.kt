@@ -72,7 +72,7 @@ public class GenericOnOffClient internal constructor(
     }
 
     /**
-     * Set the on/off state of a node (unacknowledged — fire and forget).
+     * Set the on/off state of a node (unacknowledged -- fire and forget).
      */
     public suspend fun setUnacknowledged(
         elementAddress: MeshAddress.UnicastAddress,

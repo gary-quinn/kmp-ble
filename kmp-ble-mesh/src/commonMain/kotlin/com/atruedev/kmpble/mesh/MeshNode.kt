@@ -14,7 +14,7 @@ public data class MeshNode(
     /** Primary unicast address of this node (address of element 0). */
     val unicastAddress: MeshAddress.UnicastAddress,
 
-    /** Device key derived during provisioning — unique to this node. */
+    /** Device key derived during provisioning -- unique to this node. */
     val deviceKey: DeviceKey,
 
     /** Elements hosted by this node. At least one element (primary). */
