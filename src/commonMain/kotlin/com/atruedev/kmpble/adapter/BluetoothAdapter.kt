@@ -35,10 +35,8 @@ public interface BluetoothAdapter {
      * **Android**: Maps to `BluetoothAdapter.getBondedDevices()`. Returns
      * the system's bonded device list, which persists across app restarts.
      *
-     * **iOS**: Returns devices that have been bonded through this library
-     * in the current process lifetime. CoreBluetooth does not expose a
-     * system-wide bonded device list. Bond state is tracked from pairing
-     * events observed during active connections.
+     * **iOS**: Returns an empty list. CoreBluetooth does not expose a
+     * system-wide bonded device API; users manage bonds via Settings > Bluetooth.
      */
     public fun getBondedDevices(): List<Identifier>
 
