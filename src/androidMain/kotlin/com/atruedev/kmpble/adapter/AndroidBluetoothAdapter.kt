@@ -1,6 +1,7 @@
 package com.atruedev.kmpble.adapter
 
 import android.Manifest
+import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothStatusCodes
 import android.content.BroadcastReceiver
@@ -11,6 +12,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Process
 import androidx.core.content.ContextCompat
+import com.atruedev.kmpble.Identifier
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -125,6 +127,22 @@ public class AndroidBluetoothAdapter(
             -> BluetoothAdapterState.Unavailable
             else -> BluetoothAdapterState.Unavailable
         }
+    }
+
+    override fun getBondedDevices(): List<Identifier> {
+        val adapter =
+            (context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager)?.adapter
+                ?: return emptyList()
+        if (context.checkPermission(
+                Manifest.permission.BLUETOOTH_CONNECT,
+                Process.myPid(),
+                Process.myUid(),
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            return emptyList()
+        }
+        @Suppress("DEPRECATION")
+        return adapter.bondedDevices.map { device: BluetoothDevice -> Identifier(device.address) }
     }
 
     override fun close() {

@@ -1,5 +1,6 @@
 package com.atruedev.kmpble.adapter
 
+import com.atruedev.kmpble.Identifier
 import com.atruedev.kmpble.internal.CentralManagerProvider
 import kotlinx.coroutines.flow.StateFlow
 import platform.CoreBluetooth.CBCentralManager
@@ -47,6 +48,12 @@ public class IosBluetoothAdapter : BluetoothAdapter {
             supportsPast = false,
             supportsDirectionFinding = false,
         )
+    }
+
+    override fun getBondedDevices(): List<Identifier> {
+        // CoreBluetooth does not expose a system-wide bonded device list.
+        // Users manage bonds through Settings > Bluetooth.
+        return emptyList()
     }
 
     override fun close() {
