@@ -11,6 +11,7 @@ import com.atruedev.kmpble.connection.ConnectionPriority
 import com.atruedev.kmpble.connection.ConnectionSubratingParameters
 import com.atruedev.kmpble.connection.ConnectionSubratingResult
 import com.atruedev.kmpble.connection.DataLengthParameters
+import com.atruedev.kmpble.connection.EncryptionLevel
 import com.atruedev.kmpble.connection.OperationTimeouts
 import com.atruedev.kmpble.connection.Phy
 import com.atruedev.kmpble.connection.PhyUpdate
@@ -77,6 +78,7 @@ public class IosPeripheral(
 
     override val state: StateFlow<State> get() = peripheralContext.state
     override val bondState: StateFlow<BondState> get() = peripheralContext.bondState
+    override val encryptionLevel: StateFlow<EncryptionLevel> get() = peripheralContext.encryptionLevel
     internal val bondManager = IosBondManager(peripheralContext)
     override val services: StateFlow<List<DiscoveredService>?> get() = peripheralContext.services
     override val maximumWriteValueLength: StateFlow<Int> get() = peripheralContext.maximumWriteValueLength

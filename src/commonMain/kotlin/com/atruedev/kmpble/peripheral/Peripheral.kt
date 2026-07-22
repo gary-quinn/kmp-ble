@@ -11,6 +11,7 @@ import com.atruedev.kmpble.connection.ConnectionPriority
 import com.atruedev.kmpble.connection.ConnectionSubratingParameters
 import com.atruedev.kmpble.connection.ConnectionSubratingResult
 import com.atruedev.kmpble.connection.DataLengthParameters
+import com.atruedev.kmpble.connection.EncryptionLevel
 import com.atruedev.kmpble.connection.Phy
 import com.atruedev.kmpble.connection.PhyUpdate
 import com.atruedev.kmpble.direction.DirectionFindingParameters
@@ -52,6 +53,21 @@ public interface Peripheral : AutoCloseable {
 
     public val state: StateFlow<State>
     public val bondState: StateFlow<BondState>
+
+    /**
+     * Link-layer encryption state for this connection.
+     *
+     * Derived from bond state transitions. On Android, also responds to
+     * `BluetoothGattCallback.onEncryptionChange()` when available (API 26+).
+     * iOS infers from bond state only — CoreBluetooth has no encryption API.
+     *
+     * Transitions follow the BLE pairing flow:
+     * ```
+     * NONE  →  STARTING  →  ESTABLISHED
+     * ```
+     * Resets to [EncryptionLevel.NONE] on disconnect or bond removal.
+     */
+    public val encryptionLevel: StateFlow<EncryptionLevel>
 
     @ExperimentalBleApi
     public fun removeBond(): BondRemovalResult

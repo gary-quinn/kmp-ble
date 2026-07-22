@@ -8,6 +8,7 @@ import com.atruedev.kmpble.connection.ConnectionPriority
 import com.atruedev.kmpble.connection.ConnectionSubratingParameters
 import com.atruedev.kmpble.connection.ConnectionSubratingResult
 import com.atruedev.kmpble.connection.DataLengthParameters
+import com.atruedev.kmpble.connection.EncryptionLevel
 import com.atruedev.kmpble.connection.Phy
 import com.atruedev.kmpble.connection.PhyUpdate
 import com.atruedev.kmpble.direction.DirectionFindingParameters
@@ -96,6 +97,7 @@ public class FakePeripheral internal constructor(
 
     override val state: StateFlow<State> get() = context.state
     override val bondState: StateFlow<com.atruedev.kmpble.bonding.BondState> get() = context.bondState
+    override val encryptionLevel: StateFlow<EncryptionLevel> get() = context.encryptionLevel
     override val services: StateFlow<List<DiscoveredService>?> get() = context.services
     override val maximumWriteValueLength: StateFlow<Int> get() = context.maximumWriteValueLength
     override val mtu: StateFlow<Int> get() = context.mtu
