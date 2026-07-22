@@ -38,7 +38,7 @@ class ObservationPersistenceAndroidHostTest {
     @Before
     fun setup() {
         appContext = RuntimeEnvironment.getApplication()
-        ObservationPersistence.context = appContext
+        ObservationPersistence.context.value = appContext
         // Clear any persisted state from previous tests
         val prefs = appContext.getSharedPreferences("com.atruedev.kmpble.cccd", Context.MODE_PRIVATE)
         prefs.edit().clear().commit()
