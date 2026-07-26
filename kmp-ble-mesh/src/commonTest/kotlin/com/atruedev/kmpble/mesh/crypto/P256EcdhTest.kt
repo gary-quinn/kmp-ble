@@ -57,7 +57,9 @@ class P256EcdhTest {
         val keys = mutableSetOf<String>()
         repeat(10) {
             val kp = P256Ecdh.generateKeyPair()
-            val keyHex = kp.privateKey.joinToString("") { "%02x".format(it) }
+            val keyHex = kp.privateKey.joinToString("") {
+                (it.toInt() and 0xFF).toString(16).padStart(2, '0')
+            }
             assertTrue(keys.add(keyHex), "Generated private keys must be unique")
         }
     }
