@@ -135,23 +135,22 @@ public data class CompositionData(
 
 /**
  * Default ConfigurationClient implementation that builds config messages
- * and sends them via the MeshNetwork.
- *
- * NOTE: Config messages should be encrypted with DeviceKey per the spec.
- * Currently using AppKey via [MeshNetwork.send] as a Phase 1 simplification.
- * This is acceptably secure when the AppKey is bound to the configuration
- * model, but a future phase will add direct DeviceKey support.
+ * and sends them via [MeshNetwork.sendConfig] with the node's DeviceKey.
  */
+@OptIn(ExperimentalMeshApi::class)
 internal class DefaultConfigurationClient(
     private val network: MeshNetwork,
 ) : ConfigurationClient {
     override suspend fun addAppKey(node: MeshNode, appKey: ApplicationKey): ConfigurationStatus {
-        // Config AppKey Add: NetKeyIndex(2) | AppKeyIndex(3) | AppKey(16)
-        val payload = buildAppKeyPayload(appKey, node.networkKeys.firstOrNull())
+        // Config AppKey Add: NetKeyIndex(2) | AppKeyIndex(2) | AppKey(16)
+        val netKeyIndex = node.networkKeys.firstOrNull()?.index ?: appKey.boundNetKeyIndex
+        val payload = buildKeyIndexPayload(netKeyIndex) +
+            buildKeyIndexPayload(appKey.index) +
+            appKey.key
 
-        network.send(node.unicastAddress,
-            MeshModelId.ConfigurationServer,
-            ConfigOpcodes.CONFIG_APPKEY_ADD, payload, appKey, acknowledged = true)
+        network.sendConfig(node.unicastAddress,
+            ConfigOpcodes.CONFIG_APPKEY_ADD, payload, node.deviceKey,
+            acknowledged = true)
         return ConfigurationStatus(ConfigStatusCodes.SUCCESS)
     }
 
@@ -164,10 +163,8 @@ internal class DefaultConfigurationClient(
             buildKeyIndexPayload(appKeyIndex) +
             buildModelIdPayload(modelId)
 
-        network.send(node.unicastAddress,
-            MeshModelId.ConfigurationServer,
-            ConfigOpcodes.CONFIG_MODEL_APP_BIND, payload,
-            ApplicationKey(KeyIndex(0u), ByteArray(16), KeyIndex(0u)),
+        network.sendConfig(node.unicastAddress,
+            ConfigOpcodes.CONFIG_MODEL_APP_BIND, payload, node.deviceKey,
             acknowledged = true)
         return ConfigurationStatus(ConfigStatusCodes.SUCCESS)
     }
@@ -191,10 +188,8 @@ internal class DefaultConfigurationClient(
             byteArrayOf(0x1F) +      // PublishRetransmitIntervalSteps
             buildModelIdPayload(modelId)
 
-        network.send(node.unicastAddress,
-            MeshModelId.ConfigurationServer,
-            ConfigOpcodes.CONFIG_MODEL_PUBLICATION_SET, payload,
-            ApplicationKey(KeyIndex(0u), ByteArray(16), KeyIndex(0u)),
+        network.sendConfig(node.unicastAddress,
+            ConfigOpcodes.CONFIG_MODEL_PUBLICATION_SET, payload, node.deviceKey,
             acknowledged = true)
         return ConfigurationStatus(ConfigStatusCodes.SUCCESS)
     }
@@ -208,10 +203,8 @@ internal class DefaultConfigurationClient(
             buildAddressPayload(address) +
             buildModelIdPayload(modelId)
 
-        network.send(node.unicastAddress,
-            MeshModelId.ConfigurationServer,
-            ConfigOpcodes.CONFIG_MODEL_SUBSCRIPTION_ADD, payload,
-            ApplicationKey(KeyIndex(0u), ByteArray(16), KeyIndex(0u)),
+        network.sendConfig(node.unicastAddress,
+            ConfigOpcodes.CONFIG_MODEL_SUBSCRIPTION_ADD, payload, node.deviceKey,
             acknowledged = true)
         return ConfigurationStatus(ConfigStatusCodes.SUCCESS)
     }
@@ -225,10 +218,8 @@ internal class DefaultConfigurationClient(
             buildAddressPayload(address) +
             buildModelIdPayload(modelId)
 
-        network.send(node.unicastAddress,
-            MeshModelId.ConfigurationServer,
-            ConfigOpcodes.CONFIG_MODEL_SUBSCRIPTION_DELETE, payload,
-            ApplicationKey(KeyIndex(0u), ByteArray(16), KeyIndex(0u)),
+        network.sendConfig(node.unicastAddress,
+            ConfigOpcodes.CONFIG_MODEL_SUBSCRIPTION_DELETE, payload, node.deviceKey,
             acknowledged = true)
         return ConfigurationStatus(ConfigStatusCodes.SUCCESS)
     }
@@ -244,10 +235,8 @@ internal class DefaultConfigurationClient(
             retransmitIntervalSteps.toByte(),
         )
 
-        network.send(node.unicastAddress,
-            MeshModelId.ConfigurationServer,
-            ConfigOpcodes.CONFIG_RELAY_SET, payload,
-            ApplicationKey(KeyIndex(0u), ByteArray(16), KeyIndex(0u)),
+        network.sendConfig(node.unicastAddress,
+            ConfigOpcodes.CONFIG_RELAY_SET, payload, node.deviceKey,
             acknowledged = true)
         return ConfigurationStatus(ConfigStatusCodes.SUCCESS)
     }
@@ -256,10 +245,8 @@ internal class DefaultConfigurationClient(
         // Config GATT Proxy Set: Proxy(1)
         val payload = byteArrayOf(if (enabled) 0x01 else 0x00)
 
-        network.send(node.unicastAddress,
-            MeshModelId.ConfigurationServer,
-            ConfigOpcodes.CONFIG_PROXY_SET, payload,
-            ApplicationKey(KeyIndex(0u), ByteArray(16), KeyIndex(0u)),
+        network.sendConfig(node.unicastAddress,
+            ConfigOpcodes.CONFIG_PROXY_SET, payload, node.deviceKey,
             acknowledged = true)
         return ConfigurationStatus(ConfigStatusCodes.SUCCESS)
     }
@@ -268,10 +255,8 @@ internal class DefaultConfigurationClient(
         // Config Friend Set: Friend(1)
         val payload = byteArrayOf(if (enabled) 0x01 else 0x00)
 
-        network.send(node.unicastAddress,
-            MeshModelId.ConfigurationServer,
-            ConfigOpcodes.CONFIG_FRIEND_SET, payload,
-            ApplicationKey(KeyIndex(0u), ByteArray(16), KeyIndex(0u)),
+        network.sendConfig(node.unicastAddress,
+            ConfigOpcodes.CONFIG_FRIEND_SET, payload, node.deviceKey,
             acknowledged = true)
         return ConfigurationStatus(ConfigStatusCodes.SUCCESS)
     }
@@ -280,17 +265,15 @@ internal class DefaultConfigurationClient(
         // Config Composition Data Get: Page(1)
         val payload = byteArrayOf(0x00) // Page 0
 
-        // The response arrives via incomingMessages flow, not returned directly.
-        // Phase 1: fire-and-forget with immediate dummy return.
-        // Phase 2: correlate the config STATUS response with this request.
-        network.send(node.unicastAddress,
-            MeshModelId.ConfigurationServer,
-            ConfigOpcodes.CONFIG_COMPOSITION_DATA_GET, payload,
-            ApplicationKey(KeyIndex(0u), ByteArray(16), KeyIndex(0u)),
+        // Send the request and wait for response
+        network.sendConfig(node.unicastAddress,
+            ConfigOpcodes.CONFIG_COMPOSITION_DATA_GET, payload, node.deviceKey,
             acknowledged = false)
 
-        // Return placeholder -- real parsing requires response correlation.
-        // The actual composition data will arrive via incomingMessages.
+        // Phase 1: fire-and-forget. The actual composition data arrives
+        // via incomingMessages flow. Callers should observe incomingMessages
+        // for CONFIG_COMPOSITION_DATA_STATUS to parse the real response.
+        // Returning node features/elements as a best-effort default.
         return CompositionData(0u, 0u, 0u, 0u, node.features, node.elements)
     }
 
@@ -300,26 +283,13 @@ internal class DefaultConfigurationClient(
         // Config Default TTL Set: TTL(1)
         val payload = byteArrayOf(ttl.toByte())
 
-        network.send(node.unicastAddress,
-            MeshModelId.ConfigurationServer,
-            ConfigOpcodes.CONFIG_DEFAULT_TTL_SET, payload,
-            ApplicationKey(KeyIndex(0u), ByteArray(16), KeyIndex(0u)),
+        network.sendConfig(node.unicastAddress,
+            ConfigOpcodes.CONFIG_DEFAULT_TTL_SET, payload, node.deviceKey,
             acknowledged = true)
         return ConfigurationStatus(ConfigStatusCodes.SUCCESS)
     }
 
     // --- Payload builders ---
-
-    /** Build the AppKey Add payload: NetKeyIndex(2) | AppKey(16). */
-    private fun buildAppKeyPayload(appKey: ApplicationKey, netKey: NetworkKey?): ByteArray {
-        // NetKeyIndex(2) + AppKeyIndex(2) + AppKey(16) into 3+16 bytes...
-        // Actually, Config AppKey Add format per spec:
-        // NetKeyIndex(2 bytes: 12-bit + 4-bit padding) | AppKeyIndex(2 bytes: 12-bit + 4-bit padding) | AppKey(16 bytes)
-        val netKeyIndex = netKey?.index ?: appKey.boundNetKeyIndex
-        return buildKeyIndexPayload(netKeyIndex) +
-            buildKeyIndexPayload(appKey.index) +
-            appKey.key
-    }
 
     /** Encode element address as 2 bytes little-endian. */
     private fun buildAddressPayload(address: MeshAddress): ByteArray =

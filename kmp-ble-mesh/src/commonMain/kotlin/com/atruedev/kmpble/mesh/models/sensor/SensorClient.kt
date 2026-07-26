@@ -28,9 +28,13 @@ public class SensorClient internal constructor(
             (propertyId.toInt() and 0xFF).toByte(),
             ((propertyId.toInt() shr 8) and 0xFF).toByte(),
         )
-        network.send(elementAddress, MeshModelId.SensorServer,
+        val response = network.send(elementAddress, MeshModelId.SensorServer,
             SensorOpcodes.SENSOR_GET, payload, appKey, acknowledged = true)
-        return SensorStatus(propertyId, ByteArray(0))
+        return if (response != null) {
+            SensorStatus(propertyId, response.parameters)
+        } else {
+            SensorStatus(propertyId, ByteArray(0))
+        }
     }
 
     /**
@@ -46,10 +50,29 @@ public class SensorClient internal constructor(
             (propertyId.toInt() and 0xFF).toByte(),
             ((propertyId.toInt() shr 8) and 0xFF).toByte(),
         )
-        network.send(elementAddress, MeshModelId.SensorServer,
+        val response = network.send(elementAddress, MeshModelId.SensorServer,
             SensorOpcodes.SENSOR_DESCRIPTOR_GET, payload, appKey,
             acknowledged = true)
-        return SensorDescriptor(propertyId)
+        return if (response != null && response.parameters.size >= 8) {
+            parseDescriptor(propertyId, response.parameters)
+        } else {
+            SensorDescriptor(propertyId)
+        }
+    }
+
+    private fun parseDescriptor(propertyId: UShort, data: ByteArray): SensorDescriptor {
+        val tolerancePositive = ((data[1].toInt() and 0xFF) shl 8) or
+            (data[0].toInt() and 0xFF)
+        val toleranceNegative = ((data[3].toInt() and 0xFF) shl 8) or
+            (data[2].toInt() and 0xFF)
+        return SensorDescriptor(
+            propertyId = propertyId,
+            tolerancePositive = tolerancePositive.toUShort(),
+            toleranceNegative = toleranceNegative.toUShort(),
+            samplingFunction = data[4].toUByte(),
+            measurementPeriod = data[5].toUByte(),
+            updateInterval = data[6].toUByte(),
+        )
     }
 }
 

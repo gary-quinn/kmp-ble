@@ -60,8 +60,8 @@ internal class NetworkLayer(
             k2Result.encryptionKey, nonce, transportPdu, ByteArray(0), 4)
 
         return NetworkPdu(
-            ivi = 0, nid = k2Result.nid, ctl = ctl, ttl = ttl,
-            seq = seq.toUInt(), src = src, dst = dst,
+            ivi = ivIndex.value.toInt() and 1, nid = k2Result.nid,
+            ctl = ctl, ttl = ttl, seq = seq.toUInt(), src = src, dst = dst,
             transportPdu = result.ciphertext, netMic = result.mic,
         )
     }

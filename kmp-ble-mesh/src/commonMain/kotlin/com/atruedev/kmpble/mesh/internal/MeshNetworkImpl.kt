@@ -169,16 +169,47 @@ internal class MeshNetworkImpl(
         if (!acknowledged) return null
 
         // 5. Wait for the status response (with 5-second timeout)
-        val deferred = CompletableDeferred<MeshMessageResponse?>()
-        val dstKey = destination.value.toInt()
-        pendingRequests[dstKey] = deferred
-        return try {
-            withTimeout(ACK_TIMEOUT_MS) { deferred.await() }
-        } catch (_: TimeoutCancellationException) {
-            null
-        } finally {
-            pendingRequests.remove(dstKey)
-        }
+        return waitForResponse(destination)
+    }
+
+    @OptIn(ExperimentalMeshApi::class)
+    override suspend fun sendConfig(
+        destination: MeshAddress,
+        opcode: MeshOpcode,
+        payload: ByteArray,
+        deviceKey: DeviceKey,
+        acknowledged: Boolean,
+        ttl: UByte,
+    ): MeshMessageResponse? {
+        val conn = proxyConnection
+            ?: throw MeshException(ProxyConnectionFailed("Not connected to a proxy node"))
+
+        val netKey = networkKeys.firstOrNull()
+            ?: throw MeshException(InvalidParameters("No network key registered"))
+
+        val seq = seqManager.nextSequenceNumber()
+        val ivIdx = ivIndexTracker.currentSendIvIndex
+
+        // 1. Encode access PDU: opcode + parameters
+        val accessPdu = AccessLayer.encode(opcode, payload)
+
+        // 2. Upper Transport: encrypt with DeviceKey
+        val upperPdu = upperTransport.encryptWithDeviceKey(
+            accessPdu, deviceKey, ownUnicastAddress, destination, seq, ivIdx,
+        )
+
+        // 3. Network Layer: encrypt with NetKey
+        val networkPdu = networkLayer.encrypt(
+            upperPdu, ownUnicastAddress, destination, netKey,
+            ttl = ttl.toInt(), seq = seq, ivIndex = ivIdx,
+        )
+
+        // 4. Send via proxy
+        conn.sendPdu(networkPdu)
+
+        if (!acknowledged) return null
+
+        return waitForResponse(destination)
     }
 
     override val incomingMessages: Flow<MeshMessage> = _incomingMessages.asSharedFlow()
@@ -201,8 +232,8 @@ internal class MeshNetworkImpl(
     /**
      * Process an incoming Network PDU from the proxy connection.
      *
-     * Pipeline: NetworkLayer.decrypt → UpperTransportLayer.decryptWithAppKey
-     * → AccessLayer.decode → emit MeshMessage.
+     * Pipeline: NetworkLayer.decrypt → UpperTransportLayer.decrypt (AppKey
+     * or DeviceKey) → AccessLayer.decode → emit MeshMessage.
      */
     private suspend fun processIncomingPdu(pdu: NetworkPdu) {
         // Check duplicate cache to prevent forwarding loops
@@ -215,9 +246,12 @@ internal class MeshNetworkImpl(
         // 1. Network Layer: decrypt with NetKey
         val transportPayload = networkLayer.decrypt(pdu, ivIdx) ?: return
 
-        // 2. Upper Transport: try each known AppKey to find the right one
+        // 2. Upper Transport: try AppKey first, then DeviceKey for config messages
         var accessPdu: ByteArray? = null
         var matchedAppKey: ApplicationKey? = null
+        var matchedDeviceKey: DeviceKey? = null
+
+        // Try each known AppKey
         for (appKey in applicationKeys) {
             val decrypted = upperTransport.decryptWithAppKey(
                 transportPayload, appKey, pdu.src, pdu.dst, seq, ivIdx,
@@ -229,12 +263,26 @@ internal class MeshNetworkImpl(
             }
         }
 
-        if (accessPdu == null) return // Could not decrypt with any known AppKey
+        // If no AppKey matched, try DeviceKey of known nodes
+        if (accessPdu == null) {
+            for (node in _nodes.value) {
+                val decrypted = upperTransport.decryptWithDeviceKey(
+                    transportPayload, node.deviceKey, pdu.src, pdu.dst, seq, ivIdx,
+                )
+                if (decrypted != null) {
+                    accessPdu = decrypted
+                    matchedDeviceKey = node.deviceKey
+                    break
+                }
+            }
+        }
+
+        if (accessPdu == null) return // Could not decrypt
 
         // 3. Access Layer: decode opcode + parameters
         val message = AccessLayer.decode(accessPdu)
 
-        // 4. Emit as public MeshMessage
+        // 4. Emit as public MeshMessage (appKey is null for DeviceKey messages)
         val meshMessage = MeshMessage(
             source = pdu.src,
             destination = pdu.dst,
@@ -247,6 +295,25 @@ internal class MeshNetworkImpl(
         // 5. Resolve pending acknowledged request (if any)
         pendingRequests[src]?.complete(
             MeshMessageResponse(message.opcode, message.parameters))
+    }
+
+    /**
+     * Set up a pending request deferred and wait for the response
+     * with a 5-second timeout.
+     */
+    private suspend fun waitForResponse(
+        destination: MeshAddress,
+    ): MeshMessageResponse? {
+        val deferred = CompletableDeferred<MeshMessageResponse?>()
+        val dstKey = destination.value.toInt()
+        pendingRequests[dstKey] = deferred
+        return try {
+            withTimeout(ACK_TIMEOUT_MS) { deferred.await() }
+        } catch (_: TimeoutCancellationException) {
+            null
+        } finally {
+            pendingRequests.remove(dstKey)
+        }
     }
 
     companion object {

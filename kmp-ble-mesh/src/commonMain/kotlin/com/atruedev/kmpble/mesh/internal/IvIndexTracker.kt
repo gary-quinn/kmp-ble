@@ -39,10 +39,12 @@ internal class IvIndexTracker(
      */
     fun resolveReceiveIvIndex(ivi: Int): IvIndex {
         return if (ivi == 0) {
+            // Normal operation: use current IV Index
             _ivIndex.value
         } else {
-            // IV Update in progress -- use next IV Index
-            IvIndex(_ivIndex.value.value - 1u)
+            // IV Update in progress: this message was encrypted with the new
+            // IV Index (current + 1). Per Mesh Profile v1.1, Section 3.10.5.
+            IvIndex(_ivIndex.value.value + 1u)
         }
     }
 

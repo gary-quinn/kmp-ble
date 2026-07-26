@@ -14,10 +14,10 @@ public class GenericLevelClient internal constructor(
 ) {
     /** Get the current level. Returns -32768 to 32767. */
     public suspend fun get(elementAddress: MeshAddress.UnicastAddress): GenericLevelStatus {
-        network.send(elementAddress, MeshModelId.GenericLevelServer,
+        val response = network.send(elementAddress, MeshModelId.GenericLevelServer,
             com.atruedev.kmpble.mesh.network.LevelOpcodes.GENERIC_LEVEL_GET,
             ByteArray(0), appKey, acknowledged = true)
-        return GenericLevelStatus(0)
+        return parseLevelStatus(response?.parameters) ?: GenericLevelStatus(0)
     }
 
     /** Set the level (acknowledged). */
@@ -27,10 +27,19 @@ public class GenericLevelClient internal constructor(
             (level and 0xFF).toByte(),
             ((level shr 8) and 0xFF).toByte(),
         )
-        network.send(elementAddress, MeshModelId.GenericLevelServer,
+        val response = network.send(elementAddress, MeshModelId.GenericLevelServer,
             com.atruedev.kmpble.mesh.network.LevelOpcodes.GENERIC_LEVEL_SET,
             payload, appKey, acknowledged = true)
-        return GenericLevelStatus(level)
+        return parseLevelStatus(response?.parameters) ?: GenericLevelStatus(level)
+    }
+
+    /** Parse a 2-byte level from a status response (little-endian signed 16-bit). */
+    private fun parseLevelStatus(data: ByteArray?): GenericLevelStatus? {
+        if (data == null || data.size < 2) return null
+        val level = ((data[1].toInt() and 0xFF) shl 8) or (data[0].toInt() and 0xFF)
+        // Sign-extend from 16-bit
+        val signedLevel = if (level > 32767) level - 65536 else level
+        return GenericLevelStatus(signedLevel)
     }
 
     /** Set the level (unacknowledged). */

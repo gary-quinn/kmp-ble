@@ -35,7 +35,7 @@ public class GenericOnOffClient internal constructor(
      * @return The current on/off status.
      */
     public suspend fun get(elementAddress: MeshAddress.UnicastAddress): GenericOnOffStatus {
-        network.send(
+        val response = network.send(
             destination = elementAddress,
             modelId = MeshModelId.GenericOnOffServer,
             opcode = OnOffOpcodes.GENERIC_ONOFF_GET,
@@ -43,8 +43,11 @@ public class GenericOnOffClient internal constructor(
             appKey = appKey,
             acknowledged = true,
         )
-        // Response comes via incomingMessages flow
-        return GenericOnOffStatus(presentOnOff = false) // simplified
+        return if (response != null) {
+            parseStatus(response.parameters) ?: GenericOnOffStatus(presentOnOff = false)
+        } else {
+            GenericOnOffStatus(presentOnOff = false)
+        }
     }
 
     /**
@@ -61,7 +64,7 @@ public class GenericOnOffClient internal constructor(
         transitionTime: TransitionTime? = null,
     ): GenericOnOffStatus {
         val payload = buildSetPayload(state, transitionTime)
-        network.send(
+        val response = network.send(
             destination = elementAddress,
             modelId = MeshModelId.GenericOnOffServer,
             opcode = OnOffOpcodes.GENERIC_ONOFF_SET,
@@ -69,7 +72,11 @@ public class GenericOnOffClient internal constructor(
             appKey = appKey,
             acknowledged = true,
         )
-        return GenericOnOffStatus(presentOnOff = state)
+        return if (response != null) {
+            parseStatus(response.parameters) ?: GenericOnOffStatus(presentOnOff = state)
+        } else {
+            GenericOnOffStatus(presentOnOff = state)
+        }
     }
 
     /**

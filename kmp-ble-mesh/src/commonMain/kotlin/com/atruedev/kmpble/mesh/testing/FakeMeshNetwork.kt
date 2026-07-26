@@ -64,6 +64,22 @@ public class FakeMeshNetwork(
         return MeshMessageResponse(opcode, ByteArray(0))
     }
 
+    @OptIn(ExperimentalMeshApi::class)
+    override suspend fun sendConfig(
+        destination: MeshAddress,
+        opcode: MeshOpcode,
+        payload: ByteArray,
+        deviceKey: DeviceKey,
+        acknowledged: Boolean,
+        ttl: UByte,
+    ): MeshMessageResponse? {
+        sentMessages.add(SentMessage(destination, MeshModelId.ConfigurationServer,
+            opcode, payload,
+            ApplicationKey(KeyIndex(0u), ByteArray(16), KeyIndex(0u)),
+            acknowledged))
+        return MeshMessageResponse(opcode, ByteArray(0))
+    }
+
     override fun close() { _isProxyConnected.value = false }
 
     // --- Test helpers ---

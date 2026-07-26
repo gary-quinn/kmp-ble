@@ -119,6 +119,31 @@ public interface MeshNetwork : AutoCloseable {
     ): MeshMessageResponse?
 
     /**
+     * Send a configuration message encrypted with the node's DeviceKey.
+     *
+     * Configuration messages use DeviceKey encryption (not AppKey) per the
+     * BLE Mesh spec. The [destination] must be the primary element unicast
+     * address of the target node.
+     *
+     * @param destination The node's primary unicast address.
+     * @param opcode The configuration operation code.
+     * @param payload The configuration parameters.
+     * @param deviceKey The node's DeviceKey for encryption.
+     * @param acknowledged Whether to wait for a response.
+     * @param ttl Time-To-Live hop limit.
+     * @return The response if acknowledged, or null if unacknowledged or timeout.
+     */
+    @ExperimentalMeshApi
+    public suspend fun sendConfig(
+        destination: MeshAddress,
+        opcode: MeshOpcode,
+        payload: ByteArray,
+        deviceKey: DeviceKey,
+        acknowledged: Boolean = true,
+        ttl: UByte = 5u,
+    ): MeshMessageResponse?
+
+    /**
      * Flow of incoming mesh messages addressed to our models.
      *
      * Messages are dispatched based on destination address (our unicast

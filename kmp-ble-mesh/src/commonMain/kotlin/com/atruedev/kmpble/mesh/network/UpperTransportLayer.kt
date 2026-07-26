@@ -90,4 +90,30 @@ internal class UpperTransportLayer {
         val mic = transportPdu.copyOfRange(micOffset, transportPdu.size)
         return AesCcm.decrypt(appKey.key, nonce, ciphertext, ByteArray(0), mic)
     }
+
+    /**
+     * Decrypt an Upper Transport PDU with a DeviceKey (for configuration
+     * and health messages).
+     *
+     * @return Decrypted access PDU, or null if authentication fails.
+     */
+    fun decryptWithDeviceKey(
+        transportPdu: ByteArray,
+        deviceKey: DeviceKey,
+        src: MeshAddress.UnicastAddress,
+        dst: MeshAddress,
+        seq: Int,
+        ivIndex: IvIndex,
+        szmic: Int = 0,
+    ): ByteArray? {
+        val nonce = NonceGenerator.deviceNonce(
+            seq.toUInt(), src.value.toInt(), dst.value.toInt(),
+            ivIndex.value, szmic,
+        )
+        val micSize = if (szmic != 0) 8 else 4
+        val micOffset = transportPdu.size - micSize
+        val ciphertext = transportPdu.copyOfRange(0, micOffset)
+        val mic = transportPdu.copyOfRange(micOffset, transportPdu.size)
+        return AesCcm.decrypt(deviceKey.key, nonce, ciphertext, ByteArray(0), mic)
+    }
 }
