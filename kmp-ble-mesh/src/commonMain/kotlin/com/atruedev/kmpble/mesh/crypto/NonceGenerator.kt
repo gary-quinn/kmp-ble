@@ -7,17 +7,30 @@ package com.atruedev.kmpble.mesh.crypto
  * constructs its nonce differently to prevent cross-layer nonce reuse,
  * which would catastrophically break security.
  *
- * All nonces are 13 bytes with the format:
+ * ## Nonce Formats (BLE Mesh Profile v1.1, Section 3.8.5)
+ *
+ * All nonces are 13 bytes, big-endian for multi-byte fields.
+ *
+ * **Network Nonce (0x00):**
  * ```
- * [NonceType(1)] [Layer-specific fields(8)] [SRC(2)] [DST(2)]
+ * [0x00(1)] [CTL|TTL(1)] [SEQ(3)] [SRC(2)] [DST(2)] [IVIndex(4)]
  * ```
  *
- * The NonceType byte ensures nonces from different layers can never collide,
- * even if all other fields are identical.
+ * **Application Nonce (0x01):**
+ * ```
+ * [0x01(1)] [ASZMIC|RFU(1)] [SEQ(3)] [SRC(2)] [DST(2)] [IVIndex(4)]
+ * ```
+ *
+ * **Device Nonce (0x02):** Same format as Application but type 0x02.
+ *
+ * **Proxy Nonce (0x03):**
+ * ```
+ * [0x03(1)] [Pad(5)] [SEQ(3)] [SRC(2)] [DST(2)]
+ * ```
  */
 internal object NonceGenerator {
 
-    // Nonce type codes
+    // Nonce type codes (Section 3.8.5)
     private const val NETWORK_NONCE: Byte = 0x00
     private const val APPLICATION_NONCE: Byte = 0x01
     private const val DEVICE_NONCE: Byte = 0x02
@@ -26,11 +39,10 @@ internal object NonceGenerator {
     /**
      * Generate the 13-byte nonce for Network Layer encryption.
      *
-     * Network nonce format:
+     * Network nonce format (Section 3.8.5.1):
      * ```
-     * [0x00(1)] [CTL(1)] [TTL(1)] [SEQ(3)] [SRC(2)] [DST(2)] [IVIndex(4)]
+     * [0x00(1)] [CTL|TTL(1)] [SEQ(3)] [SRC(2)] [DST(2)] [IVIndex(4)]
      * ```
-     * Note: CTL + TTL fields are packed and the total is 13 bytes.
      */
     fun networkNonce(
         ctl: Int,
@@ -42,30 +54,35 @@ internal object NonceGenerator {
     ): ByteArray {
         val nonce = ByteArray(13)
         nonce[0] = NETWORK_NONCE
-        // Nonce bytes 1-8: CTL/TTL/SEQ padded
-        nonce[1] = ((ctl and 1) or ((ttl and 0x7F) shl 1)).toByte()
-        nonce[2] = (seq.toInt() and 0xFF).toByte()
-        nonce[3] = ((seq.toInt() shr 8) and 0xFF).toByte()
-        nonce[4] = ((seq.toInt() shr 16) and 0xFF).toByte()
-        nonce[5] = 0x00
-        nonce[6] = 0x00
-        nonce[7] = 0x00
-        nonce[8] = 0x00
-        // Source (2 bytes, little-endian)
-        nonce[9] = (src and 0xFF).toByte()
-        nonce[10] = ((src shr 8) and 0xFF).toByte()
-        // Destination (2 bytes, big-endian - spec convention)
-        nonce[11] = ((dst shr 8) and 0xFF).toByte()
-        nonce[12] = (dst and 0xFF).toByte()
+        // Byte 1: CTL (bit 7) | TTL (bits 0-6)
+        nonce[1] = (((ctl and 1) shl 7) or (ttl and 0x7F)).toByte()
+        // Bytes 2-4: SEQ (24-bit, big-endian)
+        val seqInt = seq.toInt()
+        nonce[2] = ((seqInt shr 16) and 0xFF).toByte()
+        nonce[3] = ((seqInt shr 8) and 0xFF).toByte()
+        nonce[4] = (seqInt and 0xFF).toByte()
+        // Bytes 5-6: SRC (16-bit, big-endian)
+        nonce[5] = ((src shr 8) and 0xFF).toByte()
+        nonce[6] = (src and 0xFF).toByte()
+        // Bytes 7-8: DST (16-bit, big-endian)
+        nonce[7] = ((dst shr 8) and 0xFF).toByte()
+        nonce[8] = (dst and 0xFF).toByte()
+        // Bytes 9-12: IV Index (32-bit, big-endian)
+        val iv = ivIndex.toInt()
+        nonce[9] = ((iv shr 24) and 0xFF).toByte()
+        nonce[10] = ((iv shr 16) and 0xFF).toByte()
+        nonce[11] = ((iv shr 8) and 0xFF).toByte()
+        nonce[12] = (iv and 0xFF).toByte()
         return nonce
     }
 
     /**
-     * Generate the 13-byte nonce for Upper Transport Layer (application) encryption.
+     * Generate the 13-byte nonce for Upper Transport Layer (application)
+     * encryption.
      *
-     * Application nonce format:
+     * Application nonce format (Section 3.8.5.2):
      * ```
-     * [0x01(1)] [ASEQ(3)] [DST(2)] [SRC(2)] [IVIndex(4)] [SZMIC(1)]
+     * [0x01(1)] [ASZMIC|RFU(1)] [SEQ(3)] [SRC(2)] [DST(2)] [IVIndex(4)]
      * ```
      */
     fun applicationNonce(
@@ -77,34 +94,33 @@ internal object NonceGenerator {
     ): ByteArray {
         val nonce = ByteArray(13)
         nonce[0] = APPLICATION_NONCE
-        // ASEQ (3 bytes, little-endian)
-        nonce[1] = (seq.toInt() and 0xFF).toByte()
-        nonce[2] = ((seq.toInt() shr 8) and 0xFF).toByte()
-        nonce[3] = ((seq.toInt() shr 16) and 0xFF).toByte()
-        // DST (2 bytes, big-endian)
-        nonce[4] = ((dst shr 8) and 0xFF).toByte()
-        nonce[5] = (dst and 0xFF).toByte()
-        // SRC (2 bytes, big-endian)
-        nonce[6] = ((src shr 8) and 0xFF).toByte()
-        nonce[7] = (src and 0xFF).toByte()
-        // IVIndex (4 bytes, big-endian)
-        nonce[8] = ((ivIndex.toInt() shr 24) and 0xFF).toByte()
-        nonce[9] = ((ivIndex.toInt() shr 16) and 0xFF).toByte()
-        nonce[10] = ((ivIndex.toInt() shr 8) and 0xFF).toByte()
-        nonce[11] = (ivIndex.toInt() and 0xFF).toByte()
-        // SZMIC (1 byte)
-        nonce[12] = szmic.toByte()
+        // Byte 1: ASZMIC (bit 7) | RFU (bits 0-6, all zero)
+        nonce[1] = ((szmic and 1) shl 7).toByte()
+        // Bytes 2-4: SEQ (24-bit, big-endian)
+        val seqInt = seq.toInt()
+        nonce[2] = ((seqInt shr 16) and 0xFF).toByte()
+        nonce[3] = ((seqInt shr 8) and 0xFF).toByte()
+        nonce[4] = (seqInt and 0xFF).toByte()
+        // Bytes 5-6: SRC (16-bit, big-endian)
+        nonce[5] = ((src shr 8) and 0xFF).toByte()
+        nonce[6] = (src and 0xFF).toByte()
+        // Bytes 7-8: DST (16-bit, big-endian)
+        nonce[7] = ((dst shr 8) and 0xFF).toByte()
+        nonce[8] = (dst and 0xFF).toByte()
+        // Bytes 9-12: IV Index (32-bit, big-endian)
+        val iv = ivIndex.toInt()
+        nonce[9] = ((iv shr 24) and 0xFF).toByte()
+        nonce[10] = ((iv shr 16) and 0xFF).toByte()
+        nonce[11] = ((iv shr 8) and 0xFF).toByte()
+        nonce[12] = (iv and 0xFF).toByte()
         return nonce
     }
 
     /**
      * Generate the 13-byte nonce for Device Key (configuration) encryption.
      *
-     * Device nonce format:
-     * ```
-     * [0x02(1)] [ASEQ(3)] [DST(2)] [SRC(2)] [IVIndex(4)] [SZMIC(1)]
-     * ```
-     * Same format as application nonce but with different NonceType.
+     * Device nonce format: same as Application Nonce but with NonceType 0x02.
+     * Per Section 3.8.5.3.
      */
     fun deviceNonce(
         seq: UInt,
@@ -121,9 +137,9 @@ internal object NonceGenerator {
     /**
      * Generate the 13-byte nonce for Proxy protocol encryption.
      *
-     * Proxy nonce format:
+     * Proxy nonce format (Section 3.8.5.4):
      * ```
-     * [0x03(1)] [Pad(5)] [Seq(3)] [SRC(2)] [DST(2)]
+     * [0x03(1)] [Pad(5)] [SEQ(3)] [SRC(2)] [DST(2)]
      * ```
      */
     fun proxyNonce(
@@ -133,16 +149,16 @@ internal object NonceGenerator {
     ): ByteArray {
         val nonce = ByteArray(13)
         nonce[0] = PROXY_NONCE
-        // Padding (5 bytes)
-        // Pad
-        // SEQ (3 bytes, little-endian)
-        nonce[6] = (seq.toInt() and 0xFF).toByte()
-        nonce[7] = ((seq.toInt() shr 8) and 0xFF).toByte()
-        nonce[8] = ((seq.toInt() shr 16) and 0xFF).toByte()
-        // SRC (2 bytes, big-endian)
+        // Bytes 1-5: Padding (zeros)
+        // Bytes 6-8: SEQ (24-bit, big-endian)
+        val seqInt = seq.toInt()
+        nonce[6] = ((seqInt shr 16) and 0xFF).toByte()
+        nonce[7] = ((seqInt shr 8) and 0xFF).toByte()
+        nonce[8] = (seqInt and 0xFF).toByte()
+        // Bytes 9-10: SRC (16-bit, big-endian)
         nonce[9] = ((src shr 8) and 0xFF).toByte()
         nonce[10] = (src and 0xFF).toByte()
-        // DST (2 bytes, big-endian)
+        // Bytes 11-12: DST (16-bit, big-endian)
         nonce[11] = ((dst shr 8) and 0xFF).toByte()
         nonce[12] = (dst and 0xFF).toByte()
         return nonce

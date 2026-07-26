@@ -1,8 +1,16 @@
 package com.atruedev.kmpble.mesh.crypto
 
+import java.math.BigInteger
+import java.security.KeyFactory
 import java.security.KeyPairGenerator
 import java.security.MessageDigest
 import java.security.SecureRandom
+import java.security.interfaces.ECPrivateKey
+import java.security.interfaces.ECPublicKey
+import java.security.spec.ECGenParameterSpec
+import java.security.spec.ECPoint
+import java.security.spec.ECPrivateKeySpec
+import java.security.spec.ECPublicKeySpec
 import javax.crypto.Cipher
 import javax.crypto.KeyAgreement
 import javax.crypto.Mac
@@ -13,6 +21,15 @@ import javax.crypto.spec.SecretKeySpec
  *
  * Uses javax.crypto for AES, javax.crypto.KeyAgreement for ECDH,
  * and java.security.MessageDigest for SHA-256.
+ *
+ * ## ECDH Key Format
+ *
+ * The BLE Mesh provisioning protocol uses raw P-256 keys:
+ * - Public key: 64 bytes uncompressed (X || Y), no 0x04 prefix
+ * - Private key: 32 bytes raw scalar
+ *
+ * JCA uses DER-encoded keys internally (X.509 for public, PKCS#8 for
+ * private). We convert between raw and DER as needed.
  */
 internal actual object CryptoEngine {
     private const val AES_ALGORITHM = "AES"
@@ -20,6 +37,7 @@ internal actual object CryptoEngine {
     private const val AES_CMAC_ALGORITHM = "AESCMAC"
     private const val EC_ALGORITHM = "EC"
     private const val SHA256_ALGORITHM = "SHA-256"
+    private const val P256_CURVE = "secp256r1"
 
     private val secureRandom = SecureRandom()
 
@@ -66,10 +84,18 @@ internal actual object CryptoEngine {
 
     actual fun ecdhP256GenerateKeyPair(): EcdhKeyPair {
         val generator = KeyPairGenerator.getInstance(EC_ALGORITHM)
-        generator.initialize(256, secureRandom)
+        generator.initialize(ECGenParameterSpec(P256_CURVE), secureRandom)
         val keyPair = generator.generateKeyPair()
-        val publicKey = keyPair.public.encoded
-        val privateKey = keyPair.private.encoded
+
+        // Extract raw 64-byte uncompressed public key (X || Y)
+        val ecPublicKey = keyPair.public as ECPublicKey
+        val pubPoint = ecPublicKey.w
+        val publicKey = padTo32(pubPoint.affineX) + padTo32(pubPoint.affineY)
+
+        // Extract raw 32-byte private key scalar
+        val ecPrivateKey = keyPair.private as ECPrivateKey
+        val privateKey = padTo32(ecPrivateKey.s)
+
         return EcdhKeyPair(privateKey, publicKey)
     }
 
@@ -77,10 +103,21 @@ internal actual object CryptoEngine {
         privateKey: ByteArray,
         publicKey: ByteArray,
     ): ByteArray {
-        val keyFactory = java.security.KeyFactory.getInstance(EC_ALGORITHM)
-        val privSpec = java.security.spec.PKCS8EncodedKeySpec(privateKey)
-        val pubSpec = java.security.spec.X509EncodedKeySpec(publicKey)
+        val keyFactory = KeyFactory.getInstance(EC_ALGORITHM)
+
+        // Generate a throwaway key pair to obtain ECParameterSpec
+        val generator = KeyPairGenerator.getInstance(EC_ALGORITHM)
+        generator.initialize(ECGenParameterSpec(P256_CURVE), secureRandom)
+        val params = (generator.generateKeyPair().private as ECPrivateKey).params
+
+        // Reconstruct private key from raw 32-byte scalar
+        val privSpec = ECPrivateKeySpec(BigInteger(1, privateKey), params)
         val privateKeyObj = keyFactory.generatePrivate(privSpec)
+
+        // Reconstruct public key from raw 64-byte uncompressed point (X || Y)
+        val pubX = BigInteger(1, publicKey.copyOfRange(0, 32))
+        val pubY = BigInteger(1, publicKey.copyOfRange(32, 64))
+        val pubSpec = ECPublicKeySpec(ECPoint(pubX, pubY), params)
         val publicKeyObj = keyFactory.generatePublic(pubSpec)
 
         val keyAgreement = KeyAgreement.getInstance("ECDH")
@@ -93,5 +130,21 @@ internal actual object CryptoEngine {
         val bytes = ByteArray(size)
         secureRandom.nextBytes(bytes)
         return bytes
+    }
+
+    /** Pad a BigInteger to exactly 32 bytes (big-endian, unsigned). */
+    private fun padTo32(value: BigInteger): ByteArray {
+        val bytes = value.toByteArray()
+        return when {
+            bytes.size == 32 -> bytes
+            bytes.size > 32 -> bytes.copyOfRange(bytes.size - 32, bytes.size)
+            else -> {
+                // BigInteger.toByteArray() uses two's complement, so leading
+                // zeros are omitted. Pad to exactly 32 bytes.
+                val padded = ByteArray(32)
+                bytes.copyInto(padded, 32 - bytes.size)
+                padded
+            }
+        }
     }
 }

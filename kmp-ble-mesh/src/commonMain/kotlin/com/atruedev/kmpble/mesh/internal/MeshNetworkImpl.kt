@@ -38,12 +38,14 @@ internal class MeshNetworkImpl(
     private val scope = CoroutineScope(meshDispatcher + SupervisorJob())
 
     // --- Layers ---
-    private val ivIndexTracker = IvIndexTracker()
+    private val ivIndexTracker: IvIndexTracker
     private val networkLayer = NetworkLayer(builder._networkKeys)
     private val upperTransport = UpperTransportLayer()
     private val lowerTransport = LowerTransportLayer()
-    private val seqManager = SequenceNumberManager()
     private val messageCache = MessageCache()
+
+    // Per-element sequence numbers: element unicast address -> SequenceNumberManager
+    private val seqManagers = mutableMapOf<Int, SequenceNumberManager>()
 
     // --- State ---
     private val _nodes = MutableStateFlow<List<MeshNode>>(emptyList())
@@ -57,12 +59,31 @@ internal class MeshNetworkImpl(
 
     /**
      * Pending acknowledged requests, keyed by destination address.
-     *
-     * When [send] is called with `acknowledged = true`, a deferred is stored
-     * here so that [processIncomingPdu] can complete it when the status
-     * response arrives from the destination node.
      */
     private val pendingRequests = mutableMapOf<Int, CompletableDeferred<MeshMessageResponse?>>()
+
+    init {
+        // Restore persisted state if available
+        val savedState = runBlocking { builder._stateStore.loadNetworkState() }
+        if (savedState.isSuccess && savedState.getOrNull() != null) {
+            val state = savedState.getOrNull()!!
+            ivIndexTracker = IvIndexTracker(state.ivIndex)
+            if (state.networkKeys.isNotEmpty()) {
+                builder._networkKeys.clear()
+                builder._networkKeys.addAll(state.networkKeys)
+            }
+            if (state.applicationKeys.isNotEmpty()) {
+                builder._applicationKeys.clear()
+                builder._applicationKeys.addAll(state.applicationKeys)
+            }
+            for (node in state.nodes) {
+                seqManagers[node.unicastAddress.value.toInt()] =
+                    SequenceNumberManager(node.lastSequenceNumber.toInt())
+            }
+        } else {
+            ivIndexTracker = IvIndexTracker()
+        }
+    }
 
     // --- Identity ---
 
@@ -83,22 +104,38 @@ internal class MeshNetworkImpl(
     override val applicationKeys: List<ApplicationKey> get() = builder._applicationKeys.toList()
 
     override suspend fun addNetworkKey(key: NetworkKey) {
-        withContext(meshDispatcher) { builder._networkKeys.add(key) }
+        withContext(meshDispatcher) {
+            builder._networkKeys.add(key)
+            saveState()
+        }
     }
 
     override suspend fun addApplicationKey(key: ApplicationKey) {
-        withContext(meshDispatcher) { builder._applicationKeys.add(key) }
+        withContext(meshDispatcher) {
+            builder._applicationKeys.add(key)
+            saveState()
+        }
     }
 
     // --- Node Management ---
 
     override suspend fun addNode(node: MeshNode) {
-        withContext(meshDispatcher) { _nodes.value = _nodes.value + node }
+        withContext(meshDispatcher) {
+            _nodes.value = _nodes.value + node
+            for (element in node.elements) {
+                val addr = element.unicastAddress.value.toInt()
+                if (!seqManagers.containsKey(addr)) {
+                    seqManagers[addr] = SequenceNumberManager()
+                }
+            }
+            saveState()
+        }
     }
 
     override suspend fun removeNode(address: MeshAddress.UnicastAddress) {
         withContext(meshDispatcher) {
             _nodes.value = _nodes.value.filter { it.unicastAddress != address }
+            saveState()
         }
     }
 
@@ -146,7 +183,7 @@ internal class MeshNetworkImpl(
             ?: throw MeshException(InvalidParameters(
                 "No network key bound to AppKey index ${appKey.index.value}"))
 
-        val seq = seqManager.nextSequenceNumber()
+        val seq = seqForElement(ownUnicastAddress)
         val ivIdx = ivIndexTracker.currentSendIvIndex
 
         // 1. Encode access PDU: opcode + parameters
@@ -165,6 +202,8 @@ internal class MeshNetworkImpl(
 
         // 4. Send via proxy
         conn.sendPdu(networkPdu)
+
+        saveState()
 
         if (!acknowledged) return null
 
@@ -187,7 +226,7 @@ internal class MeshNetworkImpl(
         val netKey = networkKeys.firstOrNull()
             ?: throw MeshException(InvalidParameters("No network key registered"))
 
-        val seq = seqManager.nextSequenceNumber()
+        val seq = seqForElement(ownUnicastAddress)
         val ivIdx = ivIndexTracker.currentSendIvIndex
 
         // 1. Encode access PDU: opcode + parameters
@@ -207,6 +246,8 @@ internal class MeshNetworkImpl(
         // 4. Send via proxy
         conn.sendPdu(networkPdu)
 
+        saveState()
+
         if (!acknowledged) return null
 
         return waitForResponse(destination)
@@ -223,11 +264,52 @@ internal class MeshNetworkImpl(
 
     override fun close() {
         closed.value = true
+        runBlocking { saveState() }
         scope.cancel()
         proxyConnection?.close()
     }
 
     // --- Private helpers ---
+
+    /**
+     * Get the next sequence number for an element, creating a new
+     * [SequenceNumberManager] if one doesn't exist for this element.
+     */
+    private fun seqForElement(unicastAddress: MeshAddress.UnicastAddress): Int {
+        val addr = unicastAddress.value.toInt()
+        return seqManagers.getOrPut(addr) { SequenceNumberManager() }
+            .nextSequenceNumber()
+    }
+
+    /**
+     * Persist the current network state via the configured [MeshStateStore].
+     * Called after every mutation that changes saved state: key changes,
+     * node changes, and message sends (which advance sequence numbers).
+     */
+    private suspend fun saveState() {
+        val state = MeshNetworkState(
+            ivIndex = ivIndexTracker.snapshot(),
+            unicastAddress = ownUnicastAddress,
+            networkKeys = builder._networkKeys.toList(),
+            applicationKeys = builder._applicationKeys.toList(),
+            nodes = _nodes.value.map { node ->
+                PersistedNodeState(
+                    unicastAddress = node.unicastAddress,
+                    deviceKey = node.deviceKey,
+                    lastSequenceNumber = node.elements.maxOfOrNull {
+                        seqManagers[it.unicastAddress.value.toInt()]?.current()?.toUInt() ?: 0u
+                    } ?: 0u,
+                    features = node.features,
+                )
+            },
+            lastUpdatedTimestamp = currentTimeMs(),
+        )
+        builder._stateStore.saveNetworkState(state)
+    }
+
+    private fun currentTimeMs(): Long =
+        kotlin.time.TimeSource.Monotonic.markNow().elapsedNow()
+            .inWholeMilliseconds
 
     /**
      * Process an incoming Network PDU from the proxy connection.
@@ -236,14 +318,11 @@ internal class MeshNetworkImpl(
      * or DeviceKey) → AccessLayer.decode → emit MeshMessage.
      */
     private suspend fun processIncomingPdu(pdu: NetworkPdu) {
-        // Check duplicate cache to prevent forwarding loops
         val src = pdu.src.value.toInt()
         val seq = pdu.seq.toInt()
-        if (messageCache.isDuplicate(src, seq)) return
-
         val ivIdx = ivIndexTracker.resolveReceiveIvIndex(pdu.ivi)
 
-        // 1. Network Layer: decrypt with NetKey
+        // 1. Network Layer: decrypt with NetKey (also checks replay protection)
         val transportPayload = networkLayer.decrypt(pdu, ivIdx) ?: return
 
         // 2. Upper Transport: try AppKey first, then DeviceKey for config messages
@@ -279,10 +358,14 @@ internal class MeshNetworkImpl(
 
         if (accessPdu == null) return // Could not decrypt
 
-        // 3. Access Layer: decode opcode + parameters
+        // 3. Check duplicate cache AFTER successful decryption to prevent
+        //    attackers from filling the cache with garbage (src, seq) pairs.
+        if (messageCache.isDuplicate(src, seq)) return
+
+        // 4. Access Layer: decode opcode + parameters
         val message = AccessLayer.decode(accessPdu)
 
-        // 4. Emit as public MeshMessage (appKey is null for DeviceKey messages)
+        // 5. Emit as public MeshMessage (appKey is null for DeviceKey messages)
         val meshMessage = MeshMessage(
             source = pdu.src,
             destination = pdu.dst,
@@ -292,7 +375,7 @@ internal class MeshNetworkImpl(
         )
         _incomingMessages.emit(meshMessage)
 
-        // 5. Resolve pending acknowledged request (if any)
+        // 6. Resolve pending acknowledged request (if any)
         pendingRequests[src]?.complete(
             MeshMessageResponse(message.opcode, message.parameters))
     }
