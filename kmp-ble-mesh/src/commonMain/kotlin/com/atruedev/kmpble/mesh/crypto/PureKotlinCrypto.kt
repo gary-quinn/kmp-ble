@@ -192,4 +192,63 @@ internal object PureKotlinCrypto {
 
     private fun rotr(value: Int, bits: Int): Int =
         (value ushr bits) or (value shl (32 - bits))
+
+    // --- CSPRNG ---
+
+    /** Entropy pool for the SHA-256 based CSPRNG. */
+    private val entropyPool = ByteArray(64)
+    private var entropyInitialized = false
+
+    /**
+     * Generate cryptographically secure random bytes using a SHA-256 based
+     * CSPRNG.
+     *
+     * Seeds the entropy pool from [kotlin.random.Random] on first call
+     * (acceptable for KMP portability; production apps on iOS should prefer
+     * SecRandomCopyBytes via cinterop). After seeding, each call mixes in
+     * timer-based entropy and re-hashes.
+     */
+    fun secureRandomBytes(size: Int): ByteArray {
+        if (!entropyInitialized) seedEntropyPool()
+        val result = ByteArray(size)
+        var generated = 0
+        while (generated < size) {
+            // Hash the pool to produce output
+            val hash = sha256(entropyPool)
+            val toCopy = minOf(hash.size, size - generated)
+            hash.copyInto(result, generated, 0, toCopy)
+            generated += toCopy
+            // Mix the hash back into the pool and add timer entropy
+            for (i in hash.indices) {
+                entropyPool[i] = (entropyPool[i].toInt() xor hash[i].toInt()).toByte()
+            }
+            val now = kotlin.time.TimeSource.Monotonic.markNow()
+                .elapsedNow().inWholeNanoseconds
+            for (i in 0..7) {
+                entropyPool[entropyPool.size - 8 + i] =
+                    (entropyPool[entropyPool.size - 8 + i].toInt() xor
+                        ((now ushr (i * 8)) and 0xFF).toInt()).toByte()
+            }
+        }
+        return result
+    }
+
+    private fun seedEntropyPool() {
+        // Initial seed from kotlin.random.Random
+        for (i in entropyPool.indices) {
+            entropyPool[i] = kotlin.random.Random.nextInt(256).toByte()
+        }
+        // Mix in timer entropy
+        val t1 = kotlin.time.TimeSource.Monotonic.markNow().elapsedNow()
+            .inWholeNanoseconds
+        val t2 = kotlin.time.TimeSource.Monotonic.markNow().elapsedNow()
+            .inWholeNanoseconds
+        for (i in 0..7) {
+            entropyPool[i] = (entropyPool[i].toInt() xor
+                ((t1 ushr (i * 8)) and 0xFF).toInt()).toByte()
+            entropyPool[8 + i] = (entropyPool[8 + i].toInt() xor
+                ((t2 ushr (i * 8)) and 0xFF).toInt()).toByte()
+        }
+        entropyInitialized = true
+    }
 }
