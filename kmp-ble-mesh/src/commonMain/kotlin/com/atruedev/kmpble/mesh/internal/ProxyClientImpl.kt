@@ -40,11 +40,20 @@ internal class ProxyConnectionImpl(
     /** Buffer for reassembling multi-segment incoming Proxy PDUs. */
     private val reassemblyBuffer = mutableListOf<ByteArray>()
 
+    /**
+     * Completes when [discoverAndSubscribe] finishes GATT service discovery
+     * and notification subscription. [sendPdu] awaits this to ensure writes
+     * don't race with discovery.
+     */
+    private val gattReady = CompletableDeferred<Unit>()
+
     init {
         scope.launch {
             try {
                 discoverAndSubscribe()
+                gattReady.complete(Unit)
             } catch (e: Exception) {
+                gattReady.completeExceptionally(e)
                 _isConnected.value = false
                 MeshLogger.w(MeshLogger.TAG_PROXY,
                     "Failed to initialize proxy: ${e.message}", e)
@@ -64,7 +73,25 @@ internal class ProxyConnectionImpl(
         }
     }
 
+    /**
+     * Wait for GATT discovery to complete (with 10-second timeout).
+     * Called by [MeshNetworkImpl.connectProxy] before returning the
+     * connection, and internally by [sendPdu] as a safety check.
+     */
+    internal suspend fun awaitGattReady() {
+        try {
+            withTimeout(GATT_READY_TIMEOUT_MS) { gattReady.await() }
+        } catch (e: TimeoutCancellationException) {
+            throw MeshException(ProxyConnectionFailed(
+                "Timed out waiting for GATT service discovery"))
+        } catch (e: Exception) {
+            throw MeshException(ProxyConnectionFailed(
+                "GATT service discovery failed: ${e.message}"))
+        }
+    }
+
     override suspend fun sendPdu(pdu: NetworkPdu) {
+        awaitGattReady()
         val rawPdu = pduToBytes(pdu)
 
         // Segment for GATT MTU if needed, then write each segment
@@ -204,4 +231,9 @@ internal class ProxyConnectionImpl(
 
     /** Effective ATT MTU for proxy PDU segmentation. */
     private fun effectiveMtu(): Int = 69 // Default: BLE 4.2+ MTU of 72 - 3 ATT header
+
+    companion object {
+        /** Timeout for GATT service discovery and notification subscription. */
+        private const val GATT_READY_TIMEOUT_MS = 10_000L
+    }
 }

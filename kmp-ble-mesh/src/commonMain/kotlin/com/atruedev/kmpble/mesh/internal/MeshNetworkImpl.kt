@@ -149,6 +149,8 @@ internal class MeshNetworkImpl(
 
     override suspend fun connectProxy(peripheral: Peripheral): ProxyConnection {
         val conn = ProxyConnectionImpl(peripheral, this)
+        // Wait for GATT service discovery + notification subscription
+        conn.awaitGattReady()
         proxyConnection = conn
         _isProxyConnected.value = true
         scope.launch {
