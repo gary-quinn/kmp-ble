@@ -184,10 +184,35 @@ internal class ProvisioningStateMachine(
         deviceKey.key
 }
 
-/** Extension to get raw bytes for crypto from OobAuthentication. */
+/**
+ * Convert an OOB authentication value to the 16-byte AuthValue used
+ * in the provisioning confirmation calculation.
+ *
+ * Per BLE Mesh Profile v1.1, Section 5.4:
+ * - None: All zeros.
+ * - StaticOob: The 16-byte key directly.
+ * - OutputOob/InputOob: The integer value is zero-padded to 16 bytes
+ *   in big-endian order (least significant byte at offset 15).
+ */
 private fun OobAuthentication.getRawAuthValueForCrypto(): ByteArray = when (this) {
     is OobAuthentication.None -> ByteArray(16)
     is OobAuthentication.StaticOob -> key
-    is OobAuthentication.OutputOob -> ByteArray(size) { 0 }
-    is OobAuthentication.InputOob -> ByteArray(size) { 0 }
+    is OobAuthentication.OutputOob -> {
+        val bytes = ByteArray(16)
+        var v = value
+        for (i in 15 downTo 16 - size) {
+            bytes[i] = (v and 0xFF).toByte()
+            v = v shr 8
+        }
+        bytes
+    }
+    is OobAuthentication.InputOob -> {
+        val bytes = ByteArray(16)
+        var v = value
+        for (i in 15 downTo 16 - size) {
+            bytes[i] = (v and 0xFF).toByte()
+            v = v shr 8
+        }
+        bytes
+    }
 }

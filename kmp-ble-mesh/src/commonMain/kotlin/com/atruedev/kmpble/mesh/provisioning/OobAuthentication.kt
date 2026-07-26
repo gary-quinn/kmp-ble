@@ -18,20 +18,42 @@ public sealed interface OobAuthentication {
         init { require(key.size == 16) { "Static OOB key must be 16 bytes" } }
     }
 
-    /** Device outputs a value, user enters it on the provisioner. */
+    /**
+     * Device outputs a value, user enters it on the provisioner.
+     *
+     * @param action How the device communicates the value (blink, beep, etc.).
+     * @param size Number of digits (1-8).
+     * @param value The OOB value the user read from the device and entered
+     *              on the provisioner. Must fit in [size] decimal digits.
+     */
     public data class OutputOob(
         val action: OutputOobAction,
         val size: Int,
+        val value: Int,
     ) : OobAuthentication {
-        init { require(size in 1..8) { "Output OOB size must be 1-8" } }
+        init {
+            require(size in 1..8) { "Output OOB size must be 1-8" }
+            require(value >= 0) { "Output OOB value must be non-negative" }
+        }
     }
 
-    /** Provisioner outputs a value, user enters it on the device. */
+    /**
+     * Provisioner outputs a value, user enters it on the device.
+     *
+     * @param action How the user inputs on the device (push, twist, etc.).
+     * @param size Number of digits (1-8).
+     * @param value The OOB value the provisioner generated and displayed to
+     *              the user for entry on the device. Must fit in [size] decimal digits.
+     */
     public data class InputOob(
         val action: InputOobAction,
         val size: Int,
+        val value: Int,
     ) : OobAuthentication {
-        init { require(size in 1..8) { "Input OOB size must be 1-8" } }
+        init {
+            require(size in 1..8) { "Input OOB size must be 1-8" }
+            require(value >= 0) { "Input OOB value must be non-negative" }
+        }
     }
 }
 

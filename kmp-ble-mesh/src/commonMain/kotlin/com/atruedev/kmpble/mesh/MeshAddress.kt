@@ -1,5 +1,6 @@
 package com.atruedev.kmpble.mesh
 
+import com.atruedev.kmpble.mesh.crypto.KeyDerivation
 import kotlin.jvm.JvmInline
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
@@ -88,23 +89,13 @@ public sealed interface MeshAddress : Comparable<MeshAddress> {
             /**
              * Derive the 16-bit hash value from a UUID label.
              *
-             * The algorithm is defined in the BLE Mesh Profile specification:
-             * `AES-CMAC(vtadSalt, labelBytes)`, taking the lower 16 bits.
+             * Per BLE Mesh Profile v1.1, Section 3.8:
+             * `AES-CMAC(vtadSalt, labelBytes)`, taking the lower 16 bits
+             * (bytes 14..15) of the resulting 16-byte MAC.
              */
             @OptIn(ExperimentalUuidApi::class)
-            public fun deriveVirtualAddressHash(uuid: Uuid): UShort {
-                // Placeholder implementation using UUID bytes directly.
-                // The actual implementation requires AES-CMAC which is in the crypto package.
-                // This will be replaced by crypto/KeyDerivation.kt once implemented.
-                val bytes = uuid.toByteArray()
-                var hash = 0
-                for (i in bytes.indices step 2) {
-                    val word = ((bytes[i].toInt() and 0xFF) shl 8) or
-                        (if (i + 1 < bytes.size) (bytes[i + 1].toInt() and 0xFF) else 0)
-                    hash = hash xor word
-                }
-                return hash.toUShort()
-            }
+            public fun deriveVirtualAddressHash(uuid: Uuid): UShort =
+                KeyDerivation.deriveVirtualAddress(uuid.toByteArray())
         }
     }
 
