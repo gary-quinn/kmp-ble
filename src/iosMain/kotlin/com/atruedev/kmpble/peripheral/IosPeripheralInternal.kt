@@ -33,7 +33,6 @@ internal fun IosPeripheral.requireNativeCbDesc(d: Descriptor): CBDescriptor =
     nativeDescMap[d] ?: throw BleException(StaleGattHandle("descriptor", d.uuid.toString()))
 
 internal fun IosPeripheral.onDisconnectCleanup() {
-    knownServicesValid.value = false
     nativeCharMap.clear()
     nativeDescMap.clear()
     closeL2capChannels()
