@@ -6,6 +6,9 @@ import com.atruedev.kmpble.gatt.internal.PendingOp
 import com.atruedev.kmpble.gatt.internal.PendingOperations
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.test.runTest
+import platform.CoreBluetooth.CBMutableService
+import platform.CoreBluetooth.CBService
+import platform.CoreBluetooth.CBUUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -249,6 +252,62 @@ class IosGattEventHandlerTest {
         }
 
     // -- Discovery event handling (services and characteristics) --
+
+    // CBMutableService is a public, instantiable subclass of the framework's CBService,
+    // so it stands in for real discovered services without needing a live CBPeripheral
+    // (which CoreBluetooth never lets app code construct directly).
+
+    @Test
+    fun `distinct CBService instances with the same UUID are not reference-equal`() {
+        val uuid = CBUUID.UUIDWithString("180D")
+        val serviceA = CBMutableService(type = uuid, primary = true)
+        val serviceB = CBMutableService(type = uuid, primary = true)
+
+        assertEquals(serviceA.UUID.UUIDString, serviceB.UUID.UUIDString)
+        assertFalse(serviceA === serviceB)
+    }
+
+    @Test
+    fun `resolving a service by UUID string collapses duplicate-UUID services to the first match`() {
+        // Characterizes the bug fixed by passing the CBService instance through directly:
+        // ApplePeripheralBridge.discoverCharacteristics used to re-resolve the service by
+        // UUID string, so a peripheral exposing two services with the same UUID (legal per
+        // the BLE spec) always resolved to the first one - the second was never reachable.
+        val uuid = CBUUID.UUIDWithString("180D")
+        val serviceA = CBMutableService(type = uuid, primary = true)
+        val serviceB = CBMutableService(type = uuid, primary = true)
+        val services: List<CBService> = listOf(serviceA, serviceB)
+
+        fun resolveByUuid(uuidString: String) = services.filter { it.UUID.UUIDString == uuidString }.firstOrNull()
+
+        assertTrue(resolveByUuid(serviceA.UUID.UUIDString) === serviceA)
+        assertTrue(resolveByUuid(serviceB.UUID.UUIDString) === serviceA)
+        assertFalse(resolveByUuid(serviceB.UUID.UUIDString) === serviceB)
+    }
+
+    @Test
+    fun `pendingServices keeps one entry per service instead of per UUID`() {
+        // Mirrors IosPeripheralDiscovery.handleServicesDiscovered's pendingServices construction.
+        // A List (not a Set) preserves one entry per duplicate-UUID service, since each gets
+        // its own didDiscoverCharacteristicsForService callback.
+        val uuid = CBUUID.UUIDWithString("180D")
+        val services: List<CBService> =
+            listOf(
+                CBMutableService(type = uuid, primary = true),
+                CBMutableService(type = uuid, primary = true),
+            )
+
+        val pending = services.map { it.UUID.UUIDString }.toMutableList()
+        assertEquals(2, pending.size)
+
+        // Each callback removes only the first matching entry - mirrors
+        // IosPeripheralDiscovery.handleCharacteristicsDiscovered.
+        pending.remove(uuid.UUIDString)
+        assertEquals(1, pending.size, "one outstanding entry should remain for the second service")
+
+        pending.remove(uuid.UUIDString)
+        assertTrue(pending.isEmpty())
+    }
 
     @Test
     fun `pendingOps clear resets all state`() =

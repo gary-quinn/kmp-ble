@@ -24,7 +24,7 @@ import kotlin.uuid.ExperimentalUuidApi
  */
 internal data class DiscoveryCycle(
     val generation: Int,
-    val pendingServices: Set<String>,
+    val pendingServices: MutableList<String>,
     val discoveredServices: MutableList<DiscoveredService> = mutableListOf(),
 )
 
@@ -52,10 +52,13 @@ internal suspend fun IosPeripheral.handleServicesDiscovered(event: AppleCallback
     }
 
     val generation = discoveryGeneration.value
-    val pending = cbServices.map { it.UUID.UUIDString }.toSet()
+    // Keep one entry per service, not per UUID - a peripheral may expose more than one
+    // service with the same UUID, and each one gets its own didDiscoverCharacteristicsForService
+    // callback.
+    val pending = cbServices.map { it.UUID.UUIDString }.toMutableList()
     currentDiscovery = DiscoveryCycle(generation = generation, pendingServices = pending)
 
-    cbServices.forEach { bridge.discoverCharacteristics(it.UUID.UUIDString) }
+    cbServices.forEach { bridge.discoverCharacteristics(it) }
 }
 
 @OptIn(ExperimentalUuidApi::class)
@@ -68,7 +71,9 @@ internal suspend fun IosPeripheral.handleCharacteristicsDiscovered(
     // Ignore stale callbacks from previous discovery generations
     if (cycle.generation != discoveryGeneration.value) return
 
-    (cycle.pendingServices as MutableSet<String>).remove(event.serviceUuid)
+    // Removes only the first matching entry, so a duplicate-UUID service still has
+    // its own outstanding entry after this one is cleared.
+    cycle.pendingServices.remove(event.serviceUuid)
 
     if (event.error != null) {
         val status = event.error.toGattStatus()
