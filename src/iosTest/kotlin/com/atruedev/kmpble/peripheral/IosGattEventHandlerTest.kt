@@ -286,11 +286,10 @@ class IosGattEventHandlerTest {
     }
 
     @Test
-    fun `pendingServices set still collapses duplicate-UUID services into a single entry`() {
+    fun `pendingServices keeps one entry per service instead of per UUID`() {
         // Mirrors IosPeripheralDiscovery.handleServicesDiscovered's pendingServices construction.
-        // Known remaining limitation (not addressed by the CBService pass-through fix): a
-        // discovery cycle still expects only one didDiscoverCharacteristicsForService callback
-        // per UUID, even when two distinct services share that UUID.
+        // A List (not a Set) preserves one entry per duplicate-UUID service, since each gets
+        // its own didDiscoverCharacteristicsForService callback.
         val uuid = CBUUID.UUIDWithString("180D")
         val services: List<CBService> =
             listOf(
@@ -298,9 +297,16 @@ class IosGattEventHandlerTest {
                 CBMutableService(type = uuid, primary = true),
             )
 
-        val pending = services.map { it.UUID.UUIDString }.toSet()
+        val pending = services.map { it.UUID.UUIDString }.toMutableList()
+        assertEquals(2, pending.size)
 
-        assertEquals(1, pending.size)
+        // Each callback removes only the first matching entry - mirrors
+        // IosPeripheralDiscovery.handleCharacteristicsDiscovered.
+        pending.remove(uuid.UUIDString)
+        assertEquals(1, pending.size, "one outstanding entry should remain for the second service")
+
+        pending.remove(uuid.UUIDString)
+        assertTrue(pending.isEmpty())
     }
 
     @Test
