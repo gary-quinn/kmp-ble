@@ -327,28 +327,28 @@ class IosGattEventHandlerTest {
     }
 
     @Test
-    fun `cbServicesUsableFromCache is false when the validity flag is unset`() {
+    fun `serviceCacheUsable is false when the validity flag is unset`() {
         val service = fakeServiceWithCharacteristics()
-        assertFalse(cbServicesUsableFromCache(knownServicesValid = false, cbServices = listOf(service)))
+        assertFalse(serviceCacheUsable(knownServicesValid = false, cbServices = listOf(service)))
     }
 
     @Test
-    fun `cbServicesUsableFromCache is false with no services`() {
-        assertFalse(cbServicesUsableFromCache(knownServicesValid = true, cbServices = emptyList()))
+    fun `serviceCacheUsable is false with no services`() {
+        assertFalse(serviceCacheUsable(knownServicesValid = true, cbServices = emptyList()))
     }
 
     @Test
-    fun `cbServicesUsableFromCache is false when a service has no cached characteristics`() {
+    fun `serviceCacheUsable is false when a service has no cached characteristics`() {
         // characteristics is null until CoreBluetooth (or a real discovery cycle) populates it -
         // using such a service without rediscovery would leave nativeCharMap empty for it.
         val undiscovered = CBMutableService(type = CBUUID.UUIDWithString("180D"), primary = true)
-        assertFalse(cbServicesUsableFromCache(knownServicesValid = true, cbServices = listOf(undiscovered)))
+        assertFalse(serviceCacheUsable(knownServicesValid = true, cbServices = listOf(undiscovered)))
     }
 
     @Test
-    fun `cbServicesUsableFromCache is true when valid and every service has cached characteristics`() {
+    fun `serviceCacheUsable is true when valid and every service has cached characteristics`() {
         val service = fakeServiceWithCharacteristics()
-        assertTrue(cbServicesUsableFromCache(knownServicesValid = true, cbServices = listOf(service)))
+        assertTrue(serviceCacheUsable(knownServicesValid = true, cbServices = listOf(service)))
     }
 
     @Test

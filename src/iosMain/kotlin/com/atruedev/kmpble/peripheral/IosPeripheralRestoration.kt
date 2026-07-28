@@ -39,8 +39,8 @@ internal suspend fun IosPeripheral.restoreFromStateRestorationExt(savedObservati
                 nativeCharMap.clear()
                 nativeDescMap.clear()
 
-                val cachedServices = cbPeripheral.services?.filterIsInstance<CBService>().orEmpty()
-                if (cbServicesUsableFromCache(knownServicesValid.value, cachedServices)) {
+                if (canReuseServiceCache()) {
+                    val cachedServices = cbPeripheral.services?.filterIsInstance<CBService>().orEmpty()
                     finishDiscoveryFromCache(cachedServices)
                 } else {
                     val deferred = slots.armConnect()

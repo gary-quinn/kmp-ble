@@ -9,6 +9,9 @@ import com.atruedev.kmpble.peripheral.internal.findCharacteristic
 import com.atruedev.kmpble.peripheral.state.ConnectionEvent
 import com.atruedev.kmpble.peripheral.state.State
 import com.atruedev.kmpble.scanner.uuidFrom
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.withTimeout
 import platform.CoreBluetooth.CBCharacteristic
 import platform.CoreBluetooth.CBCharacteristicPropertyAuthenticatedSignedWrites
 import platform.CoreBluetooth.CBCharacteristicPropertyIndicate
@@ -111,17 +114,43 @@ internal suspend fun IosPeripheral.finishDiscovery(discovered: List<DiscoveredSe
 }
 
 /**
- * Whether [cbServices] can be used as-is instead of running a fresh native discovery:
- * the last discovery is still valid (no `didModifyServices` since), there is at least
- * one service, and every service already has its characteristics cached.
+ * Pure boolean check: whether [cbServices] are usable from cache given the validity flag.
+ * Extracted so tests can exercise the logic without constructing an IosPeripheral.
  */
-internal fun cbServicesUsableFromCache(
+internal fun serviceCacheUsable(
     knownServicesValid: Boolean,
     cbServices: List<CBService>,
 ): Boolean =
     knownServicesValid &&
         cbServices.isNotEmpty() &&
         cbServices.all { it.characteristics != null }
+
+internal fun IosPeripheral.canReuseServiceCache(): Boolean {
+    val cbServices = cbPeripheral.services?.filterIsInstance<CBService>().orEmpty()
+    return serviceCacheUsable(knownServicesValid.value, cbServices)
+}
+
+/**
+ * Attempts to reuse cached CoreBluetooth services to finish discovery, falling back
+ * to a full native `discoverServices`/`discoverCharacteristics` round trip when the
+ * cache is empty, incomplete, or invalidated. Used by both the normal connect path
+ * and state restoration to avoid redundant discovery on reconnects.
+ */
+@OptIn(ExperimentalUuidApi::class)
+internal suspend fun IosPeripheral.tryReuseCacheOrDiscover() {
+    if (canReuseServiceCache()) {
+        val cbServices = cbPeripheral.services?.filterIsInstance<CBService>().orEmpty()
+        finishDiscoveryFromCache(cbServices)
+        return
+    }
+    val deferred = slots.armConnect()
+    try {
+        bridge.discoverServices()
+        withTimeout(currentTimeouts.serviceDiscovery) { deferred.await() }
+    } finally {
+        slots.clearConnect()
+    }
+}
 
 /**
  * Finalizes discovery from services CoreBluetooth already has cached on [IosPeripheral.cbPeripheral],
@@ -138,16 +167,37 @@ internal suspend fun IosPeripheral.finishDiscoveryFromCache(cbServices: List<CBS
  * The peripheral's GATT table changed. Cached services/characteristics are no longer
  * trustworthy - invalidate them and, if still connected, rediscover immediately rather
  * than waiting for the next reconnect.
+ *
+ * Reuses the same armConnect/clearConnect pattern as the normal connect flow so the
+ * discovery deferred is properly awaited and cleared -- unlike a fire-and-forget
+ * discoverServices() call which leaves nativeCharMap empty until the callback fires.
  */
 internal suspend fun IosPeripheral.handleServicesModified() {
     knownServicesValid.value = false
     if (peripheralContext.state.value !is State.Connected) return
+    // Guard against concurrent discovery cycles. tryArmDiscovery alone isn't
+    // enough because finishDiscovery() completes the connect deferred, so we
+    // must also arm the connect slot.
     if (!slots.tryArmDiscovery()) return
-    currentDiscovery = null
     discoveryGeneration.incrementAndGet()
     nativeCharMap.clear()
     nativeDescMap.clear()
-    bridge.discoverServices()
+    currentDiscovery = null
+
+    val deferred = slots.armConnect()
+    try {
+        bridge.discoverServices()
+        withTimeout(currentTimeouts.serviceDiscovery) { deferred.await() }
+    } catch (_: CancellationException) {
+        throw CancellationException("Service rediscovery cancelled")
+    } catch (_: TimeoutCancellationException) {
+        peripheralContext.processEvent(
+            ConnectionEvent.DiscoveryFailed(ServiceDiscoveryError(serviceUuid = null, status = null)),
+        )
+        slots.failDiscovery(BleException(ServiceDiscoveryError(serviceUuid = null, status = null)))
+    } finally {
+        slots.clearConnect()
+    }
 }
 
 @OptIn(ExperimentalUuidApi::class)

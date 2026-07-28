@@ -89,8 +89,8 @@ internal fun IosPeripheral.handleConnectionCallback(
             // CoreBluetooth caches services/characteristics on the peripheral across
             // reconnects until a didModifyServices callback invalidates them - reuse
             // that cache instead of re-running discovery on every reconnect.
-            val cachedServices = cbPeripheral.services?.filterIsInstance<CBService>().orEmpty()
-            if (cbServicesUsableFromCache(knownServicesValid.value, cachedServices)) {
+            if (canReuseServiceCache()) {
+                val cachedServices = cbPeripheral.services?.filterIsInstance<CBService>().orEmpty()
                 finishDiscoveryFromCache(cachedServices)
                 return@launch
             }
