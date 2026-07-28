@@ -5,6 +5,7 @@ import com.atruedev.kmpble.peripheral.state.ConnectionEvent
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import platform.CoreBluetooth.CBPeripheralStateConnected
+import platform.CoreBluetooth.CBService
 
 /**
  * Restore this peripheral from iOS state restoration.
@@ -38,12 +39,17 @@ internal suspend fun IosPeripheral.restoreFromStateRestorationExt(savedObservati
                 nativeCharMap.clear()
                 nativeDescMap.clear()
 
-                val deferred = slots.armConnect()
-                try {
-                    bridge.discoverServices()
-                    withTimeout(currentTimeouts.serviceDiscovery) { deferred.await() }
-                } finally {
-                    slots.clearConnect()
+                val cachedServices = cbPeripheral.services?.filterIsInstance<CBService>().orEmpty()
+                if (cbServicesUsableFromCache(knownServicesValid.value, cachedServices)) {
+                    finishDiscoveryFromCache(cachedServices)
+                } else {
+                    val deferred = slots.armConnect()
+                    try {
+                        bridge.discoverServices()
+                        withTimeout(currentTimeouts.serviceDiscovery) { deferred.await() }
+                    } finally {
+                        slots.clearConnect()
+                    }
                 }
             } finally {
                 slots.clearDiscovery()

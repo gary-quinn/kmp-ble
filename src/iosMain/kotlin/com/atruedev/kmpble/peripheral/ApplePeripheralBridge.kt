@@ -57,6 +57,12 @@ internal sealed interface AppleCallbackEvent {
         val channel: CBL2CAPChannel?,
         val error: NSError?,
     ) : AppleCallbackEvent
+
+    /**
+     * The peripheral's GATT table changed (e.g. a firmware-side Service Changed
+     * indication). Previously cached services/characteristics are no longer valid.
+     */
+    data object DidModifyServices : AppleCallbackEvent
 }
 
 internal class ApplePeripheralBridge(
@@ -134,6 +140,13 @@ internal class ApplePeripheralBridge(
                 error: NSError?,
             ) {
                 _onEvent.value?.invoke(AppleCallbackEvent.DidOpenL2CAPChannel(didOpenL2CAPChannel, error))
+            }
+
+            override fun peripheral(
+                peripheral: CBPeripheral,
+                didModifyServices: List<*>,
+            ) {
+                _onEvent.value?.invoke(AppleCallbackEvent.DidModifyServices)
             }
         }
 

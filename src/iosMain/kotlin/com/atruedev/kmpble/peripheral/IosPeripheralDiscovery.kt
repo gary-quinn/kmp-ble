@@ -7,6 +7,7 @@ import com.atruedev.kmpble.gatt.Descriptor
 import com.atruedev.kmpble.gatt.DiscoveredService
 import com.atruedev.kmpble.peripheral.internal.findCharacteristic
 import com.atruedev.kmpble.peripheral.state.ConnectionEvent
+import com.atruedev.kmpble.peripheral.state.State
 import com.atruedev.kmpble.scanner.uuidFrom
 import platform.CoreBluetooth.CBCharacteristic
 import platform.CoreBluetooth.CBCharacteristicPropertyAuthenticatedSignedWrites
@@ -100,12 +101,53 @@ internal suspend fun IosPeripheral.handleCharacteristicsDiscovered(
 
 @OptIn(ExperimentalUuidApi::class)
 internal suspend fun IosPeripheral.finishDiscovery(discovered: List<DiscoveredService>) {
+    knownServicesValid.value = true
     peripheralContext.processEvent(ConnectionEvent.ServicesDiscovered)
     peripheralContext.updateServices(discovered)
     resubscribeObservations()
     peripheralContext.processEvent(ConnectionEvent.ConfigurationComplete)
     slots.completeConnect()
     slots.completeDiscovery(discovered)
+}
+
+/**
+ * Whether [cbServices] can be used as-is instead of running a fresh native discovery:
+ * the last discovery is still valid (no `didModifyServices` since), there is at least
+ * one service, and every service already has its characteristics cached.
+ */
+internal fun cbServicesUsableFromCache(
+    knownServicesValid: Boolean,
+    cbServices: List<CBService>,
+): Boolean =
+    knownServicesValid &&
+        cbServices.isNotEmpty() &&
+        cbServices.all { it.characteristics != null }
+
+/**
+ * Finalizes discovery from services CoreBluetooth already has cached on [IosPeripheral.cbPeripheral],
+ * skipping a redundant native `discoverServices`/`discoverCharacteristics` round trip. Only valid
+ * when [IosPeripheral.knownServicesValid] holds - i.e. no `didModifyServices` callback has
+ * invalidated the cache since the last full discovery.
+ */
+@OptIn(ExperimentalUuidApi::class)
+internal suspend fun IosPeripheral.finishDiscoveryFromCache(cbServices: List<CBService>) {
+    finishDiscovery(cbServices.map { it.toDiscoveredService(this) })
+}
+
+/**
+ * The peripheral's GATT table changed. Cached services/characteristics are no longer
+ * trustworthy - invalidate them and, if still connected, rediscover immediately rather
+ * than waiting for the next reconnect.
+ */
+internal suspend fun IosPeripheral.handleServicesModified() {
+    knownServicesValid.value = false
+    if (peripheralContext.state.value !is State.Connected) return
+    if (!slots.tryArmDiscovery()) return
+    currentDiscovery = null
+    discoveryGeneration.incrementAndGet()
+    nativeCharMap.clear()
+    nativeDescMap.clear()
+    bridge.discoverServices()
 }
 
 @OptIn(ExperimentalUuidApi::class)

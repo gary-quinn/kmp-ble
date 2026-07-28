@@ -25,6 +25,7 @@ internal fun IosPeripheral.handleBridgeEvent(event: AppleCallbackEvent) {
                 pendingOps.complete(PendingOp.DescriptorWrite, event.error.toGattStatus())
             is AppleCallbackEvent.DidReadRSSI -> handleRssi(event)
             is AppleCallbackEvent.DidOpenL2CAPChannel -> handleDidOpenL2CAPChannel(event)
+            is AppleCallbackEvent.DidModifyServices -> handleServicesModified()
         }
     }
 }

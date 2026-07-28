@@ -97,6 +97,14 @@ public class IosPeripheral(
     /** Discovery generation counter - increments on each new discovery cycle to detect stale callbacks. */
     internal val discoveryGeneration = atomic(0)
 
+    /**
+     * Whether the last completed service discovery is still valid. CoreBluetooth caches
+     * discovered services/characteristics on [cbPeripheral] across reconnects, so a
+     * reconnect can reuse them instead of re-running discovery - until a
+     * `didModifyServices` callback clears this.
+     */
+    internal val knownServicesValid = atomic(false)
+
     /** Current discovery cycle state, confined to peripheralContext.dispatcher. */
     internal var currentDiscovery: DiscoveryCycle? = null
 

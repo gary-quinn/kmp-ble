@@ -17,6 +17,7 @@ import platform.CoreBluetooth.CBErrorConnectionFailed
 import platform.CoreBluetooth.CBErrorConnectionLimitReached
 import platform.CoreBluetooth.CBErrorConnectionTimeout
 import platform.CoreBluetooth.CBErrorPeripheralDisconnected
+import platform.CoreBluetooth.CBService
 import platform.Foundation.NSError
 
 /**
@@ -84,6 +85,16 @@ internal fun IosPeripheral.handleConnectionCallback(
             discoveryGeneration.incrementAndGet()
             nativeCharMap.clear()
             nativeDescMap.clear()
+
+            // CoreBluetooth caches services/characteristics on the peripheral across
+            // reconnects until a didModifyServices callback invalidates them - reuse
+            // that cache instead of re-running discovery on every reconnect.
+            val cachedServices = cbPeripheral.services?.filterIsInstance<CBService>().orEmpty()
+            if (cbServicesUsableFromCache(knownServicesValid.value, cachedServices)) {
+                finishDiscoveryFromCache(cachedServices)
+                return@launch
+            }
+
             try {
                 bridge.discoverServices()
             } catch (e: CancellationException) {
