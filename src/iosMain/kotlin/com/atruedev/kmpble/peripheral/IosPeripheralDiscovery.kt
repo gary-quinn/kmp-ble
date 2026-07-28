@@ -7,6 +7,7 @@ import com.atruedev.kmpble.gatt.Descriptor
 import com.atruedev.kmpble.gatt.DiscoveredService
 import com.atruedev.kmpble.peripheral.internal.findCharacteristic
 import com.atruedev.kmpble.peripheral.state.ConnectionEvent
+import com.atruedev.kmpble.peripheral.state.State
 import com.atruedev.kmpble.scanner.uuidFrom
 import platform.CoreBluetooth.CBCharacteristic
 import platform.CoreBluetooth.CBCharacteristicPropertyAuthenticatedSignedWrites
@@ -100,12 +101,65 @@ internal suspend fun IosPeripheral.handleCharacteristicsDiscovered(
 
 @OptIn(ExperimentalUuidApi::class)
 internal suspend fun IosPeripheral.finishDiscovery(discovered: List<DiscoveredService>) {
+    knownServicesValid.value = true
     peripheralContext.processEvent(ConnectionEvent.ServicesDiscovered)
     peripheralContext.updateServices(discovered)
     resubscribeObservations()
     peripheralContext.processEvent(ConnectionEvent.ConfigurationComplete)
     slots.completeConnect()
     slots.completeDiscovery(discovered)
+}
+
+/**
+ * Pure boolean check: whether [cbServices] are usable from cache given the validity flag.
+ * Extracted so tests can exercise the logic without constructing an IosPeripheral.
+ */
+internal fun serviceCacheUsable(
+    knownServicesValid: Boolean,
+    cbServices: List<CBService>,
+): Boolean =
+    knownServicesValid &&
+        cbServices.isNotEmpty() &&
+        cbServices.all { it.characteristics != null }
+
+internal fun IosPeripheral.canReuseServiceCache(): Boolean {
+    val cbServices = cbPeripheral.services?.filterIsInstance<CBService>().orEmpty()
+    return serviceCacheUsable(knownServicesValid.value, cbServices)
+}
+
+/**
+ * Finalizes discovery from services CoreBluetooth already has cached on [IosPeripheral.cbPeripheral],
+ * skipping a redundant native `discoverServices`/`discoverCharacteristics` round trip. Only valid
+ * when [IosPeripheral.knownServicesValid] holds - i.e. no `didModifyServices` callback has
+ * invalidated the cache since the last full discovery.
+ */
+@OptIn(ExperimentalUuidApi::class)
+internal suspend fun IosPeripheral.finishDiscoveryFromCache(cbServices: List<CBService>) {
+    finishDiscovery(cbServices.map { it.toDiscoveredService(this) })
+}
+
+/**
+ * The peripheral's GATT table changed. Cached services/characteristics are no longer
+ * trustworthy - invalidate them and, if still connected, rediscover immediately rather
+ * than waiting for the next reconnect.
+ *
+ * Does NOT arm a connect slot (slots.armConnect) because the peripheral is already
+ * connected when didModifyServices fires -- armConnect would throw if the original
+ * connect flow still holds the slot. Instead, uses tryArmDiscovery to guard against
+ * concurrent discovery cycles, then runs discoverServices() fire-and-forget like the
+ * normal connect path's handleConnectionCallback does. The async callback chain
+ * (didDiscoverServices -> didDiscoverCharacteristics -> finishDiscovery) handles
+ * completion, including repopulating nativeCharMap and resubscribing observations.
+ */
+internal suspend fun IosPeripheral.handleServicesModified() {
+    knownServicesValid.value = false
+    if (peripheralContext.state.value !is State.Connected) return
+    if (!slots.tryArmDiscovery()) return
+    discoveryGeneration.incrementAndGet()
+    nativeCharMap.clear()
+    nativeDescMap.clear()
+    currentDiscovery = null
+    bridge.discoverServices()
 }
 
 @OptIn(ExperimentalUuidApi::class)
