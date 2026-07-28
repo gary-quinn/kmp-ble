@@ -155,12 +155,9 @@ internal class ApplePeripheralBridge(
         return true
     }
 
-    internal fun discoverCharacteristics(serviceUuid: String) {
+    internal fun discoverCharacteristics(service: CBService) {
         cbPeripheral.delegate = peripheralDelegate
-        val cbServices =
-            cbPeripheral.services?.filterIsInstance<CBService>()?.filter { it.UUID.UUIDString == serviceUuid }
-                ?: emptyList()
-        cbServices.firstOrNull()?.let { cbPeripheral.discoverCharacteristics(null, it) }
+        cbPeripheral.discoverCharacteristics(null, service)
     }
 
     internal fun readCharacteristic(characteristic: CBCharacteristic): Boolean {

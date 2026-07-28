@@ -55,7 +55,7 @@ internal suspend fun IosPeripheral.handleServicesDiscovered(event: AppleCallback
     val pending = cbServices.map { it.UUID.UUIDString }.toSet()
     currentDiscovery = DiscoveryCycle(generation = generation, pendingServices = pending)
 
-    cbServices.forEach { bridge.discoverCharacteristics(it.UUID.UUIDString) }
+    cbServices.forEach { bridge.discoverCharacteristics(it) }
 }
 
 @OptIn(ExperimentalUuidApi::class)
