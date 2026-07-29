@@ -10,18 +10,7 @@ import kotlinx.coroutines.withTimeout
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
-/**
- * Serializes GATT operations into a single-consumer queue with timeout support.
- *
- * Acceptance is controlled by channel lifecycle: [start] opens a new channel,
- * [drain] closes it. [Channel.trySend] on a closed channel fails atomically,
- * eliminating the TOCTOU window that a separate flag would introduce.
- *
- * [start], [drain], and [close] are confined to the owning peripheral's
- * serialized dispatcher (`limitedParallelism(1)`).
- * [enqueue] reads the [kotlinx.atomicfu.atomic] [state] snapshot from any
- * coroutine context.
- */
+/** Serializes GATT operations into a single-consumer queue with timeout. */
 internal class GattOperationQueue(
     private val scope: CoroutineScope,
 ) {
@@ -39,7 +28,7 @@ internal class GattOperationQueue(
     private val state =
         atomic(
             QueueState(
-                channel = Channel(Channel.UNLIMITED),
+                channel = Channel(256),
                 drainJob = null,
                 operationTimeout = DEFAULT_OPERATION_TIMEOUT,
             ),
@@ -50,7 +39,7 @@ internal class GattOperationQueue(
         drainChannel(prev.channel)
         prev.drainJob?.cancel()
 
-        val ch = Channel<QueueEntry>(Channel.UNLIMITED)
+        val ch = Channel<QueueEntry>(256)
         val job =
             scope.launch {
                 for (entry in ch) {
