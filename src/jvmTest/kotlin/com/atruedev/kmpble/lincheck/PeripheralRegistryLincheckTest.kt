@@ -6,6 +6,9 @@ import org.jetbrains.lincheck.datastructures.ModelCheckingOptions
 import org.jetbrains.lincheck.datastructures.Operation
 import org.jetbrains.lincheck.datastructures.StressOptions
 import org.junit.Test
+import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.CyclicBarrier
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.assertEquals
 import kotlin.test.assertSame
 
@@ -74,6 +77,46 @@ class PeripheralRegistryLincheckTest {
         assertEquals(setOf("a", "b"), PeripheralRegistry.identifiers())
         PeripheralRegistry.clear()
         assertEquals(emptySet(), PeripheralRegistry.identifiers())
+    }
+
+    /**
+     * Regression test for the duplicate-construction race: factory() has side effects on
+     * the real IosPeripheral (assigning the native peripheral's delegate, registering into
+     * the shared connection-callback map), so it must run at most once per identifier even
+     * when many threads call getOrCreate() for the same identifier at the same time. Before
+     * the Lazy-based fix, factory() ran eagerly for every racing caller and the losers'
+     * instances (and later close() calls) could corrupt the survivor's native wiring.
+     */
+    @Test
+    fun factoryRunsAtMostOnceUnderConcurrentGetOrCreate() {
+        PeripheralRegistry.clear()
+        val id = Identifier("racing-device")
+        val factoryInvocations = AtomicInteger(0)
+        val threadCount = 32
+        val barrier = CyclicBarrier(threadCount)
+        val results = ConcurrentLinkedQueue<Any>()
+
+        val threads =
+            List(threadCount) {
+                Thread {
+                    barrier.await()
+                    results.add(
+                        PeripheralRegistry.getOrCreate(id) {
+                            factoryInvocations.incrementAndGet()
+                            StubPeripheral(id)
+                        },
+                    )
+                }
+            }
+        threads.forEach { it.start() }
+        threads.forEach { it.join() }
+
+        assertEquals(
+            1,
+            factoryInvocations.get(),
+            "factory() must run exactly once even when many threads race getOrCreate() for the same identifier",
+        )
+        assertEquals(1, results.toSet().size, "all callers must receive the same Peripheral instance")
     }
 }
 

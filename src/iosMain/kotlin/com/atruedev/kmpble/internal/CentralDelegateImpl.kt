@@ -25,7 +25,10 @@ internal class CentralDelegateImpl(
         callback: (connected: Boolean, error: NSError?) -> Unit,
     ) = state.registerConnectionCallback(peripheralId, callback)
 
-    override fun unregisterConnectionCallback(peripheralId: String) = state.unregisterConnectionCallback(peripheralId)
+    override fun unregisterConnectionCallback(
+        peripheralId: String,
+        callback: (connected: Boolean, error: NSError?) -> Unit,
+    ) = state.unregisterConnectionCallback(peripheralId, callback)
 
     override fun handleConnectionFailure(
         peripheralId: String,

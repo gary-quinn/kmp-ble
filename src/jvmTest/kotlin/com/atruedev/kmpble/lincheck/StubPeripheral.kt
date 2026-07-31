@@ -1,5 +1,6 @@
 package com.atruedev.kmpble.lincheck
 
+import com.atruedev.kmpble.ExperimentalBleApi
 import com.atruedev.kmpble.Identifier
 import com.atruedev.kmpble.bonding.BondRemovalResult
 import com.atruedev.kmpble.bonding.BondState
@@ -30,6 +31,7 @@ import com.atruedev.kmpble.peripheral.state.State
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.emptyFlow
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
@@ -56,7 +58,7 @@ internal class StubPeripheral(
 
     override fun close() {}
 
-    @com.atruedev.kmpble.ExperimentalBleApi
+    @ExperimentalBleApi
     override fun removeBond(): BondRemovalResult = unsupported()
 
     override suspend fun refreshServices(): List<DiscoveredService> = unsupported()
@@ -101,30 +103,33 @@ internal class StubPeripheral(
 
     override suspend fun requestMtu(mtu: Int): Int = unsupported()
 
-    @com.atruedev.kmpble.ExperimentalBleApi
+    @ExperimentalBleApi
     override suspend fun requestConnectionPriority(priority: ConnectionPriority): Boolean = unsupported()
 
-    @com.atruedev.kmpble.ExperimentalBleApi
+    @ExperimentalBleApi
     override suspend fun requestConnectionParameterUpdate(
         params: ConnectionParameters,
     ): ConnectionParameterUpdateResult? = unsupported()
 
-    @com.atruedev.kmpble.ExperimentalBleApi
+    @ExperimentalBleApi
     override suspend fun requestConnectionSubrating(
         parameters: ConnectionSubratingParameters,
     ): ConnectionSubratingResult = unsupported()
 
-    @com.atruedev.kmpble.ExperimentalBleApi
+    @ExperimentalBleApi
     override suspend fun setPreferredPhy(
         tx: Phy,
         rx: Phy,
     ): PhyResult? = unsupported()
 
-    @com.atruedev.kmpble.ExperimentalBleApi
+    @ExperimentalBleApi
     override suspend fun readPhy(): PhyResult? = unsupported()
 
-    @com.atruedev.kmpble.ExperimentalBleApi
-    override val phyUpdate: Flow<PhyUpdate> = unsupported()
+    // A val initializer runs unconditionally at construction, unlike the unsupported()
+    // functions above it - unsupported() here would make StubPeripheral() itself always
+    // throw, defeating every test that merely constructs one.
+    @ExperimentalBleApi
+    override val phyUpdate: Flow<PhyUpdate> = emptyFlow()
     override val dataLengthParameters: StateFlow<DataLengthParameters?> = MutableStateFlow(null)
 
     override suspend fun openL2capChannel(
@@ -137,7 +142,7 @@ internal class StubPeripheral(
 
     override suspend fun receivePastSync(): PeriodicAdvertisingSync = unsupported()
 
-    @com.atruedev.kmpble.ExperimentalBleApi
+    @ExperimentalBleApi
     override suspend fun requestDirectionFinding(parameters: DirectionFindingParameters): DirectionFindingResult =
         unsupported()
 
