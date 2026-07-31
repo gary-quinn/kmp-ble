@@ -34,6 +34,12 @@ internal suspend fun IosPeripheral.connectInternal(options: ConnectionOptions) {
         peripheralContext.processEvent(ConnectionEvent.ConnectRequested)
         peripheralContext.gattQueue.start(options.gattOperationTimeout)
 
+        // Re-affirm this instance's connection-callback registration before connecting,
+        // mirroring bridge.connect()'s own re-affirmation of cbPeripheral.delegate. Guards
+        // against a since-discarded duplicate IosPeripheral for this identifier (raced via
+        // PeripheralRegistry.getOrCreate) having last written the shared registration.
+        centralDelegate.registerConnectionCallback(identifier.value, connectionCallback)
+
         val deferred = slots.armConnect()
         bridge.connect()
 

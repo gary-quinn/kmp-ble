@@ -50,8 +50,23 @@ internal class CentralDelegateState {
         connectionCallbacks.update { it + (peripheralId to callback) }
     }
 
-    internal fun unregisterConnectionCallback(peripheralId: String) {
-        connectionCallbacks.update { it - peripheralId }
+    /**
+     * Removes [callback] only if it is still the one registered for [peripheralId].
+     *
+     * PeripheralRegistry.getOrCreate() can construct two IosPeripheral instances for the
+     * same identifier before its CAS resolves (the losing one is discarded). Both
+     * constructors call registerConnectionCallback with their own closure, so whichever
+     * registers last wins the shared map slot regardless of which instance survives. An
+     * unconditional removal-by-key here would let the discarded instance's close() delete
+     * the surviving instance's live registration - identity-checking closes that window.
+     */
+    internal fun unregisterConnectionCallback(
+        peripheralId: String,
+        callback: (connected: Boolean, error: NSError?) -> Unit,
+    ) {
+        connectionCallbacks.update { current ->
+            if (current[peripheralId] === callback) current - peripheralId else current
+        }
     }
 
     internal fun handleAdapterStateUpdate(central: CBCentralManager) {

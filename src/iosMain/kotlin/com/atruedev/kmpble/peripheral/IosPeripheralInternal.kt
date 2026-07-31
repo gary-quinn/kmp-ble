@@ -62,7 +62,7 @@ internal fun IosPeripheral.closeInternal() {
     bondManager.stop()
     pairingRequestHandler.closeSync()
     closeL2capChannels()
-    centralDelegate.unregisterConnectionCallback(identifier.value)
+    centralDelegate.unregisterConnectionCallback(identifier.value, connectionCallback)
 
     // Invalidate in-flight discovery cycle callbacks before teardown.
     discoveryGeneration.incrementAndGet()

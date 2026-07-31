@@ -51,6 +51,7 @@ import platform.CoreBluetooth.CBCharacteristic
 import platform.CoreBluetooth.CBDescriptor
 import platform.CoreBluetooth.CBL2CAPChannel
 import platform.CoreBluetooth.CBPeripheral
+import platform.Foundation.NSError
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
@@ -118,11 +119,17 @@ public class IosPeripheral(
             onMaxAttemptsExhausted = { observationManager.onPermanentDisconnect() },
         )
 
+    /**
+     * Stored so [connectInternal] can re-register the same instance (see there) and
+     * [closeInternal] can remove it only if it is still the registered one - both need
+     * the exact closure reference, not a newly allocated lambda.
+     */
+    internal val connectionCallback: (connected: Boolean, error: NSError?) -> Unit =
+        { connected, error -> handleConnectionCallback(connected, error) }
+
     init {
         bridge.onEvent = { event -> handleBridgeEvent(event) }
-        centralDelegate.registerConnectionCallback(identifier.value) { connected, error ->
-            handleConnectionCallback(connected, error)
-        }
+        centralDelegate.registerConnectionCallback(identifier.value, connectionCallback)
         if (CentralManagerProvider.isStateRestorationEnabled) {
             observationManager.onObservationsChanged = { observations ->
                 StateRestorationHandler.default.persistObservations(identifier.value, observations)

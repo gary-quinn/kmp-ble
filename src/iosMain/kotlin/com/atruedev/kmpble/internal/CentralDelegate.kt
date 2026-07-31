@@ -21,7 +21,10 @@ internal interface CentralDelegate {
         callback: (connected: Boolean, error: NSError?) -> Unit,
     )
 
-    fun unregisterConnectionCallback(peripheralId: String)
+    fun unregisterConnectionCallback(
+        peripheralId: String,
+        callback: (connected: Boolean, error: NSError?) -> Unit,
+    )
 
     fun handleConnectionFailure(
         peripheralId: String,
