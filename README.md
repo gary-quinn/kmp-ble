@@ -34,7 +34,7 @@ to keep using them as-is, or build them from source.
 kotlin {
     sourceSets {
         commonMain.dependencies {
-            implementation("com.atruedev:kmp-ble:0.11.2")
+            implementation("com.atruedev:kmp-ble:0.12.0")
         }
     }
 }
