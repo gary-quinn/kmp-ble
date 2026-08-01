@@ -2,12 +2,9 @@ plugins {
     alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.android.library)
-    alias(libs.plugins.vanniktech.publish)
+    alias(libs.plugins.vanniktech.publish) apply false
     alias(libs.plugins.dokka)
 }
-
-group = "com.atruedev"
-version = providers.environmentVariable("VERSION").getOrElse("0.0.0-local")
 
 kotlin {
     explicitApi()
