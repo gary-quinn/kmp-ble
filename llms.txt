@@ -17,17 +17,16 @@ kotlin {
         commonMain.dependencies {
             // Core - scan, connect, GATT client/server, advertise, L2CAP
             implementation("com.atruedev:kmp-ble:0.11.2")
-
-            // Optional modules
-            implementation("com.atruedev:kmp-ble-profiles:0.11.2")  // type-safe GATT profiles
-            implementation("com.atruedev:kmp-ble-dfu:0.11.2")       // Nordic DFU firmware updates
-            implementation("com.atruedev:kmp-ble-codec:0.11.2")     // typed read/write codec
-            implementation("com.atruedev:kmp-ble-codec-serialization:0.11.2")  // CBOR via kotlinx-serialization
-            implementation("com.atruedev:kmp-ble-quirks:0.11.2")    // OEM device workarounds
         }
     }
 }
 ```
+
+From 0.12.0 onward only `kmp-ble` is published to Maven Central.
+`kmp-ble-quirks` is pulled in transitively on Android. The satellite modules
+(`kmp-ble-profiles`, `kmp-ble-dfu`, `kmp-ble-codec`, and
+`kmp-ble-codec-serialization`) were last published at 0.11.2 and are no
+longer published as separate artifacts.
 
 Android initialization:
 

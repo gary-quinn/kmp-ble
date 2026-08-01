@@ -42,8 +42,6 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             implementation("com.atruedev:kmp-ble:0.8.1")
-            // Optional: for type-safe standard profiles (Heart Rate, Battery, etc.)
-            implementation("com.atruedev:kmp-ble-profiles:0.8.1")
         }
         androidMain.dependencies {
             implementation(libs.kotlinx.coroutines.android)
