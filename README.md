@@ -18,6 +18,14 @@ Kotlin Multiplatform BLE library for Android and iOS.
 | **kmp-ble-codec** | `com.atruedev:kmp-ble-codec` | Format-agnostic typed read/write via composable `BleEncoder`/`BleDecoder` |
 | **kmp-ble-codec-serialization** | `com.atruedev:kmp-ble-codec-serialization` | `kotlinx-serialization` adapters (CBOR) bridging `@Serializable` types to `BleCodec` |
 
+## Distribution
+
+From 0.12.0 onward only `kmp-ble` is published to Maven Central (plus
+`kmp-ble-quirks`, its transitive Android runtime dependency). The satellite
+modules above were last published at **0.11.2** and are no longer published
+as separate artifacts; their source remains in this monorepo. Pin `0.11.2`
+to keep using them as-is, or build them from source.
+
 ## Setup
 
 ### Android / KMP (Gradle)
@@ -27,12 +35,6 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             implementation("com.atruedev:kmp-ble:0.11.2")
-
-            // Optional modules
-            implementation("com.atruedev:kmp-ble-profiles:0.11.2")
-            implementation("com.atruedev:kmp-ble-dfu:0.11.2")
-            implementation("com.atruedev:kmp-ble-codec:0.11.2")
-            implementation("com.atruedev:kmp-ble-codec-serialization:0.11.2")
         }
     }
 }
@@ -139,6 +141,9 @@ peripheral.close() // or use peripheral.use { ... }
 
 ### Profiles (kmp-ble-profiles)
 
+*Requires the `kmp-ble-profiles` artifact (last published 0.11.2, see
+[Distribution](#distribution) above).*
+
 Type-safe GATT profile parsing via Peripheral extension functions:
 
 ```kotlin
@@ -162,6 +167,9 @@ println("${info.manufacturerName} ${info.modelNumber} fw:${info.firmwareRevision
 Supported profiles: Heart Rate, Battery, Device Information, Blood Pressure, Glucose, Cycling Speed and Cadence.
 
 ### Codec (kmp-ble-codec)
+
+*Requires the `kmp-ble-codec` artifact (last published 0.11.2, see
+[Distribution](#distribution) above).*
 
 Typed read/write with composable decoders:
 
@@ -187,6 +195,9 @@ val FormattedTemp = TemperatureDecoder.map { "%.1f°C".format(it) }
 
 ### Serialization codec (kmp-ble-codec-serialization)
 
+*Requires the `kmp-ble-codec-serialization` artifact (last published 0.11.2,
+see [Distribution](#distribution) above).*
+
 CBOR adapters via `kotlinx-serialization`. Bridge `@Serializable` types to the
 `BleCodec` surface so they slot into framed L2CAP streams or characteristic
 read/write paths without writing a hand-rolled decoder:
@@ -203,6 +214,9 @@ l2cap.framedIncoming(codec).collect { reading -> render(reading) }
 ```
 
 ### DFU (kmp-ble-dfu)
+
+*Requires the `kmp-ble-dfu` artifact (last published 0.11.2, see
+[Distribution](#distribution) above).*
 
 Firmware updates supporting Nordic Secure DFU, MCUboot SMP (Zephyr/Mynewt), and Espressif ESP OTA:
 

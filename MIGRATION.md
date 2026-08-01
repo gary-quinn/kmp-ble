@@ -1,5 +1,11 @@
 # Migration Guide: v0.8.x to v0.9.0
 
+> **Distribution change (0.12.0+):** `kmp-ble-profiles`, `kmp-ble-dfu`,
+> `kmp-ble-codec`, and `kmp-ble-codec-serialization` are no longer published
+> to Maven Central; the last published version of each is 0.11.2. When
+> upgrading kmp-ble to 0.12.0+, pin these modules at 0.11.2 or consume them
+> from source. See the README "Distribution" note for options.
+
 This guide covers breaking API changes, new features, and deprecations when
 upgrading from kmp-ble v0.8.x to v0.9.0.
 
