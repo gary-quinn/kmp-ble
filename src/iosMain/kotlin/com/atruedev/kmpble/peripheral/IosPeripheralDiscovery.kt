@@ -35,14 +35,18 @@ internal data class DiscoveryCycle(
 
 @OptIn(ExperimentalUuidApi::class)
 internal suspend fun IosPeripheral.handleServicesDiscovered(event: AppleCallbackEvent.DidDiscoverServices) {
-    // Drop callbacks from an interrupted/superseded cycle. The generation is stamped at
-    // issue time and bumped on every new cycle and on every disconnect; a stale callback
-    // that slips through here would re-issue discoverCharacteristics() against a newer
-    // cycle's (replaced) CBService objects, racing CoreBluetooth into the
-    // '-[CBCharacteristic handleCharacteristicsDiscovered:]' zombie crash.
-    if (event.generation != discoveryGeneration.value) return
-    // Duplicate delivery for the same native call - a cycle is already set up.
-    if (currentDiscovery != null) return
+    // Drop callbacks from an interrupted/superseded cycle or a dead connection: a stale
+    // callback that slips through would start a second native discovery pass against a
+    // newer cycle's (replaced) CBService objects.
+    if (!DiscoveryPolicy.acceptsDidDiscoverServices(
+            callbackGeneration = event.generation,
+            currentGeneration = discoveryGeneration.value,
+            cycleAlreadyActive = currentDiscovery != null,
+            peripheralConnected = peripheralContext.state.value !is State.Disconnected,
+        )
+    ) {
+        return
+    }
 
     if (event.error != null) {
         val status = event.error.toGattStatus()
@@ -75,11 +79,16 @@ internal suspend fun IosPeripheral.handleServicesDiscovered(event: AppleCallback
 internal suspend fun IosPeripheral.handleCharacteristicsDiscovered(
     event: AppleCallbackEvent.DidDiscoverCharacteristics,
 ) {
-    val cycle = currentDiscovery
-    if (cycle == null) return // No active discovery cycle (discarded or completed)
-
-    // Ignore stale callbacks from previous discovery generations
-    if (cycle.generation != discoveryGeneration.value) return
+    val cycle = currentDiscovery ?: return // No active discovery cycle (discarded or completed)
+    // Drop callbacks from a superseded generation or a dead connection.
+    if (!DiscoveryPolicy.acceptsDidDiscoverCharacteristics(
+            cycleGeneration = cycle.generation,
+            currentGeneration = discoveryGeneration.value,
+            peripheralConnected = peripheralContext.state.value !is State.Disconnected,
+        )
+    ) {
+        return
+    }
 
     // Removes only the first matching entry, so a duplicate-UUID service still has
     // its own outstanding entry after this one is cleared.
@@ -117,30 +126,31 @@ internal suspend fun IosPeripheral.finishDiscovery(discovered: List<DiscoveredSe
     peripheralContext.processEvent(ConnectionEvent.ConfigurationComplete)
     slots.completeConnect()
     slots.completeDiscovery(discovered)
-}
 
-/**
- * Pure boolean check: whether [cbServices] are usable from cache given the validity flag.
- * Extracted so tests can exercise the logic without constructing an IosPeripheral.
- */
-internal fun serviceCacheUsable(
-    knownServicesValid: Boolean,
-    cbServices: List<CBService>,
-): Boolean =
-    knownServicesValid &&
-        cbServices.isNotEmpty() &&
-        cbServices.all { it.characteristics != null }
+    // A didModifyServices arrived while this cycle was in flight - its publish may predate
+    // the table change. Re-run discovery so the next publish reflects the current table;
+    // otherwise the invalidation would be silently lost and the stale table cached forever.
+    if (servicesChangedWhileDiscovering.value) {
+        servicesChangedWhileDiscovering.value = false
+        handleServicesModified()
+    }
+}
 
 internal fun IosPeripheral.canReuseServiceCache(): Boolean {
     val cbServices = cbPeripheral.services?.filterIsInstance<CBService>().orEmpty()
-    return serviceCacheUsable(knownServicesValid.value, cbServices)
+    return DiscoveryPolicy.canReuseServiceCache(
+        validated = knownServicesValid.value,
+        connectedAtCreation = connectedAtCreation,
+        servicesPresent = cbServices.isNotEmpty(),
+        allServicesHaveCharacteristics = cbServices.all { it.characteristics != null },
+    )
 }
 
 /**
  * Finalizes discovery from services CoreBluetooth already has cached on [IosPeripheral.cbPeripheral],
  * skipping a redundant native `discoverServices`/`discoverCharacteristics` round trip. Only valid
- * when [IosPeripheral.knownServicesValid] holds - i.e. no `didModifyServices` callback has
- * invalidated the cache since the last full discovery.
+ * when [canReuseServiceCache] holds - the cache is complete and either a completed cycle or
+ * the peripheral's connected-at-creation state vouches for it.
  */
 @OptIn(ExperimentalUuidApi::class)
 internal suspend fun IosPeripheral.finishDiscoveryFromCache(cbServices: List<CBService>) {
@@ -148,44 +158,34 @@ internal suspend fun IosPeripheral.finishDiscoveryFromCache(cbServices: List<CBS
 }
 
 /**
- * The peripheral's GATT table changed. iOS hands us the CBService objects it invalidated
- * (empty = the entire table changed). Cached services/characteristics are no longer
+ * The peripheral's GATT table changed. Cached services/characteristics are no longer
  * trustworthy - invalidate them and, if still connected, re-discover immediately rather
  * than waiting for the next reconnect.
  *
- * Re-discovery is targeted: only the invalidated services' characteristics are
- * re-discovered. A full `discoverServices(null)` replaces every CBService object, and
- * re-discovering characteristics on services that already had them discovered can crash
- * CoreBluetooth on iOS 26 with a zombie-object '-[CBCharacteristic handleCharacteristicsDiscovered:]'.
+ * Runs a fresh `discoverServices(null)` pass. The CBService objects handed to
+ * `peripheral(_:didModifyServices:)` are invalidated handles that Apple documents as no
+ * longer usable, so they must never be passed back into discoverCharacteristics.
  *
  * Does NOT arm a connect slot (slots.armConnect) because the peripheral is already
  * connected when didModifyServices fires -- armConnect would throw if the original
  * connect flow still holds the slot. Instead, uses tryArmDiscovery to guard against
- * concurrent discovery cycles, then runs the targeted re-discovery fire-and-forget. The
- * async callback chain (didDiscoverCharacteristicsForService -> finishDiscovery)
- * handles completion, including repopulating nativeCharMap and resubscribing
- * observations.
+ * concurrent discovery cycles; if one is in flight, the invalidation is recorded so
+ * [finishDiscovery] re-runs discovery after it completes instead of caching stale services.
  */
-internal suspend fun IosPeripheral.handleServicesModified(changedServices: List<CBService>) {
+internal suspend fun IosPeripheral.handleServicesModified() {
     knownServicesValid.value = false
     if (peripheralContext.state.value !is State.Connected) return
-    if (!slots.tryArmDiscovery()) return
+    if (!slots.tryArmDiscovery()) {
+        // A discovery cycle is already in flight and will publish pre-invalidation
+        // services. Record the invalidation so finishDiscovery re-runs discovery.
+        servicesChangedWhileDiscovering.value = true
+        return
+    }
     discoveryGeneration.incrementAndGet()
     nativeCharMap.clear()
     nativeDescMap.clear()
     currentDiscovery = null
-
-    if (changedServices.isEmpty()) {
-        // Empty list from didModifyServices = the entire GATT table changed - there is no
-        // targeted subset to re-discover, so run a full pass (handleServicesDiscovered
-        // sets up the cycle from the fresh service list).
-        bridge.discoverServices(discoveryGeneration.value)
-        return
-    }
-
-    val pending = changedServices.map { it.UUID.UUIDString }.toMutableList()
-    currentDiscovery = DiscoveryCycle(generation = discoveryGeneration.value, pendingServices = pending)
-    changedServices.forEach { bridge.discoverCharacteristics(it) }
+    bridge.discoverServices(discoveryGeneration.value)
 }
 
 @OptIn(ExperimentalUuidApi::class)

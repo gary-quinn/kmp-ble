@@ -51,6 +51,7 @@ import platform.CoreBluetooth.CBCharacteristic
 import platform.CoreBluetooth.CBDescriptor
 import platform.CoreBluetooth.CBL2CAPChannel
 import platform.CoreBluetooth.CBPeripheral
+import platform.CoreBluetooth.CBPeripheralStateConnected
 import platform.Foundation.NSError
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
@@ -99,22 +100,30 @@ public class IosPeripheral(
     internal val discoveryGeneration = atomic(0)
 
     /**
-     * Whether the cached `cbPeripheral.services` objects may be reused without a native
-     * `discoverServices` round trip.
-     *
-     * CoreBluetooth keeps the CBService/CBCharacteristic objects alive on the peripheral
-     * across reconnects and replaces them only when a new discovery pass runs or a
-     * `didModifyServices` callback invalidates them, so this starts `true`. Starting
-     * `false` forced a full native re-discovery on the first connect even when the
-     * peripheral was retrieved while already connected
-     * (`retrieveConnectedPeripheralsWithServices`) with services/characteristics already
-     * populated by iOS - re-running native discovery on those objects can crash
-     * CoreBluetooth with a zombie-object `-[CBCharacteristic handleCharacteristicsDiscovered:]`
-     * (see #218 and iOS 26 re-discovery crash reports). [handleServicesModified]
-     * clears this flag when the GATT table actually changes, and the completeness check in
-     * [canReuseServiceCache] still requires every service to have characteristics.
+     * Whether the last completed service discovery is still valid. CoreBluetooth caches
+     * discovered services/characteristics on [cbPeripheral] across reconnects, so a
+     * reconnect can reuse them instead of re-running discovery - until a
+     * `didModifyServices` callback clears this.
      */
-    internal val knownServicesValid = atomic(true)
+    internal val knownServicesValid = atomic(false)
+
+    /**
+     * True when [cbPeripheral] was already connected at wrapper creation
+     * (retrieveConnectedPeripheralsWithServices / state restoration). iOS populated the
+     * services table for the current connection in that case, so a complete cache can be
+     * trusted without a native discovery pass - re-running native discovery on it is what
+     * crashed after an OS re-bond. A wrapper created over a disconnected peripheral keeps
+     * the knownServicesValid safety net: its first connect still re-discovers.
+     */
+    internal val connectedAtCreation: Boolean =
+        cbPeripheral.state == CBPeripheralStateConnected
+
+    /**
+     * Set when a didModifyServices callback arrives while a discovery cycle is already in
+     * flight (the cycle's result would publish pre-invalidation services). finishDiscovery
+     * checks it and re-runs discovery instead of marking the stale table valid.
+     */
+    internal val servicesChangedWhileDiscovering = atomic(false)
 
     /** Current discovery cycle state, confined to peripheralContext.dispatcher. */
     internal var currentDiscovery: DiscoveryCycle? = null

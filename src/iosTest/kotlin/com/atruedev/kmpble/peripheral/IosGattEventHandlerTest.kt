@@ -6,7 +6,6 @@ import com.atruedev.kmpble.gatt.internal.PendingOp
 import com.atruedev.kmpble.gatt.internal.PendingOperations
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.test.runTest
-import platform.CoreBluetooth.CBMutableCharacteristic
 import platform.CoreBluetooth.CBMutableService
 import platform.CoreBluetooth.CBService
 import platform.CoreBluetooth.CBUUID
@@ -309,65 +308,6 @@ class IosGattEventHandlerTest {
 
         pending.remove(uuid.UUIDString)
         assertTrue(pending.isEmpty())
-    }
-
-    @Test
-    fun `targeted didModifyServices re-discovery keeps one pending entry per changed service`() {
-        // Mirrors IosPeripheralDiscovery.handleServicesModified's targeted re-discovery: only
-        // the CBService objects iOS invalidated get their characteristics re-discovered, with
-        // one pending entry per changed service so duplicate-UUID services are not collapsed.
-        val uuid = CBUUID.UUIDWithString("180D")
-        val changedServices: List<CBService> =
-            listOf(
-                CBMutableService(type = uuid, primary = true),
-                CBMutableService(type = uuid, primary = true),
-            )
-
-        val pending = changedServices.map { it.UUID.UUIDString }.toMutableList()
-        assertEquals(2, pending.size)
-
-        pending.remove(uuid.UUIDString)
-        assertEquals(1, pending.size, "one outstanding entry should remain for the second changed service")
-    }
-
-    // -- Service cache reuse across reconnects (cbServicesUsableFromCache) --
-
-    private fun fakeServiceWithCharacteristics(): CBMutableService {
-        val service = CBMutableService(type = CBUUID.UUIDWithString("180D"), primary = true)
-        val characteristic =
-            CBMutableCharacteristic(
-                type = CBUUID.UUIDWithString("2A19"),
-                properties = 0uL,
-                value = null,
-                permissions = 0uL,
-            )
-        service.setCharacteristics(listOf(characteristic))
-        return service
-    }
-
-    @Test
-    fun `serviceCacheUsable is false when the validity flag is unset`() {
-        val service = fakeServiceWithCharacteristics()
-        assertFalse(serviceCacheUsable(knownServicesValid = false, cbServices = listOf(service)))
-    }
-
-    @Test
-    fun `serviceCacheUsable is false with no services`() {
-        assertFalse(serviceCacheUsable(knownServicesValid = true, cbServices = emptyList()))
-    }
-
-    @Test
-    fun `serviceCacheUsable is false when a service has no cached characteristics`() {
-        // characteristics is null until CoreBluetooth (or a real discovery cycle) populates it -
-        // using such a service without rediscovery would leave nativeCharMap empty for it.
-        val undiscovered = CBMutableService(type = CBUUID.UUIDWithString("180D"), primary = true)
-        assertFalse(serviceCacheUsable(knownServicesValid = true, cbServices = listOf(undiscovered)))
-    }
-
-    @Test
-    fun `serviceCacheUsable is true when valid and every service has cached characteristics`() {
-        val service = fakeServiceWithCharacteristics()
-        assertTrue(serviceCacheUsable(knownServicesValid = true, cbServices = listOf(service)))
     }
 
     @Test
