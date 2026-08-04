@@ -33,6 +33,10 @@ internal fun IosPeripheral.requireNativeCbDesc(d: Descriptor): CBDescriptor =
     nativeDescMap[d] ?: throw BleException(StaleGattHandle("descriptor", d.uuid.toString()))
 
 internal fun IosPeripheral.onDisconnectCleanup() {
+    // Invalidate any in-flight discovery cycle so its late callbacks are dropped instead
+    // of re-issuing native discovery against the next connect's (replaced) service objects.
+    discoveryGeneration.incrementAndGet()
+    currentDiscovery = null
     nativeCharMap.clear()
     nativeDescMap.clear()
     closeL2capChannels()
@@ -90,7 +94,7 @@ internal suspend fun IosPeripheral.refreshServicesInternal(): List<DiscoveredSer
         // Clear stale native handle mappings from previous cycle
         nativeCharMap.clear()
         nativeDescMap.clear()
-        bridge.discoverServices()
+        bridge.discoverServices(discoveryGeneration.value)
         try {
             withTimeout(currentTimeouts.serviceDiscovery) { deferred.await() }
         } finally {

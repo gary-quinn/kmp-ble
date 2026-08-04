@@ -102,7 +102,7 @@ internal fun IosPeripheral.handleConnectionCallback(
             }
 
             try {
-                bridge.discoverServices()
+                bridge.discoverServices(discoveryGeneration.value)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Throwable) {
