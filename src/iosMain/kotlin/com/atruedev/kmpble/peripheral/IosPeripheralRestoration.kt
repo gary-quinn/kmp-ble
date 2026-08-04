@@ -45,7 +45,7 @@ internal suspend fun IosPeripheral.restoreFromStateRestorationExt(savedObservati
                 } else {
                     val deferred = slots.armConnect()
                     try {
-                        bridge.discoverServices()
+                        bridge.discoverServices(discoveryGeneration.value)
                         withTimeout(currentTimeouts.serviceDiscovery) { deferred.await() }
                     } finally {
                         slots.clearConnect()

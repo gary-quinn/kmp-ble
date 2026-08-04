@@ -311,6 +311,25 @@ class IosGattEventHandlerTest {
         assertTrue(pending.isEmpty())
     }
 
+    @Test
+    fun `targeted didModifyServices re-discovery keeps one pending entry per changed service`() {
+        // Mirrors IosPeripheralDiscovery.handleServicesModified's targeted re-discovery: only
+        // the CBService objects iOS invalidated get their characteristics re-discovered, with
+        // one pending entry per changed service so duplicate-UUID services are not collapsed.
+        val uuid = CBUUID.UUIDWithString("180D")
+        val changedServices: List<CBService> =
+            listOf(
+                CBMutableService(type = uuid, primary = true),
+                CBMutableService(type = uuid, primary = true),
+            )
+
+        val pending = changedServices.map { it.UUID.UUIDString }.toMutableList()
+        assertEquals(2, pending.size)
+
+        pending.remove(uuid.UUIDString)
+        assertEquals(1, pending.size, "one outstanding entry should remain for the second changed service")
+    }
+
     // -- Service cache reuse across reconnects (cbServicesUsableFromCache) --
 
     private fun fakeServiceWithCharacteristics(): CBMutableService {

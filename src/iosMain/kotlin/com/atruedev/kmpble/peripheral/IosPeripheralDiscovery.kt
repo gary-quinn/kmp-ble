@@ -35,6 +35,15 @@ internal data class DiscoveryCycle(
 
 @OptIn(ExperimentalUuidApi::class)
 internal suspend fun IosPeripheral.handleServicesDiscovered(event: AppleCallbackEvent.DidDiscoverServices) {
+    // Drop callbacks from an interrupted/superseded cycle. The generation is stamped at
+    // issue time and bumped on every new cycle and on every disconnect; a stale callback
+    // that slips through here would re-issue discoverCharacteristics() against a newer
+    // cycle's (replaced) CBService objects, racing CoreBluetooth into the
+    // '-[CBCharacteristic handleCharacteristicsDiscovered:]' zombie crash.
+    if (event.generation != discoveryGeneration.value) return
+    // Duplicate delivery for the same native call - a cycle is already set up.
+    if (currentDiscovery != null) return
+
     if (event.error != null) {
         val status = event.error.toGattStatus()
         val discoveryError = ServiceDiscoveryError(serviceUuid = null, status = status)
@@ -52,7 +61,7 @@ internal suspend fun IosPeripheral.handleServicesDiscovered(event: AppleCallback
         return
     }
 
-    val generation = discoveryGeneration.value
+    val generation = event.generation
     // Keep one entry per service, not per UUID - a peripheral may expose more than one
     // service with the same UUID, and each one gets its own didDiscoverCharacteristicsForService
     // callback.
@@ -139,19 +148,25 @@ internal suspend fun IosPeripheral.finishDiscoveryFromCache(cbServices: List<CBS
 }
 
 /**
- * The peripheral's GATT table changed. Cached services/characteristics are no longer
- * trustworthy - invalidate them and, if still connected, rediscover immediately rather
+ * The peripheral's GATT table changed. iOS hands us the CBService objects it invalidated
+ * (empty = the entire table changed). Cached services/characteristics are no longer
+ * trustworthy - invalidate them and, if still connected, re-discover immediately rather
  * than waiting for the next reconnect.
+ *
+ * Re-discovery is targeted: only the invalidated services' characteristics are
+ * re-discovered. A full `discoverServices(null)` replaces every CBService object, and
+ * re-discovering characteristics on services that already had them discovered can crash
+ * CoreBluetooth on iOS 26 with a zombie-object '-[CBCharacteristic handleCharacteristicsDiscovered:]'.
  *
  * Does NOT arm a connect slot (slots.armConnect) because the peripheral is already
  * connected when didModifyServices fires -- armConnect would throw if the original
  * connect flow still holds the slot. Instead, uses tryArmDiscovery to guard against
- * concurrent discovery cycles, then runs discoverServices() fire-and-forget like the
- * normal connect path's handleConnectionCallback does. The async callback chain
- * (didDiscoverServices -> didDiscoverCharacteristics -> finishDiscovery) handles
- * completion, including repopulating nativeCharMap and resubscribing observations.
+ * concurrent discovery cycles, then runs the targeted re-discovery fire-and-forget. The
+ * async callback chain (didDiscoverCharacteristicsForService -> finishDiscovery)
+ * handles completion, including repopulating nativeCharMap and resubscribing
+ * observations.
  */
-internal suspend fun IosPeripheral.handleServicesModified() {
+internal suspend fun IosPeripheral.handleServicesModified(changedServices: List<CBService>) {
     knownServicesValid.value = false
     if (peripheralContext.state.value !is State.Connected) return
     if (!slots.tryArmDiscovery()) return
@@ -159,7 +174,18 @@ internal suspend fun IosPeripheral.handleServicesModified() {
     nativeCharMap.clear()
     nativeDescMap.clear()
     currentDiscovery = null
-    bridge.discoverServices()
+
+    if (changedServices.isEmpty()) {
+        // Empty list from didModifyServices = the entire GATT table changed - there is no
+        // targeted subset to re-discover, so run a full pass (handleServicesDiscovered
+        // sets up the cycle from the fresh service list).
+        bridge.discoverServices(discoveryGeneration.value)
+        return
+    }
+
+    val pending = changedServices.map { it.UUID.UUIDString }.toMutableList()
+    currentDiscovery = DiscoveryCycle(generation = discoveryGeneration.value, pendingServices = pending)
+    changedServices.forEach { bridge.discoverCharacteristics(it) }
 }
 
 @OptIn(ExperimentalUuidApi::class)

@@ -18,6 +18,13 @@ import platform.darwin.NSObject
 internal sealed interface AppleCallbackEvent {
     data class DidDiscoverServices(
         val error: NSError?,
+        /**
+         * Discovery generation stamped at issue time. Every new discovery cycle (and every
+         * disconnect) bumps the peripheral's generation; a callback whose stamp no longer
+         * matches belongs to an interrupted/superseded cycle and must be dropped instead of
+         * re-issuing native discovery against a newer one.
+         */
+        val generation: Int,
     ) : AppleCallbackEvent
 
     data class DidDiscoverCharacteristics(
@@ -60,9 +67,12 @@ internal sealed interface AppleCallbackEvent {
 
     /**
      * The peripheral's GATT table changed (e.g. a firmware-side Service Changed
-     * indication). Previously cached services/characteristics are no longer valid.
+     * indication). [services] are the CBService objects iOS invalidated - empty means the
+     * entire table changed. Previously cached services/characteristics are no longer valid.
      */
-    data object DidModifyServices : AppleCallbackEvent
+    data class DidModifyServices(
+        val services: List<CBService>,
+    ) : AppleCallbackEvent
 }
 
 internal class ApplePeripheralBridge(
@@ -79,13 +89,22 @@ internal class ApplePeripheralBridge(
     // didUpdateValueForCharacteristic and didWriteValueForCharacteristic have
     // different ObjC selectors but the same Kotlin signature (CBPeripheral, CBCharacteristic, NSError?).
     // Same for descriptors. We implement only what K/N generates distinct methods for.
+
+    /** Discovery generation of the most recent discoverServices() call, read by the delegate callback. */
+    private val _pendingDiscoverServicesGeneration = atomic(0)
+
     private val peripheralDelegate =
         object : NSObject(), CBPeripheralDelegateProtocol {
             override fun peripheral(
                 peripheral: CBPeripheral,
                 didDiscoverServices: NSError?,
             ) {
-                _onEvent.value?.invoke(AppleCallbackEvent.DidDiscoverServices(didDiscoverServices))
+                _onEvent.value?.invoke(
+                    AppleCallbackEvent.DidDiscoverServices(
+                        error = didDiscoverServices,
+                        generation = _pendingDiscoverServicesGeneration.value,
+                    ),
+                )
             }
 
             override fun peripheral(
@@ -146,7 +165,11 @@ internal class ApplePeripheralBridge(
                 peripheral: CBPeripheral,
                 didModifyServices: List<*>,
             ) {
-                _onEvent.value?.invoke(AppleCallbackEvent.DidModifyServices)
+                _onEvent.value?.invoke(
+                    AppleCallbackEvent.DidModifyServices(
+                        didModifyServices.filterIsInstance<CBService>(),
+                    ),
+                )
             }
         }
 
@@ -159,11 +182,12 @@ internal class ApplePeripheralBridge(
         CentralManagerProvider.manager.connectPeripheral(cbPeripheral, options = null)
     }
 
-    internal fun discoverServices(): Boolean {
+    internal fun discoverServices(generation: Int): Boolean {
         // Re-affirm delegate before discoverServices - retrieved peripherals
         // (retrieveConnectedPeripheralsWithServices) may carry a stale delegate
         // reference that CoreBluetooth routes callbacks to incorrectly.
         cbPeripheral.delegate = peripheralDelegate
+        _pendingDiscoverServicesGeneration.value = generation
         cbPeripheral.discoverServices(null)
         return true
     }

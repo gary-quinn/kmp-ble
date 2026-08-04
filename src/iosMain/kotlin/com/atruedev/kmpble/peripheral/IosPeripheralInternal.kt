@@ -33,6 +33,16 @@ internal fun IosPeripheral.requireNativeCbDesc(d: Descriptor): CBDescriptor =
     nativeDescMap[d] ?: throw BleException(StaleGattHandle("descriptor", d.uuid.toString()))
 
 internal fun IosPeripheral.onDisconnectCleanup() {
+    // Invalidate any in-flight discovery cycle before teardown. A cycle interrupted by the
+    // disconnect (its didDiscoverServices/didDiscoverCharacteristicsForService callbacks may
+    // still be queued) must not leak into the next connect's cycle: a late callback that
+    // slips through would re-issue native discovery against the reconnected link and overlap
+    // a fresh discoverServices, which replaces the CBService objects and can crash
+    // CoreBluetooth with a zombie-object '-[CBCharacteristic handleCharacteristicsDiscovered:]'.
+    // Bumping the generation makes every in-flight callback stale; nulling the cycle makes
+    // handleServicesDiscovered/handleCharacteristicsDiscovered drop them outright.
+    discoveryGeneration.incrementAndGet()
+    currentDiscovery = null
     nativeCharMap.clear()
     nativeDescMap.clear()
     closeL2capChannels()
@@ -90,7 +100,7 @@ internal suspend fun IosPeripheral.refreshServicesInternal(): List<DiscoveredSer
         // Clear stale native handle mappings from previous cycle
         nativeCharMap.clear()
         nativeDescMap.clear()
-        bridge.discoverServices()
+        bridge.discoverServices(discoveryGeneration.value)
         try {
             withTimeout(currentTimeouts.serviceDiscovery) { deferred.await() }
         } finally {

@@ -99,12 +99,22 @@ public class IosPeripheral(
     internal val discoveryGeneration = atomic(0)
 
     /**
-     * Whether the last completed service discovery is still valid. CoreBluetooth caches
-     * discovered services/characteristics on [cbPeripheral] across reconnects, so a
-     * reconnect can reuse them instead of re-running discovery - until a
-     * `didModifyServices` callback clears this.
+     * Whether the cached `cbPeripheral.services` objects may be reused without a native
+     * `discoverServices` round trip.
+     *
+     * CoreBluetooth keeps the CBService/CBCharacteristic objects alive on the peripheral
+     * across reconnects and replaces them only when a new discovery pass runs or a
+     * `didModifyServices` callback invalidates them, so this starts `true`. Starting
+     * `false` forced a full native re-discovery on the first connect even when the
+     * peripheral was retrieved while already connected
+     * (`retrieveConnectedPeripheralsWithServices`) with services/characteristics already
+     * populated by iOS - re-running native discovery on those objects can crash
+     * CoreBluetooth with a zombie-object `-[CBCharacteristic handleCharacteristicsDiscovered:]`
+     * (see #218 and iOS 26 re-discovery crash reports). [handleServicesModified]
+     * clears this flag when the GATT table actually changes, and the completeness check in
+     * [canReuseServiceCache] still requires every service to have characteristics.
      */
-    internal val knownServicesValid = atomic(false)
+    internal val knownServicesValid = atomic(true)
 
     /** Current discovery cycle state, confined to peripheralContext.dispatcher. */
     internal var currentDiscovery: DiscoveryCycle? = null
