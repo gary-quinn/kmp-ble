@@ -14,13 +14,14 @@ import com.atruedev.kmpble.testing.FakePeripheral
  * simulated antenna switching and angle computation.
  */
 public class JvmDirectionFindingConformanceTest : DirectionFindingConformanceTest() {
-    override fun buildPeripheral(): FakePeripheral = FakePeripheral {
-        onDirectionFinding {
-            DirectionFindingResult.Angle(
-                azimuth = 45.0f,
-                elevation = 10.0f,
-                signalQuality = -42.0f,
-            )
+    override fun buildPeripheral(): FakePeripheral =
+        FakePeripheral {
+            onDirectionFinding {
+                DirectionFindingResult.Angle(
+                    azimuth = 45.0f,
+                    elevation = 10.0f,
+                    signalQuality = -42.0f,
+                )
+            }
         }
-    }
 }

@@ -205,20 +205,22 @@ public abstract class DirectionFindingConformanceTest {
     }
 
     @Test
-    fun `requestDirectionFinding returns NotSupported on fake by default`() = runTest {
-        val peripheral = FakePeripheral {}
-        peripheral.connect()
-        val result = peripheral.requestDirectionFinding(
-            DirectionFindingParameters(
-                mode = DirectionFindingMode.ANGLES_OF_ARRIVAL,
-                cteLength = 8,
-                cteCount = 4,
-                antennaConfig = AntennaConfig(listOf(1, 2), 2),
-            ),
-        )
-        assertIs<DirectionFindingResult.NotSupported>(result)
-        peripheral.close()
-    }
+    fun `requestDirectionFinding returns NotSupported on fake by default`() =
+        runTest {
+            val peripheral = FakePeripheral {}
+            peripheral.connect()
+            val result =
+                peripheral.requestDirectionFinding(
+                    DirectionFindingParameters(
+                        mode = DirectionFindingMode.ANGLES_OF_ARRIVAL,
+                        cteLength = 8,
+                        cteCount = 4,
+                        antennaConfig = AntennaConfig(listOf(1, 2), 2),
+                    ),
+                )
+            assertIs<DirectionFindingResult.NotSupported>(result)
+            peripheral.close()
+        }
 
     // --- DirectionFindingResult: Failed ---
 
@@ -300,216 +302,240 @@ public abstract class DirectionFindingConformanceTest {
     // --- Lifecycle ---
 
     @Test
-    fun `requestDirectionFinding throws when not connected`() = runTest {
-        val peripheral = buildPeripheral()
-        assertFailsWith<IllegalStateException> {
-            peripheral.requestDirectionFinding(
-                DirectionFindingParameters(
-                    mode = DirectionFindingMode.ANGLES_OF_ARRIVAL,
-                    cteLength = 2,
-                    cteCount = 1,
-                    antennaConfig = AntennaConfig(listOf(1), 1),
-                ),
-            )
+    fun `requestDirectionFinding throws when not connected`() =
+        runTest {
+            val peripheral = buildPeripheral()
+            assertFailsWith<IllegalStateException> {
+                peripheral.requestDirectionFinding(
+                    DirectionFindingParameters(
+                        mode = DirectionFindingMode.ANGLES_OF_ARRIVAL,
+                        cteLength = 2,
+                        cteCount = 1,
+                        antennaConfig = AntennaConfig(listOf(1), 1),
+                    ),
+                )
+            }
+            peripheral.close()
         }
-        peripheral.close()
-    }
 
     // --- Custom handler integration ---
 
     @Test
-    fun `requestDirectionFinding uses builder handler when configured`() = runTest {
-        val expected = DirectionFindingResult.Angle(135.0f, 15.0f, -42.0f)
-        val peripheral = FakePeripheral {
-            onDirectionFinding { expected }
+    fun `requestDirectionFinding uses builder handler when configured`() =
+        runTest {
+            val expected = DirectionFindingResult.Angle(135.0f, 15.0f, -42.0f)
+            val peripheral =
+                FakePeripheral {
+                    onDirectionFinding { expected }
+                }
+            peripheral.connect()
+            val result =
+                peripheral.requestDirectionFinding(
+                    DirectionFindingParameters(
+                        mode = DirectionFindingMode.ANGLES_OF_ARRIVAL,
+                        cteLength = 8,
+                        cteCount = 4,
+                        antennaConfig = AntennaConfig(listOf(1, 2), 2),
+                    ),
+                )
+            assertIs<DirectionFindingResult.Angle>(result)
+            assertEquals(135.0f, result.azimuth)
+            assertEquals(15.0f, result.elevation)
+            assertEquals(-42.0f, result.signalQuality)
+            peripheral.close()
         }
-        peripheral.connect()
-        val result = peripheral.requestDirectionFinding(
-            DirectionFindingParameters(
-                mode = DirectionFindingMode.ANGLES_OF_ARRIVAL,
-                cteLength = 8,
-                cteCount = 4,
-                antennaConfig = AntennaConfig(listOf(1, 2), 2),
-            ),
-        )
-        assertIs<DirectionFindingResult.Angle>(result)
-        assertEquals(135.0f, result.azimuth)
-        assertEquals(15.0f, result.elevation)
-        assertEquals(-42.0f, result.signalQuality)
-        peripheral.close()
-    }
 
     @Test
-    fun `requestDirectionFinding uses builder handler returning Failed`() = runTest {
-        val peripheral = FakePeripheral {
-            onDirectionFinding { DirectionFindingResult.Failed("simulated failure") }
+    fun `requestDirectionFinding uses builder handler returning Failed`() =
+        runTest {
+            val peripheral =
+                FakePeripheral {
+                    onDirectionFinding { DirectionFindingResult.Failed("simulated failure") }
+                }
+            peripheral.connect()
+            val result =
+                peripheral.requestDirectionFinding(
+                    DirectionFindingParameters(
+                        mode = DirectionFindingMode.ANGLES_OF_ARRIVAL,
+                        cteLength = 8,
+                        cteCount = 4,
+                        antennaConfig = AntennaConfig(listOf(1, 2), 2),
+                    ),
+                )
+            assertIs<DirectionFindingResult.Failed>(result)
+            assertEquals("simulated failure", (result as DirectionFindingResult.Failed).reason)
+            peripheral.close()
         }
-        peripheral.connect()
-        val result = peripheral.requestDirectionFinding(
-            DirectionFindingParameters(
-                mode = DirectionFindingMode.ANGLES_OF_ARRIVAL,
-                cteLength = 8,
-                cteCount = 4,
-                antennaConfig = AntennaConfig(listOf(1, 2), 2),
-            ),
-        )
-        assertIs<DirectionFindingResult.Failed>(result)
-        assertEquals("simulated failure", (result as DirectionFindingResult.Failed).reason)
-        peripheral.close()
-    }
 
     // --- Concurrency: structured concurrency without locks ---
 
     @Test
-    fun `requestDirectionFinding handles concurrent calls`() = runTest {
-        val peripheral = FakePeripheral {
-            onDirectionFinding { DirectionFindingResult.Angle(45.0f, 10.0f, -50.0f) }
-        }
-        peripheral.connect()
-        coroutineScope {
-            val resultA = async {
-                peripheral.requestDirectionFinding(
-                    DirectionFindingParameters(
-                        mode = DirectionFindingMode.ANGLES_OF_ARRIVAL,
-                        cteLength = 8,
-                        cteCount = 4,
-                        antennaConfig = AntennaConfig(listOf(1, 2), 2),
-                    ),
-                )
+    fun `requestDirectionFinding handles concurrent calls`() =
+        runTest {
+            val peripheral =
+                FakePeripheral {
+                    onDirectionFinding { DirectionFindingResult.Angle(45.0f, 10.0f, -50.0f) }
+                }
+            peripheral.connect()
+            coroutineScope {
+                val resultA =
+                    async {
+                        peripheral.requestDirectionFinding(
+                            DirectionFindingParameters(
+                                mode = DirectionFindingMode.ANGLES_OF_ARRIVAL,
+                                cteLength = 8,
+                                cteCount = 4,
+                                antennaConfig = AntennaConfig(listOf(1, 2), 2),
+                            ),
+                        )
+                    }
+                val resultB =
+                    async {
+                        peripheral.requestDirectionFinding(
+                            DirectionFindingParameters(
+                                mode = DirectionFindingMode.ANGLES_OF_DEPARTURE,
+                                cteLength = 10,
+                                cteCount = 8,
+                                antennaConfig = AntennaConfig(listOf(1, 2, 3, 4), 4),
+                            ),
+                        )
+                    }
+                assertIs<DirectionFindingResult.Angle>(resultA.await())
+                assertIs<DirectionFindingResult.Angle>(resultB.await())
             }
-            val resultB = async {
-                peripheral.requestDirectionFinding(
-                    DirectionFindingParameters(
-                        mode = DirectionFindingMode.ANGLES_OF_DEPARTURE,
-                        cteLength = 10,
-                        cteCount = 8,
-                        antennaConfig = AntennaConfig(listOf(1, 2, 3, 4), 4),
-                    ),
-                )
-            }
-            assertIs<DirectionFindingResult.Angle>(resultA.await())
-            assertIs<DirectionFindingResult.Angle>(resultB.await())
+            peripheral.close()
         }
-        peripheral.close()
-    }
 
     // --- Cancellation ---
 
     @Test
-    fun `requestDirectionFinding propagates cancellation`() = runTest {
-        val started = CompletableDeferred<Unit>()
-        val peripheral = FakePeripheral {
-            onDirectionFinding {
-                started.complete(Unit)
-                delay(60_000) // never completes unless cancelled
-                DirectionFindingResult.Angle(45.0f, 10.0f, -50.0f)
+    fun `requestDirectionFinding propagates cancellation`() =
+        runTest {
+            val started = CompletableDeferred<Unit>()
+            val peripheral =
+                FakePeripheral {
+                    onDirectionFinding {
+                        started.complete(Unit)
+                        delay(60_000) // never completes unless cancelled
+                        DirectionFindingResult.Angle(45.0f, 10.0f, -50.0f)
+                    }
+                }
+            peripheral.connect()
+            coroutineScope {
+                val job =
+                    launch {
+                        peripheral.requestDirectionFinding(
+                            DirectionFindingParameters(
+                                mode = DirectionFindingMode.ANGLES_OF_ARRIVAL,
+                                cteLength = 8,
+                                cteCount = 4,
+                                antennaConfig = AntennaConfig(listOf(1, 2), 2),
+                            ),
+                        )
+                    }
+                started.await()
+                job.cancel()
+                job.join()
+                assertTrue(job.isCancelled)
             }
+            peripheral.close()
         }
-        peripheral.connect()
-        coroutineScope {
-            val job = launch {
-                peripheral.requestDirectionFinding(
-                    DirectionFindingParameters(
-                        mode = DirectionFindingMode.ANGLES_OF_ARRIVAL,
-                        cteLength = 8,
-                        cteCount = 4,
-                        antennaConfig = AntennaConfig(listOf(1, 2), 2),
-                    ),
-                )
-            }
-            started.await()
-            job.cancel()
-            job.join()
-            assertTrue(job.isCancelled)
-        }
-        peripheral.close()
-    }
 
     // --- Cross-platform parity ---
 
     @Test
     fun `DirectionFindingParameters equality`() {
-        val params1 = DirectionFindingParameters(
-            mode = DirectionFindingMode.ANGLES_OF_ARRIVAL,
-            cteLength = 8,
-            cteCount = 4,
-            antennaConfig = AntennaConfig(listOf(1, 2), 2),
-        )
-        val params2 = DirectionFindingParameters(
-            mode = DirectionFindingMode.ANGLES_OF_ARRIVAL,
-            cteLength = 8,
-            cteCount = 4,
-            antennaConfig = AntennaConfig(listOf(1, 2), 2),
-        )
+        val params1 =
+            DirectionFindingParameters(
+                mode = DirectionFindingMode.ANGLES_OF_ARRIVAL,
+                cteLength = 8,
+                cteCount = 4,
+                antennaConfig = AntennaConfig(listOf(1, 2), 2),
+            )
+        val params2 =
+            DirectionFindingParameters(
+                mode = DirectionFindingMode.ANGLES_OF_ARRIVAL,
+                cteLength = 8,
+                cteCount = 4,
+                antennaConfig = AntennaConfig(listOf(1, 2), 2),
+            )
         assertEquals(params1, params2)
         assertEquals(params1.hashCode(), params2.hashCode())
     }
 
     @Test
     fun `DirectionFindingParameters inequality mode`() {
-        val params1 = DirectionFindingParameters(
-            mode = DirectionFindingMode.ANGLES_OF_ARRIVAL,
-            cteLength = 8,
-            cteCount = 4,
-            antennaConfig = AntennaConfig(listOf(1, 2), 2),
-        )
-        val params2 = DirectionFindingParameters(
-            mode = DirectionFindingMode.ANGLES_OF_DEPARTURE,
-            cteLength = 8,
-            cteCount = 4,
-            antennaConfig = AntennaConfig(listOf(1, 2), 2),
-        )
+        val params1 =
+            DirectionFindingParameters(
+                mode = DirectionFindingMode.ANGLES_OF_ARRIVAL,
+                cteLength = 8,
+                cteCount = 4,
+                antennaConfig = AntennaConfig(listOf(1, 2), 2),
+            )
+        val params2 =
+            DirectionFindingParameters(
+                mode = DirectionFindingMode.ANGLES_OF_DEPARTURE,
+                cteLength = 8,
+                cteCount = 4,
+                antennaConfig = AntennaConfig(listOf(1, 2), 2),
+            )
         assertNotEquals(params1, params2)
     }
 
     @Test
     fun `DirectionFindingParameters inequality cteLength`() {
-        val params1 = DirectionFindingParameters(
-            mode = DirectionFindingMode.ANGLES_OF_ARRIVAL,
-            cteLength = 8,
-            cteCount = 4,
-            antennaConfig = AntennaConfig(listOf(1, 2), 2),
-        )
-        val params2 = DirectionFindingParameters(
-            mode = DirectionFindingMode.ANGLES_OF_ARRIVAL,
-            cteLength = 10,
-            cteCount = 4,
-            antennaConfig = AntennaConfig(listOf(1, 2), 2),
-        )
+        val params1 =
+            DirectionFindingParameters(
+                mode = DirectionFindingMode.ANGLES_OF_ARRIVAL,
+                cteLength = 8,
+                cteCount = 4,
+                antennaConfig = AntennaConfig(listOf(1, 2), 2),
+            )
+        val params2 =
+            DirectionFindingParameters(
+                mode = DirectionFindingMode.ANGLES_OF_ARRIVAL,
+                cteLength = 10,
+                cteCount = 4,
+                antennaConfig = AntennaConfig(listOf(1, 2), 2),
+            )
         assertNotEquals(params1, params2)
     }
 
     @Test
     fun `DirectionFindingParameters inequality cteCount`() {
-        val params1 = DirectionFindingParameters(
-            mode = DirectionFindingMode.ANGLES_OF_ARRIVAL,
-            cteLength = 8,
-            cteCount = 4,
-            antennaConfig = AntennaConfig(listOf(1, 2), 2),
-        )
-        val params2 = DirectionFindingParameters(
-            mode = DirectionFindingMode.ANGLES_OF_ARRIVAL,
-            cteLength = 8,
-            cteCount = 8,
-            antennaConfig = AntennaConfig(listOf(1, 2), 2),
-        )
+        val params1 =
+            DirectionFindingParameters(
+                mode = DirectionFindingMode.ANGLES_OF_ARRIVAL,
+                cteLength = 8,
+                cteCount = 4,
+                antennaConfig = AntennaConfig(listOf(1, 2), 2),
+            )
+        val params2 =
+            DirectionFindingParameters(
+                mode = DirectionFindingMode.ANGLES_OF_ARRIVAL,
+                cteLength = 8,
+                cteCount = 8,
+                antennaConfig = AntennaConfig(listOf(1, 2), 2),
+            )
         assertNotEquals(params1, params2)
     }
 
     @Test
     fun `DirectionFindingParameters inequality antennaConfig`() {
-        val params1 = DirectionFindingParameters(
-            mode = DirectionFindingMode.ANGLES_OF_ARRIVAL,
-            cteLength = 8,
-            cteCount = 4,
-            antennaConfig = AntennaConfig(listOf(1, 2), 2),
-        )
-        val params2 = DirectionFindingParameters(
-            mode = DirectionFindingMode.ANGLES_OF_ARRIVAL,
-            cteLength = 8,
-            cteCount = 4,
-            antennaConfig = AntennaConfig(listOf(1, 2, 3), 3),
-        )
+        val params1 =
+            DirectionFindingParameters(
+                mode = DirectionFindingMode.ANGLES_OF_ARRIVAL,
+                cteLength = 8,
+                cteCount = 4,
+                antennaConfig = AntennaConfig(listOf(1, 2), 2),
+            )
+        val params2 =
+            DirectionFindingParameters(
+                mode = DirectionFindingMode.ANGLES_OF_ARRIVAL,
+                cteLength = 8,
+                cteCount = 4,
+                antennaConfig = AntennaConfig(listOf(1, 2, 3), 3),
+            )
         assertNotEquals(params1, params2)
     }
 }

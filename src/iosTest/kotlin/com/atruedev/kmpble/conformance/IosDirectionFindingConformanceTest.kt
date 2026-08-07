@@ -18,8 +18,9 @@ import com.atruedev.kmpble.testing.FakePeripheral
  * Run: ./gradlew :iosSimulatorArm64Test --tests "*DirectionFindingConformance*"
  */
 public class IosDirectionFindingConformanceTest : DirectionFindingConformanceTest() {
-    override fun buildPeripheral(): FakePeripheral = FakePeripheral {
-        // iOS lacks public CTE APIs; always return NotSupported.
-        onDirectionFinding { DirectionFindingResult.NotSupported }
-    }
+    override fun buildPeripheral(): FakePeripheral =
+        FakePeripheral {
+            // iOS lacks public CTE APIs; always return NotSupported.
+            onDirectionFinding { DirectionFindingResult.NotSupported }
+        }
 }
