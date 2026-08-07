@@ -18,7 +18,16 @@ public sealed interface DirectionFindingResult {
         val azimuth: Float,
         val elevation: Float,
         val signalQuality: Float? = null,
-    ) : DirectionFindingResult
+    ) : DirectionFindingResult {
+        init {
+            require(azimuth in 0.0f..360.0f) {
+                "azimuth must be 0..360 degrees, was $azimuth"
+            }
+            require(elevation in -90.0f..90.0f) {
+                "elevation must be -90..90 degrees, was $elevation"
+            }
+        }
+    }
 
     /**
      * Direction finding is not supported on this platform, OS version,
