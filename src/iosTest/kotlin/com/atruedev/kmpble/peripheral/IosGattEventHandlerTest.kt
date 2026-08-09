@@ -311,13 +311,13 @@ class IosGattEventHandlerTest {
     }
 
     @Test
-    fun `pendingOps clear resets all state`() =
+    fun `pendingOps cancel clears its own slot`() =
         runTest {
             val ops = PendingOperations()
             val deferred = CompletableDeferred<GattStatus>()
-            ops.set(PendingOp.CharacteristicWrite, deferred)
+            val generation = ops.set(PendingOp.CharacteristicWrite, deferred)
 
-            ops.clear(PendingOp.CharacteristicWrite)
+            ops.cancel(PendingOp.CharacteristicWrite, generation)
             assertFalse(ops.has(PendingOp.CharacteristicWrite))
         }
 }

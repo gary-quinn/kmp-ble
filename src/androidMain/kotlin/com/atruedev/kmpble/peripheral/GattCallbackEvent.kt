@@ -35,6 +35,15 @@ internal sealed interface GattCallbackEvent {
         val status: Int,
     ) : GattCallbackEvent
 
+    /**
+     * Fired by [android.bluetooth.BluetoothGattCallback.onReliableWriteCompleted]
+     * after [android.bluetooth.BluetoothGatt.executeReliableWrite] commits a
+     * reliable-write transaction.
+     */
+    data class ReliableWriteCompleted(
+        val status: Int,
+    ) : GattCallbackEvent
+
     class CharacteristicChanged(
         val characteristic: BluetoothGattCharacteristic,
         val value: ByteArray,

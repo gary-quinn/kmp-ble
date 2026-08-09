@@ -283,6 +283,27 @@ peripheral.write(
 // No confirmation from the peripheral
 ```
 
+### Reliable write (atomic, multi-chunk)
+
+Writes a value larger than the MTU all-or-nothing. Unlike `write()` (which chunks
+as independent operations -- a mid-batch failure leaves earlier chunks committed),
+a reliable write stages every chunk and commits them together.
+
+```kotlin
+if (!peripheral.supportsReliableWrite) {
+    // iOS: CoreBluetooth has no public prepared-write API. Fall back to write().
+    peripheral.write(characteristic, data, WriteType.WithResponse)
+} else {
+    peripheral.writeReliable(characteristic, data)  // atomic on Android
+}
+```
+
+- Android: atomic via `beginReliableWrite` -> per-chunk writes -> `executeReliableWrite`.
+  Any failure (including cancellation) aborts the transaction; nothing is committed.
+- iOS: unsupported -- `writeReliable` throws; check `supportsReliableWrite` first.
+- Single-chunk values (<= MTU) use a plain acknowledged write.
+- Whole-transaction timeout: `OperationTimeouts.reliableWrite` (default 30s).
+
 ### Request MTU
 
 ```kotlin
