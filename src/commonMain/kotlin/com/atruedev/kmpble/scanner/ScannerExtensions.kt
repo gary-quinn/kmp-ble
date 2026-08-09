@@ -1,5 +1,6 @@
 package com.atruedev.kmpble.scanner
 
+import com.atruedev.kmpble.Identifier
 import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
@@ -11,6 +12,56 @@ import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
+
+/**
+ * Scan until [limit] distinct peripherals are seen (or [timeout] elapses), returning
+ * the strongest [limit] by RSSI, sorted strongest-first.
+ *
+ * Each peripheral's advertisement is tracked at its best (highest) RSSI observed;
+ * repeated advertisements for the same [Advertisement.identifier] update the stored
+ * value rather than adding a duplicate entry. Scanning stops as soon as [limit]
+ * distinct peripherals have been seen, or when [timeout] expires (fewer results).
+ *
+ * ```
+ * val top5 = scanner.scanBatch(limit = 5, timeout = 15.seconds)
+ * top5.forEach { println("${it.name} at ${it.rssi} dBm") }
+ * ```
+ *
+ * [ScanEvent.Failed] events are skipped. Returns an empty list if nothing was
+ * seen before the timeout.
+ */
+public suspend fun Scanner.scanBatch(
+    limit: Int,
+    timeout: Duration = 30.seconds,
+): List<Advertisement> {
+    require(limit > 0) { "limit must be positive, was $limit" }
+    val bestByRssi = HashMap<Identifier, Advertisement>()
+    try {
+        withTimeoutOrNull(timeout) {
+            scanEvents.collect { event ->
+                when (event) {
+                    is ScanEvent.Found -> {
+                        val ad = event.advertisement
+                        val current = bestByRssi[ad.identifier]
+                        if (current == null || ad.rssi > current.rssi) {
+                            bestByRssi[ad.identifier] = ad
+                        }
+                        if (bestByRssi.size >= limit) {
+                            throw BatchComplete
+                        }
+                    }
+                    is ScanEvent.Failed -> Unit
+                }
+            }
+        }
+    } catch (_: BatchComplete) {
+        // Limit reached -- stop scanning and return what we have.
+    }
+    return bestByRssi.values.sortedByDescending { it.rssi }.take(limit)
+}
+
+/** Internal signal to stop [scanBatch] once [limit] distinct peripherals are seen. */
+private object BatchComplete : kotlinx.coroutines.CancellationException("scanBatch limit reached")
 
 /**
  * Collect [Scanner.scanEvents], return the first matching [predicate], or null after [timeout].
