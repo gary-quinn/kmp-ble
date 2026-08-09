@@ -1,7 +1,6 @@
 package com.atruedev.kmpble.scanner
 
 import com.atruedev.kmpble.Identifier
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
