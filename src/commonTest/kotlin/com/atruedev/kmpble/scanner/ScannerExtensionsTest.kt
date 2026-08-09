@@ -112,9 +112,18 @@ class ScannerExtensionsTest {
         runTest {
             val scanner =
                 FakeScanner {
-                    advertisement { name("Weak"); rssi(-80) }
-                    advertisement { name("Strong"); rssi(-40) }
-                    advertisement { name("Mid"); rssi(-60) }
+                    advertisement {
+                        name("Weak")
+                        rssi(-80)
+                    }
+                    advertisement {
+                        name("Strong")
+                        rssi(-40)
+                    }
+                    advertisement {
+                        name("Mid")
+                        rssi(-60)
+                    }
                 }
             val result = scanner.scanBatch(limit = 2, timeout = 500.milliseconds)
             assertEquals(listOf("Strong", "Mid"), result.map { it.name })
