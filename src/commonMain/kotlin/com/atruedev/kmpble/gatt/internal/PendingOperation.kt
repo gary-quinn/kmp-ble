@@ -66,7 +66,14 @@ internal data class PhyUpdateResult(
  * "overwritten while pending", and a late platform callback would complete into
  * a freshly-armed retry slot.
  *
- * A callback that arrives after its op was cancelled finds no slot and no-ops.
+ * A callback that arrives after its op was cancelled no-ops UNLESS a retry of
+ * the same type has already re-armed the slot: [complete] is not generation
+ * aware, so a stale callback would complete the retry's deferred. In practice
+ * the callback is dispatched from the platform callback thread onto the same
+ * serialized dispatcher well before a user retry can re-arm (the retry path
+ * crosses enqueue -> drain -> block -> set), so the race window is effectively
+ * theoretical -- but it exists. Closing it fully requires generation-aware
+ * [complete], tracked in the backlog.
  */
 internal class PendingOperations {
     private class Slot(
