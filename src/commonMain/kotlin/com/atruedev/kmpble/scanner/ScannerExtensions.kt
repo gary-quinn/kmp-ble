@@ -1,13 +1,10 @@
 package com.atruedev.kmpble.scanner
 
 import com.atruedev.kmpble.Identifier
-import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapNotNull
-import kotlinx.coroutines.flow.take
-import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.time.Duration
@@ -162,11 +159,27 @@ public suspend fun Scanner.scanUntil(
     maxWait: Duration = Duration.INFINITE,
 ): List<Advertisement> {
     require(count > 0) { "count must be positive, was $count" }
-    return withTimeoutOrNull(maxWait) {
-        scanEvents
-            .mapNotNull { event -> (event as? ScanEvent.Found)?.advertisement }
-            .distinctUntilChangedBy { it.identifier }
-            .take(count)
-            .toList()
-    }.orEmpty()
+    val seen = LinkedHashMap<Identifier, Advertisement>()
+    try {
+        withTimeoutOrNull(maxWait) {
+            scanEvents.collect { event ->
+                when (event) {
+                    is ScanEvent.Found -> {
+                        // First occurrence per identifier wins (true set-distinct,
+                        // unlike distinctUntilChanged which only drops consecutive dupes).
+                        seen.putIfAbsent(event.advertisement.identifier, event.advertisement)
+                        if (seen.size >= count) throw BatchComplete
+                    }
+                    is ScanEvent.Failed -> Unit
+                }
+            }
+        }
+    } catch (_: BatchComplete) {
+        // count reached -- stop scanning and return what we have
+    }
+    // Partial results on timeout: return whatever was collected before maxWait.
+    return seen.values.toList()
 }
+
+/** Internal signal to stop collection early once the target is reached. */
+private object BatchComplete : kotlinx.coroutines.CancellationException("scanUntil target reached")

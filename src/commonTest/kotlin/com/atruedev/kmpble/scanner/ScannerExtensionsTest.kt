@@ -174,4 +174,88 @@ class ScannerExtensionsTest {
                 scanner.scanBatch(limit = 0)
             }
         }
+
+    // --- scanUntil(predicate) ---
+
+    @Test
+    fun scanUntilReturnsFirstMatchingAd() =
+        runTest {
+            val scanner =
+                FakeScanner {
+                    advertisement { name("A") }
+                    advertisement { name("Target") }
+                }
+            val result = scanner.scanUntil(maxWait = 500.milliseconds) { it.name == "Target" }
+            assertNotNull(result)
+            assertEquals("Target", result.name)
+        }
+
+    @Test
+    fun scanUntilReturnsNullOnTimeout() =
+        runTest {
+            val scanner = FakeScanner {}
+            val result = scanner.scanUntil(maxWait = 10.milliseconds) { true }
+            assertNull(result)
+        }
+
+    @Test
+    fun scanUntilReturnsNullWhenNoMatch() =
+        runTest {
+            val scanner =
+                FakeScanner {
+                    advertisement { name("A") }
+                }
+            val result = scanner.scanUntil(maxWait = 50.milliseconds) { it.name == "Z" }
+            assertNull(result)
+        }
+
+    // --- scanUntil(count) ---
+
+    @Test
+    fun scanUntilCountCollectsDistinctAds() =
+        runTest {
+            val scanner =
+                FakeScanner {
+                    advertisement { name("A") }
+                    advertisement { name("B") }
+                    advertisement { name("C") }
+                }
+            val result = scanner.scanUntil(count = 2, maxWait = 500.milliseconds)
+            assertEquals(2, result.size)
+            assertEquals(listOf("A", "B"), result.map { it.name })
+        }
+
+    @Test
+    fun scanUntilCountDeduplicatesByIdentifier() =
+        runTest {
+            val scanner =
+                FakeScanner {
+                    advertisement { identifier("a"); name("A") }
+                    advertisement { identifier("a"); name("A2") } // same id "a", new name
+                    advertisement { identifier("b"); name("B") }
+                }
+            val result = scanner.scanUntil(count = 2, maxWait = 500.milliseconds)
+            assertEquals(2, result.size)
+            assertEquals(listOf("a", "b"), result.map { it.identifier.value })
+        }
+
+    @Test
+    fun scanUntilCountReturnsFewerOnTimeout() =
+        runTest {
+            val scanner =
+                FakeScanner {
+                    advertisement { name("A") }
+                }
+            val result = scanner.scanUntil(count = 5, maxWait = 50.milliseconds)
+            assertEquals(1, result.size)
+        }
+
+    @Test
+    fun scanUntilCountRejectsNonPositiveCount() =
+        runTest {
+            val scanner = FakeScanner {}
+            assertFailsWith<IllegalArgumentException> {
+                scanner.scanUntil(count = 0)
+            }
+        }
 }
