@@ -1,7 +1,5 @@
 package com.atruedev.kmpble.connection
 
-import com.atruedev.kmpble.ExperimentalBleApi
-
 /**
  * Enable iOS Core Bluetooth state restoration.
  *
@@ -14,5 +12,4 @@ import com.atruedev.kmpble.ExperimentalBleApi
  *
  * @param config Configuration specifying the restoration identifier.
  */
-@ExperimentalBleApi
 public expect fun enableStateRestoration(config: StateRestorationConfig)

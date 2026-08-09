@@ -1,7 +1,5 @@
 package com.atruedev.kmpble.connection
 
-import com.atruedev.kmpble.ExperimentalBleApi
-
 /**
  * Configuration for iOS Core Bluetooth state restoration.
  *
@@ -24,7 +22,6 @@ import com.atruedev.kmpble.ExperimentalBleApi
  * )
  * ```
  */
-@ExperimentalBleApi
 public data class StateRestorationConfig(
     /**
      * Unique string that iOS uses to identify this app's CBCentralManager for restoration.

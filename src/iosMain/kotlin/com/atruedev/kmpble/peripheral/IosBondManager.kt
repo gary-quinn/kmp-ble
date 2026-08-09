@@ -1,6 +1,5 @@
 package com.atruedev.kmpble.peripheral
 
-import com.atruedev.kmpble.ExperimentalBleApi
 import com.atruedev.kmpble.bonding.BondRemovalResult
 import com.atruedev.kmpble.bonding.BondState
 import com.atruedev.kmpble.peripheral.internal.PeripheralContext
@@ -53,7 +52,6 @@ internal class IosBondManager(
      * iOS does not support programmatic bond removal. Users must remove
      * bonds from Settings > Bluetooth.
      */
-    @ExperimentalBleApi
     internal fun removeBond(): BondRemovalResult =
         BondRemovalResult.NotSupported(
             "iOS does not support programmatic bond removal. Remove from Settings > Bluetooth.",

@@ -69,7 +69,6 @@ public interface Peripheral : AutoCloseable {
      */
     public val encryptionLevel: StateFlow<EncryptionLevel>
 
-    @ExperimentalBleApi
     public fun removeBond(): BondRemovalResult
 
     // --- Discovery ---
@@ -213,7 +212,6 @@ public interface Peripheral : AutoCloseable {
      * @return `true` if the request was dispatched; `false` if unsupported
      *   or the GATT layer is not ready.
      */
-    @ExperimentalBleApi
     public suspend fun requestConnectionPriority(priority: ConnectionPriority): Boolean
 
     /**
@@ -247,7 +245,6 @@ public interface Peripheral : AutoCloseable {
      *
      * @return [PhyResult] with negotiated TX/RX PHYs, or `null` if unsupported.
      */
-    @ExperimentalBleApi
     public suspend fun setPreferredPhy(
         tx: Phy,
         rx: Phy,
@@ -261,7 +258,6 @@ public interface Peripheral : AutoCloseable {
      *
      * @return [PhyResult] with current TX/RX PHYs, or `null` if unsupported.
      */
-    @ExperimentalBleApi
     public suspend fun readPhy(): PhyResult?
 
     /**
@@ -269,7 +265,6 @@ public interface Peripheral : AutoCloseable {
      * controller negotiates a new PHY (triggered by [setPreferredPhy] or
      * autonomously). Only emits while connected. iOS never emits.
      */
-    @ExperimentalBleApi
     public val phyUpdate: Flow<PhyUpdate>
 
     /**

@@ -58,7 +58,6 @@ internal class StubPeripheral(
 
     override fun close() {}
 
-    @ExperimentalBleApi
     override fun removeBond(): BondRemovalResult = unsupported()
 
     override suspend fun refreshServices(): List<DiscoveredService> = unsupported()
@@ -103,7 +102,6 @@ internal class StubPeripheral(
 
     override suspend fun requestMtu(mtu: Int): Int = unsupported()
 
-    @ExperimentalBleApi
     override suspend fun requestConnectionPriority(priority: ConnectionPriority): Boolean = unsupported()
 
     @ExperimentalBleApi
@@ -116,19 +114,16 @@ internal class StubPeripheral(
         parameters: ConnectionSubratingParameters,
     ): ConnectionSubratingResult = unsupported()
 
-    @ExperimentalBleApi
     override suspend fun setPreferredPhy(
         tx: Phy,
         rx: Phy,
     ): PhyResult? = unsupported()
 
-    @ExperimentalBleApi
     override suspend fun readPhy(): PhyResult? = unsupported()
 
     // A val initializer runs unconditionally at construction, unlike the unsupported()
     // functions above it - unsupported() here would make StubPeripheral() itself always
     // throw, defeating every test that merely constructs one.
-    @ExperimentalBleApi
     override val phyUpdate: Flow<PhyUpdate> = emptyFlow()
     override val dataLengthParameters: StateFlow<DataLengthParameters?> = MutableStateFlow(null)
 
