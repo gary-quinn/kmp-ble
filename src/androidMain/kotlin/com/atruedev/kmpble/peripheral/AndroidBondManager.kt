@@ -8,7 +8,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import com.atruedev.kmpble.ExperimentalBleApi
 import com.atruedev.kmpble.bonding.BondRemovalResult
 import com.atruedev.kmpble.bonding.BondState
 import com.atruedev.kmpble.peripheral.internal.PeripheralContext
@@ -65,7 +64,6 @@ internal class AndroidBondManager(
         }
     }
 
-    @ExperimentalBleApi
     internal fun removeBond(): BondRemovalResult =
         try {
             val method = device.javaClass.getMethod("removeBond")

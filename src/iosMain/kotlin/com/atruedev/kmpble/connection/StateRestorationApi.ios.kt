@@ -1,6 +1,5 @@
 package com.atruedev.kmpble.connection
 
-import com.atruedev.kmpble.ExperimentalBleApi
 import com.atruedev.kmpble.internal.CentralManagerProvider
 import com.atruedev.kmpble.internal.StateRestorationHandler
 
@@ -22,7 +21,6 @@ import com.atruedev.kmpble.internal.StateRestorationHandler
  *
  * @throws IllegalStateException if CBCentralManager has already been initialized
  */
-@ExperimentalBleApi
 public actual fun enableStateRestoration(config: StateRestorationConfig) {
     require(config.identifier.isNotBlank()) {
         "State restoration identifier must not be blank"

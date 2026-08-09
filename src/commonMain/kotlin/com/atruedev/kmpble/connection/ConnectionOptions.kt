@@ -1,6 +1,5 @@
 package com.atruedev.kmpble.connection
 
-import com.atruedev.kmpble.ExperimentalBleApi
 import com.atruedev.kmpble.bonding.PairingHandler
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
@@ -58,7 +57,6 @@ public data class ConnectionOptions(
      * On iOS, the system dialog is always shown. The handler receives
      * events for observability but cannot suppress the dialog.
      */
-    @property:ExperimentalBleApi
     val pairingHandler: PairingHandler? = null,
     /**
      * Retry policy for GATT operations (read, write, MTU) that fail

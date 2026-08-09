@@ -131,7 +131,6 @@ public class FakePeripheral internal constructor(
         context.processEvent(ConnectionEvent.ConnectionLost(OperationFailed("disconnect")))
     }
 
-    @com.atruedev.kmpble.ExperimentalBleApi
     override fun removeBond(): com.atruedev.kmpble.bonding.BondRemovalResult =
         com.atruedev.kmpble.bonding.BondRemovalResult
             .NotSupported("FakePeripheral")
@@ -212,7 +211,6 @@ public class FakePeripheral internal constructor(
 
     override suspend fun requestMtu(mtu: Int): Int = gattResponder.requestMtu(mtu)
 
-    @com.atruedev.kmpble.ExperimentalBleApi
     override suspend fun requestConnectionPriority(priority: ConnectionPriority): Boolean =
         gattResponder.requestConnectionPriority(priority)
 
@@ -227,16 +225,13 @@ public class FakePeripheral internal constructor(
         parameters: ConnectionSubratingParameters,
     ): ConnectionSubratingResult = gattResponder.requestConnectionSubrating(parameters)
 
-    @com.atruedev.kmpble.ExperimentalBleApi
     override suspend fun setPreferredPhy(
         tx: Phy,
         rx: Phy,
     ): PhyResult? = gattResponder.setPreferredPhy(tx, rx)
 
-    @com.atruedev.kmpble.ExperimentalBleApi
     override suspend fun readPhy(): PhyResult? = gattResponder.readPhy()
 
-    @com.atruedev.kmpble.ExperimentalBleApi
     override val phyUpdate: Flow<PhyUpdate> = gattResponder.phyUpdate
     override val dataLengthParameters: StateFlow<DataLengthParameters?> get() = gattResponder.dataLengthParameters
 

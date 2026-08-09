@@ -184,7 +184,6 @@ public class AndroidPeripheral internal constructor(
         PeripheralRegistry.remove(identifier)
     }
 
-    @ExperimentalBleApi
     override fun removeBond(): BondRemovalResult {
         checkNotClosed()
         return bondManager.removeBond()
@@ -236,7 +235,6 @@ public class AndroidPeripheral internal constructor(
 
     override suspend fun requestMtu(mtu: Int): Int = requestMtuGatt(mtu)
 
-    @ExperimentalBleApi
     override suspend fun requestConnectionPriority(priority: ConnectionPriority): Boolean =
         requestConnectionPriorityGatt(priority)
 
@@ -245,16 +243,13 @@ public class AndroidPeripheral internal constructor(
         params: ConnectionParameters,
     ): ConnectionParameterUpdateResult? = requestConnectionParameterUpdateGatt(params)
 
-    @ExperimentalBleApi
     override suspend fun setPreferredPhy(
         tx: Phy,
         rx: Phy,
     ): PhyResult? = setPreferredPhyGatt(tx, rx)
 
-    @ExperimentalBleApi
     override suspend fun readPhy(): PhyResult? = readPhyGatt()
 
-    @ExperimentalBleApi
     override val phyUpdate: Flow<PhyUpdate> = _phyUpdate
 
     @ExperimentalBleApi

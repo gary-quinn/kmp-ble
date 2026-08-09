@@ -163,7 +163,6 @@ public class IosPeripheral(
 
     override suspend fun disconnect(): Unit = disconnectInternal()
 
-    @ExperimentalBleApi
     override fun removeBond(): BondRemovalResult = bondManager.removeBond()
 
     override fun close(): Unit = closeInternal()
@@ -224,7 +223,6 @@ public class IosPeripheral(
 
     override suspend fun requestMtu(mtu: Int): Int = requestMtuGatt(mtu)
 
-    @ExperimentalBleApi
     override suspend fun requestConnectionPriority(priority: ConnectionPriority): Boolean =
         requestConnectionPriorityExt(priority)
 
@@ -233,16 +231,13 @@ public class IosPeripheral(
         params: ConnectionParameters,
     ): ConnectionParameterUpdateResult? = requestConnectionParameterUpdateExt(params)
 
-    @ExperimentalBleApi
     override suspend fun setPreferredPhy(
         tx: Phy,
         rx: Phy,
     ): PhyResult? = setPreferredPhyExt(tx, rx)
 
-    @ExperimentalBleApi
     override suspend fun readPhy(): PhyResult? = readPhyExt()
 
-    @ExperimentalBleApi
     override val phyUpdate: Flow<PhyUpdate> = emptyFlow()
 
     @ExperimentalBleApi

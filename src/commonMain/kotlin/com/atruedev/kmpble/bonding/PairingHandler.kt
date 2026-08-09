@@ -1,6 +1,5 @@
 package com.atruedev.kmpble.bonding
 
-import com.atruedev.kmpble.ExperimentalBleApi
 import com.atruedev.kmpble.Identifier
 
 /**
@@ -35,7 +34,6 @@ import com.atruedev.kmpble.Identifier
  * }
  * ```
  */
-@ExperimentalBleApi
 public fun interface PairingHandler {
     public suspend fun onPairingEvent(event: PairingEvent): PairingResponse
 }
@@ -43,7 +41,6 @@ public fun interface PairingHandler {
 /**
  * Pairing event requiring user interaction or acknowledgment.
  */
-@ExperimentalBleApi
 public sealed interface PairingEvent {
     public val deviceIdentifier: Identifier
 
@@ -93,7 +90,6 @@ public sealed interface PairingEvent {
 /**
  * Response to a [PairingEvent].
  */
-@ExperimentalBleApi
 public sealed interface PairingResponse {
     /** Confirm or reject pairing (for [PairingEvent.NumericComparison], [PairingEvent.JustWorksConfirmation]). */
     public data class Confirm(
