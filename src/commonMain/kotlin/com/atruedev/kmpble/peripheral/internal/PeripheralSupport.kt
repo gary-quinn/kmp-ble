@@ -49,6 +49,11 @@ internal fun List<DiscoveredService>?.findDescriptor(
  * still finds a deferred to complete. If the platform reports rejection ([submit]
  * returns false), the slot is cleared and the caller is failed deterministically.
  *
+ * Cancellation-safe: if the awaiting coroutine is cancelled or times out (which the
+ * GATT operation queue propagates into the action), the slot is removed via its
+ * generation token so a retry of the same operation type does not trip the
+ * "overwritten while pending" check, and a late platform callback no-ops.
+ *
  * Confined to the peripheral's serial dispatcher.
  */
 internal suspend fun <T> PendingOperations.awaitGatt(
@@ -57,12 +62,17 @@ internal suspend fun <T> PendingOperations.awaitGatt(
     submit: () -> Boolean,
 ): T {
     val deferred = CompletableDeferred<T>()
-    set(op, deferred)
+    val generation = set(op, deferred)
     if (!submit()) {
-        clear(op)
+        cancel(op, generation)
         throw BleException(GattError(label, GattStatus.Failure))
     }
-    return deferred.await()
+    try {
+        return deferred.await()
+    } catch (e: Throwable) {
+        cancel(op, generation)
+        throw e
+    }
 }
 
 /**

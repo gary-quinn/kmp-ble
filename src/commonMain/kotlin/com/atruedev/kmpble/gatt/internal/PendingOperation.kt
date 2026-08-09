@@ -50,45 +50,85 @@ internal data class PhyUpdateResult(
 )
 
 /**
- * Holds at most one [CompletableDeferred] per [PendingOp] type.
+ * Holds at most one pending operation per [PendingOp] type, each tagged with a
+ * generation token so a cancelled op cannot clobber a retry of the same type.
  *
  * Confined to the owning peripheral's serialized dispatcher
  * (`limitedParallelism(1)`) - no synchronization required.
+ *
+ * ## Cancellation safety
+ *
+ * The GATT operation queue cancels in-flight actions when the caller's coroutine
+ * is cancelled or times out (see [GattOperationQueue]). [awaitGatt] responds by
+ * calling [cancel] with its generation token, which removes the slot. Without
+ * this, a cancelled op would leave its slot armed forever -- the next operation
+ * of the same type would then crash in [set] with
+ * "overwritten while pending", and a late platform callback would complete into
+ * a freshly-armed retry slot.
+ *
+ * A callback that arrives after its op was cancelled finds no slot and no-ops.
  */
 internal class PendingOperations {
-    private val slots = mutableMapOf<PendingOp<*>, CompletableDeferred<*>>()
+    private class Slot(
+        val deferred: CompletableDeferred<*>,
+        val generation: Long,
+    )
 
+    private val slots = mutableMapOf<PendingOp<*>, Slot>()
+    private var nextGeneration = 0L
+
+    /**
+     * Arm a pending slot. Returns the generation token the caller must pass to
+     * [cancel] so only the current owner of the slot can clear it.
+     */
     fun <T> set(
         op: PendingOp<T>,
         deferred: CompletableDeferred<T>,
-    ) {
+    ): Long {
         check(op !in slots) { "${op::class.simpleName} overwritten while pending" }
-        slots[op] = deferred
+        val generation = nextGeneration++
+        slots[op] = Slot(deferred, generation)
+        return generation
+    }
+
+    /**
+     * Remove the slot for [op] if (and only if) it still belongs to [generation].
+     * A cancelled op clears its own slot; a retry of the same type can then arm
+     * a fresh slot without tripping the overwrite check. No-op if the slot was
+     * already completed (replaced) by a newer operation.
+     */
+    fun cancel(
+        op: PendingOp<*>,
+        generation: Long,
+    ) {
+        val slot = slots[op] ?: return
+        if (slot.generation != generation) return
+        slots.remove(op)
     }
 
     fun has(op: PendingOp<*>): Boolean = op in slots
 
-    fun clear(op: PendingOp<*>) {
-        slots.remove(op)
-    }
-
-    @Suppress("UNCHECKED_CAST")
     fun <T> complete(
         op: PendingOp<T>,
         value: T,
     ) {
-        (slots.remove(op) as? CompletableDeferred<T>)?.complete(value)
+        @Suppress("UNCHECKED_CAST")
+        (slots.remove(op)?.deferred as? CompletableDeferred<T>)?.complete(value)
     }
 
     fun fail(
         op: PendingOp<*>,
         cause: Throwable,
     ) {
-        slots.remove(op)?.completeExceptionally(cause)
+        @Suppress("UNCHECKED_CAST")
+        (slots.remove(op)?.deferred as? CompletableDeferred<Any?>)?.completeExceptionally(cause)
     }
 
     fun cancelAll(cause: Throwable) {
-        slots.values.forEach { it.completeExceptionally(cause) }
+        slots.values.forEach { slot ->
+            @Suppress("UNCHECKED_CAST")
+            (slot.deferred as? CompletableDeferred<Any?>)?.completeExceptionally(cause)
+        }
         slots.clear()
     }
 }

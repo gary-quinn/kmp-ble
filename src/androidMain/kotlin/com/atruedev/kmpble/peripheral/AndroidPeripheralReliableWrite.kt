@@ -80,13 +80,21 @@ internal suspend fun AndroidPeripheral.writeReliableGatt(
             // still finds its deferred, but keep initiation failures typed as
             // OperationFailed -- they are not GATT status responses.
             val executeDeferred = kotlinx.coroutines.CompletableDeferred<GattStatus>()
-            pendingOps.set(PendingOp.ReliableWriteCompleted, executeDeferred)
+            val executeGeneration = pendingOps.set(PendingOp.ReliableWriteCompleted, executeDeferred)
             val dispatched = bridge.executeReliableWrite()
             if (!dispatched) {
-                pendingOps.clear(PendingOp.ReliableWriteCompleted)
+                pendingOps.cancel(PendingOp.ReliableWriteCompleted, executeGeneration)
                 throw BleException(OperationFailed("executeReliableWrite initiation failed"))
             }
-            val executeStatus = executeDeferred.await()
+            val executeStatus =
+                try {
+                    executeDeferred.await()
+                } catch (e: Throwable) {
+                    // Cancellation-safe: clear our slot so a retry does not trip
+                    // the overwrite check, and a late callback no-ops.
+                    pendingOps.cancel(PendingOp.ReliableWriteCompleted, executeGeneration)
+                    throw e
+                }
             if (!executeStatus.isSuccess()) {
                 throw BleException(GattError("reliableWrite", executeStatus))
             }

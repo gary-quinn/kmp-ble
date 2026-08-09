@@ -63,10 +63,19 @@ internal class GattOperationQueue(
             ),
         )
 
+    /**
+     * Child jobs currently running an action. Confined to the serialized
+     * dispatcher like the drain loop itself. Tracked so [start] and [close]
+     * can cancel in-flight actions (a regression from running actions inline
+     * in the drain coroutine, where cancelling the drain cancelled the action).
+     */
+    private val inFlightJobs = mutableSetOf<Job>()
+
     fun start(timeout: Duration? = null) {
         val prev = state.value
         drainChannel(prev.channel)
         prev.drainJob?.cancel()
+        cancelInFlight()
 
         val ch = Channel<QueueEntry>(Channel.UNLIMITED)
         val job =
@@ -105,10 +114,12 @@ internal class GattOperationQueue(
                             }
                         }
                     entry.job.value = child
+                    inFlightJobs += child
                     // If the caller was cancelled while this action was queued but
                     // not yet started, kill it immediately.
                     if (entry.cancelled.value != null) child.cancel()
                     child.join()
+                    inFlightJobs -= child
                 },
                 cancel = { deferred.completeExceptionally(it) },
             )
@@ -141,6 +152,13 @@ internal class GattOperationQueue(
         val s = state.value
         drainChannel(s.channel)
         s.drainJob?.cancel()
+        cancelInFlight()
+    }
+
+    /** Cancel any action currently running, e.g. when (re)connecting. */
+    private fun cancelInFlight() {
+        inFlightJobs.forEach { it.cancel() }
+        inFlightJobs.clear()
     }
 
     private fun drainChannel(ch: Channel<QueueEntry>) {

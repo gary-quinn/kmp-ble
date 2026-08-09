@@ -9,6 +9,7 @@ import kotlinx.coroutines.yield
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
@@ -124,5 +125,66 @@ class GattOperationQueueTest {
             val next = queue.enqueue(timeout = 5.seconds) { "served" }
             assertEquals("served", next)
             assertTrue(slowCancelled)
+        }
+
+    @Test
+    fun callerCancelBeforeActionStartsSkipsQueuedAction() =
+        runTest {
+            val queue = GattOperationQueue(backgroundScope)
+            queue.start()
+
+            var slowRan = false
+            var skippedRan = false
+            val slow =
+                launch {
+                    queue.enqueue(timeout = 5.seconds) {
+                        slowRan = true
+                        delay(100)
+                    }
+                }
+            val skipped =
+                launch {
+                    runCatching {
+                        queue.enqueue(timeout = 5.seconds) {
+                            skippedRan = true
+                        }
+                    }
+                }
+            // Let the slow action start and the second action queue behind it.
+            repeat(10) { yield() }
+            // Cancel the second caller before its action starts.
+            skipped.cancel()
+            skipped.join()
+            slow.join()
+
+            assertTrue(slowRan)
+            assertFalse(skippedRan, "queued action cancelled before start must be skipped")
+        }
+
+    @Test
+    fun closeCancelsInFlightAction() =
+        runTest {
+            val queue = GattOperationQueue(backgroundScope)
+            queue.start()
+
+            var actionCancelled = false
+            val job: Job =
+                launch {
+                    runCatching {
+                        queue.enqueue(timeout = 5.seconds) {
+                            try {
+                                delay(10_000)
+                            } catch (e: CancellationException) {
+                                actionCancelled = true
+                                throw e
+                            }
+                        }
+                    }
+                }
+            repeat(10) { yield() }
+            queue.close()
+            job.join()
+
+            assertTrue(actionCancelled, "close() must cancel in-flight actions")
         }
 }
