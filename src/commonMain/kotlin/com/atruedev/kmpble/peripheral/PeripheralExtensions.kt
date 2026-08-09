@@ -1,10 +1,20 @@
 package com.atruedev.kmpble.peripheral
 
 import com.atruedev.kmpble.connection.ConnectionOptions
+import com.atruedev.kmpble.connection.OperationTimeouts
+import com.atruedev.kmpble.error.BleException
+import com.atruedev.kmpble.error.ConnectionLost
+import com.atruedev.kmpble.error.OperationFailed
+import com.atruedev.kmpble.error.PeripheralTimeout
+import com.atruedev.kmpble.gatt.Characteristic
 import com.atruedev.kmpble.gatt.DiscoveredService
+import com.atruedev.kmpble.gatt.internal.NotConnectedException
 import com.atruedev.kmpble.scanner.uuidFrom
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.withContext
+import kotlin.time.Duration
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
@@ -152,3 +162,66 @@ public suspend fun Peripheral.connectAndDiscover(
         throw e
     }
 }
+
+/**
+ * Read multiple characteristics, returning each result individually with
+ * per-characteristic failure isolation.
+ *
+ * Reads execute sequentially: each [read] goes through the peripheral's internal
+ * GATT operation queue, which serializes operations on the radio anyway, so there
+ * is no parallel-radio win to be had. Sequential execution also gives every read a
+ * fresh, correct deadline -- each uses the connection's configured
+ * [OperationTimeouts.read] (set via [ConnectionOptions.timeouts], 5s default).
+ *
+ * A failure on one characteristic (timeout, GATT error, disconnect) does not abort
+ * the remaining reads.
+ *
+ * Failures surface as [BleException] values in the [Result], consistent with the
+ * library's error model:
+ * - queue deadline exceeded -> [PeripheralTimeout]
+ * - disconnect mid-batch -> [ConnectionLost]
+ * - GATT error -> the original [BleException]
+ * - unexpected exception -> [OperationFailed]
+ *
+ * [CancellationException] (external cancellation of the calling coroutine)
+ * propagates instead of being converted to a failure.
+ *
+ * ```
+ * val results = peripheral.batchRead(listOf(batteryChar, tempChar, hrChar))
+ * val battery = results[batteryChar]?.getOrNull()
+ * val temp = results[tempChar]?.getOrThrow()
+ * ```
+ *
+ * @throws IllegalArgumentException if [characteristics] is empty or contains
+ *   duplicates.
+ * @throws kotlinx.coroutines.CancellationException if the calling coroutine is
+ *   cancelled while reads are in flight.
+ */
+public suspend fun Peripheral.batchRead(
+    characteristics: List<Characteristic>,
+): Map<Characteristic, Result<ByteArray>> {
+    require(characteristics.isNotEmpty()) { "characteristics must not be empty" }
+    require(characteristics.distinct().size == characteristics.size) {
+        "characteristics must not contain duplicates"
+    }
+    return characteristics.associateWith { readBatchValue(it) }
+}
+
+private suspend fun Peripheral.readBatchValue(characteristic: Characteristic): Result<ByteArray> =
+    try {
+        Result.success(read(characteristic))
+    } catch (e: TimeoutCancellationException) {
+        // MUST precede CancellationException -- TimeoutCancellationException extends it.
+        val timeout = lastConnectionOptions?.timeouts?.read ?: DEFAULT_READ_TIMEOUT
+        Result.failure(BleException(PeripheralTimeout(operation = "read", timeout = timeout)))
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: BleException) {
+        Result.failure(e)
+    } catch (e: NotConnectedException) {
+        Result.failure(BleException(ConnectionLost("Connection lost during batch read")))
+    } catch (e: Exception) {
+        Result.failure(BleException(OperationFailed(e.message ?: "Batch read failed")))
+    }
+
+private val DEFAULT_READ_TIMEOUT: Duration = OperationTimeouts().read
