@@ -46,6 +46,8 @@ internal fun AndroidPeripheral.handleGattEvent(event: GattCallbackEvent) {
                 )
             is GattCallbackEvent.CharacteristicWrite ->
                 pendingOps.complete(PendingOp.CharacteristicWrite, event.status.toGattStatus())
+            is GattCallbackEvent.ReliableWriteCompleted ->
+                pendingOps.complete(PendingOp.ReliableWriteCompleted, event.status.toGattStatus())
             is GattCallbackEvent.CharacteristicChanged -> {
                 val charUuid = Uuid.parse(event.characteristic.uuid.toString())
                 val serviceUuid =

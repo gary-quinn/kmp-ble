@@ -176,6 +176,11 @@ public class FakePeripheral internal constructor(
         writeType: WriteType,
     ): Unit = gattResponder.write(characteristic, data, writeType)
 
+    override suspend fun writeReliable(
+        characteristic: Characteristic,
+        data: ByteArray,
+    ): Unit = gattResponder.write(characteristic, data, WriteType.WithResponse)
+
     override fun observe(
         characteristic: Characteristic,
         backpressure: BackpressureStrategy,

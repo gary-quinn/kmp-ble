@@ -212,6 +212,13 @@ public class AndroidPeripheral internal constructor(
         writeCharacteristicGatt(characteristic, data, writeType)
     }
 
+    override suspend fun writeReliable(
+        characteristic: Characteristic,
+        data: ByteArray,
+    ) {
+        writeReliableGatt(characteristic, data)
+    }
+
     override fun observe(
         characteristic: Characteristic,
         backpressure: BackpressureStrategy,

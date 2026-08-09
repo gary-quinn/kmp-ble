@@ -76,6 +76,13 @@ internal class AndroidGattBridge(
                 onEvent?.invoke(GattCallbackEvent.CharacteristicWrite(characteristic, status))
             }
 
+            override fun onReliableWriteCompleted(
+                gatt: BluetoothGatt,
+                status: Int,
+            ) {
+                onEvent?.invoke(GattCallbackEvent.ReliableWriteCompleted(status))
+            }
+
             override fun onCharacteristicChanged(
                 gatt: BluetoothGatt,
                 characteristic: BluetoothGattCharacteristic,
@@ -209,6 +216,26 @@ internal class AndroidGattBridge(
         val result = g.writeCharacteristic(characteristic, value, writeType)
         return result == BluetoothGatt.GATT_SUCCESS
     }
+
+    /**
+     * Begin a reliable-write session. Subsequent [writeCharacteristic] calls are
+     * staged (prepared) rather than committed, until [executeReliableWrite] or
+     * [abortReliableWrite].
+     *
+     * `beginReliableWrite` is deprecated since API 33 but remains functional; the
+     * replacement (`prepareWriteCharacteristic`) is not public SDK. Suppressed.
+     */
+    @Suppress("DEPRECATION")
+    internal fun beginReliableWrite(): Boolean {
+        val g = _gatt.value ?: return false
+        return g.beginReliableWrite()
+    }
+
+    /** Commit a reliable-write session started by [beginReliableWrite]. */
+    internal fun executeReliableWrite(): Boolean = _gatt.value?.executeReliableWrite() ?: false
+
+    /** Discard a reliable-write session without committing any staged writes. */
+    internal fun abortReliableWrite(): Boolean = _gatt.value?.abortReliableWrite() ?: false
 
     internal fun readDescriptor(descriptor: BluetoothGattDescriptor): Boolean =
         _gatt.value?.readDescriptor(descriptor) ?: false

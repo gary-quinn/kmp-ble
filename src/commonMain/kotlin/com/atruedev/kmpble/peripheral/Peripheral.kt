@@ -97,6 +97,39 @@ public interface Peripheral : AutoCloseable {
     )
 
     /**
+     * Write [data] to [characteristic] atomically as a single reliable-write
+     * transaction (GATT prepared write then execute).
+     *
+     * Unlike [write], which auto-chunks values larger than the MTU as independent
+     * operations (a mid-batch failure leaves earlier chunks committed), a reliable
+     * write stages every chunk first and commits them all-or-nothing. Use this for
+     * data where a partial write is unacceptable -- large configuration blobs,
+     * multi-characteristic value updates that must apply together.
+     *
+     * Values up to [maximumWriteValueLength] are written with a single
+     * [WriteType.WithResponse] write (no reliable-write ceremony).
+     *
+     * ## Platform behavior
+     *
+     * - **Android**: Atomic via `BluetoothGatt` reliable write
+     *   (`beginReliableWrite` -> per-chunk writes -> `executeReliableWrite`).
+     *   On any chunk failure the transaction is aborted (`abortReliableWrite`)
+     *   and nothing is committed.
+     * - **iOS**: CoreBluetooth exposes no public prepared-write API. Falls back to
+     *   sequential chunked [WriteType.WithResponse] writes -- **not atomic**. If a
+     *   chunk fails, earlier chunks remain written.
+     *
+     * @throws com.atruedev.kmpble.error.BleException if any chunk write or the
+     *   execute/abort step fails.
+     * @throws kotlinx.coroutines.CancellationException if the calling coroutine is
+     *   cancelled mid-transaction (the transaction is aborted).
+     */
+    public suspend fun writeReliable(
+        characteristic: Characteristic,
+        data: ByteArray,
+    )
+
+    /**
      * Observe notifications/indications from a characteristic. The returned
      * flow survives disconnects and auto-resubscribes on reconnect -- emits
      * [Observation.Value] with data, [Observation.Disconnected] on connection

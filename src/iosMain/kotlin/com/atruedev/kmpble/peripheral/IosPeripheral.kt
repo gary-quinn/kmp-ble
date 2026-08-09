@@ -190,6 +190,18 @@ public class IosPeripheral(
         writeGatt(characteristic, data, writeType)
     }
 
+    /**
+     * CoreBluetooth exposes no public prepared-write API, so this falls back to
+     * sequential chunked [WriteType.WithResponse] writes -- NOT atomic. See the
+     * interface KDoc for the platform-limitation discussion.
+     */
+    override suspend fun writeReliable(
+        characteristic: Characteristic,
+        data: ByteArray,
+    ) {
+        writeGatt(characteristic, data, WriteType.WithResponse)
+    }
+
     override fun observe(
         characteristic: Characteristic,
         backpressure: BackpressureStrategy,

@@ -26,6 +26,8 @@ internal sealed interface PendingOp<T> {
 
     data object CharacteristicWrite : PendingOp<GattStatus>
 
+    data object ReliableWriteCompleted : PendingOp<GattStatus>
+
     data object DescriptorRead : PendingOp<GattResult>
 
     data object DescriptorWrite : PendingOp<GattStatus>

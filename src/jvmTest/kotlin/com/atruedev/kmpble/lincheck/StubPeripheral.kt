@@ -81,6 +81,11 @@ internal class StubPeripheral(
         writeType: WriteType,
     ) = unsupported()
 
+    override suspend fun writeReliable(
+        characteristic: Characteristic,
+        data: ByteArray,
+    ) = unsupported()
+
     override fun observe(
         characteristic: Characteristic,
         backpressure: BackpressureStrategy,
