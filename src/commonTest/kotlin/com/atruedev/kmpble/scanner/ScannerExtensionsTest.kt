@@ -134,7 +134,11 @@ class ScannerExtensionsTest {
         runTest {
             val scanner =
                 FakeScanner {
-                    advertisement { identifier("a"); name("A"); rssi(-80) }
+                    advertisement {
+                        identifier("a")
+                        name("A")
+                        rssi(-80)
+                    }
                 }
             scanner.emit(
                 Advertisement(
