@@ -230,9 +230,18 @@ class ScannerExtensionsTest {
         runTest {
             val scanner =
                 FakeScanner {
-                    advertisement { identifier("a"); name("A") }
-                    advertisement { identifier("a"); name("A2") } // same id "a", new name
-                    advertisement { identifier("b"); name("B") }
+                    advertisement {
+                        identifier("a")
+                        name("A")
+                    }
+                    advertisement {
+                        identifier("a")
+                        name("A2") // same id "a", new name
+                    }
+                    advertisement {
+                        identifier("b")
+                        name("B")
+                    }
                 }
             val result = scanner.scanUntil(count = 2, maxWait = 500.milliseconds)
             assertEquals(2, result.size)
