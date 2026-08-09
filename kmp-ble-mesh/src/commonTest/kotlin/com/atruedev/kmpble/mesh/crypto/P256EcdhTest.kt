@@ -47,7 +47,7 @@ class P256EcdhTest {
      * See kmp-ble-mesh/MODULE.md for the module-level experimental status.
      */
     @Test
-    @kotlin.test.Ignore("ECDH commutativity broken -- see KDoc; P-256 rewrite required")
+    @kotlin.test.Ignore
     fun sharedSecretIsDeterministic() {
         val kp1 = P256Ecdh.generateKeyPair()
         val kp2 = P256Ecdh.generateKeyPair()
@@ -104,7 +104,7 @@ class P256EcdhTest {
     // Superseded by sharedSecretIsDeterministic (marked @Ignored with root-cause
     // analysis in its KDoc). Remove this placeholder once the P-256 rewrite lands.
     @Test
-    @kotlin.test.Ignore("Superseded by sharedSecretIsDeterministic")
+    @kotlin.test.Ignore
     fun sharedSecretCommutativeSmallLoop() {
         // Intentionally empty -- documented in sharedSecretIsDeterministic KDoc.
     }
