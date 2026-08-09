@@ -7,24 +7,46 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlin.uuid.ExperimentalUuidApi
 
+/**
+ * Common behavior of [Peripheral.writeReliable].
+ *
+ * NOTE: these tests exercise the common API surface through [FakePeripheral],
+ * which delegates writeReliable to its plain write handler. The Android native
+ * reliable-write flow (AndroidPeripheralReliableWrite + AndroidGattBridge +
+ * onReliableWriteCompleted dispatch) has no unit coverage -- it requires an
+ * instrumented/device test against real BluetoothGatt reliable-write behavior,
+ * tracked separately. See PR #625 verification note.
+ */
 @OptIn(ExperimentalUuidApi::class)
 class WriteReliableTest {
-    private fun createPeripheral(): FakePeripheral =
-        FakePeripheral {
-            service("180d") {
-                characteristic("2a37") {
-                    properties(read = true, write = true)
-                    onWrite { data, _ ->
-                        assertTrue(data.isNotEmpty())
-                    }
+    @Test
+    fun fakePeripheralReportsSupportsReliableWrite() {
+        val peripheral =
+            FakePeripheral {
+                service("180d") {
+                    characteristic("2a37") { properties(read = true, write = true) }
                 }
             }
-        }
+        assertTrue(peripheral.supportsReliableWrite, "fake defaults to Android-like atomic support")
+    }
 
     @Test
-    fun writeReliableWritesSingleChunkData() =
+    fun writeReliableSingleChunkDeliversExactData() =
         runTest {
-            val peripheral = createPeripheral()
+            var received: ByteArray? = null
+            var writeCount = 0
+            val peripheral =
+                FakePeripheral {
+                    service("180d") {
+                        characteristic("2a37") {
+                            properties(read = true, write = true)
+                            onWrite { data, _ ->
+                                received = data
+                                writeCount++
+                            }
+                        }
+                    }
+                }
             peripheral.connect()
             val char =
                 peripheral
@@ -38,34 +60,14 @@ class WriteReliableTest {
             val data = byteArrayOf(0x01, 0x02, 0x03)
             peripheral.writeReliable(char, data)
 
+            assertEquals(1, writeCount, "single-chunk value must be written exactly once")
+            assertEquals(data.toList(), received?.toList())
             peripheral.disconnect()
             peripheral.close()
         }
 
     @Test
-    fun writeReliableAcceptsLargeData() =
-        runTest {
-            val peripheral = createPeripheral()
-            peripheral.connect()
-            val char =
-                peripheral
-                    .services
-                    .value
-                    .orEmpty()
-                    .first()
-                    .characteristics
-                    .first()
-
-            // Larger than the fake's default 20-byte max write length.
-            val data = ByteArray(200) { it.toByte() }
-            peripheral.writeReliable(char, data)
-
-            peripheral.disconnect()
-            peripheral.close()
-        }
-
-    @Test
-    fun writeReliableRecordsDataInHandler() =
+    fun writeReliableLargeDataPassesThrough() =
         runTest {
             var received: ByteArray? = null
             val peripheral =
@@ -87,9 +89,11 @@ class WriteReliableTest {
                     .characteristics
                     .first()
 
-            val data = byteArrayOf(0x0A, 0x0B, 0x0C)
+            val data = ByteArray(200) { it.toByte() }
             peripheral.writeReliable(char, data)
 
+            // The fake does not chunk (real platforms do via LargeWriteHandler), so
+            // the handler sees the full payload in one call -- asserts pass-through.
             assertEquals(data.toList(), received?.toList())
             peripheral.disconnect()
             peripheral.close()

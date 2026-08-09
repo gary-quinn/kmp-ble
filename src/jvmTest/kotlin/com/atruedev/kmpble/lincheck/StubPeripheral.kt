@@ -49,6 +49,7 @@ internal class StubPeripheral(
     override val encryptionLevel: StateFlow<EncryptionLevel> = MutableStateFlow(EncryptionLevel.NONE)
     override val services: StateFlow<List<DiscoveredService>?> = MutableStateFlow(null)
     override val maximumWriteValueLength: StateFlow<Int> = MutableStateFlow(20)
+    override val supportsReliableWrite: Boolean = false
     override val mtu: StateFlow<Int> = MutableStateFlow(23)
     override val lastConnectionOptions: ConnectionOptions? = null
 

@@ -30,6 +30,13 @@ public data class OperationTimeouts(
     val read: Duration = 5.seconds,
     /** Maximum time for a single GATT characteristic write. Default: 5s. */
     val write: Duration = 5.seconds,
+    /**
+     * Maximum time for a whole [com.atruedev.kmpble.peripheral.Peripheral.writeReliable]
+     * transaction -- all chunks plus the execute step. Default: 30s, sized for the
+     * multi-chunk payloads reliable writes exist for (per-chunk timeouts would
+     * starve slow links that [write] already covers).
+     */
+    val reliableWrite: Duration = 30.seconds,
     /** Maximum time for ATT MTU negotiation. Default: 10s. */
     val mtuNegotiation: Duration = 10.seconds,
     /** Maximum time to establish an L2CAP CoC channel. Default: 10s. */
@@ -49,6 +56,9 @@ public data class OperationTimeouts(
         }
         require(write.isPositive() || write == Duration.ZERO || write == Duration.INFINITE) {
             "write timeout must be positive, ZERO, or INFINITE, was $write"
+        }
+        require(reliableWrite.isPositive() || reliableWrite == Duration.ZERO || reliableWrite == Duration.INFINITE) {
+            "reliableWrite timeout must be positive, ZERO, or INFINITE, was $reliableWrite"
         }
         require(mtuNegotiation.isPositive() || mtuNegotiation == Duration.ZERO || mtuNegotiation == Duration.INFINITE) {
             "mtuNegotiation timeout must be positive, ZERO, or INFINITE, was $mtuNegotiation"

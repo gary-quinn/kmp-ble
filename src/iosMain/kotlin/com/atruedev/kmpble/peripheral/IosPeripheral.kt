@@ -84,6 +84,7 @@ public class IosPeripheral(
     internal val bondManager = IosBondManager(peripheralContext)
     override val services: StateFlow<List<DiscoveredService>?> get() = peripheralContext.services
     override val maximumWriteValueLength: StateFlow<Int> get() = peripheralContext.maximumWriteValueLength
+    override val supportsReliableWrite: Boolean get() = false
     override val mtu: StateFlow<Int> get() = peripheralContext.mtu
     internal var _lastConnectionOptions: ConnectionOptions? = null
     override val lastConnectionOptions: ConnectionOptions? get() = _lastConnectionOptions
@@ -191,16 +192,18 @@ public class IosPeripheral(
     }
 
     /**
-     * CoreBluetooth exposes no public prepared-write API, so this falls back to
-     * sequential chunked [WriteType.WithResponse] writes -- NOT atomic. See the
-     * interface KDoc for the platform-limitation discussion.
+     * CoreBluetooth exposes no public prepared-write API. Throws instead of
+     * silently degrading to non-atomic chunked writes -- check
+     * [supportsReliableWrite] (false on iOS) and use [write] instead.
      */
     override suspend fun writeReliable(
         characteristic: Characteristic,
         data: ByteArray,
-    ) {
-        writeGatt(characteristic, data, WriteType.WithResponse)
-    }
+    ): Nothing =
+        throw UnsupportedOperationException(
+            "writeReliable is not supported on iOS: CoreBluetooth has no public " +
+                "prepared-write API. Check Peripheral.supportsReliableWrite and use write().",
+        )
 
     override fun observe(
         characteristic: Characteristic,

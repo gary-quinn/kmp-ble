@@ -9,7 +9,6 @@ import com.atruedev.kmpble.gatt.WriteType
 import com.atruedev.kmpble.gatt.internal.LargeWriteHandler
 import com.atruedev.kmpble.gatt.internal.PendingOp
 import com.atruedev.kmpble.peripheral.internal.awaitGatt
-import kotlinx.coroutines.CancellationException
 
 /**
  * Reliable (prepared) write implementation for [AndroidPeripheral].
@@ -25,9 +24,23 @@ import kotlinx.coroutines.CancellationException
  * onReliableWriteCompleted(status) -- transaction result
  * ```
  *
- * On any failure the transaction is aborted via [abortReliableWrite], leaving
- * the peripheral untouched -- this is the atomicity `write()` (sequential
- * chunked) cannot provide.
+ * On ANY failure -- including cancellation of the calling coroutine -- the
+ * transaction is aborted via [abortReliableWrite], leaving the peripheral
+ * untouched. This is the atomicity `write()` (sequential chunked) cannot provide.
+ *
+ * The whole transaction runs under [com.atruedev.kmpble.connection.OperationTimeouts.reliableWrite]
+ * (default 30s) -- a per-chunk timeout would starve slow links for exactly the
+ * multi-chunk payloads this API exists for.
+ *
+ * ## Known limitation
+ *
+ * The transaction block runs inside the peripheral's GATT operation queue, which
+ * executes on its own coroutine. Cancelling the caller does not interrupt an
+ * in-flight transaction block (the queue only observes the caller's cancellation
+ * via the [kotlinx.coroutines.withTimeout] wrapper). A cancelled transaction is
+ * aborted best-effort; if the abort itself fails (device hung), the reliable
+ * session stays open on the device and subsequent GATT operations may be staged
+ * into it -- recover by disconnecting.
  */
 
 internal suspend fun AndroidPeripheral.writeReliableGatt(
@@ -45,7 +58,7 @@ internal suspend fun AndroidPeripheral.writeReliableGatt(
         return
     }
 
-    peripheralContext.gattQueue.enqueue(timeout = currentTimeouts.write) {
+    peripheralContext.gattQueue.enqueue(timeout = currentTimeouts.reliableWrite) {
         if (!bridge.beginReliableWrite()) {
             throw BleException(OperationFailed("beginReliableWrite initiation failed"))
         }
@@ -59,23 +72,27 @@ internal suspend fun AndroidPeripheral.writeReliableGatt(
                     throw BleException(GattError("reliableWrite", status))
                 }
             }
-            if (!bridge.executeReliableWrite()) {
-                throw BleException(OperationFailed("executeReliableWrite initiation failed"))
-            }
             val executeStatus =
-                pendingOps.awaitGatt(PendingOp.ReliableWriteCompleted, "executeReliableWrite") { true }
+                pendingOps.awaitGatt(PendingOp.ReliableWriteCompleted, "executeReliableWrite") {
+                    bridge.executeReliableWrite()
+                }
             if (!executeStatus.isSuccess()) {
                 throw BleException(GattError("reliableWrite", executeStatus))
             }
-        } catch (e: CancellationException) {
-            throw e
         } catch (e: Throwable) {
+            // Single catch: CancellationException is a Throwable, so a cancelled
+            // transaction is aborted too, not silently left to commit later.
             abortReliableWriteBestEffort()
             throw e
         }
     }
 }
 
+/**
+ * Best-effort abort. The original error always propagates; abort failures are
+ * swallowed (a hung device cannot be aborted, and there is no recovery path
+ * other than disconnect -- see the KDoc limitation note).
+ */
 private fun AndroidPeripheral.abortReliableWriteBestEffort() {
     try {
         bridge.abortReliableWrite()

@@ -217,14 +217,7 @@ internal class AndroidGattBridge(
         return result == BluetoothGatt.GATT_SUCCESS
     }
 
-    /**
-     * Begin a reliable-write session. Subsequent [writeCharacteristic] calls are
-     * staged (prepared) rather than committed, until [executeReliableWrite] or
-     * [abortReliableWrite].
-     *
-     * `beginReliableWrite` is deprecated since API 33 but remains functional; the
-     * replacement (`prepareWriteCharacteristic`) is not public SDK. Suppressed.
-     */
+    /** Begin a reliable-write session (deprecated API 33 but functional; replacement not public SDK). */
     @Suppress("DEPRECATION")
     internal fun beginReliableWrite(): Boolean {
         val g = _gatt.value ?: return false
@@ -232,9 +225,11 @@ internal class AndroidGattBridge(
     }
 
     /** Commit a reliable-write session started by [beginReliableWrite]. */
+    @Suppress("DEPRECATION")
     internal fun executeReliableWrite(): Boolean = _gatt.value?.executeReliableWrite() ?: false
 
     /** Discard a reliable-write session without committing any staged writes. */
+    @Suppress("DEPRECATION")
     internal fun abortReliableWrite() {
         _gatt.value?.abortReliableWrite()
     }

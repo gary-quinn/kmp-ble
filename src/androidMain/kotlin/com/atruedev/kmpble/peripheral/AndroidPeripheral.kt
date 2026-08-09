@@ -92,6 +92,7 @@ public class AndroidPeripheral internal constructor(
     override val encryptionLevel: StateFlow<EncryptionLevel> get() = peripheralContext.encryptionLevel
     override val services: StateFlow<List<DiscoveredService>?> get() = peripheralContext.services
     override val maximumWriteValueLength: StateFlow<Int> get() = peripheralContext.maximumWriteValueLength
+    override val supportsReliableWrite: Boolean get() = true
     override val mtu: StateFlow<Int> get() = peripheralContext.mtu
     override val dataLengthParameters: StateFlow<DataLengthParameters?> get() = peripheralContext.dataLengthParameters
 

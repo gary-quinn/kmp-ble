@@ -103,8 +103,7 @@ public interface Peripheral : AutoCloseable {
      * Unlike [write], which auto-chunks values larger than the MTU as independent
      * operations (a mid-batch failure leaves earlier chunks committed), a reliable
      * write stages every chunk first and commits them all-or-nothing. Use this for
-     * data where a partial write is unacceptable -- large configuration blobs,
-     * multi-characteristic value updates that must apply together.
+     * data where a partial write is unacceptable -- large configuration blobs.
      *
      * Values up to [maximumWriteValueLength] are written with a single
      * [WriteType.WithResponse] write (no reliable-write ceremony).
@@ -113,16 +112,17 @@ public interface Peripheral : AutoCloseable {
      *
      * - **Android**: Atomic via `BluetoothGatt` reliable write
      *   (`beginReliableWrite` -> per-chunk writes -> `executeReliableWrite`).
-     *   On any chunk failure the transaction is aborted (`abortReliableWrite`)
-     *   and nothing is committed.
-     * - **iOS**: CoreBluetooth exposes no public prepared-write API. Falls back to
-     *   sequential chunked [WriteType.WithResponse] writes -- **not atomic**. If a
-     *   chunk fails, earlier chunks remain written.
+     *   On any failure (including cancellation) the transaction is aborted
+     *   (`abortReliableWrite`) and nothing is committed.
+     * - **iOS**: CoreBluetooth exposes no public prepared-write API. [writeReliable]
+     *   throws [UnsupportedOperationException] on iOS; check
+     *   [supportsReliableWrite] first and use [write] instead.
      *
      * @throws com.atruedev.kmpble.error.BleException if any chunk write or the
-     *   execute/abort step fails.
+     *   execute step fails (the transaction is aborted first).
      * @throws kotlinx.coroutines.CancellationException if the calling coroutine is
      *   cancelled mid-transaction (the transaction is aborted).
+     * @throws UnsupportedOperationException on iOS (see [supportsReliableWrite]).
      */
     public suspend fun writeReliable(
         characteristic: Characteristic,
@@ -322,6 +322,19 @@ public interface Peripheral : AutoCloseable {
     public suspend fun requestConnectionSubrating(parameters: ConnectionSubratingParameters): ConnectionSubratingResult
 
     public val maximumWriteValueLength: StateFlow<Int>
+
+    /**
+     * Whether [writeReliable] provides true all-or-nothing atomicity on this
+     * platform.
+     *
+     * `true` on Android (GATT prepared-write + execute). `false` on iOS --
+     * CoreBluetooth exposes no public prepared-write API, so [writeReliable]
+     * throws there instead of silently degrading to non-atomic chunked writes.
+     *
+     * Check this before calling [writeReliable] when atomicity is a hard
+     * requirement; otherwise fall back to [write].
+     */
+    public val supportsReliableWrite: Boolean
 
     // --- L2CAP ---
 

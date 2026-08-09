@@ -101,6 +101,7 @@ public class FakePeripheral internal constructor(
     override val services: StateFlow<List<DiscoveredService>?> get() = context.services
     override val maximumWriteValueLength: StateFlow<Int> get() = context.maximumWriteValueLength
     override val mtu: StateFlow<Int> get() = context.mtu
+    override val supportsReliableWrite: Boolean get() = true
 
     override suspend fun connect(options: ConnectionOptions) {
         checkNotClosed()
