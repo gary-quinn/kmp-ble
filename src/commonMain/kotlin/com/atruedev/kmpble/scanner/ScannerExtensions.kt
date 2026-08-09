@@ -1,5 +1,6 @@
 package com.atruedev.kmpble.scanner
 
+import com.atruedev.kmpble.Identifier
 import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
@@ -11,6 +12,46 @@ import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
+
+/**
+ * Scan for [timeout], tracking each distinct peripheral at its best observed RSSI,
+ * and return the strongest [limit] peripherals sorted strongest-first.
+ *
+ * Scanning runs for the full [timeout] window rather than stopping once [limit]
+ * distinct peripherals are seen -- stopping early would bias results toward
+ * whichever devices advertise first, which can miss a stronger signal that
+ * arrives later. For "stop once I have N devices" semantics use [scanUntil].
+ *
+ * ```
+ * val top5 = scanner.scanBatch(limit = 5, timeout = 15.seconds)
+ * top5.forEach { println("${it.name} at ${it.rssi} dBm") }
+ * ```
+ *
+ * [ScanEvent.Failed] events are skipped. Returns fewer than [limit] items (possibly
+ * empty) if fewer distinct peripherals were seen within [timeout].
+ */
+public suspend fun Scanner.scanBatch(
+    limit: Int,
+    timeout: Duration = 30.seconds,
+): List<Advertisement> {
+    require(limit > 0) { "limit must be positive, was $limit" }
+    val bestByRssi = HashMap<Identifier, Advertisement>()
+    withTimeoutOrNull(timeout) {
+        scanEvents.collect { event ->
+            when (event) {
+                is ScanEvent.Found -> {
+                    val ad = event.advertisement
+                    val current = bestByRssi[ad.identifier]
+                    if (current == null || ad.rssi > current.rssi) {
+                        bestByRssi[ad.identifier] = ad
+                    }
+                }
+                is ScanEvent.Failed -> Unit
+            }
+        }
+    }
+    return bestByRssi.values.sortedByDescending { it.rssi }.take(limit)
+}
 
 /**
  * Collect [Scanner.scanEvents], return the first matching [predicate], or null after [timeout].
