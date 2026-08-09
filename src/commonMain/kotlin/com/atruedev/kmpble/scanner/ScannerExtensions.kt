@@ -2,6 +2,7 @@ package com.atruedev.kmpble.scanner
 
 import com.atruedev.kmpble.Identifier
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapNotNull
@@ -182,4 +183,4 @@ public suspend fun Scanner.scanUntil(
 }
 
 /** Internal signal to stop collection early once the target is reached. */
-private object BatchComplete : kotlinx.coroutines.CancellationException("scanUntil target reached")
+private object BatchComplete : CancellationException("scanUntil target reached")
