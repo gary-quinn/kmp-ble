@@ -21,6 +21,18 @@ import kotlin.time.Duration.Companion.seconds
  * serialized dispatcher (`limitedParallelism(1)`).
  * [enqueue] reads the [kotlinx.atomicfu.atomic] [state] snapshot from any
  * coroutine context.
+ *
+ * ## Cancellation propagation
+ *
+ * Each action runs as a child job of the queue scope, joined by the drain loop.
+ * When the caller's coroutine is cancelled or its [withTimeout] fires, the
+ * in-flight action's child job is cancelled, so the action observes
+ * [kotlinx.coroutines.CancellationException] and can clean up (e.g. abort a
+ * reliable-write transaction). An action that has not yet started is marked
+ * cancelled and skipped by the drain loop. Without this, a cancelled caller
+ * would leave the action running to completion in the background -- harmless
+ * for a plain read, fatal for a multi-chunk reliable write that could commit
+ * after the caller already gave up.
  */
 internal class GattOperationQueue(
     private val scope: CoroutineScope,
@@ -28,7 +40,13 @@ internal class GattOperationQueue(
     private class QueueEntry(
         val action: suspend () -> Unit,
         val cancel: (Throwable) -> Unit,
-    )
+    ) {
+        /** The drain loop's child job running [action]; null until it starts. */
+        val job = atomic<Job?>(null)
+
+        /** Set when the caller is cancelled before the action started. */
+        val cancelled = atomic<Throwable?>(null)
+    }
 
     private data class QueueState(
         val channel: Channel<QueueEntry>,
@@ -54,6 +72,10 @@ internal class GattOperationQueue(
         val job =
             scope.launch {
                 for (entry in ch) {
+                    entry.cancelled.value?.let { cause ->
+                        entry.cancel(cause)
+                        continue
+                    }
                     entry.action()
                 }
             }
@@ -70,14 +92,23 @@ internal class GattOperationQueue(
         block: suspend () -> T,
     ): T {
         val deferred = CompletableDeferred<T>()
-        val entry =
+        lateinit var entry: QueueEntry
+        entry =
             QueueEntry(
                 action = {
-                    try {
-                        deferred.complete(block())
-                    } catch (e: Throwable) {
-                        deferred.completeExceptionally(e)
-                    }
+                    val child =
+                        scope.launch {
+                            try {
+                                deferred.complete(block())
+                            } catch (e: Throwable) {
+                                deferred.completeExceptionally(e)
+                            }
+                        }
+                    entry.job.value = child
+                    // If the caller was cancelled while this action was queued but
+                    // not yet started, kill it immediately.
+                    if (entry.cancelled.value != null) child.cancel()
+                    child.join()
                 },
                 cancel = { deferred.completeExceptionally(it) },
             )
@@ -89,8 +120,16 @@ internal class GattOperationQueue(
             throw NotConnectedException()
         }
 
-        return withTimeout(timeout) {
-            deferred.await()
+        return try {
+            withTimeout(timeout) {
+                deferred.await()
+            }
+        } catch (e: Throwable) {
+            // Cancel the in-flight action (if running) or mark it cancelled (if
+            // still queued) so it does not keep executing after the caller gave up.
+            entry.job.value?.cancel()
+            entry.cancelled.compareAndSet(null, e)
+            throw e
         }
     }
 

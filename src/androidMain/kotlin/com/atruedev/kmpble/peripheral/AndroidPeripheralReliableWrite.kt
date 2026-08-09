@@ -3,6 +3,7 @@ package com.atruedev.kmpble.peripheral
 import android.bluetooth.BluetoothGattCharacteristic
 import com.atruedev.kmpble.error.BleException
 import com.atruedev.kmpble.error.GattError
+import com.atruedev.kmpble.error.GattStatus
 import com.atruedev.kmpble.error.OperationFailed
 import com.atruedev.kmpble.gatt.Characteristic
 import com.atruedev.kmpble.gatt.WriteType
@@ -32,15 +33,18 @@ import com.atruedev.kmpble.peripheral.internal.awaitGatt
  * (default 30s) -- a per-chunk timeout would starve slow links for exactly the
  * multi-chunk payloads this API exists for.
  *
- * ## Known limitation
+ * ## Cancellation and aborts
  *
- * The transaction block runs inside the peripheral's GATT operation queue, which
- * executes on its own coroutine. Cancelling the caller does not interrupt an
- * in-flight transaction block (the queue only observes the caller's cancellation
- * via the [kotlinx.coroutines.withTimeout] wrapper). A cancelled transaction is
- * aborted best-effort; if the abort itself fails (device hung), the reliable
+ * Caller cancellation propagates into the in-flight transaction: the operation
+ * queue runs each action as a child job and cancels it when the caller gives up
+ * (see [com.atruedev.kmpble.gatt.internal.GattOperationQueue]), so the block
+ * observes [kotlinx.coroutines.CancellationException] and the [catch] below
+ * aborts the transaction before rethrowing.
+ *
+ * The abort itself is best-effort: if it fails (device hung), the reliable
  * session stays open on the device and subsequent GATT operations may be staged
- * into it -- recover by disconnecting.
+ * into it -- recover by disconnecting. This is the documented platform
+ * limitation of `abortReliableWrite`, not a silent failure.
  */
 
 internal suspend fun AndroidPeripheral.writeReliableGatt(
@@ -72,10 +76,17 @@ internal suspend fun AndroidPeripheral.writeReliableGatt(
                     throw BleException(GattError("reliableWrite", status))
                 }
             }
-            val executeStatus =
-                pendingOps.awaitGatt(PendingOp.ReliableWriteCompleted, "executeReliableWrite") {
-                    bridge.executeReliableWrite()
-                }
+            // Arm the pending slot before submitting so a synchronous callback
+            // still finds its deferred, but keep initiation failures typed as
+            // OperationFailed -- they are not GATT status responses.
+            val executeDeferred = kotlinx.coroutines.CompletableDeferred<GattStatus>()
+            pendingOps.set(PendingOp.ReliableWriteCompleted, executeDeferred)
+            val dispatched = bridge.executeReliableWrite()
+            if (!dispatched) {
+                pendingOps.clear(PendingOp.ReliableWriteCompleted)
+                throw BleException(OperationFailed("executeReliableWrite initiation failed"))
+            }
+            val executeStatus = executeDeferred.await()
             if (!executeStatus.isSuccess()) {
                 throw BleException(GattError("reliableWrite", executeStatus))
             }

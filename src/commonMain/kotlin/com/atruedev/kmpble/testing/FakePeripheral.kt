@@ -101,7 +101,11 @@ public class FakePeripheral internal constructor(
     override val services: StateFlow<List<DiscoveredService>?> get() = context.services
     override val maximumWriteValueLength: StateFlow<Int> get() = context.maximumWriteValueLength
     override val mtu: StateFlow<Int> get() = context.mtu
-    override val supportsReliableWrite: Boolean get() = true
+
+    // The fake has no reliable-write machinery -- it delegates to the plain write
+    // handler. Claiming atomic support would certify a lie, so it reports false
+    // (like iOS) and writeReliable throws.
+    override val supportsReliableWrite: Boolean get() = false
 
     override suspend fun connect(options: ConnectionOptions) {
         checkNotClosed()
@@ -180,7 +184,11 @@ public class FakePeripheral internal constructor(
     override suspend fun writeReliable(
         characteristic: Characteristic,
         data: ByteArray,
-    ): Unit = gattResponder.write(characteristic, data, WriteType.WithResponse)
+    ): Nothing =
+        throw UnsupportedOperationException(
+            "FakePeripheral does not implement reliable writes; " +
+                "supportsReliableWrite is false (like iOS). Use write() in tests.",
+        )
 
     override fun observe(
         characteristic: Characteristic,
