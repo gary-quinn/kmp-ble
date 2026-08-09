@@ -36,7 +36,11 @@ class IosGattEventHandlerTest {
             ops.set(PendingOp.CharacteristicRead, deferred)
             assertTrue(ops.has(PendingOp.CharacteristicRead))
 
-            ops.complete(PendingOp.CharacteristicRead, GattResult(byteArrayOf(0x42), GattStatus.Success))
+            ops.complete(
+                PendingOp.CharacteristicRead,
+                ops.generationOf(PendingOp.CharacteristicRead),
+                GattResult(byteArrayOf(0x42), GattStatus.Success),
+            )
             assertEquals(byteArrayOf(0x42).toList(), deferred.await().value.toList())
             assertFalse(ops.has(PendingOp.CharacteristicRead))
         }
@@ -50,7 +54,11 @@ class IosGattEventHandlerTest {
             ops.set(PendingOp.CharacteristicWrite, deferred)
             assertTrue(ops.has(PendingOp.CharacteristicWrite))
 
-            ops.complete(PendingOp.CharacteristicWrite, GattStatus.Success)
+            ops.complete(
+                PendingOp.CharacteristicWrite,
+                ops.generationOf(PendingOp.CharacteristicWrite),
+                GattStatus.Success,
+            )
             assertEquals(GattStatus.Success, deferred.await())
             assertFalse(ops.has(PendingOp.CharacteristicWrite))
         }
@@ -62,7 +70,11 @@ class IosGattEventHandlerTest {
             val deferred = CompletableDeferred<GattStatus>()
 
             ops.set(PendingOp.CharacteristicWrite, deferred)
-            ops.fail(PendingOp.CharacteristicWrite, RuntimeException("GATT error"))
+            ops.fail(
+                PendingOp.CharacteristicWrite,
+                ops.generationOf(PendingOp.CharacteristicWrite),
+                RuntimeException("GATT error"),
+            )
 
             assertTrue(deferred.getCompletionExceptionOrNull() != null)
             assertFalse(ops.has(PendingOp.CharacteristicWrite))
@@ -100,7 +112,11 @@ class IosGattEventHandlerTest {
             // Simulated handleCharacteristicValue logic:
             // when { pendingOps.has(CharacteristicWrite) -> complete(CharacteristicWrite, ...) }
             if (ops.has(PendingOp.CharacteristicWrite)) {
-                ops.complete(PendingOp.CharacteristicWrite, GattStatus.Success)
+                ops.complete(
+                    PendingOp.CharacteristicWrite,
+                    ops.generationOf(PendingOp.CharacteristicWrite),
+                    GattStatus.Success,
+                )
             }
 
             assertEquals(GattStatus.Success, writeDeferred.await())
@@ -117,7 +133,11 @@ class IosGattEventHandlerTest {
             ops.set(PendingOp.CharacteristicRead, readDeferred)
 
             if (!ops.has(PendingOp.CharacteristicWrite) && ops.has(PendingOp.CharacteristicRead)) {
-                ops.complete(PendingOp.CharacteristicRead, GattResult(byteArrayOf(0x01, 0x02), GattStatus.Success))
+                ops.complete(
+                    PendingOp.CharacteristicRead,
+                    ops.generationOf(PendingOp.CharacteristicRead),
+                    GattResult(byteArrayOf(0x01, 0x02), GattStatus.Success),
+                )
             }
 
             val result = readDeferred.await()
@@ -135,7 +155,11 @@ class IosGattEventHandlerTest {
             ops.set(PendingOp.DescriptorWrite, writeDeferred)
 
             if (ops.has(PendingOp.DescriptorWrite)) {
-                ops.complete(PendingOp.DescriptorWrite, GattStatus.Success)
+                ops.complete(
+                    PendingOp.DescriptorWrite,
+                    ops.generationOf(PendingOp.DescriptorWrite),
+                    GattStatus.Success,
+                )
             }
 
             assertEquals(GattStatus.Success, writeDeferred.await())
@@ -149,7 +173,11 @@ class IosGattEventHandlerTest {
             ops.set(PendingOp.DescriptorRead, readDeferred)
 
             if (!ops.has(PendingOp.DescriptorWrite) && ops.has(PendingOp.DescriptorRead)) {
-                ops.complete(PendingOp.DescriptorRead, GattResult(byteArrayOf(0x03), GattStatus.Success))
+                ops.complete(
+                    PendingOp.DescriptorRead,
+                    ops.generationOf(PendingOp.DescriptorRead),
+                    GattResult(byteArrayOf(0x03), GattStatus.Success),
+                )
             }
 
             val result = readDeferred.await()
@@ -166,7 +194,7 @@ class IosGattEventHandlerTest {
             ops.set(PendingOp.RssiRead, rssiDeferred)
 
             // Simulate handleRssi: complete with RSSI value on success
-            ops.complete(PendingOp.RssiRead, -42)
+            ops.complete(PendingOp.RssiRead, ops.generationOf(PendingOp.RssiRead), -42)
 
             assertEquals(-42, rssiDeferred.await())
         }
@@ -179,7 +207,7 @@ class IosGattEventHandlerTest {
             ops.set(PendingOp.RssiRead, rssiDeferred)
 
             // Simulate handleRssi: fail on error
-            ops.fail(PendingOp.RssiRead, RuntimeException("RSSI read failed"))
+            ops.fail(PendingOp.RssiRead, ops.generationOf(PendingOp.RssiRead), RuntimeException("RSSI read failed"))
 
             assertTrue(rssiDeferred.getCompletionExceptionOrNull() != null)
         }
@@ -238,17 +266,25 @@ class IosGattEventHandlerTest {
             assertTrue(ops.has(PendingOp.RssiRead))
 
             // Complete write first - shouldn't affect read or RSSI
-            ops.complete(PendingOp.CharacteristicWrite, GattStatus.Success)
+            ops.complete(
+                PendingOp.CharacteristicWrite,
+                ops.generationOf(PendingOp.CharacteristicWrite),
+                GattStatus.Success,
+            )
             assertFalse(ops.has(PendingOp.CharacteristicWrite))
             assertTrue(ops.has(PendingOp.CharacteristicRead))
             assertTrue(ops.has(PendingOp.RssiRead))
 
             // Complete read
-            ops.complete(PendingOp.CharacteristicRead, GattResult(byteArrayOf(0x07), GattStatus.Success))
+            ops.complete(
+                PendingOp.CharacteristicRead,
+                ops.generationOf(PendingOp.CharacteristicRead),
+                GattResult(byteArrayOf(0x07), GattStatus.Success),
+            )
             assertFalse(ops.has(PendingOp.CharacteristicRead))
 
             // Complete RSSI
-            ops.complete(PendingOp.RssiRead, -50)
+            ops.complete(PendingOp.RssiRead, ops.generationOf(PendingOp.RssiRead), -50)
             assertFalse(ops.has(PendingOp.RssiRead))
         }
 

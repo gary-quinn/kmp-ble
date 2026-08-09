@@ -19,6 +19,7 @@ import com.atruedev.kmpble.gatt.internal.DISABLE_NOTIFICATION_VALUE
 import com.atruedev.kmpble.gatt.internal.ENABLE_INDICATION_VALUE
 import com.atruedev.kmpble.gatt.internal.ENABLE_NOTIFICATION_VALUE
 import com.atruedev.kmpble.gatt.internal.GattResult
+import com.atruedev.kmpble.gatt.internal.GenerationSnapshot
 import com.atruedev.kmpble.gatt.internal.PendingOp
 import com.atruedev.kmpble.gatt.internal.PhyUpdateResult
 import com.atruedev.kmpble.peripheral.internal.awaitGatt
@@ -34,20 +35,35 @@ import kotlin.uuid.Uuid
  */
 
 internal fun AndroidPeripheral.handleGattEvent(event: GattCallbackEvent) {
+    // Runs on the platform callback thread. Stamp the armed generation per op
+    // BEFORE dispatch: the launch below executes later on the serialized
+    // dispatcher, where a retry may have re-armed a slot. Completing with the
+    // stamped generation makes a stale callback no-op instead of clobbering the
+    // retry (see PendingOperations).
+    val generations = pendingOps.generationSnapshot()
     peripheralContext.scope.launch {
         when (event) {
             is GattCallbackEvent.ConnectionStateChanged -> handleConnectionStateChanged(event)
             is GattCallbackEvent.ServicesDiscovered -> handleServicesDiscovered(event)
-            is GattCallbackEvent.MtuChanged -> handleMtuChanged(event)
+            is GattCallbackEvent.MtuChanged -> handleMtuChanged(event, generations)
             is GattCallbackEvent.CharacteristicRead ->
                 pendingOps.complete(
                     PendingOp.CharacteristicRead,
+                    generations[PendingOp.CharacteristicRead],
                     GattResult(event.value, event.status.toGattStatus()),
                 )
             is GattCallbackEvent.CharacteristicWrite ->
-                pendingOps.complete(PendingOp.CharacteristicWrite, event.status.toGattStatus())
+                pendingOps.complete(
+                    PendingOp.CharacteristicWrite,
+                    generations[PendingOp.CharacteristicWrite],
+                    event.status.toGattStatus(),
+                )
             is GattCallbackEvent.ReliableWriteCompleted ->
-                pendingOps.complete(PendingOp.ReliableWriteCompleted, event.status.toGattStatus())
+                pendingOps.complete(
+                    PendingOp.ReliableWriteCompleted,
+                    generations[PendingOp.ReliableWriteCompleted],
+                    event.status.toGattStatus(),
+                )
             is GattCallbackEvent.CharacteristicChanged -> {
                 val charUuid = Uuid.parse(event.characteristic.uuid.toString())
                 val serviceUuid =
@@ -60,14 +76,19 @@ internal fun AndroidPeripheral.handleGattEvent(event: GattCallbackEvent) {
             is GattCallbackEvent.DescriptorRead ->
                 pendingOps.complete(
                     PendingOp.DescriptorRead,
+                    generations[PendingOp.DescriptorRead],
                     GattResult(event.value, event.status.toGattStatus()),
                 )
             is GattCallbackEvent.DescriptorWrite ->
-                pendingOps.complete(PendingOp.DescriptorWrite, event.status.toGattStatus())
-            is GattCallbackEvent.ReadRemoteRssi -> handleRssiResult(event)
-            is GattCallbackEvent.PhyUpdated -> handlePhyUpdated(event)
-            is GattCallbackEvent.PhyRead -> handlePhyRead(event)
-            is GattCallbackEvent.SubrateChanged -> handleSubrateChanged(event)
+                pendingOps.complete(
+                    PendingOp.DescriptorWrite,
+                    generations[PendingOp.DescriptorWrite],
+                    event.status.toGattStatus(),
+                )
+            is GattCallbackEvent.ReadRemoteRssi -> handleRssiResult(event, generations)
+            is GattCallbackEvent.PhyUpdated -> handlePhyUpdated(event, generations)
+            is GattCallbackEvent.PhyRead -> handlePhyRead(event, generations)
+            is GattCallbackEvent.SubrateChanged -> handleSubrateChanged(event, generations)
         }
     }
 }
@@ -98,21 +119,34 @@ internal suspend fun AndroidPeripheral.resubscribeObservations() {
     }
 }
 
-internal suspend fun AndroidPeripheral.handleMtuChanged(event: GattCallbackEvent.MtuChanged) {
+internal suspend fun AndroidPeripheral.handleMtuChanged(
+    event: GattCallbackEvent.MtuChanged,
+    generations: GenerationSnapshot,
+) {
     if (event.status.toGattStatus().isSuccess()) peripheralContext.updateMtu(event.mtu)
-    pendingOps.complete(PendingOp.MtuRequest, event.mtu)
+    pendingOps.complete(PendingOp.MtuRequest, generations[PendingOp.MtuRequest], event.mtu)
 }
 
-internal fun AndroidPeripheral.handleRssiResult(event: GattCallbackEvent.ReadRemoteRssi) {
+internal fun AndroidPeripheral.handleRssiResult(
+    event: GattCallbackEvent.ReadRemoteRssi,
+    generations: GenerationSnapshot,
+) {
     val status = event.status.toGattStatus()
     if (status.isSuccess()) {
-        pendingOps.complete(PendingOp.RssiRead, event.rssi)
+        pendingOps.complete(PendingOp.RssiRead, generations[PendingOp.RssiRead], event.rssi)
     } else {
-        pendingOps.fail(PendingOp.RssiRead, BleException(GattError("readRssi", status)))
+        pendingOps.fail(
+            PendingOp.RssiRead,
+            generations[PendingOp.RssiRead],
+            BleException(GattError("readRssi", status)),
+        )
     }
 }
 
-internal fun AndroidPeripheral.handlePhyUpdated(event: GattCallbackEvent.PhyUpdated) {
+internal fun AndroidPeripheral.handlePhyUpdated(
+    event: GattCallbackEvent.PhyUpdated,
+    generations: GenerationSnapshot,
+) {
     val status = event.status.toGattStatus()
     val phyUpdate =
         PhyUpdate(
@@ -122,6 +156,7 @@ internal fun AndroidPeripheral.handlePhyUpdated(event: GattCallbackEvent.PhyUpda
     if (pendingOps.has(PendingOp.PhyUpdate)) {
         pendingOps.complete(
             PendingOp.PhyUpdate,
+            generations[PendingOp.PhyUpdate],
             PhyUpdateResult(
                 txPhyConstant = event.txPhy,
                 rxPhyConstant = event.rxPhy,
@@ -132,11 +167,15 @@ internal fun AndroidPeripheral.handlePhyUpdated(event: GattCallbackEvent.PhyUpda
     _phyUpdate.tryEmit(phyUpdate)
 }
 
-internal fun AndroidPeripheral.handlePhyRead(event: GattCallbackEvent.PhyRead) {
+internal fun AndroidPeripheral.handlePhyRead(
+    event: GattCallbackEvent.PhyRead,
+    generations: GenerationSnapshot,
+) {
     if (pendingOps.has(PendingOp.PhyRead)) {
         val status = event.status.toGattStatus()
         pendingOps.complete(
             PendingOp.PhyRead,
+            generations[PendingOp.PhyRead],
             PhyUpdateResult(
                 txPhyConstant = event.txPhy,
                 rxPhyConstant = event.rxPhy,
@@ -146,12 +185,16 @@ internal fun AndroidPeripheral.handlePhyRead(event: GattCallbackEvent.PhyRead) {
     }
 }
 
-internal fun AndroidPeripheral.handleSubrateChanged(event: GattCallbackEvent.SubrateChanged) {
+internal fun AndroidPeripheral.handleSubrateChanged(
+    event: GattCallbackEvent.SubrateChanged,
+    generations: GenerationSnapshot,
+) {
     val status = event.status.toGattStatus()
     if (pendingOps.has(PendingOp.SubrateRequest)) {
         if (status.isSuccess()) {
             pendingOps.complete(
                 PendingOp.SubrateRequest,
+                generations[PendingOp.SubrateRequest],
                 ConnectionSubratingResult.Accepted(
                     ConnectionSubratingParameters(
                         subrateFactor = event.subrateFactor,
@@ -164,6 +207,7 @@ internal fun AndroidPeripheral.handleSubrateChanged(event: GattCallbackEvent.Sub
         } else {
             pendingOps.complete(
                 PendingOp.SubrateRequest,
+                generations[PendingOp.SubrateRequest],
                 ConnectionSubratingResult.Rejected("status=$status"),
             )
         }
