@@ -168,7 +168,7 @@ public suspend fun Scanner.scanUntil(
                     is ScanEvent.Found -> {
                         // First occurrence per identifier wins (true set-distinct,
                         // unlike distinctUntilChanged which only drops consecutive dupes).
-                        seen.putIfAbsent(event.advertisement.identifier, event.advertisement)
+                        seen.getOrPut(event.advertisement.identifier) { event.advertisement }
                         if (seen.size >= count) throw BatchComplete
                     }
                     is ScanEvent.Failed -> Unit
