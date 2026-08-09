@@ -235,7 +235,9 @@ internal class AndroidGattBridge(
     internal fun executeReliableWrite(): Boolean = _gatt.value?.executeReliableWrite() ?: false
 
     /** Discard a reliable-write session without committing any staged writes. */
-    internal fun abortReliableWrite(): Boolean = _gatt.value?.abortReliableWrite() ?: false
+    internal fun abortReliableWrite() {
+        _gatt.value?.abortReliableWrite()
+    }
 
     internal fun readDescriptor(descriptor: BluetoothGattDescriptor): Boolean =
         _gatt.value?.readDescriptor(descriptor) ?: false
