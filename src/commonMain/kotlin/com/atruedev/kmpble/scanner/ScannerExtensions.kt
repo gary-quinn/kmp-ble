@@ -1,6 +1,7 @@
 package com.atruedev.kmpble.scanner
 
 import com.atruedev.kmpble.Identifier
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
@@ -61,7 +62,7 @@ public suspend fun Scanner.scanBatch(
 }
 
 /** Internal signal to stop [scanBatch] once [limit] distinct peripherals are seen. */
-private object BatchComplete : kotlinx.coroutines.CancellationException("scanBatch limit reached")
+private object BatchComplete : CancellationException("scanBatch limit reached")
 
 /**
  * Collect [Scanner.scanEvents], return the first matching [predicate], or null after [timeout].
