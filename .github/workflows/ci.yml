@@ -30,7 +30,7 @@ jobs:
           distribution: zulu
           java-version: 21
 
-      - uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
+      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
 
       - name: Lint (ktlint)
         run: ./gradlew ktlintCheck
@@ -58,7 +58,7 @@ jobs:
           distribution: zulu
           java-version: 21
 
-      - uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
+      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
 
       - name: Compile sample (common)
         run: ./gradlew :sample:compileCommonMainKotlinMetadata
@@ -76,7 +76,7 @@ jobs:
           distribution: zulu
           java-version: 21
 
-      - uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
+      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
 
       - name: Enable KVM
         run: |
@@ -119,7 +119,7 @@ jobs:
           distribution: zulu
           java-version: 21
 
-      - uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
+      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
 
       - name: Generate API docs (Dokka)
         run: ./gradlew dokkaGenerate
@@ -134,7 +134,7 @@ jobs:
           distribution: zulu
           java-version: 21
 
-      - uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
+      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
 
       - name: Build iOS
         run: ./gradlew compileKotlinIosSimulatorArm64
