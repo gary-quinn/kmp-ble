@@ -212,7 +212,7 @@ private suspend fun Peripheral.readBatchValue(characteristic: Characteristic): R
         Result.success(read(characteristic))
     } catch (e: TimeoutCancellationException) {
         // MUST precede CancellationException -- TimeoutCancellationException extends it.
-        val timeout = lastConnectionOptions?.let { it.timeouts.read } ?: DEFAULT_READ_TIMEOUT
+        val timeout = lastConnectionOptions?.timeouts?.read ?: DEFAULT_READ_TIMEOUT
         Result.failure(BleException(PeripheralTimeout(operation = "read", timeout = timeout)))
     } catch (e: CancellationException) {
         throw e

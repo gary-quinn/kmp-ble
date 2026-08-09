@@ -285,7 +285,8 @@ class BatchReadTest {
 
             assertEquals(2, results.size)
             val timedOut = results.values.first { it.isFailure }
-            assertIs<PeripheralTimeout>((timedOut.exceptionOrNull() as BleException).error)
+            val exception = assertIs<BleException>(timedOut.exceptionOrNull())
+            assertIs<PeripheralTimeout>(exception.error)
             assertTrue(results.values.any { it.isSuccess }, "later read should still succeed")
             peripheral.disconnect()
             peripheral.close()
