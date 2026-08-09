@@ -15,21 +15,21 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
 /**
- * Scan until [limit] distinct peripherals are seen (or [timeout] elapses), returning
- * the strongest [limit] by RSSI, sorted strongest-first.
+ * Scan for [timeout], tracking each distinct peripheral at its best observed RSSI,
+ * and return the strongest [limit] peripherals sorted strongest-first.
  *
- * Each peripheral's advertisement is tracked at its best (highest) RSSI observed;
- * repeated advertisements for the same [Advertisement.identifier] update the stored
- * value rather than adding a duplicate entry. Scanning stops as soon as [limit]
- * distinct peripherals have been seen, or when [timeout] expires (fewer results).
+ * Scanning runs for the full [timeout] window rather than stopping once [limit]
+ * distinct peripherals are seen -- stopping early would bias results toward
+ * whichever devices advertise first, which can miss a stronger signal that
+ * arrives later. For "stop once I have N devices" semantics use [scanUntil].
  *
  * ```
  * val top5 = scanner.scanBatch(limit = 5, timeout = 15.seconds)
  * top5.forEach { println("${it.name} at ${it.rssi} dBm") }
  * ```
  *
- * [ScanEvent.Failed] events are skipped. Returns an empty list if nothing was
- * seen before the timeout.
+ * [ScanEvent.Failed] events are skipped. Returns fewer than [limit] items (possibly
+ * empty) if fewer distinct peripherals were seen within [timeout].
  */
 public suspend fun Scanner.scanBatch(
     limit: Int,
@@ -37,32 +37,22 @@ public suspend fun Scanner.scanBatch(
 ): List<Advertisement> {
     require(limit > 0) { "limit must be positive, was $limit" }
     val bestByRssi = HashMap<Identifier, Advertisement>()
-    try {
-        withTimeoutOrNull(timeout) {
-            scanEvents.collect { event ->
-                when (event) {
-                    is ScanEvent.Found -> {
-                        val ad = event.advertisement
-                        val current = bestByRssi[ad.identifier]
-                        if (current == null || ad.rssi > current.rssi) {
-                            bestByRssi[ad.identifier] = ad
-                        }
-                        if (bestByRssi.size >= limit) {
-                            throw BatchComplete
-                        }
+    withTimeoutOrNull(timeout) {
+        scanEvents.collect { event ->
+            when (event) {
+                is ScanEvent.Found -> {
+                    val ad = event.advertisement
+                    val current = bestByRssi[ad.identifier]
+                    if (current == null || ad.rssi > current.rssi) {
+                        bestByRssi[ad.identifier] = ad
                     }
-                    is ScanEvent.Failed -> Unit
                 }
+                is ScanEvent.Failed -> Unit
             }
         }
-    } catch (_: BatchComplete) {
-        // Limit reached -- stop scanning and return what we have.
     }
     return bestByRssi.values.sortedByDescending { it.rssi }.take(limit)
 }
-
-/** Internal signal to stop [scanBatch] once [limit] distinct peripherals are seen. */
-private object BatchComplete : CancellationException("scanBatch limit reached")
 
 /**
  * Collect [Scanner.scanEvents], return the first matching [predicate], or null after [timeout].
