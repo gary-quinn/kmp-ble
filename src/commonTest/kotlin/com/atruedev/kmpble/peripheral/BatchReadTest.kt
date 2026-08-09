@@ -49,7 +49,7 @@ class BatchReadTest {
 
     private suspend fun FakePeripheral.connectedCharacteristics(): List<Characteristic> {
         connect()
-        return services.value!!.flatMap { it.characteristics }
+        return services.value.orEmpty().flatMap { it.characteristics }
     }
 
     @Test
@@ -75,9 +75,9 @@ class BatchReadTest {
             val results = peripheral.batchRead(chars)
 
             val byUuid = results.entries.associate { (char, result) -> char.uuid to result.getOrThrow() }
-            assertEquals(byteArrayOf(0x00, 0x01).toList(), byUuid[uuidFrom("2a37")]!!.toList())
-            assertEquals(byteArrayOf(0x00, 0x02).toList(), byUuid[uuidFrom("2a38")]!!.toList())
-            assertEquals(byteArrayOf(0x00, 0x03).toList(), byUuid[uuidFrom("2a19")]!!.toList())
+            assertEquals(byteArrayOf(0x00, 0x01).toList(), byUuid.getValue(uuidFrom("2a37")).toList())
+            assertEquals(byteArrayOf(0x00, 0x02).toList(), byUuid.getValue(uuidFrom("2a38")).toList())
+            assertEquals(byteArrayOf(0x00, 0x03).toList(), byUuid.getValue(uuidFrom("2a19")).toList())
             peripheral.disconnect()
             peripheral.close()
         }
@@ -325,7 +325,7 @@ class BatchReadTest {
             val results = peripheral.batchRead(listOf(char))
 
             assertEquals(1, results.size)
-            assertTrue(results[char]!!.isSuccess)
+            assertTrue(results.getValue(char).isSuccess)
             peripheral.disconnect()
             peripheral.close()
         }
