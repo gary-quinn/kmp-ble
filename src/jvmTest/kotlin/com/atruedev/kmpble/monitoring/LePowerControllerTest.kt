@@ -13,6 +13,7 @@ import kotlinx.coroutines.test.TestCoroutineScheduler
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
@@ -488,7 +489,7 @@ class LePowerControllerTest {
     }
 
     @Test
-    fun `request when not connected still works with default`() {
+    fun `request while not connected fails fast with not-connected error`() {
         val scheduler = TestCoroutineScheduler()
         val dispatcher = StandardTestDispatcher(scheduler)
         runTest(scheduler) {
@@ -501,10 +502,12 @@ class LePowerControllerTest {
             controller.start()
             scheduler.runCurrent()
 
-            // No connection established
-            // FakePeripheral.requestConnectionParameterUpdate returns default response
-            val response = controller.requestPeerPowerChange(-4)
-            assertNotNull(response)
+            // No connection established: the not-connected path must fail fast
+            // rather than fabricate a response. Mirrors the real peripheral,
+            // whose GATT queue rejects operations while disconnected.
+            assertFailsWith<IllegalStateException> {
+                controller.requestPeerPowerChange(-4)
+            }
         }
     }
 }
