@@ -10,8 +10,8 @@ let package = Package(
     targets: [
         .binaryTarget(
             name: "KmpBle",
-            url: "https://github.com/gary-quinn/kmp-ble/releases/download/v0.13.0/KmpBle.xcframework.zip",
-            checksum: "7854001f92f4abaaaf3c68384e03ce8c8fdb74b9c3095178a24e47f4a33de432"
+            url: "https://github.com/gary-quinn/kmp-ble/releases/download/v0.13.1/KmpBle.xcframework.zip",
+            checksum: "83584a9a22659b167f8803057d0d3d408b10e7c623e434ce17f0a258f5883161"
         ),
     ]
 )
