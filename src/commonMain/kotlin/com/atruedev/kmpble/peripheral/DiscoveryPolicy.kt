@@ -17,11 +17,11 @@ internal object DiscoveryPolicy {
         data object ReuseCache : DiscoveryAction
 
         /**
-         * A retrieved/restored peripheral whose iOS auto-discovery is still in flight; seed a
-         * cycle from the incomplete table and wait for `didDiscoverCharacteristicsForService`
-         * callbacks. Never re-run `discoverServices(null)`.
+         * A retrieved/restored peripheral whose iOS table is not yet complete; poll
+         * `cbPeripheral.services` until it is populated, then reuse it. Never re-run
+         * `discoverServices(null)` (which is what crashes CoreBluetooth mid-discovery).
          */
-        data object SeedAndWait : DiscoveryAction
+        data object WaitForTable : DiscoveryAction
 
         /** A fresh connect with no usable cache; run a native discovery pass. */
         data object Rediscover : DiscoveryAction
@@ -42,7 +42,7 @@ internal object DiscoveryPolicy {
         val cacheComplete = servicesPresent && allServicesHaveCharacteristics
         return when {
             (validated || connectedAtCreation) && cacheComplete -> DiscoveryAction.ReuseCache
-            connectedAtCreation && !cacheComplete -> DiscoveryAction.SeedAndWait
+            connectedAtCreation && !cacheComplete -> DiscoveryAction.WaitForTable
             else -> DiscoveryAction.Rediscover
         }
     }

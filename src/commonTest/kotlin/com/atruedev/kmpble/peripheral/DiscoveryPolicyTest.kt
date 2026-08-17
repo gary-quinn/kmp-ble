@@ -2,7 +2,7 @@ package com.atruedev.kmpble.peripheral
 
 import com.atruedev.kmpble.peripheral.DiscoveryPolicy.DiscoveryAction.Rediscover
 import com.atruedev.kmpble.peripheral.DiscoveryPolicy.DiscoveryAction.ReuseCache
-import com.atruedev.kmpble.peripheral.DiscoveryPolicy.DiscoveryAction.SeedAndWait
+import com.atruedev.kmpble.peripheral.DiscoveryPolicy.DiscoveryAction.WaitForTable
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -30,13 +30,13 @@ class DiscoveryPolicyTest {
     // -- decideDiscoveryAction --
 
     @Test
-    fun `cache is reusable only when complete and vouched for`() {
+    fun `validated cache reuses when complete and waits or rediscovers when not`() {
         assertEquals(ReuseCache, decide(true, true, true, true))
         assertEquals(ReuseCache, decide(true, false, true, true))
-        // Incomplete cache: never reuse.
+        // Incomplete cache: never reuse -- wait (retrieved) or rediscover (fresh).
         assertEquals(Rediscover, decide(true, false, true, false))
-        assertEquals(SeedAndWait, decide(true, true, true, false))
-        assertEquals(SeedAndWait, decide(true, true, false, false))
+        assertEquals(WaitForTable, decide(true, true, true, false))
+        assertEquals(WaitForTable, decide(true, true, false, false))
     }
 
     @Test
@@ -57,18 +57,18 @@ class DiscoveryPolicyTest {
     }
 
     @Test
-    fun `retrieved peripheral with incomplete cache seeds instead of rediscovering`() {
-        // connectedAtCreation + characteristics still nil: the crash case. Must seed
-        // a cycle and wait, never call discoverServices(null).
-        assertEquals(SeedAndWait, decide(false, true, true, false))
-        // No services yet either (BT just came on) - still seed, still never rediscover.
-        assertEquals(SeedAndWait, decide(false, true, false, false))
+    fun `retrieved peripheral with incomplete cache waits for the table`() {
+        // connectedAtCreation + characteristics still nil: the crash case. Must poll the
+        // table and wait, never call discoverServices(null).
+        assertEquals(WaitForTable, decide(false, true, true, false))
+        // No services yet either (BT just came on) - still wait, still never rediscover.
+        assertEquals(WaitForTable, decide(false, true, false, false))
     }
 
     @Test
-    fun `fresh connect never seeds regardless of cache completeness`() {
-        // A wrapper over a disconnected peripheral must rediscover, not seed -- there is
-        // no in-flight iOS auto-discovery to wait on.
+    fun `fresh connect never waits for the table`() {
+        // A wrapper over a disconnected peripheral must rediscover, not poll -- there is
+        // no iOS-owned discovery to wait on.
         assertEquals(Rediscover, decide(false, false, true, false))
         assertEquals(Rediscover, decide(false, false, true, true))
     }

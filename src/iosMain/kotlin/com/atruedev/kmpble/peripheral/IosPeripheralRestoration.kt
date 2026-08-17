@@ -5,7 +5,6 @@ import com.atruedev.kmpble.peripheral.state.ConnectionEvent
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import platform.CoreBluetooth.CBPeripheralStateConnected
-import platform.CoreBluetooth.CBService
 
 /**
  * Arm a connect slot and run [trigger] (seed-and-wait or native discovery), awaiting the
@@ -54,17 +53,11 @@ internal suspend fun IosPeripheral.restoreFromStateRestorationExt(savedObservati
                 nativeCharMap.clear()
                 nativeDescMap.clear()
 
-                val cbServices = cbPeripheral.services?.filterIsInstance<CBService>().orEmpty()
-                when (
-                    DiscoveryPolicy.decideDiscoveryAction(
-                        validated = knownServicesValid.value,
-                        connectedAtCreation = connectedAtCreation,
-                        servicesPresent = cbServices.isNotEmpty(),
-                        allServicesHaveCharacteristics = cbServices.all { it.characteristics != null },
-                    )
-                ) {
+                val cbServices = currentServices()
+                when (currentDiscoveryAction(cbServices)) {
                     DiscoveryPolicy.DiscoveryAction.ReuseCache -> finishDiscoveryFromCache(cbServices)
-                    DiscoveryPolicy.DiscoveryAction.SeedAndWait -> restoreDiscovery { seedDiscoveryCycleForRetrieved() }
+                    DiscoveryPolicy.DiscoveryAction.WaitForTable ->
+                        restoreDiscovery { finishDiscoveryFromRetrievedTable() }
                     DiscoveryPolicy.DiscoveryAction.Rediscover ->
                         restoreDiscovery {
                             bridge.discoverServices(discoveryGeneration.value)

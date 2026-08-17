@@ -1,6 +1,7 @@
 package com.atruedev.kmpble.peripheral
 
 import com.atruedev.kmpble.error.BleException
+import com.atruedev.kmpble.error.OperationFailed
 import com.atruedev.kmpble.error.ServiceDiscoveryError
 import com.atruedev.kmpble.gatt.Characteristic
 import com.atruedev.kmpble.gatt.Descriptor
@@ -9,6 +10,8 @@ import com.atruedev.kmpble.peripheral.internal.findCharacteristic
 import com.atruedev.kmpble.peripheral.state.ConnectionEvent
 import com.atruedev.kmpble.peripheral.state.State
 import com.atruedev.kmpble.scanner.uuidFrom
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withTimeoutOrNull
 import platform.CoreBluetooth.CBCharacteristic
 import platform.CoreBluetooth.CBCharacteristicPropertyAuthenticatedSignedWrites
 import platform.CoreBluetooth.CBCharacteristicPropertyIndicate
@@ -18,6 +21,8 @@ import platform.CoreBluetooth.CBCharacteristicPropertyWrite
 import platform.CoreBluetooth.CBCharacteristicPropertyWriteWithoutResponse
 import platform.CoreBluetooth.CBDescriptor
 import platform.CoreBluetooth.CBService
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.uuid.ExperimentalUuidApi
 
 /**
@@ -29,9 +34,18 @@ internal data class DiscoveryCycle(
     val discoveredServices: MutableList<DiscoveredService> = mutableListOf(),
 )
 
-/**
- * Service discovery pipeline for [IosPeripheral].
- */
+/** The live CoreBluetooth service table, or empty when iOS has not populated it yet. */
+internal fun IosPeripheral.currentServices(): List<CBService> =
+    cbPeripheral.services?.filterIsInstance<CBService>().orEmpty()
+
+/** The discovery action implied by the live table, computed once for both connect paths. */
+internal fun IosPeripheral.currentDiscoveryAction(services: List<CBService>): DiscoveryPolicy.DiscoveryAction =
+    DiscoveryPolicy.decideDiscoveryAction(
+        validated = knownServicesValid.value,
+        connectedAtCreation = connectedAtCreation,
+        servicesPresent = services.isNotEmpty(),
+        allServicesHaveCharacteristics = services.all { it.characteristics != null },
+    )
 
 @OptIn(ExperimentalUuidApi::class)
 internal suspend fun IosPeripheral.handleServicesDiscovered(event: AppleCallbackEvent.DidDiscoverServices) {
@@ -149,45 +163,46 @@ internal suspend fun IosPeripheral.finishDiscoveryFromCache(cbServices: List<CBS
 }
 
 /**
- * Seed a discovery cycle from a retrieved/restored peripheral's still-incomplete table
- * and let iOS's in-flight `didDiscoverCharacteristicsForService` callbacks complete it.
+ * Wait for a retrieved/restored peripheral's GATT table to populate, then reuse it.
  *
  * Called when [DiscoveryPolicy.decideDiscoveryAction] returned
- * [DiscoveryPolicy.DiscoveryAction.SeedAndWait] - the peripheral was already connected at
- * creation but its characteristics are not yet populated, i.e. iOS auto-connected and is
- * mid-discovery. Issuing `discoverServices(null)` here would replace the CBService/CBCharacteristic
- * objects while iOS's own XPC callbacks still target the old ones, crashing CoreBluetooth.
- * Seeding instead reuses those callbacks:
+ * [DiscoveryPolicy.DiscoveryAction.WaitForTable] - the peripheral was already connected at
+ * creation but its table is not yet complete (services missing or characteristics still nil).
+ * Issuing `discoverServices(null)` here would replace the CBService/CBCharacteristic objects
+ * while iOS's own in-flight XPC callbacks still target the old ones, crashing CoreBluetooth.
  *
- * - The services whose `characteristics` are still `null` become the cycle's pending set.
- * - Each incoming `didDiscoverCharacteristicsForService` removes its service from that set.
- * - When empty, [handleCharacteristicsDiscovered] assembles the now-populated table and calls
- *   [finishDiscovery].
- *
- * If the table is already fully populated (the race where
- * [DiscoveryPolicy.decideDiscoveryAction] evaluated Rediscover a moment earlier), finish from
- * cache immediately.
+ * Polls [cbPeripheral.services] - the ground truth iOS populates as its own discovery
+ * progresses - rather than relying on delegate callbacks, which are not guaranteed to be
+ * delivered to a late-attached delegate. The poll is bounded by [currentTimeouts.serviceDiscovery];
+ * on timeout or disconnect the connect and discovery slots are released with a clear failure
+ * instead of hanging or leaking.
  */
 @OptIn(ExperimentalUuidApi::class)
-internal suspend fun IosPeripheral.seedDiscoveryCycleForRetrieved() {
-    val cbServices = cbPeripheral.services?.filterIsInstance<CBService>().orEmpty()
-    val pendingServices =
-        cbServices
-            .filter { it.characteristics == null }
-            .map { it.UUID.UUIDString }
-            .toMutableList()
-
-    if (pendingServices.isEmpty()) {
-        finishDiscoveryFromCache(cbServices)
+internal suspend fun IosPeripheral.finishDiscoveryFromRetrievedTable() {
+    val services = pollForPopulatedTable(currentTimeouts.serviceDiscovery)
+    if (services == null) {
+        val failure = OperationFailed("retrieved peripheral GATT table was not populated in time")
+        peripheralContext.processEvent(ConnectionEvent.DiscoveryFailed(failure))
+        slots.failDiscovery(BleException(failure))
+        slots.completeConnect()
         return
     }
-
-    currentDiscovery =
-        DiscoveryCycle(
-            generation = discoveryGeneration.value,
-            pendingServices = pendingServices,
-        )
+    finishDiscoveryFromCache(services)
 }
+
+private suspend fun IosPeripheral.pollForPopulatedTable(timeout: Duration): List<CBService>? =
+    withTimeoutOrNull(timeout) {
+        while (peripheralContext.state.value !is State.Disconnected) {
+            val services = cbPeripheral.services?.filterIsInstance<CBService>().orEmpty()
+            if (services.isNotEmpty() && services.all { it.characteristics != null }) {
+                return@withTimeoutOrNull services
+            }
+            delay(RETRIEVED_TABLE_POLL_INTERVAL)
+        }
+        null
+    }
+
+private val RETRIEVED_TABLE_POLL_INTERVAL = 50.milliseconds
 
 /**
  * The peripheral's GATT table changed. Cached services/characteristics are no longer
