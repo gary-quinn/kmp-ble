@@ -46,7 +46,23 @@ internal suspend fun IosPeripheral.connectInternal(options: ConnectionOptions) {
         try {
             withTimeout(options.timeouts.connect) { deferred.await() }
         } catch (_: TimeoutCancellationException) {
+            // Cancel the link and await didDisconnect BEFORE transitioning state, so the
+            // timeout's disconnect is consumed before an auto-reconnect (which wakes on the
+            // Disconnected emission) can start -- a stale didDisconnect would otherwise kill
+            // the next connect. The didDisconnect callback skips its own transition while
+            // [pendingTimeoutDisconnect] is set.
+            pendingTimeoutDisconnect.value = true
+            val disconnected = slots.armDisconnect()
             bridge.disconnect()
+            try {
+                withTimeout(DISCONNECT_TIMEOUT) { disconnected.await() }
+            } catch (_: TimeoutCancellationException) {
+                // didDisconnect never arrived; the transition below still fires. A late
+                // delivery can still race a reconnect (see #633).
+            } finally {
+                slots.clearDisconnect()
+            }
+            pendingTimeoutDisconnect.value = false
             peripheralContext.processEvent(
                 ConnectionEvent.ConnectionLost(ConnectionFailed("Connection timeout")),
             )
@@ -127,9 +143,10 @@ internal fun IosPeripheral.handleConnectionCallback(
                 ConnectionLost("Disconnected")
             }
 
-        // A retrieved peripheral is already Disconnected; release the slot without replaying
-        // an invalid ConnectionLost transition.
-        if (peripheralContext.state.value !is State.Disconnected) {
+        // Skip the transition when it is owned elsewhere: the connect-timeout path performs
+        // it after awaiting this callback, and an already-Disconnected peripheral must not
+        // replay an invalid ConnectionLost (e.g. a late didDisconnect after the await expired).
+        if (!pendingTimeoutDisconnect.value && peripheralContext.state.value !is State.Disconnected) {
             peripheralContext.processEvent(ConnectionEvent.ConnectionLost(bleError))
         }
         slots.completeDisconnect()
