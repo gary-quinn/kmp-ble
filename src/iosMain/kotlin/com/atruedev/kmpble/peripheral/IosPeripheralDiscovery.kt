@@ -163,19 +163,9 @@ internal suspend fun IosPeripheral.finishDiscoveryFromCache(cbServices: List<CBS
 }
 
 /**
- * Wait for a retrieved/restored peripheral's GATT table to populate, then reuse it.
- *
- * Called when [DiscoveryPolicy.decideDiscoveryAction] returned
- * [DiscoveryPolicy.DiscoveryAction.WaitForTable] - the peripheral was already connected at
- * creation but its table is not yet complete (services missing or characteristics still nil).
- * Issuing `discoverServices(null)` here would replace the CBService/CBCharacteristic objects
- * while iOS's own in-flight XPC callbacks still target the old ones, crashing CoreBluetooth.
- *
- * Polls [cbPeripheral.services] - the ground truth iOS populates as its own discovery
- * progresses - rather than relying on delegate callbacks, which are not guaranteed to be
- * delivered to a late-attached delegate. The poll is bounded by [currentTimeouts.serviceDiscovery];
- * on timeout or disconnect the connect and discovery slots are released with a clear failure
- * instead of hanging or leaking.
+ * Reusing a retrieved peripheral's table must never re-run `discoverServices(null)`: that
+ * crashes CoreBluetooth when iOS's own discovery is mid-flight. Poll [cbPeripheral.services]
+ * until populated, then reuse; release the slots on timeout or disconnect.
  */
 @OptIn(ExperimentalUuidApi::class)
 internal suspend fun IosPeripheral.finishDiscoveryFromRetrievedTable() {

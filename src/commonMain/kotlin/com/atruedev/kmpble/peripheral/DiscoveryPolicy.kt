@@ -17,9 +17,9 @@ internal object DiscoveryPolicy {
         data object ReuseCache : DiscoveryAction
 
         /**
-         * A retrieved/restored peripheral whose iOS table is not yet complete; poll
-         * `cbPeripheral.services` until it is populated, then reuse it. Never re-run
-         * `discoverServices(null)` (which is what crashes CoreBluetooth mid-discovery).
+         * A retrieved peripheral whose table is incomplete: poll it until populated, then
+         * reuse. Never re-run `discoverServices(null)` -- that crashes CoreBluetooth
+         * mid-discovery.
          */
         data object WaitForTable : DiscoveryAction
 

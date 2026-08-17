@@ -62,10 +62,8 @@ internal suspend fun IosPeripheral.disconnectInternal() {
     bondManager.stop()
     withContext(peripheralContext.dispatcher) {
         if (peripheralContext.state.value is State.Disconnected) {
-            // A retrieved peripheral is OS-connected while Kotlin reports Disconnected.
-            // Cancel the link and await didDisconnect so a consumer's cancel-then-connect
-            // is clean: a fire-and-forget cancel would leave a stale didDisconnect to race
-            // (and kill) the next connect's discovery.
+            // A retrieved peripheral is OS-connected while Kotlin is Disconnected; cancel
+            // and await didDisconnect so a fire-and-forget cancel can't race the next connect.
             if (cbPeripheral.state == CBPeripheralStateConnected) {
                 val deferred = slots.armDisconnect()
                 bridge.disconnect()
@@ -129,9 +127,8 @@ internal fun IosPeripheral.handleConnectionCallback(
                 ConnectionLost("Disconnected")
             }
 
-        // Only transition state if not already Disconnected: a retrieved peripheral is
-        // Disconnected in Kotlin while its OS link is up, so its didDisconnect must release
-        // the disconnect slot without replaying an invalid ConnectionLost transition.
+        // A retrieved peripheral is already Disconnected; release the slot without replaying
+        // an invalid ConnectionLost transition.
         if (peripheralContext.state.value !is State.Disconnected) {
             peripheralContext.processEvent(ConnectionEvent.ConnectionLost(bleError))
         }
@@ -145,12 +142,9 @@ internal fun IosPeripheral.handleConnectionCallback(
 }
 
 /**
- * Run a fresh native `discoverServices(null)` pass, releasing the discovery and connect
- * slots if the call itself throws. discoverServices() is just a delegate/property
- * assignment plus a void ObjC call - failures are normally reported later via the async
- * callback, not a throw - but if it does throw, the slots armed above would otherwise leak
- * forever (no callback will ever arrive to release them). The throw is converted to a
- * DiscoveryFailed event rather than propagated (there is no caller to surface it to).
+ * A fresh `discoverServices(null)` pass. If it throws (rare - failures normally arrive via
+ * the async callback), release the slots so they don't leak waiting for a callback that
+ * will never come.
  */
 internal suspend fun IosPeripheral.discoverServicesSafely() {
     try {
