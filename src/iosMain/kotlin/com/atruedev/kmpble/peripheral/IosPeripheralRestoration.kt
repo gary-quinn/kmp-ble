@@ -7,9 +7,11 @@ import kotlinx.coroutines.withTimeout
 import platform.CoreBluetooth.CBPeripheralStateConnected
 
 /**
- * Arm a connect slot and run [trigger] (wait-for-table or native discovery), awaiting the
- * slot with the service-discovery timeout. Used by state restoration, which does not go
- * through [IosPeripheral.connectInternal] and so must arm its own connect slot.
+ * Arm a connect slot and run [trigger] (native discovery), awaiting the slot with the
+ * service-discovery timeout. Used by state restoration, which does not go through
+ * [IosPeripheral.connectInternal] and so must arm its own connect slot. The callback-driven
+ * [trigger] needs the timeout; [finishDiscoveryFromRetrievedTable] self-bounds its own poll,
+ * so it is not routed through here.
  */
 private suspend fun IosPeripheral.restoreDiscovery(trigger: suspend IosPeripheral.() -> Unit) {
     val deferred = slots.armConnect()
@@ -56,8 +58,14 @@ internal suspend fun IosPeripheral.restoreFromStateRestorationExt(savedObservati
                 val cbServices = currentServices()
                 when (currentDiscoveryAction(cbServices)) {
                     DiscoveryPolicy.DiscoveryAction.ReuseCache -> finishDiscoveryFromCache(cbServices)
-                    DiscoveryPolicy.DiscoveryAction.WaitForTable ->
-                        restoreDiscovery { finishDiscoveryFromRetrievedTable() }
+                    DiscoveryPolicy.DiscoveryAction.WaitForTable -> {
+                        val deferred = slots.armConnect()
+                        try {
+                            finishDiscoveryFromRetrievedTable()
+                        } finally {
+                            slots.clearConnect()
+                        }
+                    }
                     DiscoveryPolicy.DiscoveryAction.Rediscover ->
                         restoreDiscovery {
                             bridge.discoverServices(discoveryGeneration.value)

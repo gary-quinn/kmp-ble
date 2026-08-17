@@ -61,8 +61,10 @@ class DiscoveryPolicyTest {
         // connectedAtCreation + characteristics still nil: the crash case. Must poll the
         // table and wait, never call discoverServices(null).
         assertEquals(WaitForTable, decide(false, true, true, false))
-        // No services yet either (BT just came on) - still wait, still never rediscover.
-        assertEquals(WaitForTable, decide(false, true, false, false))
+        // No services yet (BT just came on): servicesPresent=false. allServicesHaveCharacteristics
+        // is true here (vacuous truth of services.all {} on an empty list) - the production
+        // input - and cacheComplete is still false, so it waits.
+        assertEquals(WaitForTable, decide(false, true, false, true))
     }
 
     @Test
