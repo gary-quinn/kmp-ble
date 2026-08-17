@@ -17,7 +17,7 @@ import platform.CoreBluetooth.CBErrorConnectionFailed
 import platform.CoreBluetooth.CBErrorConnectionLimitReached
 import platform.CoreBluetooth.CBErrorConnectionTimeout
 import platform.CoreBluetooth.CBErrorPeripheralDisconnected
-import platform.CoreBluetooth.CBService
+import platform.CoreBluetooth.CBPeripheralStateConnected
 import platform.Foundation.NSError
 
 /**
@@ -61,7 +61,22 @@ internal suspend fun IosPeripheral.disconnectInternal() {
     reconnectionHandler.stop()
     bondManager.stop()
     withContext(peripheralContext.dispatcher) {
-        if (peripheralContext.state.value is State.Disconnected) return@withContext
+        if (peripheralContext.state.value is State.Disconnected) {
+            // A retrieved peripheral is OS-connected while Kotlin is Disconnected; cancel
+            // and await didDisconnect so a fire-and-forget cancel can't race the next connect.
+            if (cbPeripheral.state == CBPeripheralStateConnected) {
+                val deferred = slots.armDisconnect()
+                bridge.disconnect()
+                try {
+                    withTimeout(DISCONNECT_TIMEOUT) { deferred.await() }
+                } catch (_: TimeoutCancellationException) {
+                    // OS never confirmed; nothing further to release.
+                } finally {
+                    slots.clearDisconnect()
+                }
+            }
+            return@withContext
+        }
         peripheralContext.processEvent(ConnectionEvent.DisconnectRequested)
         val deferred = slots.armDisconnect()
         bridge.disconnect()
@@ -92,28 +107,11 @@ internal fun IosPeripheral.handleConnectionCallback(
             nativeCharMap.clear()
             nativeDescMap.clear()
 
-            // CoreBluetooth caches services/characteristics on the peripheral across
-            // reconnects until a didModifyServices callback invalidates them - reuse
-            // that cache instead of re-running discovery on every reconnect.
-            if (canReuseServiceCache()) {
-                val cachedServices = cbPeripheral.services?.filterIsInstance<CBService>().orEmpty()
-                finishDiscoveryFromCache(cachedServices)
-                return@launch
-            }
-
-            try {
-                bridge.discoverServices(discoveryGeneration.value)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Throwable) {
-                // discoverServices() is just a delegate/property assignment plus a void ObjC
-                // call - failures are normally reported later via the async callback, not a
-                // throw. If it does throw, the discovery slot armed above would otherwise leak
-                // forever (no callback will ever arrive to release it).
-                val failure = OperationFailed("discoverServices() failed: ${e.message}")
-                peripheralContext.processEvent(ConnectionEvent.DiscoveryFailed(failure))
-                slots.failDiscovery(BleException(failure))
-                slots.completeConnect()
+            val cbServices = currentServices()
+            when (currentDiscoveryAction(cbServices)) {
+                DiscoveryPolicy.DiscoveryAction.ReuseCache -> finishDiscoveryFromCache(cbServices)
+                DiscoveryPolicy.DiscoveryAction.WaitForTable -> finishDiscoveryFromRetrievedTable()
+                DiscoveryPolicy.DiscoveryAction.Rediscover -> discoverServicesSafely()
             }
             return@launch
         }
@@ -129,16 +127,34 @@ internal fun IosPeripheral.handleConnectionCallback(
                 ConnectionLost("Disconnected")
             }
 
-        if (peripheralContext.state.value is State.Disconnecting.Requested) {
-            peripheralContext.processEvent(ConnectionEvent.ConnectionLost(bleError))
-            slots.completeDisconnect()
-        } else {
+        // A retrieved peripheral is already Disconnected; release the slot without replaying
+        // an invalid ConnectionLost transition.
+        if (peripheralContext.state.value !is State.Disconnected) {
             peripheralContext.processEvent(ConnectionEvent.ConnectionLost(bleError))
         }
+        slots.completeDisconnect()
         onDisconnectCleanup()
         // Release a discovery cycle left in flight by the disconnect, so the next
         // connect's tryArmDiscovery() isn't permanently blocked by this slot.
         slots.failDiscovery(BleException(bleError))
+        slots.completeConnect()
+    }
+}
+
+/**
+ * A fresh `discoverServices(null)` pass. If it throws (rare - failures normally arrive via
+ * the async callback), release the slots so they don't leak waiting for a callback that
+ * will never come.
+ */
+internal suspend fun IosPeripheral.discoverServicesSafely() {
+    try {
+        bridge.discoverServices(discoveryGeneration.value)
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Throwable) {
+        val failure = OperationFailed("discoverServices() failed: ${e.message}")
+        peripheralContext.processEvent(ConnectionEvent.DiscoveryFailed(failure))
+        slots.failDiscovery(BleException(failure))
         slots.completeConnect()
     }
 }

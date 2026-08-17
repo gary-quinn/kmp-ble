@@ -5,7 +5,23 @@ import com.atruedev.kmpble.peripheral.state.ConnectionEvent
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import platform.CoreBluetooth.CBPeripheralStateConnected
-import platform.CoreBluetooth.CBService
+
+/**
+ * Arm a connect slot and run [trigger] (native discovery), awaiting the slot with the
+ * service-discovery timeout. Used by state restoration, which does not go through
+ * [IosPeripheral.connectInternal] and so must arm its own connect slot. The callback-driven
+ * [trigger] needs the timeout; [finishDiscoveryFromRetrievedTable] self-bounds its own poll,
+ * so it is not routed through here.
+ */
+private suspend fun IosPeripheral.restoreDiscovery(trigger: suspend IosPeripheral.() -> Unit) {
+    val deferred = slots.armConnect()
+    try {
+        trigger()
+        withTimeout(currentTimeouts.serviceDiscovery) { deferred.await() }
+    } finally {
+        slots.clearConnect()
+    }
+}
 
 /**
  * Restore this peripheral from iOS state restoration.
@@ -39,17 +55,21 @@ internal suspend fun IosPeripheral.restoreFromStateRestorationExt(savedObservati
                 nativeCharMap.clear()
                 nativeDescMap.clear()
 
-                if (canReuseServiceCache()) {
-                    val cachedServices = cbPeripheral.services?.filterIsInstance<CBService>().orEmpty()
-                    finishDiscoveryFromCache(cachedServices)
-                } else {
-                    val deferred = slots.armConnect()
-                    try {
-                        bridge.discoverServices(discoveryGeneration.value)
-                        withTimeout(currentTimeouts.serviceDiscovery) { deferred.await() }
-                    } finally {
-                        slots.clearConnect()
+                val cbServices = currentServices()
+                when (currentDiscoveryAction(cbServices)) {
+                    DiscoveryPolicy.DiscoveryAction.ReuseCache -> finishDiscoveryFromCache(cbServices)
+                    DiscoveryPolicy.DiscoveryAction.WaitForTable -> {
+                        val deferred = slots.armConnect()
+                        try {
+                            finishDiscoveryFromRetrievedTable()
+                        } finally {
+                            slots.clearConnect()
+                        }
                     }
+                    DiscoveryPolicy.DiscoveryAction.Rediscover ->
+                        restoreDiscovery {
+                            bridge.discoverServices(discoveryGeneration.value)
+                        }
                 }
             } finally {
                 slots.clearDiscovery()

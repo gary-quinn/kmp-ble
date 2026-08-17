@@ -1,62 +1,50 @@
 package com.atruedev.kmpble.peripheral
 
+import com.atruedev.kmpble.peripheral.DiscoveryPolicy.DiscoveryAction.Rediscover
+import com.atruedev.kmpble.peripheral.DiscoveryPolicy.DiscoveryAction.ReuseCache
+import com.atruedev.kmpble.peripheral.DiscoveryPolicy.DiscoveryAction.WaitForTable
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
  * Decision-table coverage for [DiscoveryPolicy], the pure logic behind the iOS discovery
- * cache-reuse and stale-callback guards. Runs on the JVM, so it executes in this repo's
- * default test suite without a Kotlin/Native toolchain.
+ * cache-reuse, stale-callback, and retrieved-seed guards. Runs on the JVM, so it executes
+ * in this repo's default test suite without a Kotlin/Native toolchain.
  */
 class DiscoveryPolicyTest {
-    // -- canReuseServiceCache --
+    private fun decide(
+        validated: Boolean,
+        connectedAtCreation: Boolean,
+        servicesPresent: Boolean,
+        allServicesHaveCharacteristics: Boolean,
+    ): DiscoveryPolicy.DiscoveryAction =
+        DiscoveryPolicy.decideDiscoveryAction(
+            validated,
+            connectedAtCreation,
+            servicesPresent,
+            allServicesHaveCharacteristics,
+        )
+
+    // -- decideDiscoveryAction --
 
     @Test
-    fun `cache is reusable only when complete`() {
-        assertFalse(
-            DiscoveryPolicy.canReuseServiceCache(
-                validated = true,
-                connectedAtCreation = true,
-                servicesPresent = false,
-                allServicesHaveCharacteristics = true,
-            ),
-        )
-        assertFalse(
-            DiscoveryPolicy.canReuseServiceCache(
-                validated = true,
-                connectedAtCreation = true,
-                servicesPresent = true,
-                allServicesHaveCharacteristics = false,
-            ),
-        )
+    fun `validated cache reuses when complete and waits or rediscovers when not`() {
+        assertEquals(ReuseCache, decide(true, true, true, true))
+        assertEquals(ReuseCache, decide(true, false, true, true))
+        // Incomplete cache: never reuse -- wait (retrieved) or rediscover (fresh).
+        assertEquals(Rediscover, decide(true, false, true, false))
+        assertEquals(WaitForTable, decide(true, true, true, false))
+        assertEquals(WaitForTable, decide(true, true, false, false))
     }
 
     @Test
-    fun `validated cache is reusable when complete`() {
-        assertTrue(
-            DiscoveryPolicy.canReuseServiceCache(
-                validated = true,
-                connectedAtCreation = false,
-                servicesPresent = true,
-                allServicesHaveCharacteristics = true,
-            ),
-        )
-    }
-
-    @Test
-    fun `unvalidated cache from a fresh wrapper is not reusable`() {
+    fun `unvalidated cache from a fresh wrapper rediscovers`() {
         // knownServicesValid = false on a fresh wrapper over a previously disconnected
         // peripheral: the table may predate an unbond/GATT change that produced no
         // didModifyServices, so first connect must re-discover.
-        assertFalse(
-            DiscoveryPolicy.canReuseServiceCache(
-                validated = false,
-                connectedAtCreation = false,
-                servicesPresent = true,
-                allServicesHaveCharacteristics = true,
-            ),
-        )
+        assertEquals(Rediscover, decide(false, false, true, true))
     }
 
     @Test
@@ -65,14 +53,26 @@ class DiscoveryPolicyTest {
         // the current connection - re-running native discovery on that table is what
         // crashed with the zombie '-[CBCharacteristic handleCharacteristicsDiscovered:]'
         // after an OS re-bond.
-        assertTrue(
-            DiscoveryPolicy.canReuseServiceCache(
-                validated = false,
-                connectedAtCreation = true,
-                servicesPresent = true,
-                allServicesHaveCharacteristics = true,
-            ),
-        )
+        assertEquals(ReuseCache, decide(false, true, true, true))
+    }
+
+    @Test
+    fun `retrieved peripheral with incomplete cache waits for the table`() {
+        // connectedAtCreation + characteristics still nil: the crash case. Must poll the
+        // table and wait, never call discoverServices(null).
+        assertEquals(WaitForTable, decide(false, true, true, false))
+        // No services yet (BT just came on): servicesPresent=false. allServicesHaveCharacteristics
+        // is true here (vacuous truth of services.all {} on an empty list) - the production
+        // input - and cacheComplete is still false, so it waits.
+        assertEquals(WaitForTable, decide(false, true, false, true))
+    }
+
+    @Test
+    fun `fresh connect never waits for the table`() {
+        // A wrapper over a disconnected peripheral must rediscover, not poll -- there is
+        // no iOS-owned discovery to wait on.
+        assertEquals(Rediscover, decide(false, false, true, false))
+        assertEquals(Rediscover, decide(false, false, true, true))
     }
 
     // -- acceptsDidDiscoverServices --

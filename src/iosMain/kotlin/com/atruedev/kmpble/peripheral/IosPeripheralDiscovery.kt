@@ -1,6 +1,7 @@
 package com.atruedev.kmpble.peripheral
 
 import com.atruedev.kmpble.error.BleException
+import com.atruedev.kmpble.error.OperationFailed
 import com.atruedev.kmpble.error.ServiceDiscoveryError
 import com.atruedev.kmpble.gatt.Characteristic
 import com.atruedev.kmpble.gatt.Descriptor
@@ -9,6 +10,8 @@ import com.atruedev.kmpble.peripheral.internal.findCharacteristic
 import com.atruedev.kmpble.peripheral.state.ConnectionEvent
 import com.atruedev.kmpble.peripheral.state.State
 import com.atruedev.kmpble.scanner.uuidFrom
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withTimeoutOrNull
 import platform.CoreBluetooth.CBCharacteristic
 import platform.CoreBluetooth.CBCharacteristicPropertyAuthenticatedSignedWrites
 import platform.CoreBluetooth.CBCharacteristicPropertyIndicate
@@ -18,6 +21,8 @@ import platform.CoreBluetooth.CBCharacteristicPropertyWrite
 import platform.CoreBluetooth.CBCharacteristicPropertyWriteWithoutResponse
 import platform.CoreBluetooth.CBDescriptor
 import platform.CoreBluetooth.CBService
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.uuid.ExperimentalUuidApi
 
 /**
@@ -29,9 +34,18 @@ internal data class DiscoveryCycle(
     val discoveredServices: MutableList<DiscoveredService> = mutableListOf(),
 )
 
-/**
- * Service discovery pipeline for [IosPeripheral].
- */
+/** The live CoreBluetooth service table, or empty when iOS has not populated it yet. */
+internal fun IosPeripheral.currentServices(): List<CBService> =
+    cbPeripheral.services?.filterIsInstance<CBService>().orEmpty()
+
+/** The discovery action implied by the live table, computed once for both connect paths. */
+internal fun IosPeripheral.currentDiscoveryAction(services: List<CBService>): DiscoveryPolicy.DiscoveryAction =
+    DiscoveryPolicy.decideDiscoveryAction(
+        validated = knownServicesValid.value,
+        connectedAtCreation = connectedAtCreation,
+        servicesPresent = services.isNotEmpty(),
+        allServicesHaveCharacteristics = services.all { it.characteristics != null },
+    )
 
 @OptIn(ExperimentalUuidApi::class)
 internal suspend fun IosPeripheral.handleServicesDiscovered(event: AppleCallbackEvent.DidDiscoverServices) {
@@ -136,26 +150,53 @@ internal suspend fun IosPeripheral.finishDiscovery(discovered: List<DiscoveredSe
     }
 }
 
-internal fun IosPeripheral.canReuseServiceCache(): Boolean {
-    val cbServices = cbPeripheral.services?.filterIsInstance<CBService>().orEmpty()
-    return DiscoveryPolicy.canReuseServiceCache(
-        validated = knownServicesValid.value,
-        connectedAtCreation = connectedAtCreation,
-        servicesPresent = cbServices.isNotEmpty(),
-        allServicesHaveCharacteristics = cbServices.all { it.characteristics != null },
-    )
-}
-
 /**
  * Finalizes discovery from services CoreBluetooth already has cached on [IosPeripheral.cbPeripheral],
  * skipping a redundant native `discoverServices`/`discoverCharacteristics` round trip. Only valid
- * when [canReuseServiceCache] holds - the cache is complete and either a completed cycle or
- * the peripheral's connected-at-creation state vouches for it.
+ * when [DiscoveryPolicy.decideDiscoveryAction] returned
+ * [DiscoveryPolicy.DiscoveryAction.ReuseCache] - the cache is complete and either a completed
+ * cycle or the peripheral's connected-at-creation state vouches for it.
  */
 @OptIn(ExperimentalUuidApi::class)
 internal suspend fun IosPeripheral.finishDiscoveryFromCache(cbServices: List<CBService>) {
     finishDiscovery(cbServices.map { it.toDiscoveredService(this) })
 }
+
+/**
+ * Reusing a retrieved peripheral's table must never re-run `discoverServices(null)`: that
+ * crashes CoreBluetooth when iOS's own discovery is mid-flight. Poll [cbPeripheral.services]
+ * until populated, then reuse; release the slots on timeout or disconnect.
+ */
+@OptIn(ExperimentalUuidApi::class)
+internal suspend fun IosPeripheral.finishDiscoveryFromRetrievedTable() {
+    val services = pollForPopulatedTable(currentTimeouts.serviceDiscovery)
+    if (services == null) {
+        // Closed or disconnected: the close/disconnect path already released the slots.
+        // Only the timeout still needs cleanup here.
+        if (!isClosed && peripheralContext.state.value !is State.Disconnected) {
+            val failure = OperationFailed("retrieved peripheral GATT table was not populated in time")
+            peripheralContext.processEvent(ConnectionEvent.DiscoveryFailed(failure))
+            slots.failDiscovery(BleException(failure))
+            slots.completeConnect()
+        }
+        return
+    }
+    finishDiscoveryFromCache(services)
+}
+
+private suspend fun IosPeripheral.pollForPopulatedTable(timeout: Duration): List<CBService>? =
+    withTimeoutOrNull(timeout) {
+        while (!isClosed && peripheralContext.state.value !is State.Disconnected) {
+            val services = cbPeripheral.services?.filterIsInstance<CBService>().orEmpty()
+            if (services.isNotEmpty() && services.all { it.characteristics != null }) {
+                return@withTimeoutOrNull services
+            }
+            delay(RETRIEVED_TABLE_POLL_INTERVAL)
+        }
+        null
+    }
+
+private val RETRIEVED_TABLE_POLL_INTERVAL = 50.milliseconds
 
 /**
  * The peripheral's GATT table changed. Cached services/characteristics are no longer
