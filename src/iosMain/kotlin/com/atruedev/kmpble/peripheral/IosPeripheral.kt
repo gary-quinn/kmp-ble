@@ -95,11 +95,10 @@ public class IosPeripheral(
     internal val isClosed: Boolean get() = _closed.value
 
     /**
-     * True while a disconnect is owned by the connect-timeout path: the timeout catch
-     * awaits the didDisconnect and performs the ConnectionLost transition itself, so
-     * [handleConnectionCallback] must only release slots, not re-transition.
+     * True while the connect-timeout path owns the disconnect, so [handleConnectionCallback]
+     * skips its own ConnectionLost transition. Confined to the serial dispatcher.
      */
-    internal val pendingTimeoutDisconnect = atomic(false)
+    internal var pendingTimeoutDisconnect = false
 
     /** Stored during [connect] for GATT ops to reference per-operation timeouts. */
     internal var currentTimeouts: OperationTimeouts = OperationTimeouts()
