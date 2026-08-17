@@ -171,10 +171,14 @@ internal suspend fun IosPeripheral.finishDiscoveryFromCache(cbServices: List<CBS
 internal suspend fun IosPeripheral.finishDiscoveryFromRetrievedTable() {
     val services = pollForPopulatedTable(currentTimeouts.serviceDiscovery)
     if (services == null) {
-        val failure = OperationFailed("retrieved peripheral GATT table was not populated in time")
-        peripheralContext.processEvent(ConnectionEvent.DiscoveryFailed(failure))
-        slots.failDiscovery(BleException(failure))
-        slots.completeConnect()
+        // A disconnect mid-poll already transitioned state and released the slots via the
+        // disconnect callback; only the timeout still needs cleanup here.
+        if (peripheralContext.state.value !is State.Disconnected) {
+            val failure = OperationFailed("retrieved peripheral GATT table was not populated in time")
+            peripheralContext.processEvent(ConnectionEvent.DiscoveryFailed(failure))
+            slots.failDiscovery(BleException(failure))
+            slots.completeConnect()
+        }
         return
     }
     finishDiscoveryFromCache(services)

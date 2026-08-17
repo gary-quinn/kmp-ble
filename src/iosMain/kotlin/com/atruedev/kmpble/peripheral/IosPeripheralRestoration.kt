@@ -7,7 +7,7 @@ import kotlinx.coroutines.withTimeout
 import platform.CoreBluetooth.CBPeripheralStateConnected
 
 /**
- * Arm a connect slot and run [trigger] (seed-and-wait or native discovery), awaiting the
+ * Arm a connect slot and run [trigger] (wait-for-table or native discovery), awaiting the
  * slot with the service-discovery timeout. Used by state restoration, which does not go
  * through [IosPeripheral.connectInternal] and so must arm its own connect slot.
  */
