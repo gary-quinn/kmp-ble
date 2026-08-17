@@ -9,24 +9,43 @@ package com.atruedev.kmpble.peripheral
  */
 internal object DiscoveryPolicy {
     /**
-     * Whether the cached CBService/CBCharacteristic table can be reused without a native
-     * discoverServices round trip.
-     *
-     * The cache is reusable only when it is complete ([servicesPresent] and
-     * [allServicesHaveCharacteristics]) AND either a completed discovery cycle vouches for
-     * it ([validated]) or the peripheral was already connected when the wrapper was created
-     * ([connectedAtCreation]) - in the latter case iOS populated the table for the current
-     * connection, so re-running native discovery on it is both unnecessary and unsafe.
+     * What the discovery pipeline should do for a connect, decided purely from cache state
+     * so the branch logic is unit-testable on the JVM without CoreBluetooth objects.
      */
-    fun canReuseServiceCache(
+    internal sealed interface DiscoveryAction {
+        /** The cached table is complete and vouched for; reuse it without a native call. */
+        data object ReuseCache : DiscoveryAction
+
+        /**
+         * A retrieved/restored peripheral whose iOS auto-discovery is still in flight; seed a
+         * cycle from the incomplete table and wait for `didDiscoverCharacteristicsForService`
+         * callbacks. Never re-run `discoverServices(null)`.
+         */
+        data object SeedAndWait : DiscoveryAction
+
+        /** A fresh connect with no usable cache; run a native discovery pass. */
+        data object Rediscover : DiscoveryAction
+    }
+
+    /**
+     * Pick the discovery action for a connect. [validated] is whether a completed discovery
+     * cycle vouches for the table; [connectedAtCreation] whether the peripheral was already
+     * connected when the wrapper was created; [servicesPresent]/[allServicesHaveCharacteristics]
+     * describe whether the table is complete.
+     */
+    fun decideDiscoveryAction(
         validated: Boolean,
         connectedAtCreation: Boolean,
         servicesPresent: Boolean,
         allServicesHaveCharacteristics: Boolean,
-    ): Boolean =
-        (validated || connectedAtCreation) &&
-            servicesPresent &&
-            allServicesHaveCharacteristics
+    ): DiscoveryAction {
+        val cacheComplete = servicesPresent && allServicesHaveCharacteristics
+        return when {
+            (validated || connectedAtCreation) && cacheComplete -> DiscoveryAction.ReuseCache
+            connectedAtCreation && !cacheComplete -> DiscoveryAction.SeedAndWait
+            else -> DiscoveryAction.Rediscover
+        }
+    }
 
     /**
      * Whether a didDiscoverServices callback belongs to the current discovery cycle.

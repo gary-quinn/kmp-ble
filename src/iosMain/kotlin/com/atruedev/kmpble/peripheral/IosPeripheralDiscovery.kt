@@ -136,25 +136,57 @@ internal suspend fun IosPeripheral.finishDiscovery(discovered: List<DiscoveredSe
     }
 }
 
-internal fun IosPeripheral.canReuseServiceCache(): Boolean {
-    val cbServices = cbPeripheral.services?.filterIsInstance<CBService>().orEmpty()
-    return DiscoveryPolicy.canReuseServiceCache(
-        validated = knownServicesValid.value,
-        connectedAtCreation = connectedAtCreation,
-        servicesPresent = cbServices.isNotEmpty(),
-        allServicesHaveCharacteristics = cbServices.all { it.characteristics != null },
-    )
-}
-
 /**
  * Finalizes discovery from services CoreBluetooth already has cached on [IosPeripheral.cbPeripheral],
  * skipping a redundant native `discoverServices`/`discoverCharacteristics` round trip. Only valid
- * when [canReuseServiceCache] holds - the cache is complete and either a completed cycle or
- * the peripheral's connected-at-creation state vouches for it.
+ * when [DiscoveryPolicy.decideDiscoveryAction] returned
+ * [DiscoveryPolicy.DiscoveryAction.ReuseCache] - the cache is complete and either a completed
+ * cycle or the peripheral's connected-at-creation state vouches for it.
  */
 @OptIn(ExperimentalUuidApi::class)
 internal suspend fun IosPeripheral.finishDiscoveryFromCache(cbServices: List<CBService>) {
     finishDiscovery(cbServices.map { it.toDiscoveredService(this) })
+}
+
+/**
+ * Seed a discovery cycle from a retrieved/restored peripheral's still-incomplete table
+ * and let iOS's in-flight `didDiscoverCharacteristicsForService` callbacks complete it.
+ *
+ * Called when [DiscoveryPolicy.decideDiscoveryAction] returned
+ * [DiscoveryPolicy.DiscoveryAction.SeedAndWait] - the peripheral was already connected at
+ * creation but its characteristics are not yet populated, i.e. iOS auto-connected and is
+ * mid-discovery. Issuing `discoverServices(null)` here would replace the CBService/CBCharacteristic
+ * objects while iOS's own XPC callbacks still target the old ones, crashing CoreBluetooth.
+ * Seeding instead reuses those callbacks:
+ *
+ * - The services whose `characteristics` are still `null` become the cycle's pending set.
+ * - Each incoming `didDiscoverCharacteristicsForService` removes its service from that set.
+ * - When empty, [handleCharacteristicsDiscovered] assembles the now-populated table and calls
+ *   [finishDiscovery].
+ *
+ * If the table is already fully populated (the race where
+ * [DiscoveryPolicy.decideDiscoveryAction] evaluated Rediscover a moment earlier), finish from
+ * cache immediately.
+ */
+@OptIn(ExperimentalUuidApi::class)
+internal suspend fun IosPeripheral.seedDiscoveryCycleForRetrieved() {
+    val cbServices = cbPeripheral.services?.filterIsInstance<CBService>().orEmpty()
+    val pendingServices =
+        cbServices
+            .filter { it.characteristics == null }
+            .map { it.UUID.UUIDString }
+            .toMutableList()
+
+    if (pendingServices.isEmpty()) {
+        finishDiscoveryFromCache(cbServices)
+        return
+    }
+
+    currentDiscovery =
+        DiscoveryCycle(
+            generation = discoveryGeneration.value,
+            pendingServices = pendingServices,
+        )
 }
 
 /**

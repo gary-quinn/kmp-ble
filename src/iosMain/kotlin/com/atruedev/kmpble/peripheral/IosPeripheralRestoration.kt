@@ -8,6 +8,21 @@ import platform.CoreBluetooth.CBPeripheralStateConnected
 import platform.CoreBluetooth.CBService
 
 /**
+ * Arm a connect slot and run [trigger] (seed-and-wait or native discovery), awaiting the
+ * slot with the service-discovery timeout. Used by state restoration, which does not go
+ * through [IosPeripheral.connectInternal] and so must arm its own connect slot.
+ */
+private suspend fun IosPeripheral.restoreDiscovery(trigger: suspend IosPeripheral.() -> Unit) {
+    val deferred = slots.armConnect()
+    try {
+        trigger()
+        withTimeout(currentTimeouts.serviceDiscovery) { deferred.await() }
+    } finally {
+        slots.clearConnect()
+    }
+}
+
+/**
  * Restore this peripheral from iOS state restoration.
  *
  * Re-populates persisted observations and triggers discovery if iOS already
@@ -39,17 +54,21 @@ internal suspend fun IosPeripheral.restoreFromStateRestorationExt(savedObservati
                 nativeCharMap.clear()
                 nativeDescMap.clear()
 
-                if (canReuseServiceCache()) {
-                    val cachedServices = cbPeripheral.services?.filterIsInstance<CBService>().orEmpty()
-                    finishDiscoveryFromCache(cachedServices)
-                } else {
-                    val deferred = slots.armConnect()
-                    try {
-                        bridge.discoverServices(discoveryGeneration.value)
-                        withTimeout(currentTimeouts.serviceDiscovery) { deferred.await() }
-                    } finally {
-                        slots.clearConnect()
-                    }
+                val cbServices = cbPeripheral.services?.filterIsInstance<CBService>().orEmpty()
+                when (
+                    DiscoveryPolicy.decideDiscoveryAction(
+                        validated = knownServicesValid.value,
+                        connectedAtCreation = connectedAtCreation,
+                        servicesPresent = cbServices.isNotEmpty(),
+                        allServicesHaveCharacteristics = cbServices.all { it.characteristics != null },
+                    )
+                ) {
+                    DiscoveryPolicy.DiscoveryAction.ReuseCache -> finishDiscoveryFromCache(cbServices)
+                    DiscoveryPolicy.DiscoveryAction.SeedAndWait -> restoreDiscovery { seedDiscoveryCycleForRetrieved() }
+                    DiscoveryPolicy.DiscoveryAction.Rediscover ->
+                        restoreDiscovery {
+                            bridge.discoverServices(discoveryGeneration.value)
+                        }
                 }
             } finally {
                 slots.clearDiscovery()
