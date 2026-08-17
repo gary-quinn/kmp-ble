@@ -9,20 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [0.8.5] - 2026-06-18
-
-### Added
-- feat(sample): add BleQuickstart end-to-end code examples and update README (#227)
-- test(benchmark): add cross-platform benchmark comparison tests (#228)
-
-### Fixed
-- fix: replace em-dashes with hyphens in comments and README
-
----
-
 ## [Unreleased]
 
 _Changes on `main` that have not yet been tagged for release._
+
+---
+
+## [0.13.2] - 2026-08-17
+
+### Changed
+- build(dependabot): bump gradle-wrapper from 9.6.1 to 9.7.0
+
+### Fixed
+- fix(ios): stop rediscovering retrieved peripherals with incomplete cache
+- fix(ios): consume the timeout didDisconnect before reconnecting
 
 ---
 
@@ -1832,6 +1832,17 @@ _Changes on `main` that have not yet been tagged for release._
 
 ---
 
+## [0.8.5] - 2026-06-18
+
+### Added
+- feat(sample): add BleQuickstart end-to-end code examples and update README (#227)
+- test(benchmark): add cross-platform benchmark comparison tests (#228)
+
+### Fixed
+- fix: replace em-dashes with hyphens in comments and README
+
+---
+
 ## [0.8.4] - 2026-06-18
 
 ### Added
@@ -2436,7 +2447,8 @@ _No notable changes._
 
 ---
 
-[Unreleased]: https://github.com/gary-quinn/kmp-ble/compare/v0.13.1...HEAD
+[Unreleased]: https://github.com/gary-quinn/kmp-ble/compare/v0.13.2...HEAD
+[0.13.2]: https://github.com/gary-quinn/kmp-ble/compare/v0.13.1...v0.13.2
 [0.13.1]: https://github.com/gary-quinn/kmp-ble/compare/v0.13.0...v0.13.1
 [0.13.0]: https://github.com/gary-quinn/kmp-ble/compare/v0.12.1...v0.13.0
 [0.12.1]: https://github.com/gary-quinn/kmp-ble/compare/v0.12.0...v0.12.1
