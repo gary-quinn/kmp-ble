@@ -8,5 +8,7 @@
 	<string>This app uses Bluetooth to scan for and connect to BLE devices.</string>
 	<key>NSBluetoothPeripheralUsageDescription</key>
 	<string>This app uses Bluetooth to scan for and connect to BLE devices.</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 </dict>
 </plist>

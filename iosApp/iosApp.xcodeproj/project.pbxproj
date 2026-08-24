@@ -9,12 +9,14 @@
 /* Begin PBXBuildFile section */
 		AAA00001 /* iOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAA00010 /* iOSApp.swift */; };
 		AAA00002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAA00011 /* ContentView.swift */; };
+		AAA00003 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AAA00013 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		AAA00010 /* iOSApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iOSApp.swift; sourceTree = "<group>"; };
 		AAA00011 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		AAA00012 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		AAA00013 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		AAA00020 /* iosApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = iosApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -27,6 +29,17 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXResourcesBuildPhase section */
+		AAA00032 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AAA00003 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXGroup section */
 		AAA00040 = {
@@ -43,6 +56,7 @@
 				AAA00010 /* iOSApp.swift */,
 				AAA00011 /* ContentView.swift */,
 				AAA00012 /* Info.plist */,
+				AAA00013 /* Assets.xcassets */,
 			);
 			path = iosApp;
 			sourceTree = "<group>";
@@ -65,6 +79,7 @@
 				AAA00060 /* Compile Kotlin Framework */,
 				AAA00031 /* Sources */,
 				AAA00030 /* Frameworks */,
+				AAA00032 /* Resources */,
 			);
 			buildRules = (
 			);
