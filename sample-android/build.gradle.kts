@@ -13,7 +13,7 @@ android {
             .toInt()
 
     defaultConfig {
-        applicationId = "com.atruedev.kmpble.sample"
+        applicationId = "com.atruedev.kmpble.gattlab"
         minSdk =
             libs.versions.androidMinSdk
                 .get()

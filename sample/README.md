@@ -1,6 +1,9 @@
-# kmp-ble Sample App
+# GATT Lab
 
-Compose Multiplatform app (Android + iOS) exercising the full kmp-ble v0.10+ API surface.
+Compose Multiplatform sample app (Android + iOS) for [kmp-ble](../), exercising the full v0.10+ API surface.
+
+- **Display name:** GATT Lab
+- **Bundle ID (iOS) / applicationId (Android):** `com.atruedev.kmpble.gattlab`
 
 ## Quickstart (Code Examples)
 
