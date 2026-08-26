@@ -14,8 +14,9 @@
 #          ./gradlew :sample:linkReleaseFrameworkIosArm64
 #      (output: sample/build/bin/iosArm64/releaseFramework/KmpBleSample.framework)
 #   3. Copies it to the exact path Xcode resolves at archive time:
-#          sample/build/xcode-frameworks/Release/iphoneos/KmpBleSample.framework
-#      (Xcode's FRAMEWORK_SEARCH_PATHS = .../xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME))
+#          sample/build/xcode-frameworks/Release/iphoneos26.5/KmpBleSample.framework
+#      (Xcode's FRAMEWORK_SEARCH_PATHS = .../xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME);
+#       on Xcode 26+ SDK_NAME is iphoneos<version>, not plain iphoneos)
 #   4. Writes a marker file; the "Compile Kotlin Framework" build phase checks
 #      it and skips its own Gradle invocation.
 #
@@ -32,7 +33,6 @@ REPO_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"         # repo root (two levels up f
 GRADLEW="$REPO_DIR/gradlew"
 FRAMEWORK_SRC="$REPO_DIR/sample/build/bin/iosArm64/releaseFramework/KmpBleSample.framework"
 FRAMEWORKS_DIR="$REPO_DIR/sample/build/xcode-frameworks"
-FRAMEWORK_DEST="$FRAMEWORKS_DIR/Release/iphoneos"
 MARKER="$FRAMEWORKS_DIR/.xcode-cloud-prebuild"
 
 echo "[ci_post_clone] Stage: Post-Clone activated"
@@ -146,8 +146,18 @@ if [ ! -d "$FRAMEWORK_SRC" ]; then
 fi
 
 # ---------------------------------------------------------------------------
-# 3) Place it where Xcode resolves at archive time (Release + iphoneos)
+# 3) Place it where Xcode resolves at archive time (Release + SDK_NAME)
 # ---------------------------------------------------------------------------
+# FRAMEWORK_SEARCH_PATHS uses $(SDK_NAME), e.g. iphoneos26.5 on Xcode 26.
+SDK_VERSION="$(xcrun --sdk iphoneos --show-sdk-version 2>/dev/null || true)"
+if [ -n "$SDK_VERSION" ]; then
+  SDK_NAME="iphoneos${SDK_VERSION}"
+else
+  SDK_NAME="iphoneos"
+fi
+FRAMEWORK_DEST="$FRAMEWORKS_DIR/Release/$SDK_NAME"
+
+echo "[ci_post_clone] Xcode SDK_NAME: $SDK_NAME"
 echo "[ci_post_clone] Copying framework to Xcode search path: $FRAMEWORK_DEST"
 mkdir -p "$FRAMEWORK_DEST"
 rm -rf "$FRAMEWORK_DEST/KmpBleSample.framework"
