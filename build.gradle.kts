@@ -22,6 +22,7 @@ val securityPatches: Action<DependencyResolveDetails> =
             "org.apache.commons:commons-lang3" -> useVersion(libs.versions.commonsLang3.get())
             "org.apache.httpcomponents:httpclient" -> useVersion(libs.versions.httpclient.get())
             "org.jsoup:jsoup" -> useVersion(libs.versions.jsoup.get())
+            "org.jetbrains.kotlin:kotlin-gradle-plugin" -> useVersion(libs.versions.kotlin.get())
         }
     }
 
@@ -41,6 +42,7 @@ buildscript {
                 "org.apache.commons:commons-lang3" -> useVersion("3.20.0")
                 "org.apache.httpcomponents:httpclient" -> useVersion("4.5.14")
                 "org.jsoup:jsoup" -> useVersion("1.23.1")
+                "org.jetbrains.kotlin:kotlin-gradle-plugin" -> useVersion("2.4.20-RC2")
             }
         }
     }
