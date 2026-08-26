@@ -10,6 +10,7 @@ import com.atruedev.kmpble.bonding.BondRemovalResult
 import com.atruedev.kmpble.codec.BleDecoder
 import com.atruedev.kmpble.codec.read
 import com.atruedev.kmpble.connection.ConnectionOptions
+import com.atruedev.kmpble.connection.OperationTimeouts
 import com.atruedev.kmpble.dfu.DfuController
 import com.atruedev.kmpble.dfu.DfuOptions
 import com.atruedev.kmpble.dfu.DfuProgress
@@ -205,7 +206,7 @@ class BleViewModel(
     ): Flow<ByteArray> = peripheral.observeValues(characteristic, backpressure)
 
     @OptIn(ExperimentalBleApi::class)
-    fun benchmarkConnect(options: ConnectionOptions = ConnectionOptions()) {
+    fun benchmarkConnect(options: ConnectionOptions = ConnectionOptions(timeouts = OperationTimeouts())) {
         viewModelScope.launch {
             try {
                 _benchmarkResult.value = "Benchmarking connect..."
@@ -251,7 +252,7 @@ class BleViewModel(
         }
     }
 
-    fun connect(options: ConnectionOptions = ConnectionOptions()) {
+    fun connect(options: ConnectionOptions = ConnectionOptions(timeouts = OperationTimeouts())) {
         launchWithErrorHandling {
             _error.value = null
             if (peripheral.state.value is State.Disconnecting) {

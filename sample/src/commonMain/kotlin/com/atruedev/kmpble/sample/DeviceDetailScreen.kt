@@ -48,6 +48,7 @@ import com.atruedev.kmpble.bonding.PairingEvent
 import com.atruedev.kmpble.bonding.PairingResponse
 import com.atruedev.kmpble.connection.BondingPreference
 import com.atruedev.kmpble.connection.ConnectionOptions
+import com.atruedev.kmpble.connection.OperationTimeouts
 import com.atruedev.kmpble.connection.ConnectionRecipe
 import com.atruedev.kmpble.connection.ReconnectionStrategy
 import com.atruedev.kmpble.peripheral.PhyResult
@@ -325,6 +326,7 @@ private fun ConnectionSection(
                                 is RecipeOption.Custom ->
                                     ConnectionOptions(
                                         autoConnect = autoConnect,
+                                        timeouts = OperationTimeouts(),
                                         bondingPreference = bondingPref,
                                         reconnectionStrategy =
                                             if (useReconnection) {
