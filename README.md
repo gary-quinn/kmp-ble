@@ -391,7 +391,7 @@ val peripheral = FakePeripheral {
 
 ## Sample Apps
 
-### BLE Toolkit (`sample/`)
+### GATT Lab (`sample/`)
 
 Production-grade BLE utility app (Android + iOS) with tab-based navigation, composed operation classes, and polished UX:
 
