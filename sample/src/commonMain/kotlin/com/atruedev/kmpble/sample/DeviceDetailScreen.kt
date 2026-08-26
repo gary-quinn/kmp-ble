@@ -48,8 +48,8 @@ import com.atruedev.kmpble.bonding.PairingEvent
 import com.atruedev.kmpble.bonding.PairingResponse
 import com.atruedev.kmpble.connection.BondingPreference
 import com.atruedev.kmpble.connection.ConnectionOptions
-import com.atruedev.kmpble.connection.OperationTimeouts
 import com.atruedev.kmpble.connection.ConnectionRecipe
+import com.atruedev.kmpble.connection.OperationTimeouts
 import com.atruedev.kmpble.connection.ReconnectionStrategy
 import com.atruedev.kmpble.peripheral.PhyResult
 import com.atruedev.kmpble.peripheral.state.State
