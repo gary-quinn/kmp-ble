@@ -43,7 +43,10 @@ echo "[ci_post_clone] CI action: ${CI_XCODEBUILD_ACTION:-unknown}"
 # 1) Resolve a working Java runtime (JDK 21)
 # ---------------------------------------------------------------------------
 java_works() {
-  [ -x "$1" ] && "$1" -version >/dev/null 2>&1
+  [ -x "$1" ] || return 1
+  "$1" -version >/dev/null 2>&1 || return 1
+  JDK_HOME="$(cd "$(dirname "$1")/.." && pwd)"
+  [ -f "$JDK_HOME/conf/security/java.security" ]
 }
 
 JAVA_CMD=""
@@ -82,28 +85,26 @@ if [ -z "$JAVA_CMD" ]; then
     *)      OS="$(uname | tr 'A-Z' 'a-z')" ;;
   esac
   JAVA_URL="https://api.adoptium.net/v3/binary/latest/21/ga/${OS}/${ARCH}/jdk/hotspot/normal/eclipse"
-  JAVA_DIR="$SCRIPT_DIR/.jdk"
+  JAVA_CACHE="$SCRIPT_DIR/.jdk"
 
   echo "[ci_post_clone] Downloading Temurin JDK 21 (${OS}/${ARCH}) from Adoptium..."
-  mkdir -p "$JAVA_DIR"
-  TARBALL="$JAVA_DIR/jdk.tar.gz"
+  rm -rf "$JAVA_CACHE"
+  mkdir -p "$JAVA_CACHE"
+  TARBALL="$JAVA_CACHE/jdk.tar.gz"
   curl -fL --retry 3 -o "$TARBALL" "$JAVA_URL"
-  tar xzf "$TARBALL" -C "$JAVA_DIR" --strip-components=1
+  tar xzf "$TARBALL" -C "$JAVA_CACHE"
   rm -f "$TARBALL"
 
-  # macOS Temurin tarballs are a ".jdk" bundle with java under Contents/Home;
-  # other OSes put bin/java at the top level. Normalize to JAVA_DIR/bin/java.
-  if [ -x "$JAVA_DIR/Contents/Home/bin/java" ]; then
-    for d in bin Contents lib include; do
-      if [ -e "$JAVA_DIR/Contents/Home/$d" ]; then
-        mv "$JAVA_DIR/Contents/Home/$d" "$JAVA_DIR/$d"
-      fi
-    done
+  # macOS Temurin ships as a .jdk bundle (Contents/Home/{bin,lib,conf,...}).
+  # Use that layout as JAVA_HOME; do not flatten dirs (Gradle needs conf/security).
+  JAVA_BIN="$(find "$JAVA_CACHE" -type f -path '*/Contents/Home/bin/java' 2>/dev/null | head -1)"
+  if [ -z "$JAVA_BIN" ]; then
+    JAVA_BIN="$(find "$JAVA_CACHE" -type f -path '*/bin/java' 2>/dev/null | head -1)"
   fi
-
-  if [ -x "$JAVA_DIR/bin/java" ]; then
-    JAVA_CMD="$JAVA_DIR/bin/java"
-    echo "[ci_post_clone] Installed Temurin JDK 21 at: $JAVA_DIR"
+  if [ -n "$JAVA_BIN" ] && [ -x "$JAVA_BIN" ]; then
+    JAVA_CMD="$JAVA_BIN"
+    JAVA_HOME="$(cd "$(dirname "$JAVA_BIN")/.." && pwd)"
+    echo "[ci_post_clone] Installed Temurin JDK 21 at: $JAVA_HOME"
   fi
 fi
 
@@ -112,7 +113,9 @@ if [ -z "$JAVA_CMD" ]; then
   exit 1
 fi
 
-JAVA_HOME="$(cd "$(dirname "$JAVA_CMD")/.." && pwd)"
+if [ -z "$JAVA_HOME" ]; then
+  JAVA_HOME="$(cd "$(dirname "$JAVA_CMD")/.." && pwd)"
+fi
 export JAVA_HOME
 export PATH="$JAVA_HOME/bin:$PATH"
 echo "[ci_post_clone] Using Java: $JAVA_CMD"
