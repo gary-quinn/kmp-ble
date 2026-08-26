@@ -18,13 +18,17 @@
 #      (Xcode's FRAMEWORK_SEARCH_PATHS = .../xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME))
 #   4. Writes a marker file; the "Compile Kotlin Framework" build phase checks
 #      it and skips its own Gradle invocation.
+#
+# Location: this script lives at iosApp/ci_scripts/ (same directory level as
+# iosApp.xcodeproj). Xcode Cloud only discovers ci_scripts next to the project,
+# not at the repository root.
 set -e
 
 # ---------------------------------------------------------------------------
 # 0) Locate paths
 # ---------------------------------------------------------------------------
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"            # repo root (iosApp is a sibling)
+REPO_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"         # repo root (two levels up from iosApp/ci_scripts)
 GRADLEW="$REPO_DIR/gradlew"
 FRAMEWORK_SRC="$REPO_DIR/sample/build/bin/iosArm64/releaseFramework/KmpBleSample.framework"
 FRAMEWORKS_DIR="$REPO_DIR/sample/build/xcode-frameworks"
@@ -78,7 +82,7 @@ if [ -z "$JAVA_CMD" ]; then
     *)      OS="$(uname | tr 'A-Z' 'a-z')" ;;
   esac
   JAVA_URL="https://api.adoptium.net/v3/binary/latest/21/ga/${OS}/${ARCH}/jdk/hotspot/normal/eclipse"
-  JAVA_DIR="$REPO_DIR/ci_scripts/.jdk"
+  JAVA_DIR="$SCRIPT_DIR/.jdk"
 
   echo "[ci_post_clone] Downloading Temurin JDK 21 (${OS}/${ARCH}) from Adoptium..."
   mkdir -p "$JAVA_DIR"
