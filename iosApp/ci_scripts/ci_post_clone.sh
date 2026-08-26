@@ -123,10 +123,21 @@ echo "[ci_post_clone] Using Java: $JAVA_CMD"
 # ---------------------------------------------------------------------------
 # 2) Build the release device framework
 # ---------------------------------------------------------------------------
+# linkReleaseFrameworkIosArm64 (Compose + multi-module sample) needs far more than
+# the repo-default 2g Gradle heap. Override only for Xcode Cloud; keep gradle.properties
+# unchanged for local dev machines that may have less RAM.
+GRADLE_CI_JVMARGS="-Xmx6g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8"
+
 echo "[ci_post_clone] Building release iosArm64 framework (linkReleaseFrameworkIosArm64)..."
+echo "[ci_post_clone] Gradle JVM args (CI): $GRADLE_CI_JVMARGS"
 (
   cd "$REPO_DIR"
-  "$GRADLEW" :sample:linkReleaseFrameworkIosArm64 --console=plain
+  GRADLE_OPTS="-Dorg.gradle.jvmargs=$GRADLE_CI_JVMARGS" \
+    "$GRADLEW" :sample:linkReleaseFrameworkIosArm64 \
+      --console=plain \
+      --no-daemon \
+      --max-workers=2 \
+      -Dorg.gradle.jvmargs="$GRADLE_CI_JVMARGS"
 )
 
 if [ ! -d "$FRAMEWORK_SRC" ]; then
