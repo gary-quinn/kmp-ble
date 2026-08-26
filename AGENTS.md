@@ -33,3 +33,12 @@ on your build, install one of those.
 Conventional Commits, strictly. Type prefix on both branch name and commit
 subject. Allowed types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`,
 `test`, `build`, `ci`, `chore`, `revert`.
+
+Branch names MUST be `type/short-slug` using one of those types. The Cursor
+cloud default prefix `cursor/` is forbidden. If a tool creates a `cursor/`
+branch, rename it before the PR is ready for review.
+
+Do not ship commits authored as Cursor Agent / cursoragent onto `main`. Cloud
+agent commits may land on a feature branch; merge to `main` with squash so the
+merge commit author is the human who merges, not cursoragent. Do not add
+`Co-authored-by: Cursor Agent` trailers.
