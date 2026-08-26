@@ -209,17 +209,19 @@ private fun DfuProgressSection(progress: DfuProgress?) {
 
 private fun dfuErrorMessage(error: DfuError): String =
     when (error) {
-        is DfuError.NotConnected -> error.message ?: "Not connected"
-        is DfuError.ServiceNotFound -> error.message ?: "Service not found"
-        is DfuError.CharacteristicNotFound -> error.message ?: "Characteristic not found"
-        is DfuError.ProtocolError -> error.message ?: "Protocol error"
-        is DfuError.ChecksumMismatch -> error.message ?: "Checksum mismatch"
-        is DfuError.TransferFailed -> error.message ?: "Transfer failed"
-        is DfuError.FirmwareParseError -> error.message ?: "Firmware parse error"
-        is DfuError.Timeout -> error.message ?: "Timeout"
-        is DfuError.Aborted -> error.message ?: "Aborted"
-        is DfuError.HashMismatch -> error.message ?: "Hash mismatch"
-        is DfuError.ImageSlotError -> error.message ?: "Image slot error"
+        is DfuError.NotConnected -> error.message
+        is DfuError.ServiceNotFound -> error.message
+        is DfuError.CharacteristicNotFound -> error.message
+        is DfuError.ProtocolError -> error.message
+        is DfuError.ChecksumMismatch ->
+            "CRC32 mismatch: expected 0x${error.expected.toString(16)}, actual 0x${error.actual.toString(16)}"
+        is DfuError.TransferFailed -> error.message
+        is DfuError.FirmwareParseError -> error.message
+        is DfuError.Timeout -> error.message
+        is DfuError.Aborted -> error.message
+        is DfuError.HashMismatch ->
+            "${error.algorithm} mismatch: expected ${error.expected}, actual ${error.actual}"
+        is DfuError.ImageSlotError -> error.message
     }
 
 private fun formatBytes(bytes: Long): String =

@@ -1,6 +1,7 @@
 package com.atruedev.kmpble.sample
 
 import com.atruedev.kmpble.connection.ConnectionOptions
+import com.atruedev.kmpble.connection.OperationTimeouts
 import com.atruedev.kmpble.gatt.BackpressureStrategy
 import com.atruedev.kmpble.peripheral.toPeripheral
 import com.atruedev.kmpble.scanner.Advertisement
@@ -73,7 +74,7 @@ suspend fun bleQuickstartHeartRate() =
         try {
             // 4. Connect with optional auto-reconnect.
             //    connect() suspends until connected or throws on failure.
-            peripheral.connect(ConnectionOptions())
+            peripheral.connect(ConnectionOptions(timeouts = OperationTimeouts()))
             println("Connected: ${peripheral.state.value}")
 
             // 5. Service discovery happens automatically after connection.
