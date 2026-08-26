@@ -1,4 +1,17 @@
 pluginManagement {
+    val kotlinVersion = providers.gradleProperty("kotlin.version").get()
+    resolutionStrategy {
+        eachPlugin {
+            if (requested.id.id.startsWith("org.jetbrains.kotlin")) {
+                useVersion(kotlinVersion)
+            }
+        }
+    }
+    plugins {
+        id("org.jetbrains.kotlin.multiplatform") version kotlinVersion
+        id("org.jetbrains.kotlin.plugin.serialization") version kotlinVersion
+        id("org.jetbrains.kotlin.plugin.compose") version kotlinVersion
+    }
     repositories {
         gradlePluginPortal()
         google()
