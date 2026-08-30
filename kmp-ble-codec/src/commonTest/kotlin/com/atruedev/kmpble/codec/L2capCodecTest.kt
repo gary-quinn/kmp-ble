@@ -6,6 +6,7 @@ import com.atruedev.kmpble.testing.FakeL2capChannel
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
@@ -162,12 +163,15 @@ class L2capCodecTest {
         val values = listOf("one", "two", "three")
 
         values.forEach { sender.writeFramed(it, TestStringEncoder, framer) }
+
+        val decoded =
+            async(UnconfinedTestDispatcher(testScheduler)) {
+                receiver.framedIncoming(TestStringDecoder, framer).toList()
+            }
         sender.getWrittenData().forEach { receiver.emitIncoming(it) }
         receiver.close()
 
-        val decoded = receiver.framedIncoming(TestStringDecoder, framer).toList()
-
-        assertEquals(values, decoded)
+        assertEquals(values, decoded.await())
     }
 
     @Test
@@ -179,13 +183,17 @@ class L2capCodecTest {
         val firstHalf = full.copyOfRange(0, 5)
         val secondHalf = full.copyOfRange(5, full.size)
 
+        val received =
+            async(UnconfinedTestDispatcher(testScheduler)) {
+                channel.framedIncoming(TestStringDecoder, framer).take(1).toList()
+            }
         channel.emitIncoming(firstHalf)
         channel.emitIncoming(secondHalf)
         channel.close()
 
-        val received = channel.framedIncoming(TestStringDecoder, framer).take(1).toList()
-        assertEquals(1, received.size)
-        assertEquals("payload", received[0])
+        val result = received.await()
+        assertEquals(1, result.size)
+        assertEquals("payload", result[0])
     }
 
     @Test
@@ -194,12 +202,17 @@ class L2capCodecTest {
         val receiver = FakeL2capChannel(psm = 0x25)
 
         sender.writeFramed(0x4242, TestIntEncoder)
+
+        val decoded =
+            async(UnconfinedTestDispatcher(testScheduler)) {
+                receiver.framedIncoming(TestIntDecoder).toList()
+            }
         sender.getWrittenData().forEach { receiver.emitIncoming(it) }
         receiver.close()
 
-        val decoded = receiver.framedIncoming(TestIntDecoder).toList()
-        assertEquals(1, decoded.size)
-        assertEquals(0x4242, decoded[0])
+        val values = decoded.await()
+        assertEquals(1, values.size)
+        assertEquals(0x4242, values[0])
 
         val written = sender.getWrittenData()[0]
         assertEquals(6, written.size)

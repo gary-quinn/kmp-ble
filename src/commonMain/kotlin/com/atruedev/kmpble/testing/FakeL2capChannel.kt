@@ -6,10 +6,13 @@ import com.atruedev.kmpble.l2cap.L2capChannelState
 import com.atruedev.kmpble.l2cap.L2capException
 import com.atruedev.kmpble.l2cap.internal.AbstractL2capChannel
 import com.atruedev.kmpble.l2cap.internal.L2capRecoveryContext
+import kotlinx.atomicfu.atomic
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.launch
 
 /**
  * Fake L2CAP channel for unit testing.
@@ -81,6 +84,7 @@ internal class FakeL2capChannelBackend(
     ) {
     private val writtenData = mutableListOf<ByteArray>()
     private val readJob = Job().apply { complete() }
+    private val lastReplayed = atomic<ByteArray?>(null)
 
     private val replayIncoming =
         MutableSharedFlow<ByteArray>(
@@ -92,7 +96,25 @@ internal class FakeL2capChannelBackend(
         if (useSuspendIncomingBuffer) {
             super.incoming
         } else {
-            replayIncoming.asSharedFlow()
+            callbackFlow {
+                lastReplayed.value?.let { send(it) }
+                val collectJob =
+                    launch {
+                        replayIncoming.collect { packet ->
+                            lastReplayed.value = packet
+                            send(packet)
+                        }
+                    }
+                val closedJob =
+                    launch {
+                        awaitClosed()
+                        close()
+                    }
+                awaitClose {
+                    collectJob.cancel()
+                    closedJob.cancel()
+                }
+            }
         }
 
     init {
@@ -124,6 +146,7 @@ internal class FakeL2capChannelBackend(
             )
             return
         }
+        lastReplayed.value = data
         replayIncoming.emit(data)
     }
 
