@@ -19,6 +19,7 @@ class L2capChannelTest {
     fun channelIsOpenAfterCreation() {
         val channel = FakeL2capChannel(psm = 0x25)
         assertTrue(channel.isOpen)
+        assertEquals(L2capChannelState.Open, channel.state.value)
     }
 
     @Test
@@ -82,6 +83,7 @@ class L2capChannelTest {
 
         channel.close()
         assertFalse(channel.isOpen)
+        assertEquals(L2capChannelState.Closed, channel.state.value)
     }
 
     @Test
@@ -140,7 +142,55 @@ class L2capChannelTest {
             assertContentEquals(byteArrayOf(0x01, 0x02), channel.getWrittenData()[0])
         }
 
-    // --- FakePeripheral L2CAP integration ---
+    @Test
+    fun remoteDisconnectTransitionsToError() =
+        runTest {
+            val channel = FakeL2capChannel(psm = 0x25)
+            val errors = mutableListOf<L2capChannelError>()
+
+            val errorJob =
+                launch(kotlinx.coroutines.test.UnconfinedTestDispatcher(testScheduler)) {
+                    channel.errors.collect { errors.add(it) }
+                }
+
+            channel.simulateRemoteDisconnect()
+
+            assertEquals(L2capChannelState.Error, channel.state.value)
+            assertFalse(channel.isOpen)
+            assertEquals(1, errors.size)
+            assertIs<L2capChannelError.RemoteDisconnected>(errors[0])
+
+            errorJob.cancel()
+        }
+
+    @Test
+    fun recoverReopensChannelWhenRecoveryContextPresent() =
+        runTest {
+            val reopened = FakeL2capChannel(psm = 0x25)
+            val channel =
+                FakeL2capChannel.withRecovery(
+                    psm = 0x25,
+                    reopen = { reopened },
+                )
+            channel.simulateRemoteDisconnect()
+
+            val recovered = channel.recover()
+            assertTrue(recovered.isOpen)
+            assertEquals(reopened, recovered)
+        }
+
+    @Test
+    fun recoverThrowsWithoutRecoveryContext() =
+        runTest {
+            val channel = FakeL2capChannel(psm = 0x25)
+            channel.close()
+
+            assertFailsWith<L2capException.NotSupported> {
+                channel.recover()
+            }
+        }
+
+  // --- FakePeripheral L2CAP integration ---
 
     @Test
     fun openL2capChannelThrowsNotConnectedWhenDisconnected() =

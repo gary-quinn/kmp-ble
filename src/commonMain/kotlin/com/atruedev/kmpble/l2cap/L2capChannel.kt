@@ -1,6 +1,7 @@
 package com.atruedev.kmpble.l2cap
 
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.StateFlow
 
 /**
  * An L2CAP Connection-Oriented Channel for high-throughput streaming.
@@ -30,8 +31,11 @@ import kotlinx.coroutines.flow.Flow
  * ## Lifecycle
  *
  * - Channel is opened via [com.atruedev.kmpble.peripheral.Peripheral.openL2capChannel]
+ * - [state] tracks [L2capChannelState] transitions (Opening -> Open -> Closing/Error -> Closed)
+ * - [errors] emits structured [L2capChannelError] for recoverable failures
  * - Channel remains open until [close] is called or connection is lost
- * - If the peripheral disconnects, the channel closes automatically
+ * - If the peripheral disconnects, the channel enters [L2capChannelState.Error] and
+ *   [recover] may reopen it after reconnect
  * - [incoming] flow completes when channel closes
  */
 public interface L2capChannel : AutoCloseable {
@@ -64,6 +68,16 @@ public interface L2capChannel : AutoCloseable {
     public val isOpen: Boolean
 
     /**
+     * Current channel lifecycle state.
+     */
+    public val state: StateFlow<L2capChannelState>
+
+    /**
+     * Structured recoverable and non-recoverable channel errors.
+     */
+    public val errors: Flow<L2capChannelError>
+
+    /**
      * Flow of incoming data from the remote device.
      *
      * - Emits [ByteArray] for each received packet
@@ -87,7 +101,7 @@ public interface L2capChannel : AutoCloseable {
     public suspend fun write(data: ByteArray)
 
     /**
-     * Close the channel.
+     * Close the channel gracefully (flush pending writes).
      *
      * - Flushes any pending writes
      * - Closes underlying streams
@@ -97,4 +111,24 @@ public interface L2capChannel : AutoCloseable {
      * Safe to call multiple times.
      */
     override fun close()
+
+    /**
+     * Close the channel, optionally skipping the outbound flush.
+     *
+     * @param graceful When true, flush pending writes before tearing down streams.
+     */
+    public suspend fun close(graceful: Boolean)
+
+    /**
+     * Reopen this channel after [L2capChannelState.Error] or [L2capChannelState.Closed].
+     *
+     * Only available for channels opened via
+     * [com.atruedev.kmpble.peripheral.Peripheral.openL2capChannel]. Server-side listener
+     * channels do not support recovery.
+     *
+     * @return A new open channel to the same PSM with the same open parameters.
+     * @throws L2capException.NotSupported when recovery context is unavailable.
+     * @throws L2capException.InvalidState when the channel is still opening or open.
+     */
+    public suspend fun recover(): L2capChannel
 }

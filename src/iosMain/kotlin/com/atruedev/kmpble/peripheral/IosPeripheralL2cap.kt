@@ -4,6 +4,7 @@ import com.atruedev.kmpble.l2cap.DEFAULT_L2CAP_MTU
 import com.atruedev.kmpble.l2cap.IosL2capChannel
 import com.atruedev.kmpble.l2cap.L2capChannel
 import com.atruedev.kmpble.l2cap.L2capException
+import com.atruedev.kmpble.l2cap.internal.L2capRecoveryContext
 import com.atruedev.kmpble.peripheral.state.State
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
@@ -39,7 +40,20 @@ internal suspend fun IosPeripheral.openL2capChannelInternal(
 
         try {
             val cbChannel = withTimeout(currentTimeouts.l2capOpen) { deferred.await() }
-            val channel = IosL2capChannel(cbChannel, peripheralContext.scope, mtu ?: DEFAULT_L2CAP_MTU)
+            val recovery =
+                L2capRecoveryContext(
+                    psm = psm,
+                    secure = secure,
+                    mtu = mtu,
+                    reopen = { openL2capChannelInternal(psm, secure, mtu) },
+                )
+            val channel =
+                IosL2capChannel(
+                    cbChannel = cbChannel,
+                    scope = peripheralContext.scope,
+                    mtu = mtu ?: DEFAULT_L2CAP_MTU,
+                    recovery = recovery,
+                )
             activeL2capChannels.update { it + channel }
             channel
         } catch (_: TimeoutCancellationException) {

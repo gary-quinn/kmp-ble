@@ -2,20 +2,17 @@
 
 package com.atruedev.kmpble.l2cap
 
+import com.atruedev.kmpble.l2cap.internal.AbstractL2capChannel
+import com.atruedev.kmpble.l2cap.internal.L2capRecoveryContext
 import kotlinx.cinterop.UByteVar
 import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.reinterpret
 import kotlinx.cinterop.usePinned
-import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import platform.CoreBluetooth.CBL2CAPChannel
@@ -29,21 +26,14 @@ internal const val DEFAULT_L2CAP_MTU = 2048
 internal class IosL2capChannel(
     private val cbChannel: CBL2CAPChannel,
     private val scope: CoroutineScope,
-    override val mtu: Int,
-) : L2capChannel {
-    override val psm: Int = cbChannel.PSM.toInt()
-
-    private val _isOpen = MutableStateFlow(true)
-    override val isOpen: Boolean get() = _isOpen.value
-
-    private val dataChannel = Channel<ByteArray>(Channel.BUFFERED)
-    override val incoming: Flow<ByteArray> = dataChannel.receiveAsFlow()
-
-    private val closedSignal = CompletableDeferred<Unit>()
-
+    mtu: Int,
+    recovery: L2capRecoveryContext? = null,
+) : AbstractL2capChannel(
+        psm = cbChannel.PSM.toInt(),
+        mtu = mtu,
+        recovery = recovery,
+    ) {
     private val readJob: Job
-
-    internal suspend fun awaitClosed() = closedSignal.await()
 
     init {
         // CoreBluetooth hands a CBL2CAPChannel to the central via
@@ -63,11 +53,11 @@ internal class IosL2capChannel(
         val inputStream = cbChannel.inputStream
         val outputStream = cbChannel.outputStream
         if (inputStream == null || outputStream == null) {
-            _isOpen.value = false
-            dataChannel.close()
+            finalizeClose(graceful = false)
         } else {
             inputStream.open()
             outputStream.open()
+            markOpen()
         }
 
         readJob =
@@ -77,12 +67,11 @@ internal class IosL2capChannel(
     }
 
     private suspend fun readLoop() {
-        if (!_isOpen.value) return
+        if (!isOpen) return
 
         val inputStream =
             cbChannel.inputStream ?: run {
-                _isOpen.value = false
-                dataChannel.close()
+                finalizeClose(graceful = false)
                 return
             }
 
@@ -91,7 +80,7 @@ internal class IosL2capChannel(
         var consecutiveIdlePolls = 0
 
         try {
-            while (_isOpen.value) {
+            while (isOpen) {
                 coroutineContext.ensureActive()
                 val status = inputStream.streamStatus
                 if (status == NSStreamStatusAtEnd || status == NSStreamStatusClosed || status == NSStreamStatusError) {
@@ -108,7 +97,7 @@ internal class IosL2capChannel(
                                 ).toInt()
 
                         when {
-                            bytesRead > 0 -> dataChannel.send(buffer.copyOf(bytesRead))
+                            bytesRead > 0 -> deliverIncoming(buffer.copyOf(bytesRead))
                             bytesRead < 0 -> return // Error or EOF - exit readLoop
                         }
                     }
@@ -119,14 +108,21 @@ internal class IosL2capChannel(
                 }
             }
         } finally {
-            if (_isOpen.compareAndSet(expect = true, update = false)) {
-                finalizeClose()
+            if (isOpen) {
+                failWithSync(
+                    L2capChannelError.RemoteDisconnected(
+                        psm = psm,
+                        state = state.value,
+                    ),
+                )
+            } else if (state.value != L2capChannelState.Error) {
+                finalizeClose(graceful = true)
             }
         }
     }
 
     override suspend fun write(data: ByteArray) {
-        if (!_isOpen.value) {
+        if (!isOpen) {
             throw L2capException.ChannelClosed()
         }
 
@@ -138,7 +134,7 @@ internal class IosL2capChannel(
             data.usePinned { pinned ->
                 var totalWritten = 0
                 while (totalWritten < data.size) {
-                    if (!_isOpen.value) {
+                    if (!isOpen) {
                         throw L2capException.ChannelClosed("Channel closed during write")
                     }
 
@@ -165,18 +161,16 @@ internal class IosL2capChannel(
     }
 
     override fun close() {
-        if (!_isOpen.compareAndSet(expect = true, update = false)) return
         readJob.cancel()
-        finalizeClose()
+        finalizeClose(graceful = true)
     }
 
-    private fun finalizeClose() {
-        closeStreams()
-        dataChannel.close()
-        closedSignal.complete(Unit)
+    override suspend fun close(graceful: Boolean) {
+        readJob.cancel()
+        finalizeClose(graceful = graceful)
     }
 
-    private fun closeStreams() {
+    override fun tearDownTransport() {
         cbChannel.inputStream?.close()
         cbChannel.outputStream?.close()
     }
