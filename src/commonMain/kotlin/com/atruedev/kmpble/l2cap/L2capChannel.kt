@@ -39,14 +39,27 @@ import kotlinx.coroutines.flow.StateFlow
  *
  * ## Recovery
  *
+ * [recover] returns a **new** channel. Cancel collectors on the old channel, reassign
+ * your reference, and resubscribe to [errors] and [incoming] on the replacement:
+ *
  * ```kotlin
  * var channel = peripheral.openL2capChannel(psm = 0x25)
- * channel.errors.collect { error ->
- *     if (error is L2capChannelError.RemoteDisconnected && error.recoverable) {
- *         channel = channel.recover() // returns a new channel; reassign your reference
+ * var incomingJob = launch { channel.incoming.collect { process(it) } }
+ * launch {
+ *     channel.errors.collect { error ->
+ *         if (error is L2capChannelError.RemoteDisconnected && error.recoverable) {
+ *             incomingJob.cancel()
+ *             channel = channel.recover()
+ *             incomingJob = launch { channel.incoming.collect { process(it) } }
+ *             // This collector completes when the old channel closes; launch a new one on [channel].
+ *             launch { channel.errors.collect { /* handle errors on replacement channel */ } }
+ *         }
  *     }
  * }
  * ```
+ *
+ * Eligibility for [recover] is tracked internally when a recoverable error closes the
+ * channel; you do not need to have collected the matching event from [errors] first.
  */
 public interface L2capChannel : AutoCloseable {
     /**
@@ -138,6 +151,8 @@ public interface L2capChannel : AutoCloseable {
      *
      * Eligibility is tracked internally when a recoverable error closes the channel; you do
      * not need to have collected the matching event from [errors] before calling [recover].
+     * See the class-level recovery example for canceling and resubscribing collectors on the
+     * replacement channel returned by this method.
      *
      * @return A new open channel to the same PSM with the same open parameters.
      * @throws L2capException.NotSupported when recovery context is unavailable.

@@ -8,10 +8,8 @@ import kotlinx.atomicfu.atomic
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 
@@ -27,12 +25,12 @@ internal abstract class AbstractL2capChannel(
     private val _state = MutableStateFlow(L2capChannelState.Opening)
     override val state: StateFlow<L2capChannelState> = _state.asStateFlow()
 
-    private val _errors = MutableSharedFlow<L2capChannelError>(extraBufferCapacity = 16)
-    override val errors: Flow<L2capChannelError> = _errors.asSharedFlow()
+    private val errorsChannel = Channel<L2capChannelError>(Channel.UNLIMITED)
+    override val errors: Flow<L2capChannelError> = errorsChannel.receiveAsFlow()
 
     private val closed = atomic(false)
+    private val recoverableAfterClose = atomic(false)
     private val closedDeferred = CompletableDeferred<Unit>()
-    private var recoverableAfterClose = false
 
     /**
      * Suspend-based buffer: when full, [deliverIncoming] suspends and the platform read loop
@@ -55,7 +53,7 @@ internal abstract class AbstractL2capChannel(
 
     protected suspend fun deliverIncoming(data: ByteArray) {
         if (_state.value != L2capChannelState.Open) {
-            _errors.emit(
+            emitError(
                 L2capChannelError.UnexpectedPacket(
                     psm = psm,
                     state = _state.value,
@@ -66,9 +64,18 @@ internal abstract class AbstractL2capChannel(
         incomingChannel.send(data)
     }
 
+    protected suspend fun emitError(error: L2capChannelError) {
+        errorsChannel.send(error)
+    }
+
+    protected fun emitErrorSync(error: L2capChannelError) {
+        val result = errorsChannel.trySend(error)
+        check(result.isSuccess) { "Failed to enqueue L2CAP channel error: $error" }
+    }
+
     protected fun failWithSync(error: L2capChannelError) {
         if (closed.value) return
-        _errors.tryEmit(error)
+        emitErrorSync(error)
         finalizeClose(graceful = false, recoverable = error.recoverable)
     }
 
@@ -78,7 +85,7 @@ internal abstract class AbstractL2capChannel(
     ) {
         if (!closed.compareAndSet(expect = false, update = true)) return
 
-        recoverableAfterClose = recoverable
+        recoverableAfterClose.value = recoverable
 
         if (_state.value == L2capChannelState.Open || _state.value == L2capChannelState.Opening) {
             _state.value = L2capChannelState.Closing
@@ -91,6 +98,7 @@ internal abstract class AbstractL2capChannel(
         tearDownTransport()
 
         incomingChannel.close()
+        errorsChannel.close()
         _state.value = L2capChannelState.Closed
         closedDeferred.complete(Unit)
     }
@@ -117,7 +125,7 @@ internal abstract class AbstractL2capChannel(
             )
         }
 
-        if (!recoverableAfterClose) {
+        if (!recoverableAfterClose.value) {
             throw L2capException.InvalidState(
                 "Channel was closed without a recoverable error; recover() is not available",
             )

@@ -28,6 +28,17 @@ public sealed interface L2capChannelError {
     }
 
     /**
+     * The platform returned a channel that could not be opened (missing streams, invalid handle).
+     */
+    public data class ChannelOpenFailed(
+        override val psm: Int,
+        override val state: L2capChannelState,
+        val reason: String,
+    ) : L2capChannelError {
+        override val recoverable: Boolean = false
+    }
+
+    /**
      * Data arrived on a channel that is not in [L2capChannelState.Open].
      */
     public data class UnexpectedPacket(

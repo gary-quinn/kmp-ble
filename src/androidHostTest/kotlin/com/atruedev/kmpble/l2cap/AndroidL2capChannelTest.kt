@@ -28,11 +28,13 @@ class AndroidL2capChannelTest {
     // =========================================================================
 
     @Test
-    fun `channel is open after creation`() {
-        val (channel, _) = createChannel()
-        assertTrue(channel.isOpen)
-        channel.close()
-    }
+    fun `channel is open after creation`() =
+        runTest {
+            val (channel, _) = createChannel()
+            awaitCondition { channel.isOpen }
+            assertEquals(L2capChannelState.Open, channel.state.value)
+            channel.close()
+        }
 
     @Test
     fun `psm is set correctly`() {
@@ -42,12 +44,14 @@ class AndroidL2capChannelTest {
     }
 
     @Test
-    fun `isOpen returns false after close`() {
-        val (channel, _) = createChannel()
-        assertTrue(channel.isOpen)
-        channel.close()
-        assertFalse(channel.isOpen)
-    }
+    fun `isOpen returns false after close`() =
+        runTest {
+            val (channel, _) = createChannel()
+            awaitOpen(channel)
+            assertTrue(channel.isOpen)
+            channel.close()
+            assertFalse(channel.isOpen)
+        }
 
     @Test
     fun `close is idempotent`() {
@@ -94,6 +98,7 @@ class AndroidL2capChannelTest {
     fun `write sends data through output stream`() =
         runTest {
             val (channel, socket) = createChannel()
+            awaitOpen(channel)
             val data = byteArrayOf(0x01, 0x02, 0x03)
 
             channel.write(data)
@@ -120,6 +125,7 @@ class AndroidL2capChannelTest {
     fun `write throws ChannelClosed when socket is disconnected`() =
         runTest {
             val (channel, socket) = createChannel()
+            awaitOpen(channel)
             socket.simulateDisconnect()
 
             assertFailsWith<L2capException.ChannelClosed> {
@@ -132,6 +138,7 @@ class AndroidL2capChannelTest {
     fun `write throws WriteFailed when output stream is closed`() =
         runTest {
             val (channel, socket) = createChannel()
+            awaitOpen(channel)
             socket.localCapture.close()
 
             assertFailsWith<L2capException.WriteFailed> {
@@ -275,6 +282,7 @@ class AndroidL2capChannelTest {
     fun `channel becomes closed after remote disconnect`() =
         runTest {
             val (channel, socket) = createChannel()
+            awaitOpen(channel)
             assertTrue(channel.isOpen)
 
             socket.simulateRemoteClose()
@@ -313,6 +321,7 @@ class AndroidL2capChannelTest {
                     channel.errors.collect { errors.add(it) }
                 }
 
+            awaitOpen(channel)
             socket.simulateRemoteClose()
             channel.awaitClosed()
 
@@ -321,7 +330,8 @@ class AndroidL2capChannelTest {
             assertEquals(L2capChannelState.Closed, channel.state.value)
             assertIs<L2capChannelError.RemoteDisconnected>(errors.single())
 
-            val recovered = channel.recover()
+            val recovered = channel.recover() as AndroidL2capChannel
+            awaitOpen(recovered)
             assertTrue(recovered.isOpen)
             recovered.close()
 
@@ -339,6 +349,10 @@ class AndroidL2capChannelTest {
                 channel.write(byteArrayOf(0x01))
             }
         }
+
+    private suspend fun awaitOpen(channel: AndroidL2capChannel) {
+        awaitCondition { channel.isOpen }
+    }
 
     private suspend fun awaitCondition(
         timeoutMs: Long = 2_000,

@@ -3,7 +3,6 @@
 package com.atruedev.kmpble.l2cap
 
 import com.atruedev.kmpble.testing.FakeL2capChannel
-import com.atruedev.kmpble.testing.FakeL2capChannelBackend
 import com.atruedev.kmpble.testing.FakePeripheral
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.launch
@@ -213,14 +212,11 @@ class L2capChannelTest {
     @Test
     fun incomingBackpressureDoesNotDropPackets() =
         runTest {
-            val backend =
-                FakeL2capChannelBackend(
+            val channel =
+                FakeL2capChannel.withSuspendIncomingBuffer(
                     psm = 0x25,
-                    mtu = 2048,
-                    recovery = null,
                     incomingBufferCapacity = 1,
                 )
-            val channel = FakeL2capChannel(backend)
             val received = mutableListOf<ByteArray>()
             val holdCollector = CompletableDeferred<Unit>()
             val collectorDispatcher = StandardTestDispatcher(testScheduler)
@@ -237,9 +233,9 @@ class L2capChannelTest {
 
             val emitJob =
                 launch(StandardTestDispatcher(testScheduler)) {
-                    backend.emitIncoming(byteArrayOf(0x01))
-                    backend.emitIncoming(byteArrayOf(0x02))
-                    backend.emitIncoming(byteArrayOf(0x03))
+                    channel.emitIncoming(byteArrayOf(0x01))
+                    channel.emitIncoming(byteArrayOf(0x02))
+                    channel.emitIncoming(byteArrayOf(0x03))
                 }
 
             runCurrent()

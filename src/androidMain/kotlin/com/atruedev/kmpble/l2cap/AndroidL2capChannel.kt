@@ -29,12 +29,9 @@ internal class AndroidL2capChannel(
     private val inputStream: InputStream = socket.inputStream
     private val outputStream: OutputStream = socket.outputStream
 
-    init {
-        markOpen()
-    }
-
     private val readJob: Job =
         scope.launch(Dispatchers.IO) {
+            markOpen()
             val buffer = ByteArray(mtu.coerceAtLeast(READ_BUFFER_SIZE))
 
             try {
@@ -58,7 +55,7 @@ internal class AndroidL2capChannel(
                     failWithSync(
                         L2capChannelError.RemoteDisconnected(
                             psm = psm,
-                            state = L2capChannelState.Open,
+                            state = state.value,
                         ),
                     )
                 }
