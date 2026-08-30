@@ -2,6 +2,7 @@ package com.atruedev.kmpble.l2cap
 
 import com.atruedev.kmpble.l2cap.L2capChannel
 import com.atruedev.kmpble.l2cap.L2capChannelState
+import com.atruedev.kmpble.l2cap.L2capException
 import com.atruedev.kmpble.testing.FakeL2capListener
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
@@ -109,5 +110,5 @@ private class StubChannel(
 
     override suspend fun close(graceful: Boolean) {}
 
-    override suspend fun recover(): L2capChannel = throw com.atruedev.kmpble.l2cap.L2capException.NotSupported()
+    override suspend fun recover(): L2capChannel = throw L2capException.NotSupported()
 }

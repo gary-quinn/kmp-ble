@@ -4,7 +4,6 @@ package com.atruedev.kmpble.l2cap
 
 import com.atruedev.kmpble.l2cap.internal.L2capRecoveryContext
 import kotlinx.coroutines.launch
-import kotlin.test.assertIs
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
@@ -12,6 +11,7 @@ import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
+import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
 class AndroidL2capChannelTest {

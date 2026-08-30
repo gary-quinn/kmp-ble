@@ -105,7 +105,7 @@ internal class IosL2capChannel(
                 }
             }
         } finally {
-            if (isOpen && isActive) {
+            if (isOpen && coroutineContext.isActive) {
                 failWithSync(
                     L2capChannelError.RemoteDisconnected(
                         psm = psm,

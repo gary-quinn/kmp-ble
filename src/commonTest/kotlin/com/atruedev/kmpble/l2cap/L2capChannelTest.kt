@@ -258,7 +258,7 @@ class L2capChannelTest {
             collectJob.cancel()
         }
 
-  // --- FakePeripheral L2CAP integration ---
+    // --- FakePeripheral L2CAP integration ---
 
     @Test
     fun openL2capChannelThrowsNotConnectedWhenDisconnected() =

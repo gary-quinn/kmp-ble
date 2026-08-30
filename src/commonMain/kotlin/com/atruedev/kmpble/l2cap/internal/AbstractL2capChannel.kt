@@ -4,6 +4,7 @@ import com.atruedev.kmpble.l2cap.L2capChannel
 import com.atruedev.kmpble.l2cap.L2capChannelError
 import com.atruedev.kmpble.l2cap.L2capChannelState
 import com.atruedev.kmpble.l2cap.L2capException
+import kotlinx.atomicfu.atomic
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -13,7 +14,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
-import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Shared lifecycle, state machine, error reporting, and suspend-based incoming backpressure.
@@ -30,7 +30,7 @@ internal abstract class AbstractL2capChannel(
     private val _errors = MutableSharedFlow<L2capChannelError>(extraBufferCapacity = 16)
     override val errors: Flow<L2capChannelError> = _errors.asSharedFlow()
 
-    private val closed = AtomicBoolean(false)
+    private val closed = atomic(false)
     private val closedDeferred = CompletableDeferred<Unit>()
     private var recoverableAfterClose = false
 
@@ -67,7 +67,7 @@ internal abstract class AbstractL2capChannel(
     }
 
     protected fun failWithSync(error: L2capChannelError) {
-        if (closed.get()) return
+        if (closed.value) return
         _errors.tryEmit(error)
         finalizeClose(graceful = false, recoverable = error.recoverable)
     }
@@ -76,7 +76,7 @@ internal abstract class AbstractL2capChannel(
         graceful: Boolean,
         recoverable: Boolean = false,
     ) {
-        if (!closed.compareAndSet(false, true)) return
+        if (!closed.compareAndSet(expect = false, update = true)) return
 
         recoverableAfterClose = recoverable
 
@@ -101,7 +101,7 @@ internal abstract class AbstractL2capChannel(
     }
 
     override suspend fun close(graceful: Boolean) {
-        if (closed.get()) return
+        if (closed.value) return
         cancelReadJob()
         finalizeClose(graceful = graceful)
     }
