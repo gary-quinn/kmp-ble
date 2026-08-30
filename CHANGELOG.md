@@ -11,9 +11,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-- feat(l2cap): add `L2capChannelState`, `L2capChannel.errors`, `close(graceful)`, and `recover()` for CoC client channels
-
 _Changes on `main` that have not yet been tagged for release._
 
 ---
