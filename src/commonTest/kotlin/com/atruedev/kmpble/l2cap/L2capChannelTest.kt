@@ -4,7 +4,11 @@ package com.atruedev.kmpble.l2cap
 
 import com.atruedev.kmpble.testing.FakeL2capChannel
 import com.atruedev.kmpble.testing.FakePeripheral
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
@@ -19,6 +23,7 @@ class L2capChannelTest {
     fun channelIsOpenAfterCreation() {
         val channel = FakeL2capChannel(psm = 0x25)
         assertTrue(channel.isOpen)
+        assertEquals(L2capChannelState.Open, channel.state.value)
     }
 
     @Test
@@ -82,6 +87,7 @@ class L2capChannelTest {
 
         channel.close()
         assertFalse(channel.isOpen)
+        assertEquals(L2capChannelState.Closed, channel.state.value)
     }
 
     @Test
@@ -138,6 +144,114 @@ class L2capChannelTest {
             data[0] = 0xFF.toByte()
 
             assertContentEquals(byteArrayOf(0x01, 0x02), channel.getWrittenData()[0])
+        }
+
+    @Test
+    fun remoteDisconnectTransitionsToClosedWithError() =
+        runTest {
+            val channel = FakeL2capChannel(psm = 0x25)
+            val errors = mutableListOf<L2capChannelError>()
+
+            val errorJob =
+                launch(kotlinx.coroutines.test.UnconfinedTestDispatcher(testScheduler)) {
+                    channel.errors.collect { errors.add(it) }
+                }
+
+            channel.simulateRemoteDisconnect()
+
+            assertEquals(L2capChannelState.Closed, channel.state.value)
+            assertFalse(channel.isOpen)
+            assertEquals(1, errors.size)
+            assertIs<L2capChannelError.RemoteDisconnected>(errors[0])
+
+            errorJob.cancel()
+        }
+
+    @Test
+    fun recoverReopensChannelWhenRecoveryContextPresent() =
+        runTest {
+            val reopened = FakeL2capChannel(psm = 0x25)
+            val channel =
+                FakeL2capChannel.withRecovery(
+                    psm = 0x25,
+                    reopen = { reopened },
+                )
+            channel.simulateRemoteDisconnect()
+
+            val recovered = channel.recover()
+            assertTrue(recovered.isOpen)
+            assertEquals(reopened, recovered)
+        }
+
+    @Test
+    fun recoverThrowsWithoutRecoveryContext() =
+        runTest {
+            val channel = FakeL2capChannel(psm = 0x25)
+            channel.close()
+
+            assertFailsWith<L2capException.NotSupported> {
+                channel.recover()
+            }
+        }
+
+    @Test
+    fun recoverThrowsAfterGracefulCloseEvenWithRecoveryContext() =
+        runTest {
+            val channel =
+                FakeL2capChannel.withRecovery(
+                    psm = 0x25,
+                    reopen = { FakeL2capChannel(psm = 0x25) },
+                )
+            channel.close()
+
+            assertFailsWith<L2capException.InvalidState> {
+                channel.recover()
+            }
+        }
+
+    @Test
+    fun incomingBackpressureDoesNotDropPackets() =
+        runTest {
+            val channel =
+                FakeL2capChannel.withSuspendIncomingBuffer(
+                    psm = 0x25,
+                    incomingBufferCapacity = 1,
+                )
+            val received = mutableListOf<ByteArray>()
+            val holdCollector = CompletableDeferred<Unit>()
+            val collectorDispatcher = StandardTestDispatcher(testScheduler)
+
+            val collectJob =
+                launch(collectorDispatcher) {
+                    channel.incoming.collect { data ->
+                        received.add(data)
+                        if (received.size == 1) {
+                            holdCollector.await()
+                        }
+                    }
+                }
+
+            val emitJob =
+                launch(StandardTestDispatcher(testScheduler)) {
+                    channel.emitIncoming(byteArrayOf(0x01))
+                    channel.emitIncoming(byteArrayOf(0x02))
+                    channel.emitIncoming(byteArrayOf(0x03))
+                }
+
+            runCurrent()
+
+            assertEquals(1, received.size, "First packet delivered before collector blocks")
+            assertTrue(emitJob.isActive, "Producer should suspend when the incoming buffer is full")
+
+            holdCollector.complete(Unit)
+            advanceUntilIdle()
+
+            assertEquals(3, received.size)
+            assertContentEquals(byteArrayOf(0x01), received[0])
+            assertContentEquals(byteArrayOf(0x02), received[1])
+            assertContentEquals(byteArrayOf(0x03), received[2])
+
+            collectJob.cancel()
         }
 
     // --- FakePeripheral L2CAP integration ---

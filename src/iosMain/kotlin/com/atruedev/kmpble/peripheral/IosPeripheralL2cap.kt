@@ -4,12 +4,14 @@ import com.atruedev.kmpble.l2cap.DEFAULT_L2CAP_MTU
 import com.atruedev.kmpble.l2cap.IosL2capChannel
 import com.atruedev.kmpble.l2cap.L2capChannel
 import com.atruedev.kmpble.l2cap.L2capException
+import com.atruedev.kmpble.l2cap.internal.L2capRecoveryContext
 import com.atruedev.kmpble.peripheral.state.State
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.flow.getAndUpdate
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import platform.CoreBluetooth.CBL2CAPChannel
@@ -39,8 +41,27 @@ internal suspend fun IosPeripheral.openL2capChannelInternal(
 
         try {
             val cbChannel = withTimeout(currentTimeouts.l2capOpen) { deferred.await() }
-            val channel = IosL2capChannel(cbChannel, peripheralContext.scope, mtu ?: DEFAULT_L2CAP_MTU)
+            val recovery =
+                L2capRecoveryContext(
+                    reopen = { openL2capChannelInternal(psm, secure, mtu) },
+                )
+            val channel =
+                IosL2capChannel(
+                    cbChannel = cbChannel,
+                    scope = peripheralContext.scope,
+                    mtu = mtu ?: DEFAULT_L2CAP_MTU,
+                    recovery = recovery,
+                )
             activeL2capChannels.update { it + channel }
+
+            peripheralContext.scope.launch {
+                try {
+                    channel.awaitClosed()
+                } finally {
+                    activeL2capChannels.update { it - channel }
+                }
+            }
+
             channel
         } catch (_: TimeoutCancellationException) {
             pendingL2capChannel = null
