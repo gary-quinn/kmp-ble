@@ -63,13 +63,14 @@ public class AndroidPeripheral internal constructor(
     internal val device: BluetoothDevice,
     context: Context,
     internal val quirkRegistry: QuirkRegistry,
+    injectedBridge: AndroidGattBridge? = null,
 ) : Peripheral {
     public constructor(device: BluetoothDevice, context: Context) :
-        this(device, context, QuirkRegistry.getInstance())
+        this(device, context, QuirkRegistry.getInstance(), null)
 
     override val identifier: Identifier = Identifier(device.address)
     internal val peripheralContext = PeripheralContext(identifier)
-    internal val bridge = AndroidGattBridge(device, context)
+    internal val bridge: AndroidGattBridge = injectedBridge ?: AndroidGattBridge(device, context)
 
     internal val pendingOps = PendingOperations()
     internal val observationManager = ObservationManager(peripheralContext.dispatcher)

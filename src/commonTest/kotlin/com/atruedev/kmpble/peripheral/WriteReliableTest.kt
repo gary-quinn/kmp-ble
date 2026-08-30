@@ -15,9 +15,8 @@ import kotlin.uuid.ExperimentalUuidApi
  * fake behaves like iOS -- supportsReliableWrite = false, writeReliable throws.
  *
  * The Android native reliable-write flow (AndroidPeripheralReliableWrite +
- * AndroidGattBridge + onReliableWriteCompleted dispatch) requires an
- * instrumented/device test against real BluetoothGatt reliable-write behavior;
- * tracked separately (see PR #625).
+ * AndroidGattBridge + onReliableWriteCompleted dispatch) is covered by
+ * WriteReliableIntegrationTest in androidDeviceTest.
  */
 @OptIn(ExperimentalUuidApi::class)
 class WriteReliableTest {
