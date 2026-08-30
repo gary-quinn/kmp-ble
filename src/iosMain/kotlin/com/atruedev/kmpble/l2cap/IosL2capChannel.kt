@@ -13,6 +13,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import platform.CoreBluetooth.CBL2CAPChannel
@@ -36,42 +37,37 @@ internal class IosL2capChannel(
     private val readJob: Job
 
     init {
-        // CoreBluetooth hands a CBL2CAPChannel to the central via
-        // peripheral(_:didOpen:error:) with its input and output NSStreams in
-        // NSStreamStatusNotOpen. Apple's BLE programming guide states the
-        // streams "must be opened by the application" before they become
-        // usable; CoreBluetooth itself does not open them, regardless of
-        // iOS version. Without this, the previous status check
-        // (streamStatus == NSStreamStatusOpen) always failed at init,
-        // closed the data channel, and made every L2CAP session emit zero
-        // bytes before reporting "channel ended".
-        //
-        // We don't schedule the streams in a run loop because readLoop polls
-        // hasBytesAvailable instead of relying on NSStreamDelegate events.
-        // Status transitions are observed via readLoop's existing
-        // AtEnd/Closed/Error checks.
         val inputStream = cbChannel.inputStream
         val outputStream = cbChannel.outputStream
         if (inputStream == null || outputStream == null) {
-            finalizeClose(graceful = false)
+            readJob = Job().apply { complete() }
+            failWithSync(
+                L2capChannelError.RemoteDisconnected(
+                    psm = psm,
+                    state = L2capChannelState.Opening,
+                ),
+            )
         } else {
             inputStream.open()
             outputStream.open()
-            markOpen()
+            readJob =
+                scope.launch(Dispatchers.Default) {
+                    readLoop()
+                }
         }
-
-        readJob =
-            scope.launch(Dispatchers.Default) {
-                readLoop()
-            }
     }
 
     private suspend fun readLoop() {
-        if (!isOpen) return
+        markOpen()
 
         val inputStream =
             cbChannel.inputStream ?: run {
-                finalizeClose(graceful = false)
+                failWithSync(
+                    L2capChannelError.RemoteDisconnected(
+                        psm = psm,
+                        state = L2capChannelState.Opening,
+                    ),
+                )
                 return
             }
 
@@ -98,7 +94,7 @@ internal class IosL2capChannel(
 
                         when {
                             bytesRead > 0 -> deliverIncoming(buffer.copyOf(bytesRead))
-                            bytesRead < 0 -> return // Error or EOF - exit readLoop
+                            bytesRead < 0 -> return
                         }
                     }
                     consecutiveIdlePolls = 0
@@ -108,15 +104,13 @@ internal class IosL2capChannel(
                 }
             }
         } finally {
-            if (isOpen) {
+            if (isOpen && isActive) {
                 failWithSync(
                     L2capChannelError.RemoteDisconnected(
                         psm = psm,
-                        state = state.value,
+                        state = L2capChannelState.Open,
                     ),
                 )
-            } else if (state.value != L2capChannelState.Error) {
-                finalizeClose(graceful = true)
             }
         }
     }
@@ -160,14 +154,8 @@ internal class IosL2capChannel(
         }
     }
 
-    override fun close() {
+    override fun cancelReadJob() {
         readJob.cancel()
-        finalizeClose(graceful = true)
-    }
-
-    override suspend fun close(graceful: Boolean) {
-        readJob.cancel()
-        finalizeClose(graceful = graceful)
     }
 
     override fun tearDownTransport() {

@@ -5,7 +5,6 @@ import com.atruedev.kmpble.l2cap.L2capChannelError
 import com.atruedev.kmpble.l2cap.L2capChannelState
 import com.atruedev.kmpble.l2cap.L2capException
 import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -17,7 +16,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * Shared lifecycle, state machine, error reporting, and incoming backpressure for L2CAP channels.
+ * Shared lifecycle, state machine, error reporting, and suspend-based incoming backpressure.
  */
 internal abstract class AbstractL2capChannel(
     override val psm: Int,
@@ -25,7 +24,7 @@ internal abstract class AbstractL2capChannel(
     private val recovery: L2capRecoveryContext?,
     incomingBufferCapacity: Int = DEFAULT_INCOMING_BUFFER,
 ) : L2capChannel {
-  private val _state = MutableStateFlow(L2capChannelState.Opening)
+    private val _state = MutableStateFlow(L2capChannelState.Opening)
     override val state: StateFlow<L2capChannelState> = _state.asStateFlow()
 
     private val _errors = MutableSharedFlow<L2capChannelError>(extraBufferCapacity = 16)
@@ -33,18 +32,13 @@ internal abstract class AbstractL2capChannel(
 
     private val closed = AtomicBoolean(false)
     private val closedDeferred = CompletableDeferred<Unit>()
+    private var recoverableAfterClose = false
 
-    private var droppedPackets = 0
-
-    protected val incomingChannel =
-        Channel<ByteArray>(
-            capacity = incomingBufferCapacity,
-            onBufferOverflow = BufferOverflow.DROP_OLDEST,
-            onUndeliveredElement = { _ ->
-                droppedPackets++
-                emitBackpressureOverflow()
-            },
-        )
+    /**
+     * Suspend-based buffer: when full, [deliverIncoming] suspends and the platform read loop
+     * stops draining the OS stream, propagating L2CAP flow control to the peer.
+     */
+    protected val incomingChannel = Channel<ByteArray>(incomingBufferCapacity)
 
     override val incoming: Flow<ByteArray> = incomingChannel.receiveAsFlow()
 
@@ -72,25 +66,21 @@ internal abstract class AbstractL2capChannel(
         incomingChannel.send(data)
     }
 
-    protected suspend fun emitError(error: L2capChannelError) {
-        _errors.emit(error)
-    }
-
-    protected suspend fun failWith(error: L2capChannelError) {
-        failWithSync(error)
-    }
-
     protected fun failWithSync(error: L2capChannelError) {
-        if (_state.value == L2capChannelState.Error || _state.value == L2capChannelState.Closed) return
-        _state.value = L2capChannelState.Error
+        if (closed.get()) return
         _errors.tryEmit(error)
-        finalizeClose(graceful = false)
+        finalizeClose(graceful = false, recoverable = error.recoverable)
     }
 
-    protected fun finalizeClose(graceful: Boolean) {
+    protected fun finalizeClose(
+        graceful: Boolean,
+        recoverable: Boolean = false,
+    ) {
         if (!closed.compareAndSet(false, true)) return
 
-        if (_state.value != L2capChannelState.Error) {
+        recoverableAfterClose = recoverable
+
+        if (_state.value == L2capChannelState.Open || _state.value == L2capChannelState.Opening) {
             _state.value = L2capChannelState.Closing
         }
 
@@ -101,18 +91,18 @@ internal abstract class AbstractL2capChannel(
         tearDownTransport()
 
         incomingChannel.close()
-        if (_state.value != L2capChannelState.Error) {
-            _state.value = L2capChannelState.Closed
-        }
+        _state.value = L2capChannelState.Closed
         closedDeferred.complete(Unit)
     }
 
     override fun close() {
+        cancelReadJob()
         finalizeClose(graceful = true)
     }
 
     override suspend fun close(graceful: Boolean) {
         if (closed.get()) return
+        cancelReadJob()
         finalizeClose(graceful = graceful)
     }
 
@@ -121,39 +111,29 @@ internal abstract class AbstractL2capChannel(
             recovery
                 ?: throw L2capException.NotSupported("L2CAP channel recovery is not available for this channel")
 
-        when (_state.value) {
-            L2capChannelState.Error,
-            L2capChannelState.Closed,
-            -> Unit
-            else ->
-                throw L2capException.InvalidState(
-                    "Cannot recover L2CAP channel in state ${_state.value}",
-                )
+        if (_state.value != L2capChannelState.Closed) {
+            throw L2capException.InvalidState(
+                "Cannot recover L2CAP channel in state ${_state.value}",
+            )
         }
 
-        if (!closed.get()) {
-            finalizeClose(graceful = true)
+        if (!recoverableAfterClose) {
+            throw L2capException.InvalidState(
+                "Channel was closed without a recoverable error; recover() is not available",
+            )
         }
 
         return ctx.reopen()
     }
+
+    /** Cancel the platform read loop before tearing down transport. */
+    protected abstract fun cancelReadJob()
 
     /** Flush outbound data before closing streams. No-op when [graceful] is false. */
     protected open fun flushPendingWrites() {}
 
     /** Close platform sockets/streams. */
     protected abstract fun tearDownTransport()
-
-    private fun emitBackpressureOverflow() {
-        val dropped = droppedPackets
-        _errors.tryEmit(
-            L2capChannelError.BackpressureOverflow(
-                psm = psm,
-                state = _state.value,
-                dropped = dropped,
-            ),
-        )
-    }
 
     internal companion object {
         const val DEFAULT_INCOMING_BUFFER = 64

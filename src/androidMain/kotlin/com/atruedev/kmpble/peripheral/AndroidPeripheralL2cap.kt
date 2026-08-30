@@ -87,9 +87,6 @@ internal suspend fun AndroidPeripheral.openL2capChannelInternal(
 
             val recovery =
                 L2capRecoveryContext(
-                    psm = psm,
-                    secure = secure,
-                    mtu = mtu,
                     reopen = { openL2capChannelInternal(psm, secure, mtu) },
                 )
             val channel =

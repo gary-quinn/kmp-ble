@@ -3,6 +3,7 @@
 package com.atruedev.kmpble.l2cap
 
 import com.atruedev.kmpble.testing.FakeL2capChannel
+import com.atruedev.kmpble.testing.FakeL2capChannelBackend
 import com.atruedev.kmpble.testing.FakePeripheral
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
@@ -143,7 +144,7 @@ class L2capChannelTest {
         }
 
     @Test
-    fun remoteDisconnectTransitionsToError() =
+    fun remoteDisconnectTransitionsToClosedWithError() =
         runTest {
             val channel = FakeL2capChannel(psm = 0x25)
             val errors = mutableListOf<L2capChannelError>()
@@ -155,7 +156,7 @@ class L2capChannelTest {
 
             channel.simulateRemoteDisconnect()
 
-            assertEquals(L2capChannelState.Error, channel.state.value)
+            assertEquals(L2capChannelState.Closed, channel.state.value)
             assertFalse(channel.isOpen)
             assertEquals(1, errors.size)
             assertIs<L2capChannelError.RemoteDisconnected>(errors[0])
@@ -188,6 +189,52 @@ class L2capChannelTest {
             assertFailsWith<L2capException.NotSupported> {
                 channel.recover()
             }
+        }
+
+    @Test
+    fun recoverThrowsAfterGracefulCloseEvenWithRecoveryContext() =
+        runTest {
+            val channel =
+                FakeL2capChannel.withRecovery(
+                    psm = 0x25,
+                    reopen = { FakeL2capChannel(psm = 0x25) },
+                )
+            channel.close()
+
+            assertFailsWith<L2capException.InvalidState> {
+                channel.recover()
+            }
+        }
+
+    @Test
+    fun incomingBackpressureDoesNotDropPackets() =
+        runTest {
+            val backend =
+                FakeL2capChannelBackend(
+                    psm = 0x25,
+                    mtu = 2048,
+                    recovery = null,
+                    incomingBufferCapacity = 2,
+                )
+            val channel = FakeL2capChannel(backend)
+            val received = mutableListOf<ByteArray>()
+
+            val collectJob =
+                launch(kotlinx.coroutines.test.UnconfinedTestDispatcher(testScheduler)) {
+                    channel.incoming.collect {
+                        received.add(it)
+                        kotlinx.coroutines.delay(50)
+                    }
+                }
+
+            backend.emitIncoming(byteArrayOf(0x01))
+            backend.emitIncoming(byteArrayOf(0x02))
+            backend.emitIncoming(byteArrayOf(0x03))
+
+            kotlinx.coroutines.delay(200)
+
+            assertEquals(3, received.size)
+            collectJob.cancel()
         }
 
   // --- FakePeripheral L2CAP integration ---

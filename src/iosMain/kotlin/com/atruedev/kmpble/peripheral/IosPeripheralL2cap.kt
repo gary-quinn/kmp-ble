@@ -11,6 +11,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.flow.getAndUpdate
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import platform.CoreBluetooth.CBL2CAPChannel
@@ -42,9 +43,6 @@ internal suspend fun IosPeripheral.openL2capChannelInternal(
             val cbChannel = withTimeout(currentTimeouts.l2capOpen) { deferred.await() }
             val recovery =
                 L2capRecoveryContext(
-                    psm = psm,
-                    secure = secure,
-                    mtu = mtu,
                     reopen = { openL2capChannelInternal(psm, secure, mtu) },
                 )
             val channel =
@@ -55,6 +53,15 @@ internal suspend fun IosPeripheral.openL2capChannelInternal(
                     recovery = recovery,
                 )
             activeL2capChannels.update { it + channel }
+
+            peripheralContext.scope.launch {
+                try {
+                    channel.awaitClosed()
+                } finally {
+                    activeL2capChannels.update { it - channel }
+                }
+            }
+
             channel
         } catch (_: TimeoutCancellationException) {
             pendingL2capChannel = null

@@ -2,7 +2,9 @@
 
 package com.atruedev.kmpble.l2cap
 
+import com.atruedev.kmpble.l2cap.internal.L2capRecoveryContext
 import kotlinx.coroutines.launch
+import kotlin.test.assertIs
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
@@ -270,16 +272,60 @@ class AndroidL2capChannelTest {
     // =========================================================================
 
     @Test
-    fun `channel becomes not open after remote disconnect`() =
+    fun `channel becomes closed after remote disconnect`() =
         runTest {
             val (channel, socket) = createChannel()
             assertTrue(channel.isOpen)
 
             socket.simulateRemoteClose()
-            // Wait for read loop to detect EOF
             channel.awaitClosed()
 
             assertFalse(channel.isOpen)
+            assertEquals(L2capChannelState.Closed, channel.state.value)
+        }
+
+    @Test
+    fun `remote disconnect emits error and allows recover when recovery context present`() =
+        runTest {
+            val socket = FakeL2capSocket()
+            val recovery =
+                L2capRecoveryContext(
+                    reopen = {
+                        val replacement = FakeL2capSocket()
+                        AndroidL2capChannel(
+                            socket = replacement,
+                            psm = 0x25,
+                            scope = kotlinx.coroutines.CoroutineScope(UnconfinedTestDispatcher(testScheduler)),
+                        )
+                    },
+                )
+            val channel =
+                AndroidL2capChannel(
+                    socket = socket,
+                    psm = 0x25,
+                    scope = kotlinx.coroutines.CoroutineScope(UnconfinedTestDispatcher(testScheduler)),
+                    recovery = recovery,
+                )
+            val errors = mutableListOf<L2capChannelError>()
+
+            val errorJob =
+                launch(UnconfinedTestDispatcher(testScheduler)) {
+                    channel.errors.collect { errors.add(it) }
+                }
+
+            socket.simulateRemoteClose()
+            channel.awaitClosed()
+
+            awaitCondition { errors.isNotEmpty() }
+
+            assertEquals(L2capChannelState.Closed, channel.state.value)
+            assertIs<L2capChannelError.RemoteDisconnected>(errors.single())
+
+            val recovered = channel.recover()
+            assertTrue(recovered.isOpen)
+            recovered.close()
+
+            errorJob.cancel()
         }
 
     @Test

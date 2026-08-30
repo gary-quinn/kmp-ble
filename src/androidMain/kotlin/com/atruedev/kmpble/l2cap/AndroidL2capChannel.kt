@@ -14,21 +14,6 @@ import java.io.OutputStream
 
 /**
  * Android implementation of [L2capChannel] backed by an [L2capSocket].
- *
- * The socket provides blocking [InputStream]/[OutputStream] which are wrapped
- * in coroutines for the suspend-based API.
- *
- * ## Threading
- *
- * - Read loop runs on [Dispatchers.IO] to avoid blocking the main thread
- * - Write operations dispatch to [Dispatchers.IO] for blocking socket writes
- * - Close can be called from any thread
- *
- * ## MTU
- *
- * Android's L2CAP CoC uses a default MTU of 672 bytes, but the actual negotiated
- * MTU is not exposed via public API. We use [L2capSocket.maxTransmitPacketSize]
- * as the write-side limit, falling back to a conservative default.
  */
 internal class AndroidL2capChannel(
     private val socket: L2capSocket,
@@ -44,14 +29,11 @@ internal class AndroidL2capChannel(
     private val inputStream: InputStream = socket.inputStream
     private val outputStream: OutputStream = socket.outputStream
 
-    private val readJob: Job
-
     init {
-        readJob = startReadLoop()
         markOpen()
     }
 
-    private fun startReadLoop(): Job =
+    private val readJob: Job =
         scope.launch(Dispatchers.IO) {
             val buffer = ByteArray(mtu.coerceAtLeast(READ_BUFFER_SIZE))
 
@@ -72,15 +54,13 @@ internal class AndroidL2capChannel(
                     }
                 }
             } finally {
-                if (isOpen) {
+                if (isOpen && isActive) {
                     failWithSync(
                         L2capChannelError.RemoteDisconnected(
                             psm = psm,
-                            state = state.value,
+                            state = L2capChannelState.Open,
                         ),
                     )
-                } else if (state.value != L2capChannelState.Error) {
-                    finalizeClose(graceful = true)
                 }
             }
         }
@@ -104,14 +84,8 @@ internal class AndroidL2capChannel(
         }
     }
 
-    override fun close() {
+    override fun cancelReadJob() {
         readJob.cancel()
-        finalizeClose(graceful = true)
-    }
-
-    override suspend fun close(graceful: Boolean) {
-        readJob.cancel()
-        finalizeClose(graceful = graceful)
     }
 
     override fun flushPendingWrites() {
