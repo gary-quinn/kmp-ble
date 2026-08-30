@@ -5,7 +5,11 @@ package com.atruedev.kmpble.l2cap
 import com.atruedev.kmpble.testing.FakeL2capChannel
 import com.atruedev.kmpble.testing.FakeL2capChannelBackend
 import com.atruedev.kmpble.testing.FakePeripheral
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
@@ -214,26 +218,43 @@ class L2capChannelTest {
                     psm = 0x25,
                     mtu = 2048,
                     recovery = null,
-                    incomingBufferCapacity = 2,
+                    incomingBufferCapacity = 1,
                 )
             val channel = FakeL2capChannel(backend)
             val received = mutableListOf<ByteArray>()
+            val holdCollector = CompletableDeferred<Unit>()
+            val collectorDispatcher = StandardTestDispatcher(testScheduler)
 
             val collectJob =
-                launch(kotlinx.coroutines.test.UnconfinedTestDispatcher(testScheduler)) {
-                    channel.incoming.collect {
-                        received.add(it)
-                        kotlinx.coroutines.delay(50)
+                launch(collectorDispatcher) {
+                    channel.incoming.collect { data ->
+                        received.add(data)
+                        if (received.size == 1) {
+                            holdCollector.await()
+                        }
                     }
                 }
 
-            backend.emitIncoming(byteArrayOf(0x01))
-            backend.emitIncoming(byteArrayOf(0x02))
-            backend.emitIncoming(byteArrayOf(0x03))
+            val emitJob =
+                launch(StandardTestDispatcher(testScheduler)) {
+                    backend.emitIncoming(byteArrayOf(0x01))
+                    backend.emitIncoming(byteArrayOf(0x02))
+                    backend.emitIncoming(byteArrayOf(0x03))
+                }
 
-            kotlinx.coroutines.delay(200)
+            runCurrent()
+
+            assertEquals(1, received.size, "First packet delivered before collector blocks")
+            assertTrue(emitJob.isActive, "Producer should suspend when the incoming buffer is full")
+
+            holdCollector.complete(Unit)
+            advanceUntilIdle()
 
             assertEquals(3, received.size)
+            assertContentEquals(byteArrayOf(0x01), received[0])
+            assertContentEquals(byteArrayOf(0x02), received[1])
+            assertContentEquals(byteArrayOf(0x03), received[2])
+
             collectJob.cancel()
         }
 

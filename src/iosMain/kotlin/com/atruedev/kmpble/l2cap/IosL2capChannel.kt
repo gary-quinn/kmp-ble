@@ -41,6 +41,7 @@ internal class IosL2capChannel(
         val outputStream = cbChannel.outputStream
         if (inputStream == null || outputStream == null) {
             readJob = Job().apply { complete() }
+            // CoreBluetooth returned a channel without streams; treat as failed open, not peer disconnect.
             failWithSync(
                 L2capChannelError.RemoteDisconnected(
                     psm = psm,

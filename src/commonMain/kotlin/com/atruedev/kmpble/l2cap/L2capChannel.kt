@@ -136,6 +136,9 @@ public interface L2capChannel : AutoCloseable {
      * [L2capChannelState.Closed] due to a recoverable [L2capChannelError]. Graceful
      * [close] does not enable recovery. Server-side listener channels do not support recovery.
      *
+     * Eligibility is tracked internally when a recoverable error closes the channel; you do
+     * not need to have collected the matching event from [errors] before calling [recover].
+     *
      * @return A new open channel to the same PSM with the same open parameters.
      * @throws L2capException.NotSupported when recovery context is unavailable.
      * @throws L2capException.InvalidState when the channel is not closed or was not recoverably closed.
