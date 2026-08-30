@@ -18,7 +18,7 @@ import com.atruedev.kmpble.logging.BleLogEvent
 import com.atruedev.kmpble.logging.logEvent
 import kotlinx.atomicfu.atomic
 
-internal class AndroidGattBridge(
+internal open class AndroidGattBridge(
     private val device: BluetoothDevice,
     private val context: Context,
 ) {
@@ -207,7 +207,7 @@ internal class AndroidGattBridge(
     internal fun readCharacteristic(characteristic: BluetoothGattCharacteristic): Boolean =
         _gatt.value?.readCharacteristic(characteristic) ?: false
 
-    internal fun writeCharacteristic(
+    internal open fun writeCharacteristic(
         characteristic: BluetoothGattCharacteristic,
         value: ByteArray,
         writeType: Int,
@@ -219,18 +219,18 @@ internal class AndroidGattBridge(
 
     /** Begin a reliable-write session (deprecated API 33 but functional; replacement not public SDK). */
     @Suppress("DEPRECATION")
-    internal fun beginReliableWrite(): Boolean {
+    internal open fun beginReliableWrite(): Boolean {
         val g = _gatt.value ?: return false
         return g.beginReliableWrite()
     }
 
     /** Commit a reliable-write session started by [beginReliableWrite]. */
     @Suppress("DEPRECATION")
-    internal fun executeReliableWrite(): Boolean = _gatt.value?.executeReliableWrite() ?: false
+    internal open fun executeReliableWrite(): Boolean = _gatt.value?.executeReliableWrite() ?: false
 
     /** Discard a reliable-write session without committing any staged writes. */
     @Suppress("DEPRECATION")
-    internal fun abortReliableWrite() {
+    internal open fun abortReliableWrite() {
         _gatt.value?.abortReliableWrite()
     }
 
