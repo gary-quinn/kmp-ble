@@ -12,20 +12,21 @@
 ## Table of Contents
 
 1. [What exists today](#1-what-exists-today)
-2. [Goals and non-goals](#2-goals-and-non-goals)
-3. [Platform strategy](#3-platform-strategy)
-4. [Native stack choice](#4-native-stack-choice)
-5. [Architecture](#5-architecture)
-6. [Desktop initialization API](#6-desktop-initialization-api)
-7. [Permissions and lifecycle](#7-permissions-and-lifecycle)
-8. [Feature parity matrix](#8-feature-parity-matrix)
-9. [Implementation inventory](#9-implementation-inventory)
-10. [Phased plan](#10-phased-plan)
-11. [Testing strategy](#11-testing-strategy)
-12. [CI and release](#12-ci-and-release)
-13. [Risks and mitigations](#13-risks-and-mitigations)
-14. [Open decisions](#14-open-decisions)
-15. [References](#15-references)
+2. [Delta from ARCHITECTURE.md](#2-delta-from-architecturemd)
+3. [Goals and non-goals](#3-goals-and-non-goals)
+4. [Platform strategy](#4-platform-strategy)
+5. [Native stack choice](#5-native-stack-choice)
+6. [Architecture](#6-architecture)
+7. [Desktop initialization API](#7-desktop-initialization-api)
+8. [Permissions and lifecycle](#8-permissions-and-lifecycle)
+9. [Feature parity matrix](#9-feature-parity-matrix)
+10. [Implementation inventory](#10-implementation-inventory)
+11. [Phased plan](#11-phased-plan)
+12. [Testing strategy](#12-testing-strategy)
+13. [CI and release](#13-ci-and-release)
+14. [Risks and mitigations](#14-risks-and-mitigations)
+15. [Open decisions](#15-open-decisions)
+16. [References](#16-references)
 
 ---
 
@@ -45,7 +46,7 @@ artifact, but **does not provide a BLE runtime**.
 | Lincheck tests | `src/jvmTest/` | Concurrent access stress tests |
 | `JvmGattCache` | `gatt/cache/JvmGattCache.kt` | No-op stub; comment mentions D-Bus |
 
-Central stub:
+Central stub (message updated in Phase 1):
 
 ```kotlin
 // src/jvmMain/kotlin/com/atruedev/kmpble/UnsupportedBle.kt
@@ -53,6 +54,7 @@ internal fun unsupportedBle(operation: String): Nothing =
     throw UnsupportedOperationException(
         "$operation is not supported on JVM - BLE requires Android or iOS",
     )
+// Phase 1: OS-aware message, e.g. "Call KmpBle.initDesktop() on Linux desktop"
 ```
 
 ### What already works on JVM
@@ -95,13 +97,42 @@ Android reference: `AndroidGattBridge` maps `BluetoothGattCallback` to
 `GattCallbackEvent`. iOS reference: `ApplePeripheralBridge` maps
 `CBPeripheralDelegate` to `AppleCallbackEvent`.
 
-The JVM implementation should introduce `JvmGattBridge` with
-`JvmCallbackEvent`, following the Android model more closely because BlueZ
-GATT objects map 1:1 to Android GATT concepts.
+The JVM implementation introduces `JvmGattBridge` with platform-neutral
+`JvmCallbackEvent`, dispatched through the same `handleGattEvent` pattern as
+`AndroidPeripheralGattHandler.kt` (not by reusing `GattCallbackEvent`, which
+lives in `androidMain` with Android types).
 
 ---
 
-## 2. Goals and non-goals
+## 2. Delta from ARCHITECTURE.md
+
+This section records what changes relative to the existing architecture doc.
+`ARCHITECTURE.md` itself is updated in the Phase 1 PR (not blocked on this RFC
+merge).
+
+| Topic | ARCHITECTURE.md today | JVM desktop addition |
+| --- | --- | --- |
+| Supported platforms | Android, iOS | Linux desktop on `jvm()` (v1) |
+| Layer 1 callbacks | `HandlerThread` (Android), `DispatchQueue` (iOS) | dbus-java thread pool |
+| Layer 2 serialization | `limitedParallelism(1)` per peripheral | Same |
+| State machine | 14 states, wildcard `AdapterOff` / `RemoteDisconnected` | Unchanged; JVM must feed it faithfully |
+| Timeouts | `OperationTimeouts` + `GattOperationQueue` (10s default) | Same contracts via D-Bus wrappers |
+| State restoration | Android + iOS | No-op on JVM |
+| Observations | UUID-based, `ObservationRegistry.applyBackpressure()` | Same; bridge must not block dbus-java thread |
+| Logging | `BleLogEvent` + `logEvent()` | Required on JVM (see [Structured logging](#structured-logging)) |
+| Quirks | Android OEM registry | Empty registry |
+
+Concurrency alignment (two layers, not one):
+
+```
+Layer 1 (OS-managed):  dbus-java signal thread -> complete deferred / offer to channel
+Layer 2 (serialized):  per-peripheral limitedParallelism(1) -> handleGattEvent / state machine
+Layer 3 (consumer):    caller's coroutine context
+```
+
+---
+
+## 3. Goals and non-goals
 
 ### Goals (v1)
 
@@ -109,9 +140,9 @@ GATT objects map 1:1 to Android GATT concepts.
    the existing `jvm()` target.
 2. **No public API changes** - all work stays in `jvmMain/`; `commonMain`
    factories remain `expect fun`.
-3. **Android bridge parity** - reuse `GattCallbackEvent` semantics where
-   possible so `JvmPeripheralConnection` can share handler patterns with
-   `AndroidPeripheralConnection`.
+3. **Handler dispatch parity** - reuse the `AndroidPeripheralGattHandler` /
+   `handleGattEvent` dispatch pattern via platform-neutral `JvmCallbackEvent`,
+   targeting the same state-machine events as `AndroidPeripheralConnection`.
 4. **Dogfood path** - CLI tools, test harnesses, CI hardware-in-the-loop, and
    headless Linux servers can use kmp-ble without an Android emulator or iOS
    simulator.
@@ -132,7 +163,7 @@ GATT objects map 1:1 to Android GATT concepts.
 
 ---
 
-## 3. Platform strategy
+## 4. Platform strategy
 
 ### Extend `jvm()`, do not add desktop KMP targets
 
@@ -163,7 +194,7 @@ is proven on Linux.
 
 ---
 
-## 4. Native stack choice
+## 5. Native stack choice
 
 ### Recommended: BlueZ over D-Bus via dbus-java
 
@@ -202,15 +233,26 @@ JvmBluezConnection (singleton per process)
     +-- method calls (Connect, ReadValue, StartNotify, ...)
 ```
 
-Coroutine integration:
+### Coroutine integration and D-Bus ingress
 
-- D-Bus signal callbacks arrive on a dbus-java thread pool
-- Bridge posts `JvmCallbackEvent` and completes `CompletableDeferred`
-- Consumer-facing work runs on `limitedParallelism(1)` (same as Android/iOS)
+D-Bus signal callbacks arrive on a dbus-java thread pool. Rules:
+
+1. **Layer 1 only completes deferreds or offers to a bounded channel** - no
+   state-machine work, no GATT queue logic on the dbus-java thread.
+2. **Cancellation-safe** - if the waiting coroutine is cancelled,
+   `CompletableDeferred.cancel()` must not leave a stale completion handler
+   that fires later.
+3. **Backpressure** - `PropertiesChanged` on notify characteristics can arrive
+   faster than the serial dispatcher drains. The bridge offers to a bounded
+   channel (drop-oldest or suspend-offer policy TBD in Phase 2 spike);
+   consumer-side backpressure is already handled by
+   `ObservationRegistry.applyBackpressure()` in `commonMain`.
+4. **Layer 2** - `peripheralContext.scope` on `limitedParallelism(1)` runs
+   `handleGattEvent` (same as Android).
 
 ---
 
-## 5. Architecture
+## 6. Architecture
 
 ### Layer diagram
 
@@ -224,7 +266,7 @@ Coroutine integration:
 +-------------------------------------------------------------+
 |  jvmMain (new)                                              |
 |    JvmPeripheral, JvmScanner, JvmBluetoothAdapter           |
-|    JvmGattBridge  --JvmCallbackEvent-->  handlers           |
+|    JvmGattBridge  --JvmCallbackEvent-->  handleGattEvent    |
 +-------------------------------------------------------------+
 |  dbus-java                                                  |
 |    system bus, org.bluez.* interfaces                       |
@@ -238,8 +280,8 @@ Coroutine integration:
 
 ```
 src/jvmMain/kotlin/com/atruedev/kmpble/
-  KmpBle.jvm.kt                    # Desktop init API
-  UnsupportedBle.kt                # Remove or narrow to unimplemented features
+  KmpBle.jvm.kt                    # Desktop init / shutdown API
+  UnsupportedBle.kt                # OS-aware messages (Phase 1)
   adapter/
     AdapterFactory.jvm.kt          # actual -> JvmBluetoothAdapter
     JvmBluetoothAdapter.kt
@@ -247,7 +289,7 @@ src/jvmMain/kotlin/com/atruedev/kmpble/
     JvmBluezConnection.kt          # D-Bus singleton, bus lifecycle
     JvmBluezPaths.kt               # Object path helpers
     JvmBluezProperties.kt          # Property change parsing
-    JvmBluezErrors.kt              # D-Bus error -> kmp-ble exceptions
+    JvmBluezErrors.kt              # D-Bus error name constants
   scanner/
     ScannerFactory.jvm.kt          # actual -> JvmScanner
     JvmScanner.kt
@@ -256,81 +298,238 @@ src/jvmMain/kotlin/com/atruedev/kmpble/
     PeripheralFactory.jvm.kt       # actual -> JvmPeripheral
     JvmPeripheral.kt
     JvmPeripheralConnection.kt
+    JvmPeripheralGattHandler.kt    # handleGattEvent dispatch (mirror Android)
     JvmPeripheralInternal.kt
     JvmGattBridge.kt
-    JvmCallbackEvent.kt            # Mirror GattCallbackEvent (platform-neutral types)
-    JvmGattStatusMapper.kt
+    JvmCallbackEvent.kt            # Platform-neutral events (status codes)
+    JvmConnectionState.kt          # BlueZ -> state machine mapping
+    JvmGattStatusMapper.kt         # D-Bus errors + status -> BleException
   gatt/cache/
     JvmGattCache.kt                # Real file-backed cache
   permissions/
     BlePermissions.jvm.kt          # Check adapter powered + D-Bus access
   server/
-    GattServerFactory.jvm.kt       # Phase 4: throws or NotSupported until implemented
+    GattServerFactory.jvm.kt         # Phase 4: throws or NotSupported
   ... (l2cap, isochronous, periodic: keep existing NotSupported stubs)
 ```
 
-### `JvmCallbackEvent` design
+### `JvmCallbackEvent` and connection-state fidelity
 
-Mirror `GattCallbackEvent` but use kmp-ble types instead of Android classes:
+`JvmCallbackEvent` is platform-neutral. It does **not** use `error: String?`
+at the bridge boundary. D-Bus error names are mapped to `status: Int` (via
+`JvmGattStatusMapper`) at ingress inside `JvmGattBridge`, before handlers see
+events. Handlers convert `status` to `GattStatus` / `BleException` using the
+same patterns as `AndroidPeripheralConnection.handleConnectionStateChanged`.
+
+Connection state must be fine-grained enough for the 14-state machine. A bare
+`connected: Boolean` cannot distinguish remote disconnect, adapter off, auth
+failure, or in-flight disconnect. Model connection transitions with
+`(status: Int, newState: JvmConnectionState)`:
 
 ```kotlin
+/** Maps BlueZ Device1 / Adapter1 properties to handler inputs. */
+internal enum class JvmConnectionState {
+    DISCONNECTED,
+    CONNECTING,
+    CONNECTED,           // Device1.Connected=true, ServicesResolved=false
+    SERVICES_RESOLVED,   // Device1.ServicesResolved=true
+}
+
 internal sealed interface JvmCallbackEvent {
-    data class ConnectionStateChanged(val connected: Boolean, val error: String?) : JvmCallbackEvent
-    data class ServicesDiscovered(val services: List<JvmGattService>, val error: String?) : JvmCallbackEvent
-    data class CharacteristicRead(val path: String, val value: ByteArray, val error: String?) : JvmCallbackEvent
-    data class CharacteristicWrite(val path: String, val error: String?) : JvmCallbackEvent
+    data class ConnectionStateChanged(
+        val status: Int,
+        val newState: JvmConnectionState,
+    ) : JvmCallbackEvent
+
+    data class ServicesDiscovered(
+        val status: Int,
+        val services: List<JvmGattService>,
+    ) : JvmCallbackEvent
+
+    data class CharacteristicRead(
+        val path: String,
+        val value: ByteArray,
+        val status: Int,
+    ) : JvmCallbackEvent
+
+    data class CharacteristicWrite(val path: String, val status: Int) : JvmCallbackEvent
     data class CharacteristicChanged(val path: String, val value: ByteArray) : JvmCallbackEvent
-    data class DescriptorRead(val path: String, val value: ByteArray, val error: String?) : JvmCallbackEvent
-    data class DescriptorWrite(val path: String, val error: String?) : JvmCallbackEvent
-    data class MtuChanged(val mtu: Int) : JvmCallbackEvent
+    data class DescriptorRead(val path: String, val value: ByteArray, val status: Int) : JvmCallbackEvent
+    data class DescriptorWrite(val path: String, val status: Int) : JvmCallbackEvent
+    data class MtuChanged(val mtu: Int, val status: Int) : JvmCallbackEvent
+    // See parity table below for events not emitted on JVM.
 }
 ```
 
-`JvmGattService` holds D-Bus object paths and UUIDs. Handlers translate paths
-to `DiscoveredService` / `GattCharacteristic` in commonMain terms.
+**BlueZ -> `JvmConnectionState` mapping (Phase 0 spike must validate):**
 
-### Shared handler logic (optional refactor)
+| BlueZ signal / property | `JvmConnectionState` | State-machine event |
+| --- | --- | --- |
+| `Device1.Connected` false | `DISCONNECTED` | `RemoteDisconnected` or `ByError` via status |
+| `Device1.Connected` true, `ServicesResolved` false | `CONNECTED` | `LinkEstablished` -> `Discovering` |
+| `Device1.ServicesResolved` true | `SERVICES_RESOLVED` | discovery complete |
+| `Adapter1.Powered` false | (wildcard) | `AdapterOff` |
+| D-Bus `org.bluez.Error.AuthenticationFailed` | `DISCONNECTED` + error status | `ConnectionFailed` / bonding |
+| `Device1.Connect()` in flight | `CONNECTING` | `Transport` |
 
-If `AndroidPeripheralConnection` and `JvmPeripheralConnection` diverge only in
-native object types, consider extracting a `commonJvmAndroidMain` source set
-later. **Do not do this in Phase 1** - copy the Android handler structure
-first, refactor when duplication is proven.
+Handler target: `JvmPeripheralGattHandler.handleGattEvent(event)`, structured
+like `AndroidPeripheralGattHandler.kt`, calling
+`handleConnectionStateChanged` equivalents that feed `ConnectionEvent` into the
+state machine.
 
-### Scan flow
+### Callback event parity
+
+`GattCallbackEvent` (Android) defines events that JVM may not support. Explicit
+parity avoids surprise no-ops in `JvmPeripheralGattHandler`:
+
+| Event | Android | JVM v1 | Notes |
+| --- | --- | --- | --- |
+| `ConnectionStateChanged` | Yes | **Yes** | `(status, JvmConnectionState)` |
+| `ServicesDiscovered` | Yes | **Yes** | via `GetManagedObjects` |
+| `MtuChanged` | Yes | **Best effort** | BlueZ `MTU` property |
+| `CharacteristicRead` | Yes | **Yes** | |
+| `CharacteristicWrite` | Yes | **Yes** | |
+| `ReliableWriteCompleted` | Yes | **Never** | BlueZ has no ATT reliable-write batch; `writeReliable` not supported on JVM v1 |
+| `CharacteristicChanged` | Yes | **Yes** | `StartNotify` + `PropertiesChanged` |
+| `DescriptorRead` / `DescriptorWrite` | Yes | **Yes** | CCCD for observe |
+| `ReadRemoteRssi` | Yes | **Stub** | RSSI from `Device1.RSSI` at scan time (Phase 3); no live read API |
+| `PhyUpdated` / `PhyRead` | Yes | **Never** | Not on BlueZ D-Bus client |
+| `SubrateChanged` | Yes | **Never** | Not on BlueZ D-Bus client |
+
+Events marked **Never** are not emitted; the corresponding `handleGattEvent`
+branches are absent. Public API calls that would trigger them (e.g. `readPhy()`)
+return `NotSupported` or no-op per existing `commonMain` contracts.
+
+### Timeouts, cancellation, and disconnect propagation
+
+BLE operations are not instantaneous. Every D-Bus GATT call must complete a
+`CompletableDeferred` under an explicit timeout, matching existing kmp-ble
+contracts:
+
+| Operation | Timeout source | Default |
+| --- | --- | --- |
+| `Device1.Connect()` | `ConnectionOptions.timeouts.connect` | 30s |
+| `GetManagedObjects` / service discovery | `ConnectionOptions.timeouts.serviceDiscovery` | 15s |
+| `ReadValue` | `ConnectionOptions.timeouts.read` | 5s |
+| `WriteValue` | `ConnectionOptions.timeouts.write` | 5s |
+| `StartNotify` / CCCD write | `ConnectionOptions.timeouts.write` | 5s |
+| MTU read | `ConnectionOptions.timeouts.mtuNegotiation` | 10s |
+| Queued GATT ops | `GattOperationQueue` operation timeout | 10s |
+
+Implementation pattern (same as Android/iOS):
+
+```kotlin
+withTimeout(currentTimeouts.read) { deferred.await() }
+```
+
+**Disconnect mid-operation:**
+
+1. `Device1.Disconnect()` or adapter power-off cancels all in-flight deferreds
+   on that peripheral with `CancellationException`.
+2. `JvmGattBridge` maps cancellation to typed `BleException` (e.g.
+   `ConnectionLost`, `PeripheralTimeout`) via `JvmGattStatusMapper` - never
+   propagate raw D-Bus error strings to handlers.
+3. `GattOperationQueue` already handles caller cancellation and timeout;
+   `JvmPeripheralConnection` must not assume D-Bus methods return synchronously.
+
+Phase 0 spike must measure typical `Connect()` + `GetManagedObjects` latency on
+target hardware to validate default timeouts.
+
+### Scan flow and timeout contract
 
 ```
 Scanner.scanEvents (Flow)
-    <- toScanEvents() [commonMain, unchanged]
+    <- toScanEvents() [commonMain: filter, emission policy, timeout]
     <- JvmScanner raw Flow<Advertisement>
         <- D-Bus InterfacesAdded / PropertiesChanged on adapter
         <- StartDiscovery / StopDiscovery on Adapter1
         <- JvmAdvertisementParser (ManufacturerData, ServiceUUIDs from Device1 props)
 ```
 
-Filter groups from `ScannerConfig` are applied in commonMain (`toScanEvents`).
-JvmScanner emits all advertisements; filtering stays shared.
+**Timeout and cancellation (mandatory):**
+
+- `ScannerConfig.timeout` is enforced by `toScanEvents()` in `commonMain`
+  (`ScannerPipeline.kt` applies `takeWhile { elapsed < timeout }`). `JvmScanner`
+  must call `Adapter1.StopDiscovery()` when:
+  1. The configured timeout elapses (via `awaitClose` / collector cancellation
+     propagated from `toScanEvents`), or
+  2. The scan `Flow` collector is cancelled cooperatively.
+- Unbounded scan (no `timeout` set) is allowed by `ScannerConfig` but
+  documented as discouraged; `JvmScanner` still stops discovery on `close()`.
+- Filter groups are applied in `commonMain`; `JvmScanner` emits all
+  advertisements.
 
 ### Connect + GATT flow
 
 ```
-peripheral.connect()
-    -> Device1.Connect() via D-Bus
-    -> JvmGattBridge.onConnectionStateChanged
+peripheral.connect(options)
+    -> withTimeout(options.timeouts.connect) {
+           Device1.Connect() via D-Bus
+           await ConnectionStateChanged(CONNECTED) on bridge
+       }
+    -> JvmPeripheralGattHandler.handleConnectionStateChanged
         -> commonMain state machine (Connecting -> Discovering -> ...)
-    -> GATT tree via ObjectManager.GetManagedObjects
-    -> ReadValue / WriteValue / StartNotify on GattCharacteristic1
-    -> PropertiesChanged (Value) -> CharacteristicChanged
+    -> withTimeout(options.timeouts.serviceDiscovery) {
+           GetManagedObjects + ServicesDiscovered event
+       }
+    -> GattOperationQueue serializes:
+           ReadValue / WriteValue / StartNotify on GattCharacteristic1
+    -> PropertiesChanged (Value) -> CharacteristicChanged (bounded channel)
 ```
 
 MTU: BlueZ exposes `MTU` property on `GattCharacteristic1`. Negotiation may
 differ from Android `requestMtu()`; map best-effort and document limitations.
 
+### Resource teardown
+
+Holding D-Bus object paths after `Device1.Disconnect()` is an anti-pattern.
+Mirror `AndroidPeripheral.close()` / `AndroidGattBridge.close()` ownership:
+
+**On `Peripheral.close()` (terminal):**
+
+1. Set `_closed` flag (same as Android).
+2. Cancel `peripheralContext.scope` and reconnection handler.
+3. Cancel all in-flight `CompletableDeferred` on the bridge with
+   `CancellationException`.
+4. Unsubscribe `PropertiesChanged` signal matchers for this device's
+   characteristics and descriptors.
+5. Null out cached D-Bus object paths (services, characteristics).
+6. Call `Device1.Disconnect()` if still connected.
+7. `bridge.close()` - clear `onEvent`, release signal registrations.
+8. Clear observation manager and persistence for this identifier.
+9. `PeripheralRegistry.remove(identifier)`.
+
+**On disconnect (non-terminal, reconnectable):**
+
+- `bridge.releaseDevice()` - disconnect and clear GATT path cache but keep
+  bridge reusable (mirror `AndroidGattBridge.releaseGatt()`).
+
+**On `Scanner.close()`:**
+
+- `Adapter1.StopDiscovery()` if scanning.
+- Cancel scanner scope; do not tear down the shared D-Bus connection.
+
+### Structured logging
+
+All JVM connection code uses `BleLogEvent` + `logEvent()` (same as Android).
+No `println` in library code.
+
+| Level | Examples |
+| --- | --- |
+| Debug | D-Bus method invoked (path, interface, no payload bytes) |
+| Info | Scan started/stopped, connect/disconnect, services discovered |
+| Warn | Retryable D-Bus errors, discovery restart |
+| Error | Permission denied, unrecoverable GATT failure, timeout |
+
+Deliverable: logging calls added in Phase 1 (adapter/scanner) and Phase 2
+(peripheral/GATT) PRs.
+
 ---
 
-## 6. Desktop initialization API
+## 7. Desktop initialization API
 
 Android requires `KmpBle.init(context)`. JVM needs an equivalent entry point
-without `Context`.
+without `Context`, plus explicit teardown for tests.
 
 ### Proposed API
 
@@ -350,13 +549,25 @@ public object KmpBle {
         dbusAddress: String? = null,
     )
 
+    /**
+     * Tear down the D-Bus connection, cancel bridge scopes, and clear adapter
+     * selection. Safe to call when not initialized. Required for test isolation.
+     */
+    public fun closeDesktop()
+
+    /** @VisibleForTesting - reset singleton for unit tests with mocked D-Bus. */
+    internal fun resetForTests()
+
     internal fun requireBluez(): JvmBluezConnection
 }
 ```
 
-`KmpBle` on JVM and Android are separate `actual` types (or a common
-`expect object` if we add `commonMain` declaration later). **Phase 1:** JVM-only
-`object` in `jvmMain` to avoid API churn on mobile.
+`closeDesktop()` disconnects the system bus, cancels any shared coroutine scope,
+and clears the selected adapter. Tests call `resetForTests()` in `@AfterEach`
+to avoid singleton leakage across mocked-D-Bus cases.
+
+`KmpBle` on JVM and Android are separate objects in v1 (no `commonMain`
+`expect object`) to avoid API churn on mobile.
 
 ### Adapter selection
 
@@ -366,7 +577,7 @@ public object KmpBle {
 
 ---
 
-## 7. Permissions and lifecycle
+## 8. Permissions and lifecycle
 
 ### Permission model
 
@@ -385,12 +596,17 @@ public actual fun checkBlePermissions(): PermissionResult {
 }
 ```
 
-### Lifecycle
+### Lifecycle summary
 
-- `JvmBluezConnection` is process-singleton (like iOS `CentralManagerProvider`)
-- `Scanner.close()` stops discovery, does not tear down bus
-- Process exit disconnects D-Bus automatically
-- No state restoration on desktop v1 (`enableStateRestoration` remains no-op)
+| Event | Action |
+| --- | --- |
+| `initDesktop()` | Open system bus, select adapter, register adapter signal handlers |
+| First `Scanner()` / `Peripheral()` | Use shared `JvmBluezConnection` |
+| `Scanner.close()` | Stop discovery; keep bus open |
+| `Peripheral.close()` | Full teardown per [Resource teardown](#resource-teardown) |
+| `closeDesktop()` | Disconnect bus, cancel shared scope, clear singleton state |
+| Process exit | OS reclaims D-Bus connection |
+| State restoration | No-op on desktop v1 |
 
 ### Bonding / pairing
 
@@ -402,19 +618,20 @@ registered on D-Bus (`org.bluez.Agent1`). Phase 3 scope:
 
 ---
 
-## 8. Feature parity matrix
+## 9. Feature parity matrix
 
 | Feature | Android | iOS | JVM v1 target | JVM v1 notes |
 | --- | --- | --- | --- | --- |
 | `BluetoothAdapter()` | Yes | Yes | **Phase 1** | Powered, address, name |
-| `Scanner` | Yes | Yes | **Phase 1** | Legacy + extended adv via Device1 props |
+| `Scanner` | Yes | Yes | **Phase 1** | Legacy-first; extended adv best-effort via Device1 props (BlueZ 5.62+); see risk row |
 | `Peripheral.connect()` | Yes | Yes | **Phase 2** | |
 | GATT read/write | Yes | Yes | **Phase 2** | |
 | GATT notify/observe | Yes | Yes | **Phase 2** | `StartNotify` + PropertiesChanged |
 | MTU negotiation | Yes | Partial | **Best effort** | BlueZ MTU property |
 | Bonding | Yes | Limited | **Phase 3** | Agent required |
-| RSSI | Yes | Yes | **Phase 3** | `Device1.RSSI` on discovery |
+| RSSI | Yes | Yes | **Phase 3** | `Device1.RSSI` at discovery; no `ReadRemoteRssi` |
 | PHY / connection priority | Yes | Limited | **No** | Not exposed on BlueZ D-Bus client |
+| `writeReliable` | Yes | Yes | **No** | No `ReliableWriteCompleted` on BlueZ |
 | `GattServer` / `Advertiser` | Yes | Yes | **Phase 4** | BlueZ peripheral mode |
 | L2CAP | Yes | Yes | No | Keep `NotSupported` |
 | Isochronous | Yes | Yes | No | Keep `NotSupported` |
@@ -425,7 +642,7 @@ registered on D-Bus (`org.bluez.Agent1`). Phase 3 scope:
 
 ---
 
-## 9. Implementation inventory
+## 10. Implementation inventory
 
 ### Replace stub actuals (by phase)
 
@@ -434,9 +651,11 @@ registered on D-Bus (`org.bluez.Agent1`). Phase 3 scope:
 | `adapter/AdapterFactory.jvm.kt` | 1 | Wire `JvmBluetoothAdapter` |
 | `scanner/ScannerFactory.jvm.kt` | 1 | Wire `JvmScanner` |
 | `permissions/BlePermissions.jvm.kt` | 1 | D-Bus + powered check |
-| `KmpBle.jvm.kt` (new) | 1 | `initDesktop()` |
+| `KmpBle.jvm.kt` (new) | 1 | `initDesktop()`, `closeDesktop()`, `resetForTests()` |
+| `UnsupportedBle.kt` | 1 | OS-aware error messages |
 | `bluez/*` (new) | 1-2 | D-Bus client layer |
 | `peripheral/PeripheralFactory.jvm.kt` | 2 | Wire `JvmPeripheral` |
+| `peripheral/JvmPeripheralGattHandler.kt` (new) | 2 | `handleGattEvent` dispatch |
 | `gatt/cache/JvmGattCache.kt` | 2 | Real cache |
 | `gatt/internal/ObservationPersistence.jvm.kt` | 2 | File-backed observations |
 | `quirks/QuirkRegistry.jvm.kt` | 2 | Keep empty registry |
@@ -458,48 +677,60 @@ connects to `/var/run/dbus/system_bus_socket` without native dbus libs.
 
 ### Error mapping
 
-Introduce `JvmGattStatusMapper` analogous to `AndroidGattStatusMapper` /
-`IosGattStatusMapper`. Map D-Bus errors (`org.bluez.Error.NotReady`,
-`org.freedesktop.DBus.Error.AccessDenied`) to existing `BleException` types in
-`commonMain` so consumers see consistent errors across platforms.
+`JvmGattStatusMapper` maps at the bridge ingress (before events reach handlers):
+
+- D-Bus error names: `org.bluez.Error.NotReady`,
+  `org.bluez.Error.AuthenticationFailed`, `org.freedesktop.DBus.Error.AccessDenied`
+- Status integers on `JvmCallbackEvent`
+- Output: existing `BleException` / `GattStatus` types in `commonMain`
+
+Handlers never see raw `String?` errors from D-Bus.
 
 ---
 
-## 10. Phased plan
+## 11. Phased plan
 
 ### Phase 0 - Spike (1 week, no merge requirement)
 
 - [ ] Shell script: scan via `busctl` / `dbus-send` on Linux with USB dongle
 - [ ] Kotlin main: connect dbus-java, list adapters, start discovery
 - [ ] Document object paths and property names for target BlueZ version
+- [ ] Validate `Connect()` + `GetManagedObjects` latency against default timeouts
+- [ ] Prototype `ConnectionStateChanged` mapping from `Device1` property signals
+- [ ] Prototype `closeDesktop()` / signal unsubscribe (no leaked matchers)
 - [ ] Validate CI runner has no Bluetooth (tests must skip gracefully)
 
 **Exit criteria:** Demonstrate one device discovered and connected via D-Bus
-outside kmp-ble.
+outside kmp-ble; connection-state transitions documented with timestamps.
 
 ### Phase 1 - Adapter + Scanner (1-2 weeks)
 
-- [ ] `KmpBle.initDesktop()`
-- [ ] `JvmBluezConnection` singleton
+- [ ] `KmpBle.initDesktop()` + `closeDesktop()` + `resetForTests()`
+- [ ] `JvmBluezConnection` singleton with teardown
 - [ ] `JvmBluetoothAdapter` - state, powered, address
-- [ ] `JvmScanner` - `Flow<ScanEvent>` via discovery
+- [ ] `JvmScanner` - `Flow<ScanEvent>` via discovery; honour timeout + cancellation
 - [ ] `checkBlePermissions()` - real checks
-- [ ] Unit tests with mocked D-Bus (or skip-if-no-adapter integration test)
+- [ ] `BleLogEvent` logging for scan/adapter operations
+- [ ] Unit tests with mocked D-Bus
 - [ ] `docs/platform-setup-jvm.md` integration guide
+- [ ] Update `ARCHITECTURE.md` platform list
 
 **Exit criteria:** `./gradlew jvmTest` passes; manual scan lists devices on Linux.
 
 ### Phase 2 - Central GATT (2-3 weeks)
 
-- [ ] `JvmGattBridge` + `JvmCallbackEvent`
-- [ ] `JvmPeripheral` + `JvmPeripheralConnection`
-- [ ] Connect, discover services, read, write, observe
+- [ ] `JvmGattBridge` + `JvmCallbackEvent` + `JvmConnectionState`
+- [ ] `JvmPeripheralGattHandler` + `JvmPeripheral` + `JvmPeripheralConnection`
+- [ ] Connect, discover services, read, write, observe with `withTimeout` on every op
+- [ ] Disconnect-mid-operation -> typed `BleException`
+- [ ] Resource teardown on `Peripheral.close()`
 - [ ] `JvmGattCache` + `ObservationPersistence` (file-backed)
-- [ ] Error mapping
+- [ ] `JvmGattStatusMapper` at bridge ingress
+- [ ] Bounded channel for notify ingress
 - [ ] Hardware-in-the-loop test (optional CI job on self-hosted runner)
 
-**Exit criteria:** Sample GATT workflow (HR service 0x180D) works on Linux;
-existing `jvmTest` Fake* tests still pass.
+**Exit criteria:** GATT workflow (HR service 0x180D) works on Linux; existing
+`jvmTest` Fake* tests still pass.
 
 ### Phase 3 - Bonding + polish (1-2 weeks)
 
@@ -523,7 +754,7 @@ existing `jvmTest` Fake* tests still pass.
 
 ---
 
-## 11. Testing strategy
+## 12. Testing strategy
 
 ### Keep existing tests
 
@@ -537,7 +768,9 @@ validate `commonMain` without hardware.
 | D-Bus parsing | Unit | `jvmTest/.../bluez/` |
 | Advertisement parser | Unit | `jvmTest/.../scanner/` |
 | GATT status mapper | Unit | `jvmTest/.../peripheral/` |
-| Scan + connect | Integration (hardware) | `jvmTest/.../integration/` or separate source set |
+| Timeout / cancellation | Unit | `jvmTest/.../peripheral/` (mock bridge) |
+| Teardown / `resetForTests` | Unit | `jvmTest/.../KmpBleDesktopTest.kt` |
+| Scan + connect | Integration (hardware) | `jvmTest/.../integration/` |
 | Conformance | Extend existing | Reuse Fake* patterns where possible |
 
 ### Integration test pattern
@@ -545,6 +778,8 @@ validate `commonMain` without hardware.
 ```kotlin
 @EnabledIfBluetoothAvailable // custom JUnit condition
 class JvmBleIntegrationTest {
+    @AfterEach fun tearDown() { KmpBle.resetForTests() }
+
     @Test fun scanFindsDevices() { ... }
 
     @Test fun connectAndReadHeartRate() { ... }
@@ -568,10 +803,11 @@ Add JVM section to `TESTING.md`:
 3. Scan, connect to nRF52 DK or HR sensor
 4. Read Battery Level (0x2A19)
 5. Subscribe to Heart Rate Measurement (0x2A37)
+6. `peripheral.close()` then `KmpBle.closeDesktop()` - verify no leaked discovery
 
 ---
 
-## 12. CI and release
+## 13. CI and release
 
 ### CI changes (incremental)
 
@@ -590,27 +826,29 @@ Document that macOS/Windows JVM consumers still throw until Phase 5.
 
 - `docs/jvm-desktop-ble-architecture.md` (this doc)
 - `docs/platform-setup-jvm.md` (Phase 1)
-- Update `ARCHITECTURE.md` platform list
-- Update `README.md` supported platforms table
+- Update `ARCHITECTURE.md` platform list (Phase 1 PR)
+- Update `README.md` supported platforms table (Phase 1 PR)
 
 ---
 
-## 13. Risks and mitigations
+## 14. Risks and mitigations
 
 | Risk | Impact | Mitigation |
 | --- | --- | --- |
 | BlueZ version differences across distros | Broken GATT paths | Pin tested BlueZ version; runtime version check |
 | D-Bus permission denied in Docker | BLE fails silently | Clear error in `initDesktop()`; document `--privileged` / group membership |
-| D-Bus signal latency vs Android callbacks | Timing bugs in state machine | Reuse existing `CompletableDeferred` timeouts; add integration tests |
-| Notify delivery via PropertiesChanged | Missed events if not subscribed correctly | Follow BlueZ docs for `StartNotify`; test with nRF firmware |
+| D-Bus signal latency vs Android callbacks | Timing bugs in state machine | `withTimeout` on every op; integration tests for slow devices |
+| Notify delivery via PropertiesChanged | Missed events if not subscribed correctly | Follow BlueZ docs for `StartNotify`; bounded channel; test with nRF firmware |
 | Pairing agent on headless servers | Connect fails on bonded devices | Document agent setup; auto-agent for CI |
-| dbus-java thread model vs coroutines | Deadlocks | Single bridge thread + `limitedParallelism(1)` (proven on Android) |
+| dbus-java thread model vs coroutines | Deadlocks | Layer 1 completes deferreds only; Layer 2 on `limitedParallelism(1)` per peripheral |
 | Consumer expects JVM = mobile desktop | Confusion on macOS/Windows | Detect OS; throw with "Linux only in v1" message |
-| Extended advertising filter parity | Scan misses devices | Document BlueZ advertisement field coverage vs Android |
+| Extended advertising filter parity | Scan misses devices | Legacy-first in v1; document BlueZ 5.62+ extended field limits |
+| Stale D-Bus paths after disconnect | Use-after-disconnect crashes | Mandatory teardown checklist on `Peripheral.close()` |
+| Singleton bus leaks in tests | Flaky `jvmTest` | `closeDesktop()` + `resetForTests()` in `@AfterEach` |
 
 ---
 
-## 14. Open decisions
+## 15. Open decisions
 
 Decisions to resolve before Phase 1 coding:
 
@@ -622,15 +860,20 @@ Decisions to resolve before Phase 1 coding:
 | D4 | GattServer in v1? | Phase 2 vs Phase 4 | Phase 4 (central first) |
 | D5 | Detect non-Linux JVM and throw? | Yes vs silent stub | Yes, with clear error message |
 | D6 | Self-hosted CI runner for HIL? | Yes vs manual only | Manual until Phase 2 stabilizes |
+| D7 | Notify ingress backpressure policy | Drop-oldest vs suspend-offer | Resolve in Phase 2 spike; must not block dbus-java thread |
 
 ---
 
-## 15. References
+## 16. References
 
 - [BlueZ D-Bus API documentation](https://github.com/bluez/bluez/blob/master/doc/org.bluez.Adapter.rst)
 - [dbus-java](https://github.com/hypfvieh/dbus-java)
 - kmp-ble `ARCHITECTURE.md` - concurrency model, state machine
 - kmp-ble `docs/platform-parity-audit.md` - androidMain/iosMain file mapping
 - `src/androidMain/.../AndroidGattBridge.kt` - callback bridge reference
+- `src/androidMain/.../AndroidPeripheralGattHandler.kt` - `handleGattEvent` dispatch target
+- `src/androidMain/.../AndroidPeripheralConnection.kt` - `handleConnectionStateChanged`
+- `src/commonMain/.../OperationTimeouts.kt` - per-operation timeout defaults
+- `src/commonMain/.../GattOperationQueue.kt` - 10s queue operation timeout
 - `src/iosMain/.../ApplePeripheralBridge.kt` - delegate bridge reference
 - `src/jvmMain/.../JvmGattCache.kt` - original D-Bus hint
