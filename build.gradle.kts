@@ -1,32 +1,22 @@
 // buildscript configurations are separate from project configurations and cannot
-// read the version catalog, so mirror catalog-backed security patches here.
+// use the version catalog API, so mirror securityPatches via CatalogVersions.
 buildscript {
-    fun catalogVersion(key: String): String =
-        file("gradle/libs.versions.toml")
-            .readLines()
-            .asSequence()
-            .map { it.trimStart() }
-            .mapNotNull { line ->
-                Regex("""^${Regex.escape(key)}\s*=\s*"([^"]+)"""").find(line)?.groupValues?.get(1)
-            }
-            .firstOrNull()
-            ?: error("Version '$key' not found in gradle/libs.versions.toml")
-
     configurations.all {
         resolutionStrategy.eachDependency {
             when (requested.group) {
-                "io.netty" -> useVersion(catalogVersion("netty"))
-                "ch.qos.logback" -> useVersion(catalogVersion("logback"))
-                "com.fasterxml.jackson.core" -> useVersion(catalogVersion("jackson"))
-                "org.bouncycastle" -> useVersion(catalogVersion("bouncycastle"))
+                "io.netty" -> useVersion(CatalogVersions.requiredVersion("netty", rootDir))
+                "ch.qos.logback" -> useVersion(CatalogVersions.requiredVersion("logback", rootDir))
+                "com.fasterxml.jackson.core" -> useVersion(CatalogVersions.requiredVersion("jackson", rootDir))
+                "org.bouncycastle" -> useVersion(CatalogVersions.requiredVersion("bouncycastle", rootDir))
+                "io.opentelemetry" -> useVersion(CatalogVersions.requiredVersion("opentelemetry", rootDir))
             }
             when ("${requested.group}:${requested.name}") {
-                "org.jdom:jdom2" -> useVersion(catalogVersion("jdom2"))
-                "org.bitbucket.b_c:jose4j" -> useVersion(catalogVersion("jose4j"))
-                "org.apache.commons:commons-lang3" -> useVersion(catalogVersion("commonsLang3"))
-                "org.apache.httpcomponents:httpclient" -> useVersion(catalogVersion("httpclient"))
-                "org.jsoup:jsoup" -> useVersion(catalogVersion("jsoup"))
-                "org.jetbrains.kotlin:kotlin-gradle-plugin" -> useVersion(catalogVersion("kotlin"))
+                "org.jdom:jdom2" -> useVersion(CatalogVersions.requiredVersion("jdom2", rootDir))
+                "org.bitbucket.b_c:jose4j" -> useVersion(CatalogVersions.requiredVersion("jose4j", rootDir))
+                "org.apache.commons:commons-lang3" -> useVersion(CatalogVersions.requiredVersion("commonsLang3", rootDir))
+                "org.apache.httpcomponents:httpclient" -> useVersion(CatalogVersions.requiredVersion("httpclient", rootDir))
+                "org.jsoup:jsoup" -> useVersion(CatalogVersions.requiredVersion("jsoup", rootDir))
+                "org.jetbrains.kotlin:kotlin-gradle-plugin" -> useVersion(CatalogVersions.requiredVersion("kotlin", rootDir))
             }
         }
     }
