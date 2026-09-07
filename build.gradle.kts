@@ -26,28 +26,6 @@ val securityPatches: Action<DependencyResolveDetails> =
         }
     }
 
-// buildscript can't access the version catalog, so versions are duplicated here
-buildscript {
-    configurations.all {
-        resolutionStrategy.eachDependency {
-            when (requested.group) {
-                "io.netty" -> useVersion("4.1.137.Final")
-                "ch.qos.logback" -> useVersion("1.5.38")
-                "com.fasterxml.jackson.core" -> useVersion("2.18.10")
-                "org.bouncycastle" -> useVersion("1.85")
-            }
-            when ("${requested.group}:${requested.name}") {
-                "org.jdom:jdom2" -> useVersion("2.0.6.1")
-                "org.bitbucket.b_c:jose4j" -> useVersion("0.9.6")
-                "org.apache.commons:commons-lang3" -> useVersion("3.20.0")
-                "org.apache.httpcomponents:httpclient" -> useVersion("4.5.14")
-                "org.jsoup:jsoup" -> useVersion("1.23.1")
-                "org.jetbrains.kotlin:kotlin-gradle-plugin" -> useVersion("2.4.20")
-            }
-        }
-    }
-}
-
 allprojects {
     configurations.all {
         resolutionStrategy.eachDependency(securityPatches)

@@ -1,5 +1,14 @@
 pluginManagement {
-    val kotlinVersion = providers.gradleProperty("kotlin.version").get()
+    val kotlinVersion =
+        file("gradle/libs.versions.toml")
+            .readLines()
+            .asSequence()
+            .map { it.trimStart() }
+            .mapNotNull { line ->
+                Regex("""^kotlin\s*=\s*"([^"]+)"""").find(line)?.groupValues?.get(1)
+            }
+            .firstOrNull()
+            ?: error("Version 'kotlin' not found in gradle/libs.versions.toml")
     resolutionStrategy {
         eachPlugin {
             if (requested.id.id.startsWith("org.jetbrains.kotlin")) {
