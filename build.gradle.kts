@@ -1,3 +1,37 @@
+// buildscript configurations are separate from project configurations and cannot
+// read the version catalog, so mirror catalog-backed security patches here.
+buildscript {
+    fun catalogVersion(key: String): String =
+        file("gradle/libs.versions.toml")
+            .readLines()
+            .asSequence()
+            .map { it.trimStart() }
+            .mapNotNull { line ->
+                Regex("""^${Regex.escape(key)}\s*=\s*"([^"]+)"""").find(line)?.groupValues?.get(1)
+            }
+            .firstOrNull()
+            ?: error("Version '$key' not found in gradle/libs.versions.toml")
+
+    configurations.all {
+        resolutionStrategy.eachDependency {
+            when (requested.group) {
+                "io.netty" -> useVersion(catalogVersion("netty"))
+                "ch.qos.logback" -> useVersion(catalogVersion("logback"))
+                "com.fasterxml.jackson.core" -> useVersion(catalogVersion("jackson"))
+                "org.bouncycastle" -> useVersion(catalogVersion("bouncycastle"))
+            }
+            when ("${requested.group}:${requested.name}") {
+                "org.jdom:jdom2" -> useVersion(catalogVersion("jdom2"))
+                "org.bitbucket.b_c:jose4j" -> useVersion(catalogVersion("jose4j"))
+                "org.apache.commons:commons-lang3" -> useVersion(catalogVersion("commonsLang3"))
+                "org.apache.httpcomponents:httpclient" -> useVersion(catalogVersion("httpclient"))
+                "org.jsoup:jsoup" -> useVersion(catalogVersion("jsoup"))
+                "org.jetbrains.kotlin:kotlin-gradle-plugin" -> useVersion(catalogVersion("kotlin"))
+            }
+        }
+    }
+}
+
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.android.library)
