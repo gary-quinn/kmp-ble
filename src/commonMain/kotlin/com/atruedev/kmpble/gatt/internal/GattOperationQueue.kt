@@ -18,8 +18,10 @@ import kotlin.time.Duration.Companion.seconds
  * [drain] closes it. [Channel.trySend] on a closed channel fails atomically,
  * eliminating the TOCTOU window that a separate flag would introduce.
  *
- * [start], [drain], and [close] are confined to the owning peripheral's
- * serialized dispatcher (`limitedParallelism(1)`).
+ * [start] and [drain] are confined to the owning peripheral's serialized
+ * dispatcher (`limitedParallelism(1)`). [close] may be invoked from any
+ * teardown thread (e.g. ViewModel.onCleared() / deinit) and relies on
+ * [kotlinx.atomicfu.atomic] [inFlightJobs] for thread-safe cancellation.
  * [enqueue] reads the [kotlinx.atomicfu.atomic] [state] snapshot from any
  * coroutine context.
  *
@@ -155,7 +157,14 @@ internal class GattOperationQueue(
         cancelInFlight()
     }
 
-    /** Cancel any action currently running, e.g. when (re)connecting. */
+    /**
+     * Cancel any action currently running, e.g. when (re)connecting.
+     *
+     * A child job launched between [scope.launch] and [inFlightJobs] registration
+     * can be missed by [getAndSet]. Callers that own [scope] (e.g.
+     * [com.atruedev.kmpble.peripheral.internal.PeripheralContext.close]) must
+     * cancel the scope after [close] as the backstop.
+     */
     private fun cancelInFlight() {
         val jobs = inFlightJobs.getAndSet(emptySet())
         jobs.forEach { it.cancel() }

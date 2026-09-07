@@ -13,6 +13,9 @@ import org.junit.Test
  * Lincheck stress test for [GattOperationQueue] lifecycle operations.
  *
  * Tests only the non-suspend lifecycle methods: [start], [drain].
+ * [GattOperationQueue.close] is excluded from concurrent operations here;
+ * see [com.atruedev.kmpble.gatt.internal.GattOperationQueueConcurrencyTest]
+ * for cross-thread [close] vs in-flight [enqueue] cleanup coverage (#663).
  * The suspend [GattOperationQueue.enqueue] is excluded because Lincheck
  * controls threads, not coroutine dispatchers.
  *

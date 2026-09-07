@@ -6,6 +6,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
@@ -16,7 +17,10 @@ import kotlin.time.Duration.Companion.milliseconds
 class GattOperationQueueConcurrencyTest {
     @Test
     fun closeFromUnconfinedThreadRacesInFlightActionCleanup() {
-        repeat(1_000) {
+        // Assertion: completes without ConcurrentModificationException / corruption.
+        val iterations = 1_000
+        var completed = 0
+        repeat(iterations) {
             val job = SupervisorJob()
             val scope = CoroutineScope(job + Dispatchers.Default.limitedParallelism(1))
             val queue = GattOperationQueue(scope)
@@ -33,6 +37,8 @@ class GattOperationQueueConcurrencyTest {
             runBlocking { enqueueJob.join() }
             closeThread.join()
             job.cancel()
+            completed++
         }
+        assertEquals(iterations, completed)
     }
 }
