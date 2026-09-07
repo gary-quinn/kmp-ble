@@ -1,6 +1,7 @@
 package com.atruedev.kmpble.gatt.internal
 
 import kotlinx.atomicfu.atomic
+import kotlinx.atomicfu.update
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -17,8 +18,10 @@ import kotlin.time.Duration.Companion.seconds
  * [drain] closes it. [Channel.trySend] on a closed channel fails atomically,
  * eliminating the TOCTOU window that a separate flag would introduce.
  *
- * [start], [drain], and [close] are confined to the owning peripheral's
- * serialized dispatcher (`limitedParallelism(1)`).
+ * [start] and [drain] are confined to the owning peripheral's serialized
+ * dispatcher (`limitedParallelism(1)`). [close] may be invoked from any
+ * teardown thread (e.g. ViewModel.onCleared() / deinit) and relies on
+ * [kotlinx.atomicfu.atomic] [inFlightJobs] for thread-safe cancellation.
  * [enqueue] reads the [kotlinx.atomicfu.atomic] [state] snapshot from any
  * coroutine context.
  *
@@ -64,12 +67,11 @@ internal class GattOperationQueue(
         )
 
     /**
-     * Child jobs currently running an action. Confined to the serialized
-     * dispatcher like the drain loop itself. Tracked so [start] and [close]
-     * can cancel in-flight actions (a regression from running actions inline
-     * in the drain coroutine, where cancelling the drain cancelled the action).
+     * Child jobs currently running an action. Thread-safe via [atomic] so
+     * [start] and [close] can cancel in-flight actions from any thread while
+     * [enqueue]'s action closure updates the set on the queue scope.
      */
-    private val inFlightJobs = mutableSetOf<Job>()
+    private val inFlightJobs = atomic(emptySet<Job>())
 
     fun start(timeout: Duration? = null) {
         val prev = state.value
@@ -114,12 +116,12 @@ internal class GattOperationQueue(
                             }
                         }
                     entry.job.value = child
-                    inFlightJobs += child
+                    inFlightJobs.update { it + child }
                     // If the caller was cancelled while this action was queued but
                     // not yet started, kill it immediately.
                     if (entry.cancelled.value != null) child.cancel()
                     child.join()
-                    inFlightJobs -= child
+                    inFlightJobs.update { it - child }
                 },
                 cancel = { deferred.completeExceptionally(it) },
             )
@@ -155,10 +157,17 @@ internal class GattOperationQueue(
         cancelInFlight()
     }
 
-    /** Cancel any action currently running, e.g. when (re)connecting. */
+    /**
+     * Cancel any action currently running, e.g. when (re)connecting.
+     *
+     * A child job launched between [scope.launch] and [inFlightJobs] registration
+     * can be missed by [getAndSet]. Callers that own [scope] (e.g.
+     * [com.atruedev.kmpble.peripheral.internal.PeripheralContext.close]) must
+     * cancel the scope after [close] as the backstop.
+     */
     private fun cancelInFlight() {
-        inFlightJobs.forEach { it.cancel() }
-        inFlightJobs.clear()
+        val jobs = inFlightJobs.getAndSet(emptySet())
+        jobs.forEach { it.cancel() }
     }
 
     private fun drainChannel(ch: Channel<QueueEntry>) {
