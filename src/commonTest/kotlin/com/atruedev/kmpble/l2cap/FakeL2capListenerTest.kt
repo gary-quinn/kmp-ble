@@ -1,9 +1,15 @@
 package com.atruedev.kmpble.l2cap
 
+import com.atruedev.kmpble.l2cap.L2capChannel
+import com.atruedev.kmpble.l2cap.L2capChannelState
+import com.atruedev.kmpble.l2cap.L2capException
 import com.atruedev.kmpble.testing.FakeL2capListener
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.onSubscription
 import kotlinx.coroutines.flow.take
@@ -94,9 +100,15 @@ private class StubChannel(
 ) : L2capChannel {
     override val mtu: Int = 2048
     override val isOpen: Boolean = true
+    override val state = MutableStateFlow(L2capChannelState.Open).asStateFlow()
+    override val errors: Flow<com.atruedev.kmpble.l2cap.L2capChannelError> = emptyFlow()
     override val incoming: Flow<ByteArray> = flowOf()
 
     override suspend fun write(data: ByteArray) {}
 
     override fun close() {}
+
+    override suspend fun close(graceful: Boolean) {}
+
+    override suspend fun recover(): L2capChannel = throw L2capException.NotSupported()
 }

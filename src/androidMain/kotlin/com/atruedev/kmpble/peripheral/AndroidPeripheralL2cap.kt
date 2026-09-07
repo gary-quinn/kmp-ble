@@ -9,6 +9,7 @@ import com.atruedev.kmpble.l2cap.AndroidL2capChannel
 import com.atruedev.kmpble.l2cap.BluetoothL2capSocket
 import com.atruedev.kmpble.l2cap.L2capChannel
 import com.atruedev.kmpble.l2cap.L2capException
+import com.atruedev.kmpble.l2cap.internal.L2capRecoveryContext
 import com.atruedev.kmpble.logging.BleLogEvent
 import com.atruedev.kmpble.logging.logEvent
 import com.atruedev.kmpble.peripheral.state.State
@@ -84,7 +85,17 @@ internal suspend fun AndroidPeripheral.openL2capChannelInternal(
                 }
             }
 
-            val channel = AndroidL2capChannel(BluetoothL2capSocket(socket), psm, peripheralContext.scope)
+            val recovery =
+                L2capRecoveryContext(
+                    reopen = { openL2capChannelInternal(psm, secure, mtu) },
+                )
+            val channel =
+                AndroidL2capChannel(
+                    socket = BluetoothL2capSocket(socket),
+                    psm = psm,
+                    scope = peripheralContext.scope,
+                    recovery = recovery,
+                )
             activeL2capChannels.update { it + channel }
 
             peripheralContext.scope.launch {

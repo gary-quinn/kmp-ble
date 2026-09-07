@@ -1,6 +1,7 @@
 package com.atruedev.kmpble.l2cap
 
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.StateFlow
 
 /**
  * An L2CAP Connection-Oriented Channel for high-throughput streaming.
@@ -30,9 +31,35 @@ import kotlinx.coroutines.flow.Flow
  * ## Lifecycle
  *
  * - Channel is opened via [com.atruedev.kmpble.peripheral.Peripheral.openL2capChannel]
- * - Channel remains open until [close] is called or connection is lost
- * - If the peripheral disconnects, the channel closes automatically
- * - [incoming] flow completes when channel closes
+ * - [state] tracks [L2capChannelState] (Opening -> Open -> Closing -> Closed)
+ * - [errors] emits [L2capChannelError] when the peer drops or data arrives on a closed channel
+ * - Remote disconnect ends in [L2capChannelState.Closed]; subscribe to [errors] for the event
+ * - [recover] reopens client channels when the last close was due to a recoverable error
+ * - [incoming] completes normally when the channel closes (no exception)
+ *
+ * ## Recovery
+ *
+ * [recover] returns a **new** channel. Cancel collectors on the old channel, reassign
+ * your reference, and resubscribe to [errors] and [incoming] on the replacement:
+ *
+ * ```kotlin
+ * var channel = peripheral.openL2capChannel(psm = 0x25)
+ * var incomingJob = launch { channel.incoming.collect { process(it) } }
+ * launch {
+ *     channel.errors.collect { error ->
+ *         if (error is L2capChannelError.RemoteDisconnected && error.recoverable) {
+ *             incomingJob.cancel()
+ *             channel = channel.recover()
+ *             incomingJob = launch { channel.incoming.collect { process(it) } }
+ *             // This collector completes when the old channel closes; launch a new one on [channel].
+ *             launch { channel.errors.collect { /* handle errors on replacement channel */ } }
+ *         }
+ *     }
+ * }
+ * ```
+ *
+ * Eligibility for [recover] is tracked internally when a recoverable error closes the
+ * channel; you do not need to have collected the matching event from [errors] first.
  */
 public interface L2capChannel : AutoCloseable {
     /**
@@ -64,16 +91,25 @@ public interface L2capChannel : AutoCloseable {
     public val isOpen: Boolean
 
     /**
+     * Current channel lifecycle state.
+     */
+    public val state: StateFlow<L2capChannelState>
+
+    /**
+     * Structured recoverable and non-recoverable channel errors.
+     */
+    public val errors: Flow<L2capChannelError>
+
+    /**
      * Flow of incoming data from the remote device.
      *
      * - Emits [ByteArray] for each received packet
-     * - Completes normally when channel is closed (locally or remotely)
-     * - Completes with exception if channel encounters an error
+     * - Completes normally when the channel is closed (locally or remotely)
      *
-     * Backpressure: Buffered internally. If the collector is slow, the
-     * read loop suspends until the buffer has capacity, which in turn
-     * stops draining the OS stream buffer and triggers L2CAP flow control
-     * on the remote device.
+     * Backpressure: Buffered internally with suspend semantics. If the collector is slow,
+     * the read loop suspends until the buffer has capacity, which stops draining the OS
+     * stream buffer and triggers L2CAP flow control on the remote device. Packets are not
+     * dropped silently.
      */
     public val incoming: Flow<ByteArray>
 
@@ -87,7 +123,7 @@ public interface L2capChannel : AutoCloseable {
     public suspend fun write(data: ByteArray)
 
     /**
-     * Close the channel.
+     * Close the channel gracefully (flush pending writes).
      *
      * - Flushes any pending writes
      * - Closes underlying streams
@@ -97,4 +133,30 @@ public interface L2capChannel : AutoCloseable {
      * Safe to call multiple times.
      */
     override fun close()
+
+    /**
+     * Close the channel, optionally skipping the outbound flush.
+     *
+     * @param graceful When true, flush pending writes before tearing down streams.
+     */
+    public suspend fun close(graceful: Boolean)
+
+    /**
+     * Reopen this channel after a recoverable remote disconnect.
+     *
+     * Only available for channels opened via
+     * [com.atruedev.kmpble.peripheral.Peripheral.openL2capChannel] that reached
+     * [L2capChannelState.Closed] due to a recoverable [L2capChannelError]. Graceful
+     * [close] does not enable recovery. Server-side listener channels do not support recovery.
+     *
+     * Eligibility is tracked internally when a recoverable error closes the channel; you do
+     * not need to have collected the matching event from [errors] before calling [recover].
+     * See the class-level recovery example for canceling and resubscribing collectors on the
+     * replacement channel returned by this method.
+     *
+     * @return A new open channel to the same PSM with the same open parameters.
+     * @throws L2capException.NotSupported when recovery context is unavailable.
+     * @throws L2capException.InvalidState when the channel is not closed or was not recoverably closed.
+     */
+    public suspend fun recover(): L2capChannel
 }

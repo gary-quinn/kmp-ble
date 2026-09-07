@@ -2,20 +2,18 @@
 
 package com.atruedev.kmpble.l2cap
 
+import com.atruedev.kmpble.l2cap.internal.AbstractL2capChannel
+import com.atruedev.kmpble.l2cap.internal.L2capRecoveryContext
 import kotlinx.cinterop.UByteVar
 import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.reinterpret
 import kotlinx.cinterop.usePinned
-import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import platform.CoreBluetooth.CBL2CAPChannel
@@ -29,60 +27,49 @@ internal const val DEFAULT_L2CAP_MTU = 2048
 internal class IosL2capChannel(
     private val cbChannel: CBL2CAPChannel,
     private val scope: CoroutineScope,
-    override val mtu: Int,
-) : L2capChannel {
-    override val psm: Int = cbChannel.PSM.toInt()
-
-    private val _isOpen = MutableStateFlow(true)
-    override val isOpen: Boolean get() = _isOpen.value
-
-    private val dataChannel = Channel<ByteArray>(Channel.BUFFERED)
-    override val incoming: Flow<ByteArray> = dataChannel.receiveAsFlow()
-
-    private val closedSignal = CompletableDeferred<Unit>()
-
+    mtu: Int,
+    recovery: L2capRecoveryContext? = null,
+) : AbstractL2capChannel(
+        psm = cbChannel.PSM.toInt(),
+        mtu = mtu,
+        recovery = recovery,
+    ) {
     private val readJob: Job
 
-    internal suspend fun awaitClosed() = closedSignal.await()
-
     init {
-        // CoreBluetooth hands a CBL2CAPChannel to the central via
-        // peripheral(_:didOpen:error:) with its input and output NSStreams in
-        // NSStreamStatusNotOpen. Apple's BLE programming guide states the
-        // streams "must be opened by the application" before they become
-        // usable; CoreBluetooth itself does not open them, regardless of
-        // iOS version. Without this, the previous status check
-        // (streamStatus == NSStreamStatusOpen) always failed at init,
-        // closed the data channel, and made every L2CAP session emit zero
-        // bytes before reporting "channel ended".
-        //
-        // We don't schedule the streams in a run loop because readLoop polls
-        // hasBytesAvailable instead of relying on NSStreamDelegate events.
-        // Status transitions are observed via readLoop's existing
-        // AtEnd/Closed/Error checks.
         val inputStream = cbChannel.inputStream
         val outputStream = cbChannel.outputStream
         if (inputStream == null || outputStream == null) {
-            _isOpen.value = false
-            dataChannel.close()
+            readJob = Job().apply { complete() }
+            failWithSync(
+                L2capChannelError.ChannelOpenFailed(
+                    psm = psm,
+                    state = state.value,
+                    reason = "CoreBluetooth returned a channel without input or output streams",
+                ),
+            )
         } else {
             inputStream.open()
             outputStream.open()
+            readJob =
+                scope.launch(Dispatchers.Default) {
+                    readLoop()
+                }
         }
-
-        readJob =
-            scope.launch(Dispatchers.Default) {
-                readLoop()
-            }
     }
 
     private suspend fun readLoop() {
-        if (!_isOpen.value) return
+        markOpen()
 
         val inputStream =
             cbChannel.inputStream ?: run {
-                _isOpen.value = false
-                dataChannel.close()
+                failWithSync(
+                    L2capChannelError.ChannelOpenFailed(
+                        psm = psm,
+                        state = state.value,
+                        reason = "Input stream became unavailable after open",
+                    ),
+                )
                 return
             }
 
@@ -91,7 +78,7 @@ internal class IosL2capChannel(
         var consecutiveIdlePolls = 0
 
         try {
-            while (_isOpen.value) {
+            while (isOpen) {
                 coroutineContext.ensureActive()
                 val status = inputStream.streamStatus
                 if (status == NSStreamStatusAtEnd || status == NSStreamStatusClosed || status == NSStreamStatusError) {
@@ -108,8 +95,8 @@ internal class IosL2capChannel(
                                 ).toInt()
 
                         when {
-                            bytesRead > 0 -> dataChannel.send(buffer.copyOf(bytesRead))
-                            bytesRead < 0 -> return // Error or EOF - exit readLoop
+                            bytesRead > 0 -> deliverIncoming(buffer.copyOf(bytesRead))
+                            bytesRead < 0 -> return
                         }
                     }
                     consecutiveIdlePolls = 0
@@ -119,14 +106,19 @@ internal class IosL2capChannel(
                 }
             }
         } finally {
-            if (_isOpen.compareAndSet(expect = true, update = false)) {
-                finalizeClose()
+            if (isOpen && coroutineContext.isActive) {
+                failWithSync(
+                    L2capChannelError.RemoteDisconnected(
+                        psm = psm,
+                        state = state.value,
+                    ),
+                )
             }
         }
     }
 
     override suspend fun write(data: ByteArray) {
-        if (!_isOpen.value) {
+        if (!isOpen) {
             throw L2capException.ChannelClosed()
         }
 
@@ -138,7 +130,7 @@ internal class IosL2capChannel(
             data.usePinned { pinned ->
                 var totalWritten = 0
                 while (totalWritten < data.size) {
-                    if (!_isOpen.value) {
+                    if (!isOpen) {
                         throw L2capException.ChannelClosed("Channel closed during write")
                     }
 
@@ -164,19 +156,11 @@ internal class IosL2capChannel(
         }
     }
 
-    override fun close() {
-        if (!_isOpen.compareAndSet(expect = true, update = false)) return
+    override fun cancelReadJob() {
         readJob.cancel()
-        finalizeClose()
     }
 
-    private fun finalizeClose() {
-        closeStreams()
-        dataChannel.close()
-        closedSignal.complete(Unit)
-    }
-
-    private fun closeStreams() {
+    override fun tearDownTransport() {
         cbChannel.inputStream?.close()
         cbChannel.outputStream?.close()
     }
