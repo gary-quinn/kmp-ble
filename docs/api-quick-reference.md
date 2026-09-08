@@ -42,7 +42,7 @@ class MyApp : Application() {
 kotlin {
     sourceSets {
         commonMain.dependencies {
-            implementation("com.atruedev:kmp-ble:0.8.5")
+            implementation("com.atruedev:kmp-ble:0.13.3")
         }
     }
 }
@@ -1009,6 +1009,7 @@ BleLogConfig.logger = BleLogger { /* no-op */ }
 ## Related Documentation
 
 - [README](../README.md) - overview and setup
+- [Choosing your data layer](choosing-data-layer.md) - profiles vs codec vs raw ByteArray
 - [ARCHITECTURE.md](../ARCHITECTURE.md) - state machine, concurrency, design
 - [L2CAP Architecture](L2CAP.md) - L2CAP subsystem details
 - [Platform Setup: iOS](platform-setup-ios.md)

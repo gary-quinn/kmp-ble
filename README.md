@@ -10,21 +10,75 @@ Kotlin Multiplatform BLE library for Android and iOS.
 
 ## Modules
 
-| Module | Artifact | Description |
-|--------|----------|-------------|
-| **kmp-ble** | `com.atruedev:kmp-ble` | Core BLE - scanning, connecting, GATT read/write/observe, server, advertising |
-| **kmp-ble-profiles** | `com.atruedev:kmp-ble-profiles` | Type-safe GATT profile parsing (Heart Rate, Battery, Device Info, Blood Pressure, Glucose, CSC) |
-| **kmp-ble-dfu** | `com.atruedev:kmp-ble-dfu` | Firmware updates - Nordic Secure DFU, MCUboot SMP, Espressif ESP OTA - with auto-detection and progress tracking |
-| **kmp-ble-codec** | `com.atruedev:kmp-ble-codec` | Format-agnostic typed read/write via composable `BleEncoder`/`BleDecoder` |
-| **kmp-ble-codec-serialization** | `com.atruedev:kmp-ble-codec-serialization` | `kotlinx-serialization` adapters (CBOR) bridging `@Serializable` types to `BleCodec` |
+| Module | Description |
+|--------|-------------|
+| **kmp-ble** | Core BLE - scanning, connecting, GATT read/write/observe, server, advertising |
+| **kmp-ble-profiles** | Type-safe GATT profile parsing (Heart Rate, Battery, Device Info, Blood Pressure, Glucose, CSC) |
+| **kmp-ble-dfu** | Firmware updates - Nordic Secure DFU, MCUboot SMP, Espressif ESP OTA - with auto-detection and progress tracking |
+| **kmp-ble-codec** | Format-agnostic typed read/write via composable `BleEncoder`/`BleDecoder` |
+| **kmp-ble-codec-serialization** | `kotlinx-serialization` adapters (CBOR) bridging `@Serializable` types to `BleCodec` |
 
-## Distribution
+## Published artifacts
 
-From 0.12.0 onward only `kmp-ble` is published to Maven Central (plus
-`kmp-ble-quirks`, its transitive Android runtime dependency). The satellite
-modules above were last published at **0.11.2** and are no longer published
-as separate artifacts; their source remains in this monorepo. Pin `0.11.2`
-to keep using them as-is, or build them from source.
+These are the only modules published to Maven Central (see
+[`.github/workflows/publish.yml`](.github/workflows/publish.yml)). Copy-paste
+coordinates from here or [Setup](#setup) below - they match Central.
+
+| Artifact | Gradle coordinate | Notes |
+|----------|-------------------|-------|
+| Core | `com.atruedev:kmp-ble:0.13.3` | Required for all apps |
+| Android quirks | `com.atruedev:kmp-ble-quirks:0.13.3` | Transitive on Android via `kmp-ble`; rarely declared directly |
+
+Satellite modules (`kmp-ble-profiles`, `kmp-ble-dfu`, `kmp-ble-codec`,
+`kmp-ble-codec-serialization`) were last published at **0.11.2**. From
+**0.12.0** onward they are source-only in this monorepo.
+
+## Build from source (extension modules)
+
+To use profiles, DFU, or codec modules on current `main`, build them from this
+repo instead of Maven Central.
+
+**Option A - monorepo / composite build** (consumer in another repo):
+
+```kotlin
+// settings.gradle.kts
+includeBuild("../kmp-ble") {
+    dependencySubstitution {
+        substitute(module("com.atruedev:kmp-ble-profiles"))
+            .using(project(":kmp-ble-profiles"))
+        substitute(module("com.atruedev:kmp-ble-dfu"))
+            .using(project(":kmp-ble-dfu"))
+        substitute(module("com.atruedev:kmp-ble-codec"))
+            .using(project(":kmp-ble-codec"))
+        substitute(module("com.atruedev:kmp-ble-codec-serialization"))
+            .using(project(":kmp-ble-codec-serialization"))
+    }
+}
+```
+
+Then depend on Maven-style coordinates as usual:
+
+```kotlin
+commonMain.dependencies {
+    implementation("com.atruedev:kmp-ble:0.13.3") // from Central
+    implementation("com.atruedev:kmp-ble-profiles") // resolved to local project
+}
+```
+
+**Option B - same Gradle build** (you cloned or vendored this repo):
+
+```kotlin
+// settings.gradle.kts
+include(":kmp-ble-profiles")
+
+// build.gradle.kts
+commonMain.dependencies {
+    implementation(project(":kmp-ble-profiles"))
+}
+```
+
+Pin `com.atruedev:kmp-ble-*:0.11.2` on Maven Central only if you need the last
+pre-monolith published artifacts without building from source.
 
 ## Setup
 
@@ -141,8 +195,9 @@ peripheral.close() // or use peripheral.use { ... }
 
 ### Profiles (kmp-ble-profiles)
 
-*Requires the `kmp-ble-profiles` artifact (last published 0.11.2, see
-[Distribution](#distribution) above).*
+*Requires the `kmp-ble-profiles` module - build from source (see
+[Build from source](#build-from-source-extension-modules)); last Maven artifact
+was 0.11.2.*
 
 Type-safe GATT profile parsing via Peripheral extension functions:
 
@@ -168,8 +223,9 @@ Supported profiles: Heart Rate, Battery, Device Information, Blood Pressure, Glu
 
 ### Codec (kmp-ble-codec)
 
-*Requires the `kmp-ble-codec` artifact (last published 0.11.2, see
-[Distribution](#distribution) above).*
+*Requires the `kmp-ble-codec` module - build from source (see
+[Build from source](#build-from-source-extension-modules)); last Maven artifact
+was 0.11.2.*
 
 Typed read/write with composable decoders:
 
@@ -195,8 +251,9 @@ val FormattedTemp = TemperatureDecoder.map { "%.1f°C".format(it) }
 
 ### Serialization codec (kmp-ble-codec-serialization)
 
-*Requires the `kmp-ble-codec-serialization` artifact (last published 0.11.2,
-see [Distribution](#distribution) above).*
+*Requires the `kmp-ble-codec-serialization` module - build from source (see
+[Build from source](#build-from-source-extension-modules)); last Maven artifact
+was 0.11.2.*
 
 CBOR adapters via `kotlinx-serialization`. Bridge `@Serializable` types to the
 `BleCodec` surface so they slot into framed L2CAP streams or characteristic
@@ -215,8 +272,9 @@ l2cap.framedIncoming(codec).collect { reading -> render(reading) }
 
 ### DFU (kmp-ble-dfu)
 
-*Requires the `kmp-ble-dfu` artifact (last published 0.11.2, see
-[Distribution](#distribution) above).*
+*Requires the `kmp-ble-dfu` module - build from source (see
+[Build from source](#build-from-source-extension-modules)); last Maven artifact
+was 0.11.2.*
 
 Firmware updates supporting Nordic Secure DFU, MCUboot SMP (Zephyr/Mynewt), and Espressif ESP OTA:
 
@@ -435,6 +493,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for design details and [STREAMS.md](STREA
 
 ## Documentation
 
+- [Choosing your data layer](docs/choosing-data-layer.md) -- profiles vs codec vs raw ByteArray
 - [API Quick Reference](docs/api-quick-reference.md) -- copy-paste-ready snippets for common BLE workflows
 - [Platform Setup: iOS](docs/platform-setup-ios.md) -- Info.plist keys, background modes, entitlements
 - [Platform Setup: Android](docs/platform-setup-android.md) -- manifest permissions, runtime permission flow, location
