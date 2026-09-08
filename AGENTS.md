@@ -33,3 +33,7 @@ on your build, install one of those.
 Conventional Commits, strictly. Type prefix on both branch name and commit
 subject. Allowed types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`,
 `test`, `build`, `ci`, `chore`, `revert`.
+
+## Verification-first
+
+Before marking work done, follow [ADR-0002](docs/adr/ADR-0002-verification-first-agent-assisted-development.md) and run the commands in [docs/verification/matrix.md](docs/verification/matrix.md) for every surface you touched. Attach evidence. Do not mark done on compile-only when behavior changed. Physical BLE E2E is human-only (`TESTING.md`). Agents do not edit `.github/workflows/**` without human review.
