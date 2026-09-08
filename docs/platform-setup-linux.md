@@ -33,12 +33,12 @@ BlueZ D-Bus dependencies are pulled automatically for the JVM source set.
 |-------------|-------------|
 | `BlueZScanner { }` | **Recommended** on Linux with BlueZ |
 | `Scanner { }` | Throws on CI/headless JVM by default |
-| `Scanner { }` + `-Dkmpble.bluez.enabled=true` | Opt-in alias when BlueZ is available |
+| `Scanner { }` + `-Dkmpble.bluez.enabled=true` | Opt-in alias; constructs `BlueZScanner` without probing D-Bus first (failures at collect time) |
 | `FakeScanner { }` | Unit tests and CI (no hardware) |
 
 Optional system properties:
 
-- `kmpble.bluez.enabled=true` - allow portable `Scanner { }` to delegate to BlueZ
+- `kmpble.bluez.enabled=true` - allow portable `Scanner { }` to delegate to `BlueZScanner` (lazy; no adapter probe at construction)
 - `kmpble.bluez.adapter=hci0` - choose adapter by name or MAC (default: first adapter)
 
 ## Quick scan sample
@@ -93,7 +93,14 @@ Run with Gradle:
 | `UnsupportedOperationException` from `Scanner { }` | Expected on CI / without opt-in | Use `BlueZScanner { }` or set `kmpble.bluez.enabled` |
 | `ScanEvent.Failed` / D-Bus error | `bluetoothd` not running or no D-Bus permission | `sudo systemctl start bluetooth`; add user to `bluetooth` group |
 | No devices despite hardware | Adapter powered off | `bluetoothctl power on` |
-| Empty scan | Non-Linux host or no LE devices nearby | Confirm `BlueZ.isAvailable()` on target hardware |
+| Empty scan on hardware | Filter rejected or no LE devices nearby | Check logs for `SetDiscoveryFilter` warnings; confirm devices advertising nearby |
+
+### SetDiscoveryFilter behavior
+
+`BlueZScanner` calls `Adapter1.SetDiscoveryFilter` with `Transport=le` before
+`StartDiscovery`. If the filter call fails, a `BleLogEvent.Warning` is emitted and
+scanning continues with adapter defaults. Set `BleLogConfig.logger` to surface warnings.
+StartDiscovery does not depend on a successful filter on typical BlueZ builds.
 
 ## CI note
 

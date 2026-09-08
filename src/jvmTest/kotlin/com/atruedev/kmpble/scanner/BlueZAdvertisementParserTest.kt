@@ -85,7 +85,7 @@ class BlueZAdvertisementParserTest {
     }
 
     @Test
-    fun connectableWhenNoFlagsDefaultsTrue() {
+    fun connectableWhenNoFlagsDefaultsFalse() {
         val snapshot =
             BlueZDeviceSnapshot(
                 dbusPath = "/org/bluez/hci0/dev_AA_BB_CC_DD_EE_FF",
@@ -99,7 +99,7 @@ class BlueZAdvertisementParserTest {
                 advertisingFlags = null,
             )
 
-        assertTrue(snapshot.toAdvertisement().isConnectable)
+        assertFalse(snapshot.toAdvertisement().isConnectable)
     }
 
     @Test

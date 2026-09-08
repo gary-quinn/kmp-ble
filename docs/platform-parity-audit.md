@@ -121,16 +121,17 @@
 
 | Feature | Status |
 |---------|--------|
-| Scanner | Android + iOS + JVM (Linux BlueZ M1) | Both mobile + `BlueZScanner` on Linux JVM |
-| Peripheral | Both: Peripheral, Connection, GattHandler, Internal, L2cap, GattStatusMapper, PeripheralFactory |
-| Server | Both: GattServer, Advertiser, ExtendedAdvertiser, GattServerFactory |
-| L2CAP | Both: Channel, Listener, ListenerFactory |
-| Adapter | Both: BluetoothAdapter, AdapterFactory |
-| Permissions | Both: BlePermissions |
-| State restoration | Both: StateRestorationApi |
-| LE Audio (ISO) | Both: IsochronousListenerFactory (stub on both platforms) |
-| Cache | Both: GattCache (new in #279) |
-| Observation persistence | Both: ObservationPersistence |
+| Scanner (mobile) | Android + iOS full parity |
+| Scanner (JVM) | **Partial M1:** LE scan via `BlueZScanner` on Linux only; not parity with Android/iOS |
+| Peripheral | Android + iOS only (JVM unsupported) |
+| Server | Android + iOS only (JVM unsupported) |
+| L2CAP | Android + iOS |
+| Adapter | Android + iOS |
+| Permissions | Android + iOS |
+| State restoration | Android + iOS |
+| LE Audio (ISO) | Android + iOS stub |
+| Cache | Android + iOS |
+| Observation persistence | Android + iOS |
 
 ## Recommendations
 

@@ -24,6 +24,9 @@ public object BlueZ {
     /**
      * Best-effort probe: Linux + system D-Bus + at least one BlueZ adapter object.
      * Safe to call on CI; returns false when BlueZ is absent.
+     *
+     * Intended for app startup checks, not the [Scanner] factory hot path (use lazy
+     * [BlueZScanner] construction instead).
      */
     public fun isAvailable(): Boolean {
         if (!isLinux()) return false

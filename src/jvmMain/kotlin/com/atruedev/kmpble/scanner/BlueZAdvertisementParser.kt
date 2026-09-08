@@ -12,11 +12,12 @@ import kotlin.uuid.Uuid
  * Maps BlueZ device properties to kmp-ble [Advertisement] values.
  */
 @OptIn(ExperimentalUuidApi::class)
-internal fun BlueZDeviceSnapshot.toAdvertisement(): Advertisement =
-    Advertisement(
+internal fun BlueZDeviceSnapshot.toAdvertisement(): Advertisement {
+    val signalStrength = checkNotNull(rssi) { "BlueZDeviceSnapshot.rssi is required for Advertisement mapping" }
+    return Advertisement(
         identifier = Identifier(address),
         name = name,
-        rssi = rssi ?: Int.MIN_VALUE,
+        rssi = signalStrength,
         txPower = txPower,
         isConnectable = isConnectableFromFlags(advertisingFlags),
         serviceUuids = serviceUuids.mapNotNull { runCatching { Uuid.parse(it) }.getOrNull() },
@@ -30,6 +31,7 @@ internal fun BlueZDeviceSnapshot.toAdvertisement(): Advertisement =
         isLegacy = true,
         rawAdvertising = null,
     ).also { it.platformContext = dbusPath }
+}
 
 internal fun BluetoothDevice.toSnapshot(): BlueZDeviceSnapshot? {
     val address = address ?: return null
@@ -83,9 +85,7 @@ internal fun snapshotFromChangedProperties(
 
 private fun isConnectableFromFlags(flags: ByteArray?): Boolean {
     if (flags == null || flags.isEmpty()) {
-        // BlueZ does not expose connectable for every discovery path; assume connectable until
-        // M3 adds richer AD parsing.
-        return true
+        return false
     }
     val flagByte = flags[0].toInt() and 0xFF
     // Flags AD: general/limited discoverable usually implies a connectable undirected event.
