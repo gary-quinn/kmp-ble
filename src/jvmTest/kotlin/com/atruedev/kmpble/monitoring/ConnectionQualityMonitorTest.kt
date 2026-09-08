@@ -1,6 +1,7 @@
 package com.atruedev.kmpble.monitoring
 
 import com.atruedev.kmpble.connection.ConnectionOptions
+import com.atruedev.kmpble.connection.OperationTimeouts
 import com.atruedev.kmpble.testing.FakePeripheralBuilder
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -44,7 +45,7 @@ class ConnectionQualityMonitorTest {
             val monitor = ConnectionQualityMonitor(peripheral, backgroundScope)
             monitor.start()
 
-            peripheral.connect(ConnectionOptions())
+            peripheral.connect(ConnectionOptions(timeouts = OperationTimeouts()))
             // connect() completes synchronously on real dispatchers;
             // process any pending test-dispatcher tasks to let the collector run
             scheduler.runCurrent()
@@ -67,7 +68,7 @@ class ConnectionQualityMonitorTest {
             val monitor = ConnectionQualityMonitor(peripheral, backgroundScope)
             monitor.start()
 
-            peripheral.connect(ConnectionOptions())
+            peripheral.connect(ConnectionOptions(timeouts = OperationTimeouts()))
             scheduler.runCurrent()
             peripheral.disconnect()
             scheduler.runCurrent()
@@ -91,12 +92,12 @@ class ConnectionQualityMonitorTest {
             val monitor = ConnectionQualityMonitor(peripheral, backgroundScope)
             monitor.start()
 
-            peripheral.connect(ConnectionOptions())
+            peripheral.connect(ConnectionOptions(timeouts = OperationTimeouts()))
             scheduler.runCurrent()
             peripheral.disconnect()
             scheduler.runCurrent()
 
-            peripheral.connect(ConnectionOptions())
+            peripheral.connect(ConnectionOptions(timeouts = OperationTimeouts()))
             scheduler.runCurrent()
 
             val quality = monitor.connectionQuality.value
@@ -139,7 +140,7 @@ class ConnectionQualityMonitorTest {
             monitor.start()
             monitor.start()
 
-            peripheral.connect(ConnectionOptions())
+            peripheral.connect(ConnectionOptions(timeouts = OperationTimeouts()))
             scheduler.runCurrent()
 
             assertEquals(1, monitor.connectionQuality.value.totalConnections)
@@ -158,17 +159,17 @@ class ConnectionQualityMonitorTest {
             val monitor = ConnectionQualityMonitor(peripheral, backgroundScope)
             monitor.start()
 
-            peripheral.connect(ConnectionOptions())
+            peripheral.connect(ConnectionOptions(timeouts = OperationTimeouts()))
             scheduler.runCurrent()
             peripheral.disconnect()
             scheduler.runCurrent()
 
-            peripheral.connect(ConnectionOptions())
+            peripheral.connect(ConnectionOptions(timeouts = OperationTimeouts()))
             scheduler.runCurrent()
             peripheral.disconnect()
             scheduler.runCurrent()
 
-            peripheral.connect(ConnectionOptions())
+            peripheral.connect(ConnectionOptions(timeouts = OperationTimeouts()))
             scheduler.runCurrent()
 
             val quality = monitor.connectionQuality.value
@@ -195,7 +196,7 @@ class ConnectionQualityMonitorTest {
             assertEquals(-80, monitor.connectionQuality.value.lastRssi)
             assertFalse(monitor.connectionQuality.value.isConnected)
 
-            peripheral.connect(ConnectionOptions())
+            peripheral.connect(ConnectionOptions(timeouts = OperationTimeouts()))
             scheduler.runCurrent()
             assertEquals(-80, monitor.connectionQuality.value.lastRssi)
             assertTrue(monitor.connectionQuality.value.isConnected)
@@ -214,7 +215,7 @@ class ConnectionQualityMonitorTest {
             val monitor = ConnectionQualityMonitor(peripheral, backgroundScope)
             monitor.start()
 
-            peripheral.connect(ConnectionOptions())
+            peripheral.connect(ConnectionOptions(timeouts = OperationTimeouts()))
             scheduler.runCurrent()
             assertEquals(1, monitor.connectionQuality.value.totalConnections)
 

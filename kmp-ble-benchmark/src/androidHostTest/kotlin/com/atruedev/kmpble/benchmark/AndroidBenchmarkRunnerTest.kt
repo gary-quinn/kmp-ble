@@ -2,6 +2,7 @@ package com.atruedev.kmpble.benchmark
 
 import com.atruedev.kmpble.ExperimentalBleApi
 import com.atruedev.kmpble.connection.ConnectionOptions
+import com.atruedev.kmpble.connection.OperationTimeouts
 import com.atruedev.kmpble.gatt.WriteType
 import com.atruedev.kmpble.scanner.uuidFrom
 import com.atruedev.kmpble.testing.FakeL2capChannel
@@ -38,7 +39,11 @@ class AndroidBenchmarkRunnerTest {
                     }.build()
 
             // Connect
-            val connResult = benchmark.benchmarkConnection(peripheral, ConnectionOptions())
+            val connResult =
+                benchmark.benchmarkConnection(
+                    peripheral,
+                    ConnectionOptions(timeouts = OperationTimeouts()),
+                )
             assertTrue(connResult.success, "Connect failed: ${connResult.errorMessage}")
 
             // Discover

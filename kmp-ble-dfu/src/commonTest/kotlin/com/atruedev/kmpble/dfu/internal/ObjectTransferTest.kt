@@ -158,6 +158,6 @@ class ObjectTransferTest {
         val error = assertFailsWith<DfuError.ProtocolError> {
             transfer.select(DfuObjectType.COMMAND)
         }
-        assertContains(error.message!!, "Signature missing")
+        assertContains(error.message, "Signature missing")
     }
 }

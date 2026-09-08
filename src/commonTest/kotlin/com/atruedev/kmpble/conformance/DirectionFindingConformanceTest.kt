@@ -1,3 +1,5 @@
+@file:OptIn(com.atruedev.kmpble.ExperimentalBleApi::class)
+
 package com.atruedev.kmpble.conformance
 
 import com.atruedev.kmpble.direction.AntennaConfig
@@ -362,8 +364,9 @@ public abstract class DirectionFindingConformanceTest {
                         antennaConfig = AntennaConfig(listOf(1, 2), 2),
                     ),
                 )
-            assertIs<DirectionFindingResult.Failed>(result)
-            assertEquals("simulated failure", (result as DirectionFindingResult.Failed).reason)
+            assertIs<DirectionFindingResult.Failed>(result).also { failed ->
+                assertEquals("simulated failure", failed.reason)
+            }
             peripheral.close()
         }
 

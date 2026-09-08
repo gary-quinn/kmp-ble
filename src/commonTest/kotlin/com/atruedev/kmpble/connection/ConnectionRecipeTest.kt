@@ -29,13 +29,13 @@ class ConnectionRecipeTest {
             ConnectionOptions(timeouts = OperationTimeouts(connect = (-1).seconds))
         }
         assertFailsWith<IllegalArgumentException> {
-            ConnectionOptions(gattOperationTimeout = Duration.ZERO)
+            ConnectionOptions(timeouts = OperationTimeouts(), gattOperationTimeout = Duration.ZERO)
         }
         assertFailsWith<IllegalArgumentException> {
-            ConnectionOptions(gattOperationTimeout = (-1).seconds)
+            ConnectionOptions(timeouts = OperationTimeouts(), gattOperationTimeout = (-1).seconds)
         }
         assertFailsWith<IllegalArgumentException> {
-            ConnectionOptions(gattOperationTimeout = Duration.INFINITE)
+            ConnectionOptions(timeouts = OperationTimeouts(), gattOperationTimeout = Duration.INFINITE)
         }
     }
 

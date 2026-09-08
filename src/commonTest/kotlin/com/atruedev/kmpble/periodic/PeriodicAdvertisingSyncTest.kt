@@ -1,3 +1,5 @@
+@file:OptIn(com.atruedev.kmpble.ExperimentalBleApi::class)
+
 package com.atruedev.kmpble.periodic
 
 import com.atruedev.kmpble.Identifier
@@ -12,6 +14,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
+import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
@@ -189,8 +192,7 @@ class PeriodicAdvertisingSyncTest {
     @Test
     fun `chronous exception hierarchy`() {
         val notSupported = PastException.NotSupported()
-        assertTrue(notSupported is PastException)
-        assertTrue(notSupported is Exception)
+        assertIs<PastException>(notSupported)
 
         val syncFailed = PastException.SyncFailed("test", RuntimeException("cause"))
         assertEquals("Periodic advertising sync lost: test", syncFailed.message)

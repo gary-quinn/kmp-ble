@@ -1,6 +1,7 @@
 package com.atruedev.kmpble.monitoring
 
 import com.atruedev.kmpble.connection.ConnectionOptions
+import com.atruedev.kmpble.connection.OperationTimeouts
 import com.atruedev.kmpble.testing.FakePeripheralBuilder
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -91,7 +92,7 @@ class PowerMonitorTest {
             val monitor = PowerMonitor(peripheral, backgroundScope)
             monitor.start()
 
-            peripheral.connect(ConnectionOptions())
+            peripheral.connect(ConnectionOptions(timeouts = OperationTimeouts()))
             scheduler.runCurrent()
 
             monitor.recordRssi(-55)
@@ -119,7 +120,7 @@ class PowerMonitorTest {
             monitor.start()
             monitor.start()
 
-            peripheral.connect(ConnectionOptions())
+            peripheral.connect(ConnectionOptions(timeouts = OperationTimeouts()))
             scheduler.runCurrent()
 
             monitor.recordRssi(-55)
@@ -139,7 +140,7 @@ class PowerMonitorTest {
             val monitor = PowerMonitor(peripheral, backgroundScope)
             monitor.start()
 
-            peripheral.connect(ConnectionOptions())
+            peripheral.connect(ConnectionOptions(timeouts = OperationTimeouts()))
             scheduler.runCurrent()
             monitor.recordRssi(-55)
             assertNotNull(monitor.pathLoss.value)
@@ -181,7 +182,7 @@ class PowerMonitorTest {
             val monitor = PowerMonitor(peripheral, backgroundScope)
             monitor.start()
 
-            peripheral.connect(ConnectionOptions())
+            peripheral.connect(ConnectionOptions(timeouts = OperationTimeouts()))
             scheduler.runCurrent()
             monitor.recordRssi(-50)
             assertNotNull(monitor.pathLoss.value)
@@ -194,7 +195,7 @@ class PowerMonitorTest {
 
             // Restart
             monitor.start()
-            peripheral.connect(ConnectionOptions())
+            peripheral.connect(ConnectionOptions(timeouts = OperationTimeouts()))
             scheduler.runCurrent()
             monitor.recordRssi(-60)
             assertEquals(60, monitor.pathLoss.value!!.pathLoss)
@@ -287,7 +288,7 @@ class PowerMonitorTest {
             val monitor = PowerMonitor(peripheral, backgroundScope)
             monitor.start()
 
-            peripheral.connect(ConnectionOptions())
+            peripheral.connect(ConnectionOptions(timeouts = OperationTimeouts()))
             scheduler.runCurrent()
 
             // Rapid fire multiple readings
@@ -315,7 +316,7 @@ class PowerMonitorTest {
             val monitor = PowerMonitor(peripheral, backgroundScope)
             monitor.start()
 
-            peripheral.connect(ConnectionOptions())
+            peripheral.connect(ConnectionOptions(timeouts = OperationTimeouts()))
             scheduler.runCurrent()
             monitor.recordRssi(-45)
             assertNotNull(monitor.pathLoss.value)

@@ -1,6 +1,7 @@
 package com.atruedev.kmpble.conformance
 
 import com.atruedev.kmpble.connection.ConnectionOptions
+import com.atruedev.kmpble.connection.OperationTimeouts
 import com.atruedev.kmpble.gatt.BackpressureStrategy
 import com.atruedev.kmpble.gatt.Observation
 import com.atruedev.kmpble.gatt.WriteType
@@ -35,7 +36,7 @@ public abstract class GattConformanceTest : BleConformanceTest() {
                     }
                 }
 
-            peripheral.connect(ConnectionOptions())
+            peripheral.connect(ConnectionOptions(timeouts = OperationTimeouts()))
             val services = peripheral.refreshServices()
 
             assertEquals(2, services.size, "Should discover both configured services")
@@ -64,7 +65,7 @@ public abstract class GattConformanceTest : BleConformanceTest() {
                     }
                 }
 
-            peripheral.connect(ConnectionOptions())
+            peripheral.connect(ConnectionOptions(timeouts = OperationTimeouts()))
             peripheral.refreshServices()
             val char =
                 peripheral.services.value!!
@@ -89,7 +90,7 @@ public abstract class GattConformanceTest : BleConformanceTest() {
                     }
                 }
 
-            peripheral.connect(ConnectionOptions())
+            peripheral.connect(ConnectionOptions(timeouts = OperationTimeouts()))
             peripheral.refreshServices()
             val char =
                 peripheral.services.value!!
@@ -114,7 +115,7 @@ public abstract class GattConformanceTest : BleConformanceTest() {
                     }
                 }
 
-            peripheral.connect(ConnectionOptions())
+            peripheral.connect(ConnectionOptions(timeouts = OperationTimeouts()))
             scheduler.runCurrent()
             peripheral.refreshServices()
             val char =

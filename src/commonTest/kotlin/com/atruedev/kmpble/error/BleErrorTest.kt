@@ -4,6 +4,7 @@ import com.atruedev.kmpble.error.StaleGattHandle
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
 class BleErrorTest {
@@ -40,20 +41,19 @@ class BleErrorTest {
 
     @Test
     fun staleGattHandleImplementsGattOperationError() {
-        val error =
+        val error: BleError =
             StaleGattHandle(
                 "characteristic",
                 "00002a19-0000-1000-8000-00805f9b34fb",
             )
-        // StaleGattHandle implements GattOperationError via sealed interface hierarchy
-        assertEquals(true, error is GattOperationError)
+        assertIs<GattOperationError>(error)
     }
 
     @Test
     fun serviceDiscoveryErrorImplementsGattOperationError() {
-        val error = ServiceDiscoveryError(status = GattStatus.Failure)
-        assertEquals(true, error is GattOperationError)
-        assertEquals(true, error is BleError)
+        val error: BleError = ServiceDiscoveryError(status = GattStatus.Failure)
+        assertIs<GattOperationError>(error)
+        assertIs<BleError>(error)
     }
 
     @Test
@@ -72,7 +72,7 @@ class BleErrorTest {
                 operation = "read",
                 status = GattStatus.ReadNotPermitted,
             )
-        assertEquals(true, error is GattOperationError)
+        assertIs<GattOperationError>(error as BleError)
         assertEquals("00002a37-0000-1000-8000-00805f9b34fb", error.charUuid)
         assertEquals("read", error.operation)
         assertEquals(GattStatus.ReadNotPermitted, error.status)

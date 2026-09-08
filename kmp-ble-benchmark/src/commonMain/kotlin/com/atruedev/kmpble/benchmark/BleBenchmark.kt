@@ -2,6 +2,7 @@ package com.atruedev.kmpble.benchmark
 
 import com.atruedev.kmpble.ExperimentalBleApi
 import com.atruedev.kmpble.connection.ConnectionOptions
+import com.atruedev.kmpble.connection.OperationTimeouts
 import com.atruedev.kmpble.gatt.Characteristic
 import com.atruedev.kmpble.gatt.DiscoveredService
 import com.atruedev.kmpble.gatt.WriteType
@@ -62,7 +63,7 @@ public class BleBenchmark(
      */
     public suspend fun benchmarkConnection(
         peripheral: Peripheral,
-        options: ConnectionOptions = ConnectionOptions(),
+        options: ConnectionOptions = ConnectionOptions(timeouts = OperationTimeouts()),
     ): BenchmarkResult =
         benchmarkTimed("Connection failed") {
             peripheral.connect(options)

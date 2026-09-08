@@ -1,3 +1,5 @@
+@file:OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+
 package com.atruedev.kmpble.connection.internal
 
 import com.atruedev.kmpble.connection.RetryPolicy

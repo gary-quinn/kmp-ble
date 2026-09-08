@@ -12,6 +12,7 @@ import com.atruedev.kmpble.connection.ConnectionSubratingParameters
 import com.atruedev.kmpble.connection.ConnectionSubratingResult
 import com.atruedev.kmpble.connection.DataLengthParameters
 import com.atruedev.kmpble.connection.EncryptionLevel
+import com.atruedev.kmpble.connection.OperationTimeouts
 import com.atruedev.kmpble.connection.Phy
 import com.atruedev.kmpble.connection.PhyUpdate
 import com.atruedev.kmpble.direction.DirectionFindingParameters
@@ -36,7 +37,7 @@ public interface Peripheral : AutoCloseable {
     public val identifier: Identifier
 
     // --- Connection ---
-    public suspend fun connect(options: ConnectionOptions = ConnectionOptions())
+    public suspend fun connect(options: ConnectionOptions = ConnectionOptions(timeouts = OperationTimeouts()))
 
     public suspend fun disconnect()
 

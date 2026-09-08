@@ -2,6 +2,7 @@ package com.atruedev.kmpble.peripheral
 
 import com.atruedev.kmpble.Identifier
 import com.atruedev.kmpble.connection.ConnectionOptions
+import com.atruedev.kmpble.connection.OperationTimeouts
 import com.atruedev.kmpble.gatt.BackpressureStrategy
 import com.atruedev.kmpble.gatt.Observation
 import com.atruedev.kmpble.peripheral.state.State
@@ -62,7 +63,7 @@ class BleIntegrationJvmTest {
             assertEquals("AA:BB:CC:DD:EE:FF", found.advertisement.identifier.value)
 
             // === STEP 2: CONNECT ===
-            peripheral.connect(ConnectionOptions())
+            peripheral.connect(ConnectionOptions(timeouts = OperationTimeouts()))
             assertNotNull(peripheral.services.value)
 
             // === STEP 3: DISCOVER SERVICES ===
@@ -154,7 +155,7 @@ class BleIntegrationJvmTest {
                         }
                     }.build()
 
-            peripheral.connect(ConnectionOptions())
+            peripheral.connect(ConnectionOptions(timeouts = OperationTimeouts()))
             val char =
                 peripheral.services.value!!
                     .first { it.uuid.toString() == "0000180a-0000-1000-8000-00805f9b34fb" }

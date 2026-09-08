@@ -1,6 +1,7 @@
 package com.atruedev.kmpble.peripheral
 
 import com.atruedev.kmpble.connection.ConnectionOptions
+import com.atruedev.kmpble.connection.OperationTimeouts
 import com.atruedev.kmpble.connection.PhyMask
 import com.atruedev.kmpble.peripheral.state.State
 import com.atruedev.kmpble.testing.FakePeripheral
@@ -9,6 +10,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 /**
@@ -69,8 +71,9 @@ class ReconnectTest {
             peripheral.reconnect()
 
             val services = peripheral.services.value
-            assertTrue(services?.isNotEmpty() == true)
-            assertEquals(2, services?.size)
+            assertNotNull(services)
+            assertTrue(services.isNotEmpty())
+            assertEquals(2, services.size)
             peripheral.disconnect()
         }
 
@@ -97,6 +100,7 @@ class ReconnectTest {
         runTest {
             val options =
                 ConnectionOptions(
+                    timeouts = OperationTimeouts(),
                     autoConnect = false,
                     phyMask = PhyMask.LE_2M,
                     mtuRequest = 185,

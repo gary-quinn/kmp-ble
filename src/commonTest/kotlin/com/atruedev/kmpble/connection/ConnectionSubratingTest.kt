@@ -1,3 +1,5 @@
+@file:OptIn(com.atruedev.kmpble.ExperimentalBleApi::class)
+
 package com.atruedev.kmpble.connection
 
 import com.atruedev.kmpble.testing.FakePeripheral

@@ -131,7 +131,7 @@ public data class ConnectionOptions(
      * informational only.
      *
      * ```kotlin
-     * val options = ConnectionOptions(autoConnect = true, mtuRequest = 600)
+     * val options = ConnectionOptions(timeouts = OperationTimeouts(), autoConnect = true, mtuRequest = 600)
      * val warnings = options.validate()
      * warnings.forEach { log.warn(it) }
      * ```

@@ -131,13 +131,16 @@ internal class AndroidPairingRequestHandler(
         when (response) {
             is PairingResponse.Confirm ->
                 pairingDevice.setPairingConfirmation(response.accepted)
-            is PairingResponse.ProvidePin ->
+            is PairingResponse.ProvidePin -> {
+                // setPin deprecated; no minSdk-safe replacement.
+                @Suppress("DEPRECATION")
                 pairingDevice.setPin(
                     response.pin
                         .toString()
                         .padStart(6, '0')
                         .toByteArray(),
                 )
+            }
             is PairingResponse.ProvideOobData ->
                 // OOB key exchange happens at a lower level via BluetoothAdapter;
                 // confirming here accepts the OOB pairing.

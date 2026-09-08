@@ -1,6 +1,7 @@
 package com.atruedev.kmpble.connection.internal
 
 import com.atruedev.kmpble.connection.ConnectionOptions
+import com.atruedev.kmpble.connection.OperationTimeouts
 import com.atruedev.kmpble.connection.ReconnectionStrategy
 import com.atruedev.kmpble.error.BleException
 import com.atruedev.kmpble.error.ConnectionFailed
@@ -48,6 +49,7 @@ class ReconnectionHandlerTest {
 
             handler.start(
                 ConnectionOptions(
+                    timeouts = OperationTimeouts(),
                     reconnectionStrategy =
                         ReconnectionStrategy.ExponentialBackoff(
                             initialDelay = 10.milliseconds,
@@ -95,6 +97,7 @@ class ReconnectionHandlerTest {
 
             handler.start(
                 ConnectionOptions(
+                    timeouts = OperationTimeouts(),
                     reconnectionStrategy =
                         ReconnectionStrategy.LinearBackoff(
                             delay = 5.milliseconds,
@@ -138,6 +141,7 @@ class ReconnectionHandlerTest {
 
             handler.start(
                 ConnectionOptions(
+                    timeouts = OperationTimeouts(),
                     reconnectionStrategy =
                         ReconnectionStrategy.ExponentialBackoff(
                             initialDelay = 10.milliseconds,
@@ -184,6 +188,7 @@ class ReconnectionHandlerTest {
 
             handler.start(
                 ConnectionOptions(
+                    timeouts = OperationTimeouts(),
                     reconnectionStrategy =
                         ReconnectionStrategy.ExponentialBackoff(
                             initialDelay = 5.milliseconds,
@@ -226,6 +231,7 @@ class ReconnectionHandlerTest {
 
             handler.start(
                 ConnectionOptions(
+                    timeouts = OperationTimeouts(),
                     reconnectionStrategy =
                         ReconnectionStrategy.LinearBackoff(
                             delay = 100.milliseconds,
@@ -270,6 +276,7 @@ class ReconnectionHandlerTest {
 
             handler.start(
                 ConnectionOptions(
+                    timeouts = OperationTimeouts(),
                     reconnectionStrategy =
                         ReconnectionStrategy.ExponentialBackoff(
                             initialDelay = 5.milliseconds,
@@ -332,6 +339,7 @@ class ReconnectionHandlerTest {
 
             handler.start(
                 ConnectionOptions(
+                    timeouts = OperationTimeouts(),
                     reconnectionStrategy =
                         ReconnectionStrategy.ExponentialBackoff(
                             initialDelay = 5.milliseconds,
@@ -364,9 +372,7 @@ class ReconnectionHandlerTest {
                 )
 
             handler.start(
-                ConnectionOptions(
-                    reconnectionStrategy = ReconnectionStrategy.None,
-                ),
+                ConnectionOptions(timeouts = OperationTimeouts(), reconnectionStrategy = ReconnectionStrategy.None),
             )
 
             stateFlow.value = State.Disconnected.ByRemote
@@ -506,6 +512,7 @@ class ReconnectionHandlerTest {
 
             handler.start(
                 ConnectionOptions(
+                    timeouts = OperationTimeouts(),
                     reconnectionStrategy =
                         ReconnectionStrategy.ExponentialBackoff(
                             initialDelay = 5.milliseconds,
@@ -540,6 +547,7 @@ class ReconnectionHandlerTest {
 
             handler.start(
                 ConnectionOptions(
+                    timeouts = OperationTimeouts(),
                     reconnectionStrategy =
                         ReconnectionStrategy.ExponentialBackoff(
                             initialDelay = 5.milliseconds,
@@ -571,6 +579,7 @@ class ReconnectionHandlerTest {
 
             handler.start(
                 ConnectionOptions(
+                    timeouts = OperationTimeouts(),
                     reconnectionStrategy =
                         ReconnectionStrategy.ExponentialBackoff(
                             initialDelay = 5.milliseconds,

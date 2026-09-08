@@ -1,3 +1,5 @@
+@file:OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+
 package com.atruedev.kmpble.dfu.transport
 
 import com.atruedev.kmpble.dfu.DfuError

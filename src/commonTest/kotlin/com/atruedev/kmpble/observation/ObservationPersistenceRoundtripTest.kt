@@ -7,6 +7,7 @@ import com.atruedev.kmpble.gatt.internal.deserializeBackpressure
 import com.atruedev.kmpble.gatt.internal.serializeBackpressure
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
@@ -60,7 +61,7 @@ class ObservationPersistenceRoundtripTest {
         val restored = roundtrip(original)
         assertEquals(original, restored)
         assertTrue(restored.backpressure is BackpressureStrategy.Buffer)
-        assertEquals(64, (restored.backpressure as BackpressureStrategy.Buffer).capacity)
+        assertEquals(64, assertIs<BackpressureStrategy.Buffer>(restored.backpressure).capacity)
     }
 
     @Test
@@ -71,7 +72,7 @@ class ObservationPersistenceRoundtripTest {
                 BackpressureStrategy.Buffer(4096),
             )
         val restored = roundtrip(original)
-        assertEquals(4096, (restored.backpressure as BackpressureStrategy.Buffer).capacity)
+        assertEquals(4096, assertIs<BackpressureStrategy.Buffer>(restored.backpressure).capacity)
     }
 
     @Test

@@ -10,6 +10,7 @@ import kotlinx.coroutines.test.TestCoroutineScheduler
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
 class BeaconScannerTest {
@@ -29,8 +30,8 @@ class BeaconScannerTest {
             beaconScanner.start()
 
             val event = beaconScanner.beaconEvents.first()
-            assertTrue(event is BeaconEvent.Found)
-            assertTrue((event as BeaconEvent.Found).beacon is Beacon.IBeacon)
+            val found = assertIs<BeaconEvent.Found>(event)
+            assertIs<Beacon.IBeacon>(found.beacon)
 
             beaconScanner.close()
         }
@@ -57,8 +58,8 @@ class BeaconScannerTest {
 
             // Only the beacon ad should come through
             val event = beaconScanner.beaconEvents.first()
-            assertTrue(event is BeaconEvent.Found)
-            assertTrue((event as BeaconEvent.Found).beacon is Beacon.IBeacon)
+            val found = assertIs<BeaconEvent.Found>(event)
+            assertIs<Beacon.IBeacon>(found.beacon)
 
             beaconScanner.close()
         }
@@ -82,8 +83,8 @@ class BeaconScannerTest {
             beaconScanner.start()
 
             val event = beaconScanner.beaconEvents.first()
-            assertTrue(event is BeaconEvent.Found)
-            val uid = (event as BeaconEvent.Found).beacon as Beacon.EddystoneUID
+            val found = assertIs<BeaconEvent.Found>(event)
+            val uid = assertIs<Beacon.EddystoneUID>(found.beacon)
             assertEquals(-18, uid.rangingData)
             assertEquals("EddystoneBeacon", uid.source.name)
 
