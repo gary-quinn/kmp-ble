@@ -1,3 +1,36 @@
+// buildscript configurations are separate from project configurations and cannot
+// use the version catalog API, so mirror securityPatches via CatalogVersions.
+buildscript {
+    configurations.all {
+        resolutionStrategy.eachDependency {
+            when (requested.group) {
+                "io.netty" -> useVersion(CatalogVersions.requiredVersion("netty", rootDir))
+                "ch.qos.logback" -> useVersion(CatalogVersions.requiredVersion("logback", rootDir))
+                "com.fasterxml.jackson.core" -> useVersion(CatalogVersions.requiredVersion("jackson", rootDir))
+                "org.bouncycastle" -> useVersion(CatalogVersions.requiredVersion("bouncycastle", rootDir))
+                "io.opentelemetry" -> useVersion(CatalogVersions.requiredVersion("opentelemetry", rootDir))
+            }
+            when ("${requested.group}:${requested.name}") {
+                "org.jdom:jdom2" -> useVersion(CatalogVersions.requiredVersion("jdom2", rootDir))
+                "org.bitbucket.b_c:jose4j" -> useVersion(CatalogVersions.requiredVersion("jose4j", rootDir))
+                "org.apache.commons:commons-lang3" ->
+                    useVersion(
+                        CatalogVersions.requiredVersion("commonsLang3", rootDir),
+                    )
+                "org.apache.httpcomponents:httpclient" ->
+                    useVersion(
+                        CatalogVersions.requiredVersion("httpclient", rootDir),
+                    )
+                "org.jsoup:jsoup" -> useVersion(CatalogVersions.requiredVersion("jsoup", rootDir))
+                "org.jetbrains.kotlin:kotlin-gradle-plugin" ->
+                    useVersion(
+                        CatalogVersions.requiredVersion("kotlin", rootDir),
+                    )
+            }
+        }
+    }
+}
+
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.android.library)
@@ -25,28 +58,6 @@ val securityPatches: Action<DependencyResolveDetails> =
             "org.jetbrains.kotlin:kotlin-gradle-plugin" -> useVersion(libs.versions.kotlin.get())
         }
     }
-
-// buildscript can't access the version catalog, so versions are duplicated here
-buildscript {
-    configurations.all {
-        resolutionStrategy.eachDependency {
-            when (requested.group) {
-                "io.netty" -> useVersion("4.1.137.Final")
-                "ch.qos.logback" -> useVersion("1.5.38")
-                "com.fasterxml.jackson.core" -> useVersion("2.18.10")
-                "org.bouncycastle" -> useVersion("1.85")
-            }
-            when ("${requested.group}:${requested.name}") {
-                "org.jdom:jdom2" -> useVersion("2.0.6.1")
-                "org.bitbucket.b_c:jose4j" -> useVersion("0.9.6")
-                "org.apache.commons:commons-lang3" -> useVersion("3.20.0")
-                "org.apache.httpcomponents:httpclient" -> useVersion("4.5.14")
-                "org.jsoup:jsoup" -> useVersion("1.23.1")
-                "org.jetbrains.kotlin:kotlin-gradle-plugin" -> useVersion("2.4.20")
-            }
-        }
-    }
-}
 
 allprojects {
     configurations.all {
