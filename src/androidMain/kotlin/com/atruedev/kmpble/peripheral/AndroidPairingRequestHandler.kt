@@ -132,6 +132,7 @@ internal class AndroidPairingRequestHandler(
             is PairingResponse.Confirm ->
                 pairingDevice.setPairingConfirmation(response.accepted)
             is PairingResponse.ProvidePin ->
+                @Suppress("DEPRECATION") // setPin deprecated; no replacement without raising minSdk for setPin(BluetoothDevice, boolean, int, byte[])
                 pairingDevice.setPin(
                     response.pin
                         .toString()

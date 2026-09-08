@@ -5,6 +5,7 @@ import com.atruedev.kmpble.Identifier
 import com.atruedev.kmpble.bonding.BondRemovalResult
 import com.atruedev.kmpble.bonding.BondState
 import com.atruedev.kmpble.connection.ConnectionOptions
+import com.atruedev.kmpble.connection.OperationTimeouts
 import com.atruedev.kmpble.connection.ConnectionParameterUpdateResult
 import com.atruedev.kmpble.connection.ConnectionParameters
 import com.atruedev.kmpble.connection.ConnectionPriority
@@ -36,7 +37,7 @@ public interface Peripheral : AutoCloseable {
     public val identifier: Identifier
 
     // --- Connection ---
-    public suspend fun connect(options: ConnectionOptions = ConnectionOptions())
+    public suspend fun connect(options: ConnectionOptions = ConnectionOptions(timeouts = OperationTimeouts()))
 
     public suspend fun disconnect()
 

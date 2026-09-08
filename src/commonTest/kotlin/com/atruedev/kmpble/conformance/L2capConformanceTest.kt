@@ -1,6 +1,7 @@
 package com.atruedev.kmpble.conformance
 
 import com.atruedev.kmpble.connection.ConnectionOptions
+import com.atruedev.kmpble.connection.OperationTimeouts
 import com.atruedev.kmpble.l2cap.L2capChannel
 import com.atruedev.kmpble.l2cap.L2capException
 import com.atruedev.kmpble.testing.FakeL2capChannel
@@ -28,7 +29,7 @@ public abstract class L2capConformanceTest : BleConformanceTest() {
                     onOpenL2capChannel { psm, _ -> FakeL2capChannel(psm) }
                 }
 
-            peripheral.connect(ConnectionOptions())
+            peripheral.connect(ConnectionOptions(timeouts = OperationTimeouts()))
             val channel = peripheral.openL2capChannel(psm = 0x25)
 
             assertEquals(0x25, channel.psm)
@@ -46,7 +47,7 @@ public abstract class L2capConformanceTest : BleConformanceTest() {
                     onOpenL2capChannel { _, _ -> channel }
                 }
 
-            peripheral.connect(ConnectionOptions())
+            peripheral.connect(ConnectionOptions(timeouts = OperationTimeouts()))
             val opened = peripheral.openL2capChannel(psm = 0x25)
             val data = byteArrayOf(0x01, 0x02, 0x03)
 
@@ -68,7 +69,7 @@ public abstract class L2capConformanceTest : BleConformanceTest() {
                     onOpenL2capChannel { _, _ -> channel }
                 }
 
-            peripheral.connect(ConnectionOptions())
+            peripheral.connect(ConnectionOptions(timeouts = OperationTimeouts()))
             val opened = peripheral.openL2capChannel(psm = 0x25)
             val incomingData = mutableListOf<ByteArray>()
             val job = backgroundScope.launch { opened.incoming.collect { incomingData.add(it) } }
@@ -94,7 +95,7 @@ public abstract class L2capConformanceTest : BleConformanceTest() {
                     onOpenL2capChannel { _, _ -> channel }
                 }
 
-            peripheral.connect(ConnectionOptions())
+            peripheral.connect(ConnectionOptions(timeouts = OperationTimeouts()))
             val opened = peripheral.openL2capChannel(psm = 0x25)
             opened.close()
             assertTrue(!opened.isOpen)
@@ -127,7 +128,7 @@ public abstract class L2capConformanceTest : BleConformanceTest() {
                     onOpenL2capChannel { psm, _ -> FakeL2capChannel(psm) }
                 }
 
-            peripheral.connect(ConnectionOptions())
+            peripheral.connect(ConnectionOptions(timeouts = OperationTimeouts()))
 
             assertFailsWith<IllegalArgumentException> {
                 peripheral.openL2capChannel(psm = 0x25, mtu = 0)

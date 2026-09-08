@@ -1,3 +1,5 @@
+@file:OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+
 package com.atruedev.kmpble.gatt.internal
 
 import com.atruedev.kmpble.error.GattStatus

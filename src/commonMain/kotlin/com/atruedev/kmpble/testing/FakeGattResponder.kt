@@ -1,3 +1,5 @@
+@file:OptIn(com.atruedev.kmpble.ExperimentalBleApi::class)
+
 package com.atruedev.kmpble.testing
 
 import com.atruedev.kmpble.connection.ConnectionParameterUpdateResult
@@ -44,7 +46,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlin.time.Duration
 import kotlin.uuid.Uuid
 
@@ -239,7 +241,7 @@ internal class FakeGattResponder(
                 // onCompletion runs in the collector's context which may be cancelled.
                 // Launch cleanup in NonCancellable to ensure unsubscribe runs to completion.
                 coroutineScope {
-                    launch(NonCancellable) {
+                    withContext(NonCancellable) {
                         val wasLastCollector = observationManager.unsubscribe(serviceUuid, charUuid)
                         if (wasLastCollector && context.state.value is State.Connected) {
                             recordCccdWrite(serviceUuid, charUuid, enabled = false)

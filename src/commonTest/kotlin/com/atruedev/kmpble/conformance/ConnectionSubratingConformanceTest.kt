@@ -1,6 +1,9 @@
+@file:OptIn(com.atruedev.kmpble.ExperimentalBleApi::class)
+
 package com.atruedev.kmpble.conformance
 
 import com.atruedev.kmpble.connection.ConnectionOptions
+import com.atruedev.kmpble.connection.OperationTimeouts
 import com.atruedev.kmpble.connection.ConnectionSubratingParameters
 import com.atruedev.kmpble.connection.ConnectionSubratingResult
 import com.atruedev.kmpble.peripheral.state.State
@@ -33,7 +36,7 @@ public abstract class ConnectionSubratingConformanceTest : BleConformanceTest() 
                     }
                 }
 
-            peripheral.connect(ConnectionOptions())
+            peripheral.connect(ConnectionOptions(timeouts = OperationTimeouts()))
 
             val params =
                 ConnectionSubratingParameters(
@@ -92,7 +95,7 @@ public abstract class ConnectionSubratingConformanceTest : BleConformanceTest() 
                     }
                 }
 
-            peripheral.connect(ConnectionOptions())
+            peripheral.connect(ConnectionOptions(timeouts = OperationTimeouts()))
             peripheral.disconnect()
 
             val params =
@@ -126,7 +129,7 @@ public abstract class ConnectionSubratingConformanceTest : BleConformanceTest() 
                     }
                 }
 
-            peripheral.connect(ConnectionOptions())
+            peripheral.connect(ConnectionOptions(timeouts = OperationTimeouts()))
 
             val params =
                 ConnectionSubratingParameters(
@@ -154,7 +157,7 @@ public abstract class ConnectionSubratingConformanceTest : BleConformanceTest() 
                     }
                 }
 
-            peripheral.connect(ConnectionOptions())
+            peripheral.connect(ConnectionOptions(timeouts = OperationTimeouts()))
 
             val params =
                 ConnectionSubratingParameters(
@@ -182,7 +185,7 @@ public abstract class ConnectionSubratingConformanceTest : BleConformanceTest() 
                     }
                 }
 
-            peripheral.connect(ConnectionOptions())
+            peripheral.connect(ConnectionOptions(timeouts = OperationTimeouts()))
 
             val firstParams =
                 ConnectionSubratingParameters(
@@ -209,7 +212,7 @@ public abstract class ConnectionSubratingConformanceTest : BleConformanceTest() 
             assertEquals(secondParams, secondResult.parameters)
 
             peripheral.disconnect()
-            peripheral.connect(ConnectionOptions())
+            peripheral.connect(ConnectionOptions(timeouts = OperationTimeouts()))
 
             val afterReconnectParams =
                 ConnectionSubratingParameters(
@@ -239,7 +242,7 @@ public abstract class ConnectionSubratingConformanceTest : BleConformanceTest() 
                     }
                 }
 
-            peripheral.connect(ConnectionOptions())
+            peripheral.connect(ConnectionOptions(timeouts = OperationTimeouts()))
 
             val char =
                 peripheral.services.value!!
@@ -276,7 +279,7 @@ public abstract class ConnectionSubratingConformanceTest : BleConformanceTest() 
                     }
                 }
 
-            peripheral.connect(ConnectionOptions())
+            peripheral.connect(ConnectionOptions(timeouts = OperationTimeouts()))
             peripheral.close()
 
             val params =
@@ -308,7 +311,7 @@ public abstract class ConnectionSubratingConformanceTest : BleConformanceTest() 
                     }
                 }
 
-            peripheral.connect(ConnectionOptions())
+            peripheral.connect(ConnectionOptions(timeouts = OperationTimeouts()))
 
             val params =
                 ConnectionSubratingParameters(
@@ -358,7 +361,7 @@ public abstract class ConnectionSubratingConformanceTest : BleConformanceTest() 
                     }
                 }
 
-            peripheral.connect(ConnectionOptions())
+            peripheral.connect(ConnectionOptions(timeouts = OperationTimeouts()))
 
             assertTrue(peripheral.state.value is State.Connected)
 

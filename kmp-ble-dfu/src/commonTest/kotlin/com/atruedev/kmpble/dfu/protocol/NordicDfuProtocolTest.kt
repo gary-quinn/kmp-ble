@@ -83,7 +83,7 @@ class NordicDfuProtocolTest {
 
         val initPacket = ByteArray(32) { 0xAA.toByte() }
         val firmware = ByteArray(100) { it.toByte() }
-        val pkg = FirmwarePackage(initPacket, firmware)
+        val pkg = FirmwarePackage.Nordic(initPacket, firmware)
 
         enqueueFull(transport, initPacket, firmware, maxObjectSize = 4096)
 
@@ -104,7 +104,7 @@ class NordicDfuProtocolTest {
 
         val initPacket = ByteArray(16) { 0xBB.toByte() }
         val firmware = ByteArray(150) { it.toByte() }
-        val pkg = FirmwarePackage(initPacket, firmware)
+        val pkg = FirmwarePackage.Nordic(initPacket, firmware)
         val maxObjectSize = 64
 
         enqueueFull(transport, initPacket, firmware, maxObjectSize)
@@ -126,7 +126,7 @@ class NordicDfuProtocolTest {
 
         val initPacket = ByteArray(8) { 0xCC.toByte() }
         val firmware = ByteArray(128) { it.toByte() }
-        val pkg = FirmwarePackage(initPacket, firmware)
+        val pkg = FirmwarePackage.Nordic(initPacket, firmware)
         val maxObjectSize = 64 // 2 objects
 
         enqueueFull(transport, initPacket, firmware, maxObjectSize)

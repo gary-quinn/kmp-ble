@@ -1,3 +1,5 @@
+@file:OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class, kotlinx.coroutines.DelicateCoroutinesApi::class)
+
 package com.atruedev.kmpble.gatt.cache
 
 import com.atruedev.kmpble.Identifier

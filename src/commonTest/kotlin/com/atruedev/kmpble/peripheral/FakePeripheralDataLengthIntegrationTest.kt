@@ -33,7 +33,6 @@ class FakePeripheralDataLengthIntegrationTest {
             val flow = peripheral.dataLengthParameters
 
             assertNotNull(flow, "dataLengthParameters must return a non-null StateFlow")
-            assertTrue(flow is StateFlow, "Must be StateFlow")
             peripheral.close()
         }
 

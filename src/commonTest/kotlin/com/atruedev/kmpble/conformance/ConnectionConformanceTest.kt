@@ -1,6 +1,7 @@
 package com.atruedev.kmpble.conformance
 
 import com.atruedev.kmpble.connection.ConnectionOptions
+import com.atruedev.kmpble.connection.OperationTimeouts
 import com.atruedev.kmpble.peripheral.state.State
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
@@ -24,7 +25,7 @@ public abstract class ConnectionConformanceTest : BleConformanceTest() {
                     }
                 }
 
-            peripheral.connect(ConnectionOptions())
+            peripheral.connect(ConnectionOptions(timeouts = OperationTimeouts()))
 
             assertTrue(peripheral.state.value is State.Connected)
             peripheral.close()
@@ -40,7 +41,7 @@ public abstract class ConnectionConformanceTest : BleConformanceTest() {
                     }
                 }
 
-            peripheral.connect(ConnectionOptions())
+            peripheral.connect(ConnectionOptions(timeouts = OperationTimeouts()))
             peripheral.disconnect()
 
             val state = peripheral.state.value
@@ -61,11 +62,11 @@ public abstract class ConnectionConformanceTest : BleConformanceTest() {
                     }
                 }
 
-            peripheral.connect(ConnectionOptions())
+            peripheral.connect(ConnectionOptions(timeouts = OperationTimeouts()))
             assertTrue(peripheral.state.value is State.Connected)
 
             peripheral.disconnect()
-            peripheral.connect(ConnectionOptions())
+            peripheral.connect(ConnectionOptions(timeouts = OperationTimeouts()))
             assertTrue(peripheral.state.value is State.Connected)
 
             peripheral.close()
@@ -81,7 +82,7 @@ public abstract class ConnectionConformanceTest : BleConformanceTest() {
                     }
                 }
 
-            peripheral.connect(ConnectionOptions())
+            peripheral.connect(ConnectionOptions(timeouts = OperationTimeouts()))
             peripheral.refreshServices()
 
             val services = peripheral.services.value

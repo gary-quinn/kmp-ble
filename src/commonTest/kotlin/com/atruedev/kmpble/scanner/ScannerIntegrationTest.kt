@@ -1,3 +1,5 @@
+@file:OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+
 package com.atruedev.kmpble.scanner
 
 import com.atruedev.kmpble.BleData

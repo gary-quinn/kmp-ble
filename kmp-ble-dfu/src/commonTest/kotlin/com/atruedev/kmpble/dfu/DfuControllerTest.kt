@@ -29,7 +29,7 @@ class DfuControllerTest {
     fun notConnectedEmitsFailed() = runTest {
         val peripheral = FakePeripheral {}
         val controller = DfuController(peripheral)
-        val firmware = FirmwarePackage(byteArrayOf(1), byteArrayOf(2))
+        val firmware = FirmwarePackage.Nordic(byteArrayOf(1), byteArrayOf(2))
 
         val progress = controller.performDfu(firmware).toList()
         val failed = progress.last()
@@ -44,7 +44,7 @@ class DfuControllerTest {
         }
         peripheral.connect()
         val controller = DfuController(peripheral)
-        val firmware = FirmwarePackage(byteArrayOf(1), byteArrayOf(2))
+        val firmware = FirmwarePackage.Nordic(byteArrayOf(1), byteArrayOf(2))
 
         val progress = controller.performDfu(firmware).toList()
         val failed = progress.last()
@@ -86,7 +86,7 @@ class DfuControllerTest {
 
         peripheral.connect()
         val controller = DfuController(peripheral, customProtocol)
-        val firmware = FirmwarePackage(byteArrayOf(1), byteArrayOf(2))
+        val firmware = FirmwarePackage.Nordic(byteArrayOf(1), byteArrayOf(2))
 
         val progress = controller.performDfu(firmware).toList()
         assertIs<DfuProgress.Completed>(progress.last())

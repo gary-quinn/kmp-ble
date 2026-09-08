@@ -2,6 +2,7 @@ package com.atruedev.kmpble.monitoring
 
 import com.atruedev.kmpble.ExperimentalBleApi
 import com.atruedev.kmpble.connection.ConnectionOptions
+import com.atruedev.kmpble.connection.OperationTimeouts
 import com.atruedev.kmpble.connection.ConnectionParameterUpdateResult
 import com.atruedev.kmpble.connection.ConnectionParameters
 import com.atruedev.kmpble.testing.FakePeripheralBuilder
@@ -45,7 +46,7 @@ class LePowerControllerTest {
             val controller = LePowerController(peripheral, backgroundScope)
             controller.start()
 
-            peripheral.connect(ConnectionOptions())
+            peripheral.connect(ConnectionOptions(timeouts = OperationTimeouts()))
             scheduler.runCurrent()
 
             val response = controller.requestPeerPowerChange(-4)
@@ -72,7 +73,7 @@ class LePowerControllerTest {
             val controller = LePowerController(peripheral, backgroundScope)
             controller.start()
 
-            peripheral.connect(ConnectionOptions())
+            peripheral.connect(ConnectionOptions(timeouts = OperationTimeouts()))
             scheduler.runCurrent()
 
             val response = controller.requestPeerPowerChange(-4)
@@ -108,7 +109,7 @@ class LePowerControllerTest {
             val controller = LePowerController(peripheral, backgroundScope)
             controller.start()
 
-            peripheral.connect(ConnectionOptions())
+            peripheral.connect(ConnectionOptions(timeouts = OperationTimeouts()))
             scheduler.runCurrent()
 
             controller.requestPeerPowerChange(-4)
@@ -142,7 +143,7 @@ class LePowerControllerTest {
             val controller = LePowerController(peripheral, backgroundScope)
             controller.start()
 
-            peripheral.connect(ConnectionOptions())
+            peripheral.connect(ConnectionOptions(timeouts = OperationTimeouts()))
             scheduler.runCurrent()
 
             controller.requestPeerPowerChange(-10)
@@ -176,7 +177,7 @@ class LePowerControllerTest {
             val controller = LePowerController(peripheral, backgroundScope)
             controller.start()
 
-            peripheral.connect(ConnectionOptions())
+            peripheral.connect(ConnectionOptions(timeouts = OperationTimeouts()))
             scheduler.runCurrent()
 
             controller.requestPeerPowerChange(-15)
@@ -210,7 +211,7 @@ class LePowerControllerTest {
             val controller = LePowerController(peripheral, backgroundScope)
             controller.start()
 
-            peripheral.connect(ConnectionOptions())
+            peripheral.connect(ConnectionOptions(timeouts = OperationTimeouts()))
             scheduler.runCurrent()
 
             controller.requestPeerPowerChange(-25)
@@ -242,7 +243,7 @@ class LePowerControllerTest {
             controller.start()
             controller.start()
 
-            peripheral.connect(ConnectionOptions())
+            peripheral.connect(ConnectionOptions(timeouts = OperationTimeouts()))
             scheduler.runCurrent()
 
             val response = controller.requestPeerPowerChange(-4)
@@ -297,7 +298,7 @@ class LePowerControllerTest {
             val controller = LePowerController(peripheral, backgroundScope)
             controller.start()
 
-            peripheral.connect(ConnectionOptions())
+            peripheral.connect(ConnectionOptions(timeouts = OperationTimeouts()))
             scheduler.runCurrent()
 
             controller.stop()
@@ -331,14 +332,14 @@ class LePowerControllerTest {
 
             val controller = LePowerController(peripheral, backgroundScope)
             controller.start()
-            peripheral.connect(ConnectionOptions())
+            peripheral.connect(ConnectionOptions(timeouts = OperationTimeouts()))
             scheduler.runCurrent()
 
             controller.requestPeerPowerChange(-5)
             // -5 < -4 so falls into balanced range
             assertNotNull(capturedParams)
-            assertEquals(2, capturedParams!!.slaveLatency)
-            assertEquals(2000.milliseconds, capturedParams!!.supervisionTimeout)
+            assertEquals(2, capturedParams.slaveLatency)
+            assertEquals(2000.milliseconds, capturedParams.supervisionTimeout)
 
             controller.stop()
         }
@@ -365,14 +366,14 @@ class LePowerControllerTest {
 
             val controller = LePowerController(peripheral, backgroundScope)
             controller.start()
-            peripheral.connect(ConnectionOptions())
+            peripheral.connect(ConnectionOptions(timeouts = OperationTimeouts()))
             scheduler.runCurrent()
 
             controller.requestPeerPowerChange(-13)
             // -13 < -12 so falls into low power range
             assertNotNull(capturedParams)
-            assertEquals(4, capturedParams!!.slaveLatency)
-            assertEquals(4000.milliseconds, capturedParams!!.supervisionTimeout)
+            assertEquals(4, capturedParams.slaveLatency)
+            assertEquals(4000.milliseconds, capturedParams.supervisionTimeout)
 
             controller.stop()
         }
@@ -399,14 +400,14 @@ class LePowerControllerTest {
 
             val controller = LePowerController(peripheral, backgroundScope)
             controller.start()
-            peripheral.connect(ConnectionOptions())
+            peripheral.connect(ConnectionOptions(timeouts = OperationTimeouts()))
             scheduler.runCurrent()
 
             controller.requestPeerPowerChange(-21)
             // -21 < -20 so falls into max saving range
             assertNotNull(capturedParams)
-            assertEquals(7, capturedParams!!.slaveLatency)
-            assertEquals(6000.milliseconds, capturedParams!!.supervisionTimeout)
+            assertEquals(7, capturedParams.slaveLatency)
+            assertEquals(6000.milliseconds, capturedParams.supervisionTimeout)
 
             controller.stop()
         }
@@ -430,7 +431,7 @@ class LePowerControllerTest {
             val controller = LePowerController(peripheral, backgroundScope)
             controller.start()
 
-            peripheral.connect(ConnectionOptions())
+            peripheral.connect(ConnectionOptions(timeouts = OperationTimeouts()))
             scheduler.runCurrent()
 
             val first = controller.requestPeerPowerChange(-4)
@@ -478,7 +479,7 @@ class LePowerControllerTest {
 
             val controller = LePowerController(peripheral, backgroundScope)
 
-            peripheral.connect(ConnectionOptions())
+            peripheral.connect(ConnectionOptions(timeouts = OperationTimeouts()))
             scheduler.runCurrent()
 
             // requestPeerPowerChange is stateless - works without start

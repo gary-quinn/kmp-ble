@@ -115,7 +115,7 @@ private val WELL_KNOWN_DESCRIPTORS: Map<Uuid, String> =
  */
 @OptIn(ExperimentalUuidApi::class)
 public suspend fun Peripheral.whenReady(
-    options: ConnectionOptions = ConnectionOptions(),
+    options: ConnectionOptions = ConnectionOptions(timeouts = OperationTimeouts()),
     block: suspend Peripheral.() -> Unit,
 ) {
     try {
@@ -150,7 +150,7 @@ public suspend fun Peripheral.whenReady(
  */
 @OptIn(ExperimentalUuidApi::class)
 public suspend fun Peripheral.connectAndDiscover(
-    options: ConnectionOptions = ConnectionOptions(),
+    options: ConnectionOptions = ConnectionOptions(timeouts = OperationTimeouts()),
 ): List<DiscoveredService> {
     connect(options)
     return try {

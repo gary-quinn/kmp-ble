@@ -1,6 +1,7 @@
 package com.atruedev.kmpble.connection.internal
 
 import com.atruedev.kmpble.connection.ConnectionOptions
+import com.atruedev.kmpble.connection.OperationTimeouts
 import com.atruedev.kmpble.connection.ReconnectionStrategy
 import com.atruedev.kmpble.error.BleException
 import com.atruedev.kmpble.error.ConnectionFailed
@@ -47,14 +48,12 @@ class ReconnectionHandlerTest {
                 )
 
             handler.start(
-                ConnectionOptions(
-                    reconnectionStrategy =
+                ConnectionOptions(timeouts = OperationTimeouts(), reconnectionStrategy =
                         ReconnectionStrategy.ExponentialBackoff(
                             initialDelay = 10.milliseconds,
                             maxDelay = 100.milliseconds,
                             maxAttempts = 3,
-                        ),
-                ),
+                        ),),
             )
 
             // Use different Disconnected subtypes to bypass MutableStateFlow dedup.
@@ -94,13 +93,11 @@ class ReconnectionHandlerTest {
                 )
 
             handler.start(
-                ConnectionOptions(
-                    reconnectionStrategy =
+                ConnectionOptions(timeouts = OperationTimeouts(), reconnectionStrategy =
                         ReconnectionStrategy.LinearBackoff(
                             delay = 5.milliseconds,
                             maxAttempts = 2,
-                        ),
-                ),
+                        ),),
             )
 
             // maxAttempts=2: first 2 fail, 3rd emission triggers exhaustion.
@@ -137,13 +134,11 @@ class ReconnectionHandlerTest {
                 )
 
             handler.start(
-                ConnectionOptions(
-                    reconnectionStrategy =
+                ConnectionOptions(timeouts = OperationTimeouts(), reconnectionStrategy =
                         ReconnectionStrategy.ExponentialBackoff(
                             initialDelay = 10.milliseconds,
                             maxAttempts = 5,
-                        ),
-                ),
+                        ),),
             )
 
             stateFlow.value = State.Disconnected.ByRemote
@@ -183,14 +178,12 @@ class ReconnectionHandlerTest {
                 )
 
             handler.start(
-                ConnectionOptions(
-                    reconnectionStrategy =
+                ConnectionOptions(timeouts = OperationTimeouts(), reconnectionStrategy =
                         ReconnectionStrategy.ExponentialBackoff(
                             initialDelay = 5.milliseconds,
                             maxDelay = 100.milliseconds,
                             maxAttempts = 5,
-                        ),
-                ),
+                        ),),
             )
 
             // Trigger reconnect, advance past the backoff delay so connectAction starts
@@ -225,13 +218,11 @@ class ReconnectionHandlerTest {
                 )
 
             handler.start(
-                ConnectionOptions(
-                    reconnectionStrategy =
+                ConnectionOptions(timeouts = OperationTimeouts(), reconnectionStrategy =
                         ReconnectionStrategy.LinearBackoff(
                             delay = 100.milliseconds,
                             maxAttempts = 5,
-                        ),
-                ),
+                        ),),
             )
 
             // Trigger reconnect, delay is 100ms so it's waiting in backoff
@@ -269,14 +260,12 @@ class ReconnectionHandlerTest {
                 )
 
             handler.start(
-                ConnectionOptions(
-                    reconnectionStrategy =
+                ConnectionOptions(timeouts = OperationTimeouts(), reconnectionStrategy =
                         ReconnectionStrategy.ExponentialBackoff(
                             initialDelay = 5.milliseconds,
                             maxDelay = 50.milliseconds,
                             maxAttempts = 3,
-                        ),
-                ),
+                        ),),
             )
 
             // First two fail -- use ByError with distinct messages for StateFlow dedup.
@@ -331,13 +320,11 @@ class ReconnectionHandlerTest {
                 )
 
             handler.start(
-                ConnectionOptions(
-                    reconnectionStrategy =
+                ConnectionOptions(timeouts = OperationTimeouts(), reconnectionStrategy =
                         ReconnectionStrategy.ExponentialBackoff(
                             initialDelay = 5.milliseconds,
                             maxAttempts = 5,
-                        ),
-                ),
+                        ),),
             )
 
             stateFlow.value = State.Disconnected.ByRequest
@@ -364,9 +351,7 @@ class ReconnectionHandlerTest {
                 )
 
             handler.start(
-                ConnectionOptions(
-                    reconnectionStrategy = ReconnectionStrategy.None,
-                ),
+                ConnectionOptions(timeouts = OperationTimeouts(), reconnectionStrategy = ReconnectionStrategy.None,),
             )
 
             stateFlow.value = State.Disconnected.ByRemote
@@ -505,13 +490,11 @@ class ReconnectionHandlerTest {
                 )
 
             handler.start(
-                ConnectionOptions(
-                    reconnectionStrategy =
+                ConnectionOptions(timeouts = OperationTimeouts(), reconnectionStrategy =
                         ReconnectionStrategy.ExponentialBackoff(
                             initialDelay = 5.milliseconds,
                             maxAttempts = 5,
-                        ),
-                ),
+                        ),),
             )
 
             stateFlow.value =
@@ -539,13 +522,11 @@ class ReconnectionHandlerTest {
                 )
 
             handler.start(
-                ConnectionOptions(
-                    reconnectionStrategy =
+                ConnectionOptions(timeouts = OperationTimeouts(), reconnectionStrategy =
                         ReconnectionStrategy.ExponentialBackoff(
                             initialDelay = 5.milliseconds,
                             maxAttempts = 5,
-                        ),
-                ),
+                        ),),
             )
 
             stateFlow.value = State.Disconnected.ByTimeout
@@ -570,13 +551,11 @@ class ReconnectionHandlerTest {
                 )
 
             handler.start(
-                ConnectionOptions(
-                    reconnectionStrategy =
+                ConnectionOptions(timeouts = OperationTimeouts(), reconnectionStrategy =
                         ReconnectionStrategy.ExponentialBackoff(
                             initialDelay = 5.milliseconds,
                             maxAttempts = 5,
-                        ),
-                ),
+                        ),),
             )
 
             stateFlow.value = State.Disconnected.BySystemEvent

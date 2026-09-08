@@ -6,6 +6,7 @@ import com.atruedev.kmpble.scanner.Advertisement
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
+import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -46,8 +47,7 @@ class BeaconTest {
         val ad = createAdvertisement(manufacturerData = mapOf(0x004C to BleData(bytes)))
         val beacon = Beacon.parse(ad)
 
-        assertTrue(beacon is Beacon.IBeacon)
-        val ibeacon = beacon as Beacon.IBeacon
+        val ibeacon = assertIs<Beacon.IBeacon>(beacon)
         assertEquals("e2c56db5-dffb-48d2-b060-d0f5a71096e0", ibeacon.proximityUuid.toString())
         assertEquals(1, ibeacon.major)
         assertEquals(1, ibeacon.minor)
@@ -191,8 +191,7 @@ class BeaconTest {
         val ad = createAdvertisement(serviceData = mapOf(eddystoneUuid to BleData(bytes)))
         val beacon = Beacon.parse(ad)
 
-        assertTrue(beacon is Beacon.EddystoneUID)
-        val uid = beacon as Beacon.EddystoneUID
+        val uid = assertIs<Beacon.EddystoneUID>(beacon)
         assertEquals(-18, uid.rangingData)
         assertContentEquals(
             byteArrayOf(
@@ -259,8 +258,7 @@ class BeaconTest {
         val ad = createAdvertisement(serviceData = mapOf(eddystoneUuid to BleData(bytes)))
         val beacon = Beacon.parse(ad)
 
-        assertTrue(beacon is Beacon.EddystoneURL)
-        val urlBeacon = beacon as Beacon.EddystoneURL
+        val urlBeacon = assertIs<Beacon.EddystoneURL>(beacon)
         assertEquals(-18, urlBeacon.txPower)
         assertEquals("https://nousresearch.com/", urlBeacon.url)
     }
@@ -332,8 +330,7 @@ class BeaconTest {
         val ad = createAdvertisement(serviceData = mapOf(eddystoneUuid to BleData(bytes)))
         val beacon = Beacon.parse(ad)
 
-        assertTrue(beacon is Beacon.EddystoneTLM)
-        val tlm = beacon as Beacon.EddystoneTLM
+        val tlm = assertIs<Beacon.EddystoneTLM>(beacon)
         assertEquals(3228, tlm.batteryVoltageMv)
         assertEquals(5.0f, tlm.temperatureCelsius)
         assertEquals(42L, tlm.advertisementCount)

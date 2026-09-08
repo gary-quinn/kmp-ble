@@ -1,4 +1,5 @@
 @file:SuppressLint("MissingPermission")
+@file:OptIn(com.atruedev.kmpble.ExperimentalBleApi::class)
 
 package com.atruedev.kmpble.peripheral
 

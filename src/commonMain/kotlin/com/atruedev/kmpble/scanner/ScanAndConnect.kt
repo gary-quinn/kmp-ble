@@ -1,6 +1,7 @@
 package com.atruedev.kmpble.scanner
 
 import com.atruedev.kmpble.connection.ConnectionOptions
+import com.atruedev.kmpble.connection.OperationTimeouts
 import com.atruedev.kmpble.peripheral.Peripheral
 import com.atruedev.kmpble.peripheral.connectAndDiscover
 import com.atruedev.kmpble.peripheral.toPeripheral
@@ -38,7 +39,7 @@ import kotlin.time.Duration.Companion.seconds
  */
 public suspend fun Scanner.scanAndConnect(
     scanTimeout: Duration = 30.seconds,
-    connectOptions: ConnectionOptions = ConnectionOptions(),
+    connectOptions: ConnectionOptions = ConnectionOptions(timeouts = OperationTimeouts()),
     predicate: (Advertisement) -> Boolean = { true },
 ): Peripheral {
     val advertisement =

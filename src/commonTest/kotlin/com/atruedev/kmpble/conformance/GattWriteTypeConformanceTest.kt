@@ -1,6 +1,7 @@
 package com.atruedev.kmpble.conformance
 
 import com.atruedev.kmpble.connection.ConnectionOptions
+import com.atruedev.kmpble.connection.OperationTimeouts
 import com.atruedev.kmpble.error.BleException
 import com.atruedev.kmpble.error.GattError
 import com.atruedev.kmpble.error.GattStatus
@@ -43,7 +44,7 @@ public abstract class GattWriteTypeConformanceTest : BleConformanceTest() {
                     }
                 }
 
-            peripheral.connect(ConnectionOptions())
+            peripheral.connect(ConnectionOptions(timeouts = OperationTimeouts()))
             peripheral.refreshServices()
             val char =
                 peripheral.services.value!!
@@ -86,7 +87,7 @@ public abstract class GattWriteTypeConformanceTest : BleConformanceTest() {
                     }
                 }
 
-            peripheral.connect(ConnectionOptions())
+            peripheral.connect(ConnectionOptions(timeouts = OperationTimeouts()))
             peripheral.refreshServices()
             val char =
                 peripheral.services.value!!
@@ -129,7 +130,7 @@ public abstract class GattWriteTypeConformanceTest : BleConformanceTest() {
                     }
                 }
 
-            peripheral.connect(ConnectionOptions())
+            peripheral.connect(ConnectionOptions(timeouts = OperationTimeouts()))
             peripheral.refreshServices()
             val char =
                 peripheral.services.value!!
@@ -173,7 +174,7 @@ public abstract class GattWriteTypeConformanceTest : BleConformanceTest() {
                     }
                 }
 
-            peripheral.connect(ConnectionOptions())
+            peripheral.connect(ConnectionOptions(timeouts = OperationTimeouts()))
             peripheral.refreshServices()
             val char =
                 peripheral.services.value!!
@@ -209,7 +210,7 @@ public abstract class GattWriteTypeConformanceTest : BleConformanceTest() {
                     }
                 }
 
-            peripheral.connect(ConnectionOptions())
+            peripheral.connect(ConnectionOptions(timeouts = OperationTimeouts()))
             peripheral.refreshServices()
             val char =
                 peripheral.services.value!!
@@ -240,7 +241,7 @@ public abstract class GattWriteTypeConformanceTest : BleConformanceTest() {
                     }
                 }
 
-            peripheral.connect(ConnectionOptions())
+            peripheral.connect(ConnectionOptions(timeouts = OperationTimeouts()))
             peripheral.refreshServices()
             val char =
                 peripheral.services.value!!
@@ -269,7 +270,7 @@ public abstract class GattWriteTypeConformanceTest : BleConformanceTest() {
                     }
                 }
 
-            peripheral.connect(ConnectionOptions())
+            peripheral.connect(ConnectionOptions(timeouts = OperationTimeouts()))
             peripheral.refreshServices()
             val char =
                 peripheral.services.value!!
@@ -308,7 +309,7 @@ public abstract class GattWriteTypeConformanceTest : BleConformanceTest() {
                     }
                 }
 
-            peripheral.connect(ConnectionOptions())
+            peripheral.connect(ConnectionOptions(timeouts = OperationTimeouts()))
             peripheral.refreshServices()
             val char =
                 peripheral.services.value!!
@@ -345,7 +346,7 @@ public abstract class GattWriteTypeConformanceTest : BleConformanceTest() {
                     }
                 }
 
-            peripheral.connect(ConnectionOptions())
+            peripheral.connect(ConnectionOptions(timeouts = OperationTimeouts()))
             peripheral.refreshServices()
             val char =
                 peripheral.services.value!!
@@ -383,7 +384,7 @@ public abstract class GattWriteTypeConformanceTest : BleConformanceTest() {
                     }
                 }
 
-            peripheral.connect(ConnectionOptions())
+            peripheral.connect(ConnectionOptions(timeouts = OperationTimeouts()))
             peripheral.refreshServices()
             val char =
                 peripheral.services.value!!
@@ -423,7 +424,7 @@ public abstract class GattWriteTypeConformanceTest : BleConformanceTest() {
                     }
                 }
 
-            peripheral.connect(ConnectionOptions())
+            peripheral.connect(ConnectionOptions(timeouts = OperationTimeouts()))
             peripheral.refreshServices()
             val char =
                 peripheral.services.value!!
@@ -461,7 +462,7 @@ public abstract class GattWriteTypeConformanceTest : BleConformanceTest() {
                     }
                 }
 
-            peripheral.connect(ConnectionOptions())
+            peripheral.connect(ConnectionOptions(timeouts = OperationTimeouts()))
             peripheral.refreshServices()
             val char =
                 peripheral.services.value!!

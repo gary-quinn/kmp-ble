@@ -2,6 +2,7 @@ package com.atruedev.kmpble.conformance
 
 import com.atruedev.kmpble.ExperimentalBleApi
 import com.atruedev.kmpble.connection.ConnectionOptions
+import com.atruedev.kmpble.connection.OperationTimeouts
 import com.atruedev.kmpble.connection.Phy
 import com.atruedev.kmpble.connection.PhyUpdate
 import com.atruedev.kmpble.testing.configurePhy
@@ -28,7 +29,7 @@ public abstract class PhyConformanceTest : BleConformanceTest() {
                         characteristic("2a37") { properties(notify = true) }
                     }
                 }
-            peripheral.connect(ConnectionOptions())
+            peripheral.connect(ConnectionOptions(timeouts = OperationTimeouts()))
             val result = peripheral.setPreferredPhy(Phy.Le2M, Phy.Le2M)
             assertEquals(Phy.Le2M, result?.tx)
             assertEquals(Phy.Le2M, result?.rx)
@@ -46,7 +47,7 @@ public abstract class PhyConformanceTest : BleConformanceTest() {
                     }
                 }
             peripheral.configurePhy(Phy.LeCoded, Phy.Le2M)
-            peripheral.connect(ConnectionOptions())
+            peripheral.connect(ConnectionOptions(timeouts = OperationTimeouts()))
             val result = peripheral.readPhy()
             assertEquals(Phy.LeCoded, result?.tx)
             assertEquals(Phy.Le2M, result?.rx)
@@ -63,7 +64,7 @@ public abstract class PhyConformanceTest : BleConformanceTest() {
                         characteristic("2a37") { properties(notify = true) }
                     }
                 }
-            peripheral.connect(ConnectionOptions())
+            peripheral.connect(ConnectionOptions(timeouts = OperationTimeouts()))
             val updates = mutableListOf<PhyUpdate>()
             val job = backgroundScope.launch { peripheral.phyUpdate.collect { updates.add(it) } }
             testScheduler.runCurrent()
@@ -86,7 +87,7 @@ public abstract class PhyConformanceTest : BleConformanceTest() {
                         characteristic("2a37") { properties(notify = true) }
                     }
                 }
-            peripheral.connect(ConnectionOptions())
+            peripheral.connect(ConnectionOptions(timeouts = OperationTimeouts()))
             val result = peripheral.setPreferredPhy(Phy.LeCoded, Phy.LeCoded)
             assertEquals(Phy.LeCoded, result?.tx)
             assertEquals(Phy.LeCoded, result?.rx)

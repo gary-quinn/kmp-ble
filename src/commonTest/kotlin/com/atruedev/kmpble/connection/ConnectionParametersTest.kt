@@ -320,10 +320,10 @@ class ConnectionParametersTest {
             peripheral.connect()
             peripheral.requestConnectionParameterUpdate(requested)
             assertNotNull(received)
-            assertEquals(50.milliseconds, received!!.intervalRange.start)
-            assertEquals(100.milliseconds, received!!.intervalRange.endInclusive)
-            assertEquals(10, received!!.slaveLatency)
-            assertEquals(10000.milliseconds, received!!.supervisionTimeout)
+            assertEquals(50.milliseconds, received.intervalRange.start)
+            assertEquals(100.milliseconds, received.intervalRange.endInclusive)
+            assertEquals(10, received.slaveLatency)
+            assertEquals(10000.milliseconds, received.supervisionTimeout)
             peripheral.close()
         }
 

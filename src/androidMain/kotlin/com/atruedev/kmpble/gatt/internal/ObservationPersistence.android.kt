@@ -77,9 +77,9 @@ internal actual class ObservationPersistence actual constructor() {
 
         val result = mutableSetOf<PersistedObservation>()
         for (entry in entries) {
-            val serviceStr = entry[KEY_SERVICE] as? String ?: continue
-            val charStr = entry[KEY_CHAR] as? String ?: continue
-            val bpStr = entry[KEY_BACKPRESSURE] as? String
+            val serviceStr = entry[KEY_SERVICE] ?: continue
+            val charStr = entry[KEY_CHAR] ?: continue
+            val bpStr = entry[KEY_BACKPRESSURE]
             try {
                 result.add(
                     PersistedObservation(

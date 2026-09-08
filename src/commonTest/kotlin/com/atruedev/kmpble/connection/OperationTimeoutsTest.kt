@@ -62,7 +62,7 @@ class OperationTimeoutsTest {
 
     @Test
     fun `ConnectionOptions defaults include OperationTimeouts`() {
-        val opts = ConnectionOptions()
+        val opts = ConnectionOptions(timeouts = OperationTimeouts())
         assertEquals(30.seconds, opts.timeouts.connect)
         assertEquals(15.seconds, opts.timeouts.serviceDiscovery)
     }
@@ -98,6 +98,6 @@ class PeripheralTimeoutTest {
         val timeout = PeripheralTimeout("write", 5.seconds)
         val ex = BleException(timeout)
         assertIs<PeripheralTimeout>(ex.error)
-        assertEquals("write", (ex.error as PeripheralTimeout).operation)
+        assertEquals("write", ex.error.operation)
     }
 }
