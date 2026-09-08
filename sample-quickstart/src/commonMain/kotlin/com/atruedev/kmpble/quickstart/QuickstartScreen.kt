@@ -26,15 +26,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.atruedev.kmpble.gatt.BackpressureStrategy
 import com.atruedev.kmpble.gatt.Characteristic
 import com.atruedev.kmpble.gatt.DiscoveredService
 import com.atruedev.kmpble.peripheral.Peripheral
-import com.atruedev.kmpble.peripheral.toPeripheral
 import com.atruedev.kmpble.scanner.Advertisement
-import com.atruedev.kmpble.scanner.EmissionPolicy
 import com.atruedev.kmpble.scanner.ScanEvent
 import com.atruedev.kmpble.scanner.Scanner
 import com.atruedev.kmpble.scanner.uuidFrom
@@ -69,7 +68,10 @@ private sealed interface SessionState {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun QuickstartScreen() {
+fun QuickstartScreen(
+    scannerFactory: () -> Scanner = { createQuickstartScanner() },
+    connectToDevice: suspend (Advertisement) -> Peripheral = { connectQuickstartDevice(it) },
+) {
     val scope = rememberCoroutineScope()
     val devices = remember { mutableStateListOf<ScannedDevice>() }
     var session by remember { mutableStateOf<SessionState>(SessionState.Idle) }
@@ -77,12 +79,7 @@ fun QuickstartScreen() {
     var activePeripheral by remember { mutableStateOf<Peripheral?>(null) }
     var observeJob by remember { mutableStateOf<Job?>(null) }
 
-    val scanner =
-        remember {
-            Scanner {
-                emission = EmissionPolicy.FirstThenChanges(rssiThreshold = 5)
-            }
-        }
+    val scanner = remember { scannerFactory() }
 
     LaunchedEffect(scanner) {
         scanner.scanEvents.collect { event ->
@@ -138,7 +135,7 @@ fun QuickstartScreen() {
         session = SessionState.Connecting(device.name)
         scope.launch {
             cleanupSession()
-            val peripheral = device.advertisement.toPeripheral()
+            val peripheral = connectToDevice(device.advertisement)
             activePeripheral = peripheral
             try {
                 peripheral.connect()
@@ -206,36 +203,66 @@ fun QuickstartScreen() {
                     Text(
                         "Tap a device to connect, read, or observe its first useful characteristic.",
                         style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.testTag(QuickstartTestTags.SESSION),
                     )
                 }
                 is SessionState.Connecting -> {
-                    Text("Connecting to ${current.name}...", style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        "Connecting to ${current.name}...",
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.testTag(QuickstartTestTags.SESSION),
+                    )
                 }
                 is SessionState.Connected -> {
-                    Text("Connected: ${current.name}", fontWeight = FontWeight.Bold)
+                    Text(
+                        "Connected: ${current.name}",
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.testTag(QuickstartTestTags.SESSION),
+                    )
                     Text("Characteristic: ${current.characteristicLabel}")
                     Text("Mode: ${current.mode}")
-                    latestValue?.let { Text("Value: $it", style = MaterialTheme.typography.titleMedium) }
-                    Button(onClick = ::disconnect, modifier = Modifier.fillMaxWidth()) {
+                    latestValue?.let {
+                        Text(
+                            "Value: $it",
+                            style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier.testTag(QuickstartTestTags.VALUE),
+                        )
+                    }
+                    Button(
+                        onClick = ::disconnect,
+                        modifier = Modifier.fillMaxWidth().testTag(QuickstartTestTags.DISCONNECT),
+                    ) {
                         Text("Disconnect")
                     }
                 }
                 is SessionState.Error -> {
-                    Text("Error: ${current.message}", color = MaterialTheme.colorScheme.error)
-                    Button(onClick = ::disconnect, modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        "Error: ${current.message}",
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.testTag(QuickstartTestTags.SESSION),
+                    )
+                    Button(
+                        onClick = ::disconnect,
+                        modifier = Modifier.fillMaxWidth().testTag(QuickstartTestTags.DISCONNECT),
+                    ) {
                         Text("Back to scan")
                     }
                 }
             }
 
             if (session is SessionState.Idle || session is SessionState.Error) {
-                Text("Nearby devices", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "Nearby devices",
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.testTag(QuickstartTestTags.NEARBY),
+                )
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(devices, key = { it.advertisement.identifier.value }) { device ->
                         Card(
                             modifier =
                                 Modifier
                                     .fillMaxWidth()
+                                    .testTag(QuickstartTestTags.SCAN_ROW)
                                     .clickable(enabled = session !is SessionState.Connecting) {
                                         connect(device)
                                     },

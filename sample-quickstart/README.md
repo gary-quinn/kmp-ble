@@ -27,6 +27,34 @@ This module mirrors the lifecycle in [BleQuickstart.kt](../sample/src/commonMain
 
 On iOS, host `MainViewController()` from your Xcode target the same way GATT Lab hosts `KmpBleSample`.
 
+## Fake BLE mode (no radio)
+
+For automation, emulators, and CI, enable fake scan/connect/observe against
+`FakeScanner` and `FakePeripheral` from `com.atruedev.kmpble.testing`:
+
+```kotlin
+QuickstartConfig.useFakeBle = true
+// then launch App(useFakeBle = true) or QuickstartScreen()
+```
+
+Fake mode advertises a connectable Heart Rate peripheral (`180D` / `2A37` with
+notify) named "Fake Heart Sensor". Real BLE remains the default when
+`QuickstartConfig.useFakeBle` is false (physical devices).
+
+### UI smoke test (Android host / Robolectric)
+
+```bash
+./gradlew :sample-quickstart-android:testDebugUnitTest
+```
+
+The `QuickstartScreenFakeUiTest` golden-path test runs without a BLE radio or
+emulator. It is included in the root `./gradlew testAndroidHostTest` CI job via
+`:sample-quickstart-android:testDebugUnitTest`.
+
+Stable Compose `testTag`s for the happy path live in `QuickstartTestTags`
+(`quickstart_scan_row`, `quickstart_session`, `quickstart_value`,
+`quickstart_disconnect`, `quickstart_nearby`, `quickstart_permission`).
+
 ## Related docs
 
 - [GETTING_STARTED.md](../GETTING_STARTED.md) - add kmp-ble to your own project
