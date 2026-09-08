@@ -15,6 +15,47 @@ _Changes on `main` that have not yet been tagged for release._
 
 ---
 
+## [0.13.3] - 2026-09-08
+
+### Added
+- feat(l2cap): add L2CAP channel error recovery and graceful close
+
+### Changed
+- build(dependabot): bump gradle-wrapper from 9.6.1 to 9.7.0
+- build(dependabot): bump gradle-wrapper from 9.7.0 to 9.7.1
+- chore(iosApp): add App Store app icon and asset catalog
+- chore(sample): add GATT Lab app icons for Android and iOS
+- chore(sample): rebrand sample app as GATT Lab
+- chore(ios): make GATT Lab iPhone-only and add privacy policy
+- build(dependabot): bump agp from 9.3.1 to 9.3.2
+- build(dependabot): bump org.jetbrains.compose from 1.11.1 to 1.12.0
+- ci(dependabot): bump actions/setup-java from 5.7.0 to 6.0.0
+- test(android): add writeReliable instrumented integration tests
+- build(dependabot): bump agp from 9.3.2 to 9.4.0
+- ci(dependabot): bump actions/deploy-pages from 5.0.0 to 5.0.1
+- refactor(build): use version catalog as single Kotlin version source
+- build: bump Kotlin 2.4.20-RC2 to 2.4.20 stable
+- ci: gate GattOperationQueue concurrency regressions with jvmTest
+
+### Fixed
+- fix(ios): stop rediscovering retrieved peripherals with incomplete cache
+- fix(ios): consume the timeout didDisconnect before reconnecting
+- fix(ci): stop changelog baseline from resolving to 0.8.2 forever
+- fix(security): bump transitive deps to close Dependabot alerts
+- fix(ios): pre-build Kotlin framework for Xcode Cloud archive
+- fix(ios): place ci_scripts next to xcodeproj for Xcode Cloud
+- fix(ios): keep Temurin JDK layout intact for Xcode Cloud Gradle
+- fix(ios): raise Gradle heap for Xcode Cloud framework link
+- fix(ios): copy framework to versioned SDK_NAME path on Xcode Cloud
+- fix(sample): resolve ConnectionOptions and DFU compile warnings
+- fix(security): bump kotlin and jsoup to close Dependabot alerts
+- fix(security): force kotlin-gradle-plugin for CVE-2026-53914
+- fix(security): declare kotlin-gradle-plugin in settings for Dependabot alert #50
+- fix(gatt): make GattOperationQueue.inFlightJobs thread-safe
+
+
+---
+
 ## [0.13.2] - 2026-08-17
 
 ### Changed
@@ -2447,7 +2488,8 @@ _No notable changes._
 
 ---
 
-[Unreleased]: https://github.com/gary-quinn/kmp-ble/compare/v0.13.2...HEAD
+[Unreleased]: https://github.com/gary-quinn/kmp-ble/compare/v0.13.3...HEAD
+[0.13.3]: https://github.com/gary-quinn/kmp-ble/compare/v0.13.2...v0.13.3
 [0.13.2]: https://github.com/gary-quinn/kmp-ble/compare/v0.13.1...v0.13.2
 [0.13.1]: https://github.com/gary-quinn/kmp-ble/compare/v0.13.0...v0.13.1
 [0.13.0]: https://github.com/gary-quinn/kmp-ble/compare/v0.12.1...v0.13.0
