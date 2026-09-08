@@ -1,0 +1,36 @@
+---
+description: Route agents to L1 verification before marking work done (ADR-0002)
+alwaysApply: true
+---
+
+# Verification-first (kmp-ble)
+
+Quality is proven by evidence, not by following this rule alone. See [ADR-0002](docs/adr/ADR-0002-verification-first-agent-assisted-development.md).
+
+## Before declaring work done
+
+1. Read [docs/verification/matrix.md](docs/verification/matrix.md) and run every command for surfaces you touched.
+2. Attach evidence: test output, build logs, or a short verification note.
+3. Do **not** mark complete on compile-only when behavior or public API changed.
+4. Do **not** claim physical BLE / GATT Lab E2E (human-only; see `TESTING.md`).
+
+## Routing shortcuts
+
+| Touched | Run |
+| --- | --- |
+| Core `commonMain` (non-concurrency) | `./gradlew iosSimulatorArm64Test --no-daemon` (add `jvmTest` if state machine / queue / observations) |
+| GATT queue, peripheral concurrency | `./gradlew jvmTest --no-daemon` |
+| `androidMain` / quirks host | `./gradlew testAndroidHostTest --no-daemon` |
+| Android device tests | `./gradlew connectedAndroidDeviceTest --no-daemon` |
+| `iosMain` / apple | `./gradlew compileKotlinIosSimulatorArm64 iosSimulatorArm64Test --no-daemon` |
+| `kmp-ble-profiles` / `dfu` / `codec*` | Matching `:module:allTests` (see matrix) |
+| Samples | Mirror CI `sample` compile tasks |
+
+## Out of scope for agents (human-only)
+
+- Editing `.github/workflows/**` or other protected policy / branch-protection files
+- Physical BLE hardware verification
+- Public API / new module / expect-actual boundary changes without an ADR or Gary approval
+- Adding Maestro / mobile-mcp / Castly-style secret hooks unless a later ADR says so
+
+Do not duplicate CI policy here; L2 enforces merge gates.
