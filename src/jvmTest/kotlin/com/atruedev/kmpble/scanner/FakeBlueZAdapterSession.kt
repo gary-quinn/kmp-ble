@@ -1,10 +1,10 @@
 package com.atruedev.kmpble.scanner
 
 import com.github.hypfvieh.bluetooth.wrapper.BluetoothDevice
-import org.freedesktop.dbus.types.Variant
-import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeout
+import org.freedesktop.dbus.types.Variant
+import kotlin.time.Duration.Companion.seconds
 
 internal class FakeBlueZAdapterSession(
     override val adapterPath: String = "/org/bluez/hci0",
