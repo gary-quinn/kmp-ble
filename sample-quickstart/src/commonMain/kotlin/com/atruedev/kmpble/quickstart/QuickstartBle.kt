@@ -9,28 +9,43 @@ import com.atruedev.kmpble.testing.FakePeripheral
 import com.atruedev.kmpble.testing.FakeScanner
 import kotlinx.coroutines.flow.flowOf
 
-internal const val FAKE_DEVICE_ID = "AA:BB:CC:DD:EE:FF"
-internal const val FAKE_DEVICE_NAME = "Fake Heart Sensor"
+/**
+ * Scan/connect backend for the quickstart UI.
+ *
+ * [RealQuickstartBle] uses platform [Scanner] and [toPeripheral]. [FakeQuickstartBle] uses
+ * [FakeScanner] / [FakePeripheral] so automation never calls [toPeripheral] on fake ads.
+ */
+interface QuickstartBle {
+    fun createScanner(): Scanner
 
-internal fun createQuickstartScanner(): Scanner {
-    if (QuickstartConfig.useFakeBle) {
-        return FakeScanner {
+    suspend fun connect(advertisement: Advertisement): Peripheral
+}
+
+object RealQuickstartBle : QuickstartBle {
+    override fun createScanner(): Scanner =
+        Scanner {
+            emission = EmissionPolicy.FirstThenChanges(rssiThreshold = 5)
+        }
+
+    override suspend fun connect(advertisement: Advertisement): Peripheral = advertisement.toPeripheral()
+}
+
+object FakeQuickstartBle : QuickstartBle {
+    const val DEVICE_ID = "AA:BB:CC:DD:EE:FF"
+    const val DEVICE_NAME = "Fake Heart Sensor"
+
+    override fun createScanner(): Scanner =
+        FakeScanner {
             advertisement {
-                identifier(FAKE_DEVICE_ID)
-                name(FAKE_DEVICE_NAME)
+                identifier(DEVICE_ID)
+                name(DEVICE_NAME)
                 rssi(-55)
                 serviceUuids("180d")
             }
         }
-    }
-    return Scanner {
-        emission = EmissionPolicy.FirstThenChanges(rssiThreshold = 5)
-    }
-}
 
-internal suspend fun connectQuickstartDevice(advertisement: Advertisement): Peripheral {
-    if (QuickstartConfig.useFakeBle) {
-        return FakePeripheral {
+    override suspend fun connect(advertisement: Advertisement): Peripheral =
+        FakePeripheral {
             identifier = advertisement.identifier
             service("180d") {
                 characteristic("2a37") {
@@ -40,6 +55,11 @@ internal suspend fun connectQuickstartDevice(advertisement: Advertisement): Peri
                 }
             }
         }
-    }
-    return advertisement.toPeripheral()
 }
+
+fun defaultQuickstartBle(): QuickstartBle =
+    if (QuickstartConfig.useFakeBle) {
+        FakeQuickstartBle
+    } else {
+        RealQuickstartBle
+    }

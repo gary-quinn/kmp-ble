@@ -35,7 +35,6 @@ import com.atruedev.kmpble.gatt.DiscoveredService
 import com.atruedev.kmpble.peripheral.Peripheral
 import com.atruedev.kmpble.scanner.Advertisement
 import com.atruedev.kmpble.scanner.ScanEvent
-import com.atruedev.kmpble.scanner.Scanner
 import com.atruedev.kmpble.scanner.uuidFrom
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -68,10 +67,7 @@ private sealed interface SessionState {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun QuickstartScreen(
-    scannerFactory: () -> Scanner = { createQuickstartScanner() },
-    connectToDevice: suspend (Advertisement) -> Peripheral = { connectQuickstartDevice(it) },
-) {
+fun QuickstartScreen(ble: QuickstartBle = defaultQuickstartBle()) {
     val scope = rememberCoroutineScope()
     val devices = remember { mutableStateListOf<ScannedDevice>() }
     var session by remember { mutableStateOf<SessionState>(SessionState.Idle) }
@@ -79,7 +75,7 @@ fun QuickstartScreen(
     var activePeripheral by remember { mutableStateOf<Peripheral?>(null) }
     var observeJob by remember { mutableStateOf<Job?>(null) }
 
-    val scanner = remember { scannerFactory() }
+    val scanner = remember(ble) { ble.createScanner() }
 
     LaunchedEffect(scanner) {
         scanner.scanEvents.collect { event ->
@@ -135,7 +131,7 @@ fun QuickstartScreen(
         session = SessionState.Connecting(device.name)
         scope.launch {
             cleanupSession()
-            val peripheral = connectToDevice(device.advertisement)
+            val peripheral = ble.connect(device.advertisement)
             activePeripheral = peripheral
             try {
                 peripheral.connect()

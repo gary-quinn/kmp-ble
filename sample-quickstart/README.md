@@ -29,17 +29,21 @@ On iOS, host `MainViewController()` from your Xcode target the same way GATT Lab
 
 ## Fake BLE mode (no radio)
 
-For automation, emulators, and CI, enable fake scan/connect/observe against
-`FakeScanner` and `FakePeripheral` from `com.atruedev.kmpble.testing`:
+For automation, emulators, and CI, inject `FakeQuickstartBle` (or set
+`QuickstartConfig.useFakeBle` and launch `App`):
 
 ```kotlin
+// Explicit factory injection (preferred for tests)
+App(ble = FakeQuickstartBle)
+
+// Runtime toggle for manual demo runs
 QuickstartConfig.useFakeBle = true
-// then launch App(useFakeBle = true) or QuickstartScreen()
+App()
 ```
 
-Fake mode advertises a connectable Heart Rate peripheral (`180D` / `2A37` with
-notify) named "Fake Heart Sensor". Real BLE remains the default when
-`QuickstartConfig.useFakeBle` is false (physical devices).
+`FakeQuickstartBle` uses `FakeScanner` and `FakePeripheral` directly. Connect never
+calls `toPeripheral()` on fake ads. `RealQuickstartBle` uses platform `Scanner` and
+`toPeripheral()` for physical devices.
 
 ### UI smoke test (Android host / Robolectric)
 
