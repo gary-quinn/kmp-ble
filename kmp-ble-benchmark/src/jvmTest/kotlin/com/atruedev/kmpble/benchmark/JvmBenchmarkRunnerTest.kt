@@ -39,7 +39,11 @@ class JvmBenchmarkRunnerTest {
                     }.build()
 
             // Connect
-            val connResult = benchmark.benchmarkConnection(peripheral, ConnectionOptions(timeouts = OperationTimeouts()))
+            val connResult =
+                benchmark.benchmarkConnection(
+                    peripheral,
+                    ConnectionOptions(timeouts = OperationTimeouts()),
+                )
             assertTrue(connResult.success, "Connect failed: ${connResult.errorMessage}")
 
             // Discover
