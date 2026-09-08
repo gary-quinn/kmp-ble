@@ -28,6 +28,9 @@ internal interface BlueZAdapterSession {
 
     fun seedExistingDevices(onDevice: (BluetoothDevice) -> Unit)
 
+    /** Refresh known devices during active discovery (no full introspection pass). */
+    fun pollDiscoveredDevices(onDevice: (BluetoothDevice) -> Unit)
+
     fun startDiscovery(): Boolean
 
     fun stopDiscovery()
@@ -157,6 +160,10 @@ internal class HypfviehBlueZAdapterSession(
 
     override fun seedExistingDevices(onDevice: (BluetoothDevice) -> Unit) {
         deviceManager.findBtDevicesByIntrospection(adapter)
+        deviceManager.getDevices(adapter.address, true).forEach(onDevice)
+    }
+
+    override fun pollDiscoveredDevices(onDevice: (BluetoothDevice) -> Unit) {
         deviceManager.getDevices(adapter.address, true).forEach(onDevice)
     }
 

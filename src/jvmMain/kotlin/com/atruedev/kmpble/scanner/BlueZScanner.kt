@@ -9,8 +9,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import org.freedesktop.dbus.types.Variant
 import java.util.concurrent.ConcurrentHashMap
 
@@ -25,6 +28,8 @@ public class BlueZScanner internal constructor(
     configure: ScannerConfig.() -> Unit = {},
     private val sessionFactory: BlueZSessionFactory = DefaultBlueZSessionFactory,
     coroutineScope: CoroutineScope? = null,
+    private val seedSettleMs: Long = DEFAULT_SEED_SETTLE_MS,
+    private val pollIntervalMs: Long = DEFAULT_POLL_INTERVAL_MS,
 ) : Scanner {
     public constructor(configure: ScannerConfig.() -> Unit = {}) : this(configure, DefaultBlueZSessionFactory)
 
@@ -102,8 +107,6 @@ public class BlueZScanner internal constructor(
             return
         }
 
-        session.seedExistingDevices(::emitDevice)
-
         if (!session.startDiscovery()) {
             session.unregisterHandlers()
             session.closeConnection()
@@ -118,7 +121,18 @@ public class BlueZScanner internal constructor(
 
         logEvent(BleLogEvent.ScanStarted(config.filterGroups.size))
 
+        val pollJob =
+            launch(Dispatchers.Default) {
+                delay(seedSettleMs)
+                session.seedExistingDevices(::emitDevice)
+                while (isActive) {
+                    delay(pollIntervalMs)
+                    session.pollDiscoveredDevices(::emitDevice)
+                }
+            }
+
         awaitClose {
+            pollJob.cancel()
             session.stopDiscovery()
             session.unregisterHandlers()
             session.closeConnection()
@@ -130,7 +144,6 @@ public class BlueZScanner internal constructor(
         val filters =
             linkedMapOf<String, Variant<*>>(
                 "Transport" to Variant("le"),
-                "DuplicateData" to Variant(true),
             )
         session.setDiscoveryFilter(filters).onFailure { error ->
             logEvent(
@@ -149,5 +162,8 @@ public class BlueZScanner internal constructor(
         public const val ERROR_NO_ADAPTER: Int = -11
         public const val ERROR_ADAPTER_OFF: Int = -12
         public const val ERROR_DISCOVERY_FAILED: Int = -13
+
+        internal const val DEFAULT_SEED_SETTLE_MS: Long = 500L
+        internal const val DEFAULT_POLL_INTERVAL_MS: Long = 750L
     }
 }

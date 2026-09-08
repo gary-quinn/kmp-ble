@@ -11,6 +11,7 @@ import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
@@ -33,18 +34,29 @@ class BlueZScannerLifecycleTest {
         runBlocking {
             val session = FakeBlueZAdapterSession()
             val factory = FakeBlueZSessionFactory(session)
-            val scanner = BlueZScanner(sessionFactory = factory)
+            val scanner =
+                BlueZScanner(
+                    sessionFactory = factory,
+                    seedSettleMs = 20,
+                    pollIntervalMs = 50,
+                )
 
             val collectJob = launch { scanner.scanEvents.collect { } }
             session.awaitDiscoveryStarted()
+            session.awaitSeedExistingDevices()
 
             assertEquals(1, session.setDiscoveryFilterCalls)
             assertEquals("le", session.lastDiscoveryFilter?.get("Transport")?.value)
-            assertEquals(true, session.lastDiscoveryFilter?.get("DuplicateData")?.value)
+            assertFalse(session.lastDiscoveryFilter!!.containsKey("DuplicateData"))
             assertEquals(1, session.registerHandlersCalls)
-            assertEquals(1, session.seedExistingDevicesCalls)
             assertEquals(1, session.startDiscoveryCalls)
+            assertEquals(1, session.seedExistingDevicesCalls)
+            assertEquals("startDiscovery", session.operationOrder.first())
+            assertEquals("seedExistingDevices", session.operationOrder[1])
             assertEquals(0, session.stopDiscoveryCalls)
+
+            session.awaitPollDiscoveredDevices()
+            assertTrue(session.pollDiscoveredDevicesCalls >= 1)
 
             collectJob.cancelAndJoin()
             session.awaitDiscoveryStopped()
@@ -63,7 +75,7 @@ class BlueZScannerLifecycleTest {
         runBlocking {
             val session = FakeBlueZAdapterSession()
             val factory = FakeBlueZSessionFactory(session)
-            val scanner = BlueZScanner(sessionFactory = factory)
+            val scanner = BlueZScanner(sessionFactory = factory, seedSettleMs = 20, pollIntervalMs = 50)
 
             val collectJob = launch { scanner.scanEvents.collect { } }
             session.awaitDiscoveryStarted()
@@ -84,7 +96,7 @@ class BlueZScannerLifecycleTest {
                     setDiscoveryFilterResult = Result.failure(IllegalStateException("filter rejected")),
                 )
             val factory = FakeBlueZSessionFactory(session)
-            val scanner = BlueZScanner(sessionFactory = factory)
+            val scanner = BlueZScanner(sessionFactory = factory, seedSettleMs = 20, pollIntervalMs = 50)
 
             val collectJob = launch { scanner.scanEvents.collect { } }
             session.awaitDiscoveryStarted()
@@ -101,17 +113,19 @@ class BlueZScannerLifecycleTest {
         }
 
     @Test
-    fun startDiscoveryFailureUnregistersAndClosesWithoutStopDiscovery() =
+    fun startDiscoveryFailureSkipsSeedAndPoll() =
         runBlocking {
             val session = FakeBlueZAdapterSession(startDiscoveryResult = false)
             val factory = FakeBlueZSessionFactory(session)
-            val scanner = BlueZScanner(sessionFactory = factory)
+            val scanner = BlueZScanner(sessionFactory = factory, seedSettleMs = 20, pollIntervalMs = 50)
 
             val event = scanner.scanEvents.first()
             assertTrue(event is ScanEvent.Failed)
             assertEquals(BlueZScanner.ERROR_DISCOVERY_FAILED, event.error.errorCode)
 
             assertEquals(1, session.startDiscoveryCalls)
+            assertEquals(0, session.seedExistingDevicesCalls)
+            assertEquals(0, session.pollDiscoveredDevicesCalls)
             assertEquals(1, session.unregisterHandlersCalls)
             assertEquals(1, session.closeConnectionCalls)
             assertEquals(0, session.stopDiscoveryCalls)

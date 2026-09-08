@@ -17,9 +17,11 @@ internal class FakeBlueZAdapterSession(
     var registerHandlersCalls: Int = 0
     var unregisterHandlersCalls: Int = 0
     var seedExistingDevicesCalls: Int = 0
+    var pollDiscoveredDevicesCalls: Int = 0
     var startDiscoveryCalls: Int = 0
     var stopDiscoveryCalls: Int = 0
     var closeConnectionCalls: Int = 0
+    val operationOrder: MutableList<String> = mutableListOf()
 
     suspend fun awaitDiscoveryStarted() {
         withTimeout(2.seconds) {
@@ -32,6 +34,22 @@ internal class FakeBlueZAdapterSession(
     suspend fun awaitDiscoveryStopped() {
         withTimeout(2.seconds) {
             while (stopDiscoveryCalls == 0) {
+                delay(1)
+            }
+        }
+    }
+
+    suspend fun awaitSeedExistingDevices() {
+        withTimeout(2.seconds) {
+            while (seedExistingDevicesCalls == 0) {
+                delay(1)
+            }
+        }
+    }
+
+    suspend fun awaitPollDiscoveredDevices() {
+        withTimeout(2.seconds) {
+            while (pollDiscoveredDevicesCalls == 0) {
                 delay(1)
             }
         }
@@ -57,10 +75,17 @@ internal class FakeBlueZAdapterSession(
 
     override fun seedExistingDevices(onDevice: (BluetoothDevice) -> Unit) {
         seedExistingDevicesCalls++
+        operationOrder.add("seedExistingDevices")
+    }
+
+    override fun pollDiscoveredDevices(onDevice: (BluetoothDevice) -> Unit) {
+        pollDiscoveredDevicesCalls++
+        operationOrder.add("pollDiscoveredDevices")
     }
 
     override fun startDiscovery(): Boolean {
         startDiscoveryCalls++
+        operationOrder.add("startDiscovery")
         return startDiscoveryResult
     }
 
