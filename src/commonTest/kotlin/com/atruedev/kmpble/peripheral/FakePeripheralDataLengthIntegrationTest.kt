@@ -2,7 +2,6 @@ package com.atruedev.kmpble.peripheral
 
 import com.atruedev.kmpble.connection.DataLengthParameters
 import com.atruedev.kmpble.testing.FakePeripheral
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.launch
@@ -11,7 +10,6 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
-import kotlin.test.assertTrue
 
 /**
  * Integration tests for [FakePeripheral.dataLengthParameters].

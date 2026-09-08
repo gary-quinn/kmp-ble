@@ -99,9 +99,12 @@ class ReconnectTest {
     fun reconnect_usesCustomOptionsFromPreviousConnect() =
         runTest {
             val options =
-                ConnectionOptions(timeouts = OperationTimeouts(), autoConnect = false,
+                ConnectionOptions(
+                    timeouts = OperationTimeouts(),
+                    autoConnect = false,
                     phyMask = PhyMask.LE_2M,
-                    mtuRequest = 185,)
+                    mtuRequest = 185,
+                )
             val peripheral =
                 FakePeripheral {
                     service("180d") {

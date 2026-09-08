@@ -2,9 +2,9 @@ package com.atruedev.kmpble.monitoring
 
 import com.atruedev.kmpble.ExperimentalBleApi
 import com.atruedev.kmpble.connection.ConnectionOptions
-import com.atruedev.kmpble.connection.OperationTimeouts
 import com.atruedev.kmpble.connection.ConnectionParameterUpdateResult
 import com.atruedev.kmpble.connection.ConnectionParameters
+import com.atruedev.kmpble.connection.OperationTimeouts
 import com.atruedev.kmpble.testing.FakePeripheralBuilder
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi

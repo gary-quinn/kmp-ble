@@ -70,7 +70,12 @@ class ConnectionOptionsValidationTest {
 
     @Test
     fun `BrEdr transport with non-default phy warns`() {
-        val options = ConnectionOptions(timeouts = OperationTimeouts(), transportType = TransportType.BrEdr, phyMask = PhyMask.LE_2M)
+        val options =
+            ConnectionOptions(
+                timeouts = OperationTimeouts(),
+                transportType = TransportType.BrEdr,
+                phyMask = PhyMask.LE_2M,
+            )
         val warnings = options.validate()
         assertEquals(1, warnings.size)
         val warning = warnings.single() as ValidationWarning.PhyBrEdrMismatch
@@ -80,7 +85,12 @@ class ConnectionOptionsValidationTest {
 
     @Test
     fun `BrEdr transport with LE_1M phy does not warn`() {
-        val options = ConnectionOptions(timeouts = OperationTimeouts(), transportType = TransportType.BrEdr, phyMask = PhyMask.LE_1M)
+        val options =
+            ConnectionOptions(
+                timeouts = OperationTimeouts(),
+                transportType = TransportType.BrEdr,
+                phyMask = PhyMask.LE_1M,
+            )
         val warnings = options.validate()
         assertTrue(warnings.none { it is ValidationWarning.PhyBrEdrMismatch })
     }
@@ -110,7 +120,12 @@ class ConnectionOptionsValidationTest {
 
     @Test
     fun `Required bonding without pairing handler warns`() {
-        val options = ConnectionOptions(timeouts = OperationTimeouts(), bondingPreference = BondingPreference.Required, pairingHandler = null)
+        val options =
+            ConnectionOptions(
+                timeouts = OperationTimeouts(),
+                bondingPreference = BondingPreference.Required,
+                pairingHandler = null,
+            )
         val warnings = options.validate()
         assertTrue(warnings.any { it is ValidationWarning.RequiredBondingNoHandler })
     }
@@ -121,7 +136,12 @@ class ConnectionOptionsValidationTest {
             PairingHandler { _ ->
                 PairingResponse.Confirm(true)
             }
-        val options = ConnectionOptions(timeouts = OperationTimeouts(), bondingPreference = BondingPreference.Required, pairingHandler = handler)
+        val options =
+            ConnectionOptions(
+                timeouts = OperationTimeouts(),
+                bondingPreference = BondingPreference.Required,
+                pairingHandler = handler,
+            )
         val warnings = options.validate()
         assertTrue(warnings.none { it is ValidationWarning.RequiredBondingNoHandler })
     }
