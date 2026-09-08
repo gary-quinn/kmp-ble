@@ -148,8 +148,9 @@ internal open class AndroidGattBridge(
         callbackThread = thread
         callbackHandler = Handler(thread.looper)
 
+        // Legacy connectGatt overload; transport/phy params need this signature pre-API 26.
+        @Suppress("DEPRECATION")
         _gatt.value =
-            @Suppress("DEPRECATION") // Legacy connectGatt overload; transport/phy params require this signature pre-API 26 alternative.
             device.connectGatt(
                 context,
                 options.autoConnect,
