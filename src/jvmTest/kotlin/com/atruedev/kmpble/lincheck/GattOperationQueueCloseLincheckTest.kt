@@ -10,20 +10,26 @@ import org.jetbrains.lincheck.datastructures.Validate
 import org.junit.Test
 
 /**
- * Lincheck stress for [GattOperationQueue] [start] / [drain] without concurrent [close].
+ * Lincheck stress for concurrent [GattOperationQueue.close] vs lifecycle ops (#663, #664).
  *
- * Concurrent [close] interleavings: [GattOperationQueueCloseLincheckTest].
- * Cross-thread [close] vs in-flight [enqueue] cleanup (#663): [com.atruedev.kmpble.gatt.internal.GattOperationQueueConcurrencyTest].
- * Suspend [enqueue] is excluded (Lincheck controls threads, not coroutine dispatchers).
+ * [close] may run from any teardown thread while [start] and [drain] run on the
+ * queue's serialized dispatcher. All three touch channel lifecycle and
+ * [GattOperationQueue]'s thread-safe [inFlightJobs] via [cancelInFlight].
+ *
+ * Suspend [GattOperationQueue.enqueue] cleanup (the other half of #663) is not
+ * modeled here; see [com.atruedev.kmpble.gatt.internal.GattOperationQueueConcurrencyTest].
  * Concurrency regressions for this queue are gated by `./gradlew jvmTest` in CI.
  *
- * Uses [StressOptions] only - [ModelCheckingOptions] conflicts with the coroutine
- * launched inside [start]. [Dispatchers.Unconfined] avoids extra worker threads.
+ * Uses [StressOptions] only - [ModelCheckingOptions] conflicts with the
+ * coroutine launched inside [start].
  */
-class GattOperationQueueLifecycleLincheckTest {
+class GattOperationQueueCloseLincheckTest {
     private val job = SupervisorJob()
     private val scope = CoroutineScope(job + Dispatchers.Unconfined)
     private val queue = GattOperationQueue(scope)
+
+    @Operation
+    fun close() = queue.close()
 
     @Operation
     fun start() = queue.start()
@@ -41,7 +47,7 @@ class GattOperationQueueLifecycleLincheckTest {
     fun stressTest() =
         StressOptions()
             .iterations(50)
-            .threads(2)
+            .threads(3)
             .actorsPerThread(3)
             .check(this::class)
 }
