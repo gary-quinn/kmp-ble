@@ -4,7 +4,7 @@
 [![Publish](https://github.com/gary-quinn/kmp-ble/actions/workflows/publish.yml/badge.svg)](https://github.com/gary-quinn/kmp-ble/actions/workflows/publish.yml)
 [![Maven Central](https://img.shields.io/maven-central/v/com.atruedev/kmp-ble)](https://central.sonatype.com/artifact/com.atruedev/kmp-ble)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![Kotlin](https://img.shields.io/badge/Kotlin-2.3.20-purple.svg)](https://kotlinlang.org)
+[![Kotlin](https://img.shields.io/badge/Kotlin-2.4.20-purple.svg)](https://kotlinlang.org)
 
 Kotlin Multiplatform BLE library for Android and iOS.
 
@@ -405,7 +405,15 @@ Production-grade BLE utility app (Android + iOS) with tab-based navigation, comp
 
 ### Quickstart (`sample-quickstart/`)
 
-Minimal ~150-line single-screen app: scan, tap, connect, read first characteristic, display value. No ViewModel, no navigation - the "Getting Started in 5 Minutes" reference.
+Minimal single-screen Compose Multiplatform app (~200 lines of UI): scan, tap a device, connect, read or observe the first useful characteristic (prefers Heart Rate 0x180D/0x2A37), disconnect. No ViewModel or navigation - the runnable companion to [GETTING_STARTED.md](GETTING_STARTED.md). For a code-only walkthrough, see [BleQuickstart.kt](sample/src/commonMain/kotlin/com/atruedev/kmpble/sample/BleQuickstart.kt).
+
+```bash
+# Android
+./gradlew :sample-quickstart-android:installDebug
+
+# iOS - build the framework, then wire MainViewController() from your Xcode target
+./gradlew :sample-quickstart:linkDebugFrameworkIosSimulatorArm64
+```
 
 ## Architecture
 
@@ -420,7 +428,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for design details and [STREAMS.md](STREA
 
 ## Requirements
 
-- Kotlin 2.3.0+
+- Kotlin 2.4.20+
 - Android minSdk 33
 - iOS 15+
 - kotlinx-coroutines 1.10+

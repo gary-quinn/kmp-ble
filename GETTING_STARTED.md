@@ -4,7 +4,7 @@ This guide walks you through adding kmp-ble to a new project, scanning for a dev
 
 ## Prerequisites
 
-- **Kotlin 2.3.0+** (for KMP 2.4+ features)
+- **Kotlin 2.4.20+** (matches the repo's Kotlin version)
 - **Android** minSdk 33+, compileSdk 36
 - **iOS** 15+ (SPM)
 - Physical BLE device (e.g., Nordic Thingy:53, ESP32, Arduino Nano 33 BLE, or any BLE LED peripheral)
@@ -41,7 +41,7 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
-            implementation("com.atruedev:kmp-ble:0.8.1")
+            implementation("com.atruedev:kmp-ble:0.13.3")
         }
         androidMain.dependencies {
             implementation(libs.kotlinx.coroutines.android)
@@ -50,7 +50,7 @@ kotlin {
 }
 ```
 
-> **Note**: If you're in a single-module Android app (no KMP), add the dependency to your app module's `build.gradle.kts` under `dependencies { implementation("com.atruedev:kmp-ble:0.8.1") }`.
+> **Note**: If you're in a single-module Android app (no KMP), add the dependency to your app module's `build.gradle.kts` under `dependencies { implementation("com.atruedev:kmp-ble:0.13.3") }`.
 
 ### 2. Initialize (Android Only)
 
@@ -151,7 +151,7 @@ In Xcode: **File > Add Package Dependencies** > enter:
 https://github.com/gary-quinn/kmp-ble
 ```
 
-Select **Up to Next Major Version** > `0.8.1` > add `KmpBle` to your target.
+Select **Up to Next Major Version** > `0.13.3` > add `KmpBle` to your target.
 
 ### 2. Info.plist Permissions
 
@@ -403,5 +403,7 @@ struct LedView: View {
 - **API Reference**: [Dokka](https://gary-quinn.github.io/kmp-ble/)
 - **Architecture**: [ARCHITECTURE.md](ARCHITECTURE.md)
 - **Typed Streams (L2CAP + Codec)**: [STREAMS.md](STREAMS.md)
-- **Sample App**: `sample/` (Compose Multiplatform, ~1500 lines)
+- **Sample App (minimal)**: `sample-quickstart/` - single-screen scan/connect/read demo
+- **Sample App (full)**: `sample/` (GATT Lab, Compose Multiplatform)
+- **Code walkthrough**: [BleQuickstart.kt](sample/src/commonMain/kotlin/com/atruedev/kmpble/sample/BleQuickstart.kt)
 - **Issues**: [GitHub Issues](https://github.com/gary-quinn/kmp-ble/issues)

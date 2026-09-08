@@ -9,6 +9,7 @@ Compose Multiplatform sample app (Android + iOS) for [kmp-ble](../), exercising 
 
 For a self-contained code walkthrough without running the full app, see
 [BleQuickstart.kt](src/commonMain/kotlin/com/atruedev/kmpble/sample/BleQuickstart.kt).
+For a minimal runnable app, use [`sample-quickstart/`](../sample-quickstart/) instead.
 It demonstrates the complete BLE lifecycle:
 
 1. **Scan** for peripherals advertising a specific service

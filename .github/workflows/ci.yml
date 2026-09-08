@@ -83,10 +83,10 @@ jobs:
       - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
 
       - name: Compile sample (common)
-        run: ./gradlew :sample:compileCommonMainKotlinMetadata
+        run: ./gradlew :sample:compileCommonMainKotlinMetadata :sample-quickstart:compileCommonMainKotlinMetadata
 
       - name: Compile sample app (Android)
-        run: ./gradlew :sample:compileAndroidMain :sample-android:compileDebugKotlin
+        run: ./gradlew :sample:compileAndroidMain :sample-android:compileDebugKotlin :sample-quickstart:compileAndroidMain :sample-quickstart-android:compileDebugKotlin
 
   android-instrumented:
     runs-on: ubuntu-latest
@@ -162,7 +162,7 @@ jobs:
         run: ./gradlew compileKotlinIosSimulatorArm64
 
       - name: Compile sample (iOS)
-        run: ./gradlew :sample:compileKotlinIosSimulatorArm64
+        run: ./gradlew :sample:compileKotlinIosSimulatorArm64 :sample-quickstart:compileKotlinIosSimulatorArm64
 
       - name: Test (common on iOS)
         run: ./gradlew iosSimulatorArm64Test
