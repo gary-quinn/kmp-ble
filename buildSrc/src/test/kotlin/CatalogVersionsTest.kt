@@ -17,7 +17,7 @@ class CatalogVersionsTest {
                 resolve("gradle/libs.versions.toml").writeText(
                     """
                     [versions]
-                    kotlin = "2.4.20-RC2"
+                    kotlin = "2.4.20"
                     netty = "4.1.137.Final"
 
                     [libraries]
@@ -26,7 +26,7 @@ class CatalogVersionsTest {
                 )
             }
 
-        assertEquals("2.4.20-RC2", CatalogVersions.requiredVersion("kotlin", rootDir))
+        assertEquals("2.4.20", CatalogVersions.requiredVersion("kotlin", rootDir))
         assertEquals("4.1.137.Final", CatalogVersions.requiredVersion("netty", rootDir))
     }
 }
