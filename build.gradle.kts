@@ -13,10 +13,19 @@ buildscript {
             when ("${requested.group}:${requested.name}") {
                 "org.jdom:jdom2" -> useVersion(CatalogVersions.requiredVersion("jdom2", rootDir))
                 "org.bitbucket.b_c:jose4j" -> useVersion(CatalogVersions.requiredVersion("jose4j", rootDir))
-                "org.apache.commons:commons-lang3" -> useVersion(CatalogVersions.requiredVersion("commonsLang3", rootDir))
-                "org.apache.httpcomponents:httpclient" -> useVersion(CatalogVersions.requiredVersion("httpclient", rootDir))
+                "org.apache.commons:commons-lang3" ->
+                    useVersion(
+                        CatalogVersions.requiredVersion("commonsLang3", rootDir),
+                    )
+                "org.apache.httpcomponents:httpclient" ->
+                    useVersion(
+                        CatalogVersions.requiredVersion("httpclient", rootDir),
+                    )
                 "org.jsoup:jsoup" -> useVersion(CatalogVersions.requiredVersion("jsoup", rootDir))
-                "org.jetbrains.kotlin:kotlin-gradle-plugin" -> useVersion(CatalogVersions.requiredVersion("kotlin", rootDir))
+                "org.jetbrains.kotlin:kotlin-gradle-plugin" ->
+                    useVersion(
+                        CatalogVersions.requiredVersion("kotlin", rootDir),
+                    )
             }
         }
     }
