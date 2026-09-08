@@ -33,7 +33,7 @@ Implement **Linux JVM BLE through BlueZ over the system D-Bus bus**, starting wi
 | Alternative | Why rejected |
 |-------------|--------------|
 | Shell out to `bluetoothctl` and scrape output | Fragile, hard to map live RSSI updates, poor testability |
-| Windows/macOS JVM stacks first | Gary's priority is Linux/BlueZ on Spark and similar hosts |
+| Windows/macOS JVM stacks first | Ship Linux/BlueZ first: it is the primary desktop/edge JVM BLE surface (BlueZ D-Bus is the standard Linux stack); Windows/macOS JVM backends can follow once the Linux path is proven |
 | JNI to proprietary stacks (Intel TinyB, vendor SDKs) | Heavier native burden, weaker fit with KMP JVM artifact |
 | Make `Scanner { }` always use BlueZ on Linux | Would break CI and headless JVM consumers without adapters |
 
