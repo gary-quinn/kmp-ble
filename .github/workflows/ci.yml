@@ -41,6 +41,13 @@ jobs:
       - name: Test (Android host tests)
         run: ./gradlew testAndroidHostTest :sample-quickstart-android:testDebugUnitTest
 
+      - name: Test (extension modules - Android host)
+        run: >-
+          ./gradlew
+          :kmp-ble-codec:testAndroidHostTest
+          :kmp-ble-codec-serialization:testAndroidHostTest
+          :kmp-ble-dfu:testAndroidHostTest
+
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -62,6 +69,14 @@ jobs:
 
       - name: Test (JVM concurrency / Lincheck)
         run: ./gradlew jvmTest
+
+      - name: Test (extension modules - JVM)
+        run: >-
+          ./gradlew
+          :kmp-ble-codec:jvmTest
+          :kmp-ble-codec-serialization:jvmTest
+          :kmp-ble-profiles:jvmTest
+          :kmp-ble-dfu:jvmTest
 
       - name: Upload test results
         if: always()
@@ -166,6 +181,14 @@ jobs:
 
       - name: Test (common on iOS)
         run: ./gradlew iosSimulatorArm64Test
+
+      - name: Test (extension modules - iOS)
+        run: >-
+          ./gradlew
+          :kmp-ble-codec:iosSimulatorArm64Test
+          :kmp-ble-codec-serialization:iosSimulatorArm64Test
+          :kmp-ble-profiles:iosSimulatorArm64Test
+          :kmp-ble-dfu:iosSimulatorArm64Test
 
       - name: Upload test results
         if: always()

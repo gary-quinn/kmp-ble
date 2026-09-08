@@ -202,7 +202,19 @@ mode. Platform implementations map OS-level errors to the appropriate subtype:
   Android runtime.
 - `FakeL2capSocket.kt` (77 loc): Test helper for socket mocking on Android.
 
-**Gap:** No L2CAP conformance tests in `BleConformanceTest` (filed as #249).
+**Conformance tests (commonTest + JVM):**
+- [`L2capConformanceTest`](../src/commonTest/kotlin/com/atruedev/kmpble/conformance/L2capConformanceTest.kt):
+  abstract suite covering client channel open/write/incoming/close and server
+  listener lifecycle (FakeL2capChannel / FakeL2capListener).
+- [`JvmL2capConformanceTest`](../src/jvmTest/kotlin/com/atruedev/kmpble/conformance/JvmL2capConformanceTest.kt):
+  JVM runner for the suite above.
+
+**Remaining gaps:**
+- No dedicated `IosL2capConformanceTest` subclass yet (other conformance suites
+  have iOS runners under `src/iosTest/`).
+- No hardware-in-the-loop L2CAP tests against real sockets on device/emulator.
+- [`AndroidL2capChannelTest.kt`](../src/androidHostTest/kotlin/com/atruedev/kmpble/l2cap/AndroidL2capChannelTest.kt)
+  covers Android-specific socket behavior with fakes, not live peripherals.
 
 ## Concurrency Model
 

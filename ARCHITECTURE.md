@@ -122,7 +122,7 @@ A drain job consumes entries one at a time. Each entry's `block` runs, the resul
 
 - **10-second timeout** per operation - Android will silently drop operations without a callback. The watchdog catches these.
 - **Drain on disconnect** - all pending operations complete with `NotConnectedException`.
-- **Cancellation** - cancelling the caller's coroutine cancels the *wait*, not the hardware operation. The in-flight GATT op completes silently, the result is discarded, and the queue advances. This prevents leaving the GATT in an inconsistent state.
+- **Cancellation propagation** - each queued action runs as a child job of the drain loop. When the caller's coroutine is cancelled or its `withTimeout` fires, the in-flight child job is cancelled so the action can abort (e.g. a reliable-write transaction). Actions not yet started are marked cancelled and skipped. This prevents a cancelled caller from leaving a multi-chunk reliable write running to completion in the background.
 
 ---
 
@@ -147,8 +147,11 @@ A drain job consumes entries one at a time. Each entry's `block` runs, the resul
 
 ### Thread Safety
 
-- Subscribe/unsubscribe operations are guarded by a `Mutex`
-- The observation map is snapshotted to a `@Volatile` immutable copy for lock-free reads from platform callback threads
+- Subscribe/unsubscribe mutations run on the peripheral's `serialDispatcher`
+  (`limitedParallelism(1)`) via `withContext`, consistent with the rest of the
+  codebase - no `Mutex`
+- The observation map is snapshotted to an immutable copy held in
+  `kotlinx.atomicfu.atomic` for lock-free reads from platform callback threads
 - `MutableSharedFlow.tryEmit()` is inherently thread-safe
 
 ---
@@ -471,6 +474,6 @@ iOS: CBPeripheralDelegate.peripheral(_:didUpdateValueFor:error:)
 | UUID-based observation tracking over object reference | After reconnect, native characteristic objects are new. UUID is the stable identity. |
 | Cold Flows over hot streams for scanning | No OS resources until collection starts. Structured concurrency handles cleanup. |
 | 10s GATT operation timeout | Android silently drops operations. The watchdog prevents indefinite hangs. |
-| `@Volatile` snapshot for observation map | Lock-free reads from platform callback threads. Mutex only on subscribe/unsubscribe. |
+| `@Volatile` snapshot for observation map | Lock-free reads from platform callback threads. `serialDispatcher` serializes subscribe/unsubscribe mutations. |
 | Device quirks as internal registry | Consumers shouldn't need to know about Samsung BLE bugs. Workarounds apply automatically. |
 | Independent GattServer and Advertiser | Beacon (advertise-only) and connected-only (server-only) are both valid use cases. |
