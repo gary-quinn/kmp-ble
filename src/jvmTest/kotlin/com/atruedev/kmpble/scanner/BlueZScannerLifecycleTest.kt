@@ -4,6 +4,7 @@ import com.atruedev.kmpble.logging.BleLogConfig
 import com.atruedev.kmpble.logging.BleLogEvent
 import com.atruedev.kmpble.logging.BleLogger
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -129,6 +130,74 @@ class BlueZScannerLifecycleTest {
             assertEquals(1, session.unregisterHandlersCalls)
             assertEquals(1, session.closeConnectionCalls)
             assertEquals(0, session.stopDiscoveryCalls)
+        }
+
+    @Test
+    fun pollContinuesAfterSeedFailure() =
+        runBlocking {
+            val session =
+                object : FakeBlueZAdapterSession() {
+                    override fun seedExistingDevices(
+                        onDevice: (com.github.hypfvieh.bluetooth.wrapper.BluetoothDevice) -> Unit,
+                    ) {
+                        seedExistingDevicesCalls++
+                        operationOrder.add("seedExistingDevices")
+                        error("seed failed")
+                    }
+                }
+            val factory = FakeBlueZSessionFactory(session)
+            val scanner = BlueZScanner(sessionFactory = factory, seedSettleMs = 20, pollIntervalMs = 50)
+
+            val collectJob = launch { scanner.scanEvents.collect { } }
+            session.awaitDiscoveryStarted()
+            session.awaitPollDiscoveredDevices()
+
+            assertEquals(1, session.seedExistingDevicesCalls)
+            assertTrue(session.pollDiscoveredDevicesCalls >= 1)
+            val warning = logEvents.filterIsInstance<BleLogEvent.Warning>().singleOrNull()
+            assertNotNull(warning)
+            assertTrue(warning.message.contains("seedExistingDevices failed"))
+
+            collectJob.cancelAndJoin()
+            scanner.close()
+        }
+
+    @Test
+    fun deviceAddedWithArrayListPayloadsEmitsAdvertisement() =
+        runBlocking {
+            val session = FakeBlueZAdapterSession()
+            val factory = FakeBlueZSessionFactory(session)
+            val scanner = BlueZScanner(sessionFactory = factory, seedSettleMs = 20, pollIntervalMs = 50)
+            val ads = mutableListOf<Advertisement>()
+
+            val collectJob =
+                launch {
+                    scanner.scanEvents.collect { event ->
+                        if (event is ScanEvent.Found) {
+                            ads += event.advertisement
+                        }
+                    }
+                }
+            session.awaitDiscoveryStarted()
+
+            session.simulateDeviceAdded(
+                path = "/org/bluez/hci0/dev_AA_BB_CC_DD_EE_FF",
+                properties =
+                    mapOf(
+                        "Address" to "AA:BB:CC:DD:EE:FF",
+                        "RSSI" to -48,
+                        "AdvertisingFlags" to arrayListOf<Any>(6),
+                        "ManufacturerData" to mapOf(0x004C.toShort() to arrayListOf<Number>(0x10)),
+                    ),
+            )
+
+            delay(50)
+            assertEquals(1, ads.size)
+            assertEquals("AA:BB:CC:DD:EE:FF", ads.single().identifier.value)
+            assertEquals(-48, ads.single().rssi)
+
+            collectJob.cancelAndJoin()
+            scanner.close()
         }
 
     @Test

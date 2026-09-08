@@ -6,7 +6,7 @@ import kotlinx.coroutines.withTimeout
 import org.freedesktop.dbus.types.Variant
 import kotlin.time.Duration.Companion.seconds
 
-internal class FakeBlueZAdapterSession(
+internal open class FakeBlueZAdapterSession(
     override val adapterPath: String = "/org/bluez/hci0",
     var setDiscoveryFilterResult: Result<Unit> = Result.success(Unit),
     var registerHandlersResult: Boolean = true,
@@ -22,6 +22,23 @@ internal class FakeBlueZAdapterSession(
     var stopDiscoveryCalls: Int = 0
     var closeConnectionCalls: Int = 0
     val operationOrder: MutableList<String> = mutableListOf()
+
+    private var propertiesChangedHandler: ((path: String, changed: Map<String, Any?>) -> Unit)? = null
+    private var deviceAddedHandler: ((path: String, properties: Map<String, Any?>) -> Unit)? = null
+
+    fun simulatePropertiesChanged(
+        path: String,
+        changed: Map<String, Any?>,
+    ) {
+        propertiesChangedHandler?.invoke(path, changed)
+    }
+
+    fun simulateDeviceAdded(
+        path: String,
+        properties: Map<String, Any?>,
+    ) {
+        deviceAddedHandler?.invoke(path, properties)
+    }
 
     suspend fun awaitDiscoveryStarted() {
         withTimeout(2.seconds) {
@@ -66,6 +83,8 @@ internal class FakeBlueZAdapterSession(
         onDeviceAdded: (path: String, properties: Map<String, Any?>) -> Unit,
     ): Boolean {
         registerHandlersCalls++
+        propertiesChangedHandler = onPropertiesChanged
+        deviceAddedHandler = onDeviceAdded
         return registerHandlersResult
     }
 
@@ -73,7 +92,7 @@ internal class FakeBlueZAdapterSession(
         unregisterHandlersCalls++
     }
 
-    override fun seedExistingDevices(onDevice: (BluetoothDevice) -> Unit) {
+    open override fun seedExistingDevices(onDevice: (BluetoothDevice) -> Unit) {
         seedExistingDevicesCalls++
         operationOrder.add("seedExistingDevices")
     }

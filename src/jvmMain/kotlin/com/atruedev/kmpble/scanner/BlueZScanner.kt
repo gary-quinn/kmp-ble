@@ -65,35 +65,73 @@ public class BlueZScanner internal constructor(
 
         fun emitSnapshot(snapshot: BlueZDeviceSnapshot) {
             if (snapshot.rssi == null) return
-            val merged =
-                snapshots.merge(
-                    snapshot.dbusPath,
-                    snapshot,
-                ) { previous, update ->
-                    previous.merge(update)
-                }!!
-            trySend(merged.toAdvertisement())
+            try {
+                val merged =
+                    snapshots.merge(
+                        snapshot.dbusPath,
+                        snapshot,
+                    ) { previous, update ->
+                        previous.merge(update)
+                    }!!
+                trySend(merged.toAdvertisement())
+            } catch (error: Exception) {
+                logEvent(
+                    BleLogEvent.Warning(
+                        identifier = null,
+                        message =
+                            "BlueZ advertisement mapping failed for ${snapshot.address} " +
+                                "(${snapshot.dbusPath}): ${error.message}",
+                    ),
+                )
+            }
         }
 
         fun emitDevice(device: BluetoothDevice) {
-            device.toSnapshot()?.let(::emitSnapshot)
+            try {
+                device.toSnapshot()?.let(::emitSnapshot)
+            } catch (error: Exception) {
+                logEvent(
+                    BleLogEvent.Warning(
+                        identifier = null,
+                        message = "BlueZ device snapshot failed for ${device.address}: ${error.message}",
+                    ),
+                )
+            }
         }
 
         fun onPropertiesChanged(
             path: String,
             changed: Map<String, Any?>,
         ) {
-            val existing = snapshots[path]
-            val address = existing?.address ?: (changed["Address"] as? String) ?: return
-            val delta = snapshotFromChangedProperties(path, address, changed)
-            emitSnapshot((existing ?: delta).merge(delta))
+            try {
+                val existing = snapshots[path]
+                val address = existing?.address ?: (changed["Address"] as? String) ?: return
+                val delta = snapshotFromChangedProperties(path, address, changed)
+                emitSnapshot((existing ?: delta).merge(delta))
+            } catch (error: Exception) {
+                logEvent(
+                    BleLogEvent.Warning(
+                        identifier = null,
+                        message = "BlueZ PropertiesChanged handling failed for $path: ${error.message}",
+                    ),
+                )
+            }
         }
 
         fun onDeviceAdded(
             path: String,
             properties: Map<String, Any?>,
         ) {
-            snapshotFromPropertyMap(path, properties)?.let(::emitSnapshot)
+            try {
+                snapshotFromPropertyMap(path, properties)?.let(::emitSnapshot)
+            } catch (error: Exception) {
+                logEvent(
+                    BleLogEvent.Warning(
+                        identifier = null,
+                        message = "BlueZ InterfacesAdded handling failed for $path: ${error.message}",
+                    ),
+                )
+            }
         }
 
         if (!session.registerHandlers(::onPropertiesChanged, ::onDeviceAdded)) {
@@ -124,10 +162,14 @@ public class BlueZScanner internal constructor(
         val pollJob =
             launch(Dispatchers.Default) {
                 delay(seedSettleMs)
-                session.seedExistingDevices(::emitDevice)
+                runCatching { session.seedExistingDevices(::emitDevice) }.onFailure { error ->
+                    logPollFailure("seedExistingDevices", error)
+                }
                 while (isActive) {
                     delay(pollIntervalMs)
-                    session.pollDiscoveredDevices(::emitDevice)
+                    runCatching { session.pollDiscoveredDevices(::emitDevice) }.onFailure { error ->
+                        logPollFailure("pollDiscoveredDevices", error)
+                    }
                 }
             }
 
@@ -138,6 +180,18 @@ public class BlueZScanner internal constructor(
             session.closeConnection()
             logEvent(BleLogEvent.ScanStopped("closed"))
         }
+    }
+
+    private fun logPollFailure(
+        phase: String,
+        error: Throwable,
+    ) {
+        logEvent(
+            BleLogEvent.Warning(
+                identifier = null,
+                message = "BlueZ $phase failed: ${error.message}",
+            ),
+        )
     }
 
     private fun applyLeDiscoveryFilter(session: BlueZAdapterSession) {

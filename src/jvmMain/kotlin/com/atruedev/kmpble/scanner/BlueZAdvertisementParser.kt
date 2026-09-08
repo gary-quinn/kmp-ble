@@ -42,9 +42,9 @@ internal fun BluetoothDevice.toSnapshot(): BlueZDeviceSnapshot? {
         rssi = rssi?.toInt(),
         txPower = txPower?.toInt(),
         serviceUuids = uuids?.toList().orEmpty(),
-        manufacturerData = parseManufacturerData(manufacturerData),
-        serviceData = serviceData.orEmpty(),
-        advertisingFlags = advertisingFlags,
+        manufacturerData = parseManufacturerDataAny(manufacturerData as Map<*, *>?),
+        serviceData = parseServiceDataAny(serviceData as Map<*, *>?),
+        advertisingFlags = byteArrayFromAny(advertisingFlags),
     )
 }
 
@@ -88,66 +88,87 @@ private fun isConnectableFromFlags(flags: ByteArray?): Boolean {
         return false
     }
     val flagByte = flags[0].toInt() and 0xFF
-    // Flags AD: general/limited discoverable usually implies a connectable undirected event.
     val discoverable = (flagByte and 0x03) != 0
     return discoverable || (flagByte and 0x04) != 0
 }
 
-private fun parseManufacturerData(raw: Map<UInt16, ByteArray>?): Map<Int, ByteArray> {
-    if (raw == null) return emptyMap()
-    return raw.mapKeys { (key, _) -> key.toInt() }
+internal fun byteArrayFromAny(value: Any?): ByteArray? {
+    val unwrapped = unwrapVariantValue(value) ?: return null
+    return when (unwrapped) {
+        is ByteArray -> unwrapped
+        is List<*> -> listToByteArray(unwrapped)
+        is Array<*> -> listToByteArray(unwrapped.toList())
+        is Number -> byteArrayOf(unwrapped.toByte())
+        else -> null
+    }
 }
 
-@Suppress("UNCHECKED_CAST")
-private fun parseManufacturerDataFromProperties(value: Any?): Map<Int, ByteArray> {
-    val raw = value as? Map<*, *> ?: return emptyMap()
+private fun listToByteArray(elements: List<*>): ByteArray? {
+    val bytes = elements.mapNotNull { byteFromAny(it) }
+    return bytes.toByteArray().takeIf { it.isNotEmpty() }
+}
+
+private fun byteFromAny(value: Any?): Byte? {
+    val unwrapped = unwrapVariantValue(value) ?: return null
+    return when (unwrapped) {
+        is Number -> unwrapped.toByte()
+        is Byte -> unwrapped
+        else -> null
+    }
+}
+
+private fun unwrapVariantValue(value: Any?): Any? =
+    when (value) {
+        null -> null
+        is Variant<*> -> unwrapVariantValue(value.value)
+        else -> value
+    }
+
+private fun parseManufacturerDataAny(raw: Map<*, *>?): Map<Int, ByteArray> {
+    if (raw == null) return emptyMap()
     return raw
         .mapNotNull { (key, payload) ->
             val companyId =
-                when (key) {
-                    is UInt16 -> key.toInt()
-                    is Number -> key.toInt()
+                when (val unwrappedKey = unwrapVariantValue(key)) {
+                    is UInt16 -> unwrappedKey.toInt()
+                    is Number -> unwrappedKey.toInt()
                     else -> return@mapNotNull null
                 }
-            val bytes =
-                when (payload) {
-                    is ByteArray -> payload
-                    is List<*> -> payload.mapNotNull { (it as? Number)?.toByte() }.toByteArray()
-                    else -> return@mapNotNull null
-                }
+            val bytes = byteArrayFromAny(payload) ?: return@mapNotNull null
             companyId to bytes
         }.toMap()
 }
 
-@Suppress("UNCHECKED_CAST")
-private fun parseServiceDataFromProperties(value: Any?): Map<String, ByteArray> {
-    val raw = value as? Map<*, *> ?: return emptyMap()
+private fun parseServiceDataAny(raw: Map<*, *>?): Map<String, ByteArray> {
+    if (raw == null) return emptyMap()
     return raw
         .mapNotNull { (key, payload) ->
-            val uuid = key as? String ?: return@mapNotNull null
-            val bytes =
-                when (payload) {
-                    is ByteArray -> payload
-                    is List<*> -> payload.mapNotNull { (it as? Number)?.toByte() }.toByteArray()
+            val uuid =
+                when (val unwrappedKey = unwrapVariantValue(key)) {
+                    is String -> unwrappedKey
                     else -> return@mapNotNull null
                 }
+            val bytes = byteArrayFromAny(payload) ?: return@mapNotNull null
             uuid to bytes
         }.toMap()
 }
 
-@Suppress("UNCHECKED_CAST")
-private fun stringList(value: Any?): List<String> {
-    val list = value as? List<*> ?: return emptyList()
-    return list.mapNotNull { it as? String }
+private fun parseManufacturerDataFromProperties(value: Any?): Map<Int, ByteArray> {
+    val raw = unwrapVariantValue(value) as? Map<*, *> ?: return emptyMap()
+    return parseManufacturerDataAny(raw)
 }
 
-@Suppress("UNCHECKED_CAST")
-private fun byteArrayFromProperty(value: Any?): ByteArray? =
-    when (value) {
-        is ByteArray -> value
-        is List<*> -> value.mapNotNull { (it as? Number)?.toByte() }.toByteArray().takeIf { it.isNotEmpty() }
-        else -> null
-    }
+private fun parseServiceDataFromProperties(value: Any?): Map<String, ByteArray> {
+    val raw = unwrapVariantValue(value) as? Map<*, *> ?: return emptyMap()
+    return parseServiceDataAny(raw)
+}
+
+private fun stringList(value: Any?): List<String> {
+    val list = unwrapVariantValue(value) as? List<*> ?: return emptyList()
+    return list.mapNotNull { unwrapVariantValue(it) as? String }
+}
+
+private fun byteArrayFromProperty(value: Any?): ByteArray? = byteArrayFromAny(value)
 
 internal fun unwrapVariantMap(raw: Map<String, Variant<*>>): Map<String, Any?> =
     raw.mapValues { (_, variant) -> variant.value }

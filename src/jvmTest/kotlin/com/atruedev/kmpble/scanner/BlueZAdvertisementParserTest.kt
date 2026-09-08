@@ -119,4 +119,101 @@ class BlueZAdvertisementParserTest {
 
         assertFalse(snapshot.toAdvertisement().isConnectable)
     }
+
+    @Test
+    fun advertisingFlagsFromArrayListProperty() {
+        val flags = arrayListOf<Any>(6, 0)
+        val snapshot =
+            snapshotFromPropertyMap(
+                dbusPath = "/org/bluez/hci0/dev_AA_BB_CC_DD_EE_FF",
+                properties =
+                    mapOf(
+                        "Address" to "AA:BB:CC:DD:EE:FF",
+                        "RSSI" to -55,
+                        "AdvertisingFlags" to flags,
+                    ),
+            )
+
+        requireNotNull(snapshot)
+        assertEquals(listOf(6.toByte(), 0.toByte()), snapshot.advertisingFlags!!.toList())
+        assertTrue(snapshot.toAdvertisement().isConnectable)
+    }
+
+    @Test
+    fun manufacturerDataFromArrayListPayload() {
+        val payload = arrayListOf<Number>(0x02, 0x15)
+        val snapshot =
+            snapshotFromPropertyMap(
+                dbusPath = "/org/bluez/hci0/dev_AA_BB_CC_DD_EE_FF",
+                properties =
+                    mapOf(
+                        "Address" to "AA:BB:CC:DD:EE:FF",
+                        "RSSI" to -60,
+                        "ManufacturerData" to mapOf(0x004C.toShort() to payload),
+                    ),
+            )
+
+        requireNotNull(snapshot)
+        assertEquals(
+            listOf(0x02.toByte(), 0x15.toByte()),
+            snapshot.manufacturerData.values
+                .single()
+                .toList(),
+        )
+        assertEquals(
+            0x004C,
+            snapshot
+                .toAdvertisement()
+                .manufacturerData.keys
+                .single(),
+        )
+    }
+
+    @Test
+    fun serviceDataFromArrayListPayload() {
+        val serviceUuid = "0000180D-0000-1000-8000-00805F9B34FB"
+        val payload = arrayListOf<Number>(0x01)
+        val snapshot =
+            snapshotFromPropertyMap(
+                dbusPath = "/org/bluez/hci0/dev_AA_BB_CC_DD_EE_FF",
+                properties =
+                    mapOf(
+                        "Address" to "AA:BB:CC:DD:EE:FF",
+                        "RSSI" to -60,
+                        "ServiceData" to mapOf(serviceUuid to payload),
+                    ),
+            )
+
+        requireNotNull(snapshot)
+        assertEquals(
+            listOf(0x01.toByte()),
+            snapshot.serviceData.values
+                .single()
+                .toList(),
+        )
+        assertEquals(
+            Uuid.parse(serviceUuid),
+            snapshot
+                .toAdvertisement()
+                .serviceData.keys
+                .single(),
+        )
+    }
+
+    @Test
+    fun changedPropertiesAcceptArrayListAdvertisingFlags() {
+        val delta =
+            snapshotFromChangedProperties(
+                dbusPath = "/org/bluez/hci0/dev_AA_BB_CC_DD_EE_FF",
+                address = "AA:BB:CC:DD:EE:FF",
+                changed =
+                    mapOf(
+                        "AdvertisingFlags" to arrayListOf<Any>(6),
+                        "RSSI" to -50,
+                    ),
+            )
+
+        assertEquals(listOf(6.toByte()), delta.advertisingFlags!!.toList())
+        assertEquals(-50, delta.rssi)
+    }
 }
