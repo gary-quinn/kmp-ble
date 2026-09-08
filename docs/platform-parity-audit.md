@@ -121,7 +121,7 @@
 
 | Feature | Status |
 |---------|--------|
-| Scanner | Both: Scanner, AdvertisementParser, ScannerFactory |
+| Scanner | Android + iOS + JVM (Linux BlueZ M1) | Both mobile + `BlueZScanner` on Linux JVM |
 | Peripheral | Both: Peripheral, Connection, GattHandler, Internal, L2cap, GattStatusMapper, PeripheralFactory |
 | Server | Both: GattServer, Advertiser, ExtendedAdvertiser, GattServerFactory |
 | L2CAP | Both: Channel, Listener, ListenerFactory |

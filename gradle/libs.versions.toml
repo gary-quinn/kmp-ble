@@ -28,6 +28,9 @@ bouncycastle = "1.85"
 opentelemetry = "1.65.0"
 jsoup = "1.23.1"
 atomicfu = "0.33.0"
+bluezDbus = "0.3.5"
+dbusJava = "5.2.0"
+slf4j = "2.0.16"
 
 [libraries]
 androidx-core = { module = "androidx.core:core-ktx", version = "1.19.0" }
@@ -50,6 +53,9 @@ kotlinx-serialization-core = { module = "org.jetbrains.kotlinx:kotlinx-serializa
 kotlinx-serialization-cbor = { module = "org.jetbrains.kotlinx:kotlinx-serialization-cbor", version.ref = "kotlinxSerialization" }
 kotlinx-atomicfu = { module = "org.jetbrains.kotlinx:atomicfu", version.ref = "atomicfu" }
 compose-ui-test-junit4 = { module = "org.jetbrains.compose.ui:ui-test-junit4", version.ref = "composeMultiplatform" }
+bluez-dbus = { module = "com.github.hypfvieh:bluez-dbus", version.ref = "bluezDbus" }
+dbus-java-transport-junixsocket = { module = "com.github.hypfvieh:dbus-java-transport-junixsocket", version.ref = "dbusJava" }
+slf4j-nop = { module = "org.slf4j:slf4j-nop", version.ref = "slf4j" }
 
 [plugins]
 kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
