@@ -95,7 +95,11 @@ kotlin {
         }
     }
 
-    jvm()
+    jvm {
+        compilerOptions {
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+        }
+    }
 
     val objcSrcDir = project.file("src/nativeInterop/cinterop")
 
@@ -138,6 +142,11 @@ kotlin {
         }
         jvmTest.dependencies {
             implementation(libs.lincheck)
+        }
+        jvmMain.dependencies {
+            implementation(libs.bluez.dbus)
+            implementation(libs.dbus.java.transport.junixsocket)
+            runtimeOnly(libs.slf4j.nop)
         }
         androidMain.dependencies {
             implementation(libs.kotlinx.coroutines.android)
