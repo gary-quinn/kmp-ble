@@ -10,9 +10,11 @@ import kotlin.test.assertEquals
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
- * Stresses [GattOperationQueue.close] invoked from an unconfined thread while
- * [GattOperationQueue.enqueue] cleanup runs on the queue's serialized dispatcher.
- * A plain [MutableSet] backing [GattOperationQueue]'s in-flight tracking races here.
+ * JVM stress for #663 / #664: [close] from an unconfined thread while [enqueue]
+ * cleanup mutates [inFlightJobs] on the queue's serialized dispatcher.
+ *
+ * Paired with [com.atruedev.kmpble.lincheck.GattOperationQueueCloseLincheckTest]
+ * (concurrent [close] vs lifecycle) and gated by `./gradlew jvmTest` in CI.
  */
 class GattOperationQueueConcurrencyTest {
     @Test
