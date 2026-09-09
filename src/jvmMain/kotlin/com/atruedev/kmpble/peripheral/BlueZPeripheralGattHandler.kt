@@ -1,7 +1,6 @@
 package com.atruedev.kmpble.peripheral
 
 import com.atruedev.kmpble.error.BleException
-import com.atruedev.kmpble.error.ConnectionFailed
 import com.atruedev.kmpble.error.ConnectionFailureReason
 import com.atruedev.kmpble.error.ConnectionLost
 import com.atruedev.kmpble.error.GattError

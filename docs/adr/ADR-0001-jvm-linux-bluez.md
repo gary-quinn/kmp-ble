@@ -40,7 +40,7 @@ Implement **Linux JVM BLE through BlueZ over the system D-Bus bus**, in mileston
 | Alternative | Why rejected |
 |-------------|--------------|
 | Shell out to `bluetoothctl` and scrape output | Fragile, hard to map live RSSI updates, poor testability |
-| Windows/macOS JVM stacks first | Ship Linux/BlueZ first: it is the primary desktop/edge JVM BLE surface (BlueZ D-Bus is the standard Linux stack); Windows/macOS JVM JVM backends can follow once the Linux path is proven |
+| Windows/macOS JVM stacks first | Ship Linux/BlueZ first: it is the primary desktop/edge JVM BLE surface (BlueZ D-Bus is the standard Linux stack); Windows/macOS JVM backends can follow once the Linux path is proven |
 | JNI to proprietary stacks (Intel TinyB, vendor SDKs) | Heavier native burden, weaker fit with KMP JVM artifact |
 | Make `Scanner { }` / `toPeripheral()` always use BlueZ on Linux | Would break CI and headless JVM consumers without adapters |
 | Split `kmp-ble-bluez` published module now | Deferred; bluez-dbus stays on jvmMain for M1/M2 with documented non-Linux JVM jar pull |

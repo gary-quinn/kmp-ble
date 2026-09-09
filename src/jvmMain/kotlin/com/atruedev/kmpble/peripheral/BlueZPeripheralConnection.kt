@@ -37,7 +37,10 @@ internal suspend fun BlueZPeripheral.connectInternal(options: ConnectionOptions)
 
             peripheralContext.processEvent(ConnectionEvent.LinkEstablished)
 
-            if (!awaitCondition(options.timeouts.serviceDiscovery.inWholeMilliseconds) { session.isServicesResolved() }) {
+            if (!awaitCondition(
+                    options.timeouts.serviceDiscovery.inWholeMilliseconds,
+                ) { session.isServicesResolved() }
+            ) {
                 val failure = OperationFailed("Service resolution timeout after ${options.timeouts.serviceDiscovery}")
                 peripheralContext.processEvent(ConnectionEvent.DiscoveryFailed(failure))
                 slots.failDiscovery(BleException(failure))

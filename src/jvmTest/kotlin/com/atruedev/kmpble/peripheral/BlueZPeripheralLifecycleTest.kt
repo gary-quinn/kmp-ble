@@ -98,7 +98,10 @@ class BlueZPeripheralLifecycleTest {
             peripheral.write(characteristic, byteArrayOf(0x01, 0x02), WriteType.WithResponse)
             assertEquals(
                 byteArrayOf(0x01, 0x02).toList(),
-                session.writeCalls.single().second.toList(),
+                session.writeCalls
+                    .single()
+                    .second
+                    .toList(),
             )
 
             peripheral.close()
@@ -141,7 +144,8 @@ class BlueZPeripheralLifecycleTest {
     @Test
     fun connectFailureSurfacesDisconnectedState() =
         runBlocking {
-            val session = FakeBlueZDeviceSession(connectResult = Result.failure(IllegalStateException("connect rejected")))
+            val session =
+                FakeBlueZDeviceSession(connectResult = Result.failure(IllegalStateException("connect rejected")))
             val peripheral =
                 BlueZPeripheral(
                     devicePath = session.devicePath,

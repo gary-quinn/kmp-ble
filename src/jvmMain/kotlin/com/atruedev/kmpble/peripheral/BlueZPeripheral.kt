@@ -139,9 +139,7 @@ public class BlueZPeripheral internal constructor(
     override suspend fun writeReliable(
         characteristic: Characteristic,
         data: ByteArray,
-    ) {
-        throw UnsupportedOperationException("Reliable write is not supported on BlueZ JVM")
-    }
+    ): Unit = throw UnsupportedOperationException("Reliable write is not supported on BlueZ JVM")
 
     override fun observe(
         characteristic: Characteristic,

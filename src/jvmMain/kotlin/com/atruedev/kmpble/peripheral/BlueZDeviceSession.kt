@@ -200,8 +200,7 @@ internal class HypfviehBlueZDeviceSession(
         device.refreshGattServices()
     }
 
-    override fun getGattServices(): List<BlueZGattServiceSnapshot> =
-        device.gattServices.map { it.toSnapshot() }
+    override fun getGattServices(): List<BlueZGattServiceSnapshot> = device.gattServices.map { it.toSnapshot() }
 
     override fun readCharacteristic(path: String): Result<ByteArray> =
         runCatching { findCharacteristic(path).readValue(emptyOptions()) }
@@ -226,11 +225,9 @@ internal class HypfviehBlueZDeviceSession(
             findDescriptor(path).writeValue(data, emptyOptions())
         }
 
-    override fun startNotify(path: String): Result<Unit> =
-        runCatching { findCharacteristic(path).startNotify() }
+    override fun startNotify(path: String): Result<Unit> = runCatching { findCharacteristic(path).startNotify() }
 
-    override fun stopNotify(path: String): Result<Unit> =
-        runCatching { findCharacteristic(path).stopNotify() }
+    override fun stopNotify(path: String): Result<Unit> = runCatching { findCharacteristic(path).stopNotify() }
 
     override fun readRssi(): Int? = device.rssi?.toInt()
 
