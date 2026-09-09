@@ -11,6 +11,7 @@ ASCII only in this repo (see `AGENTS.md`).
 | Surface touched | Agent MUST run | Evidence artifact |
 | --- | --- | --- |
 | `src/commonMain/**` (core) | `./gradlew iosSimulatorArm64Test` **or** `./gradlew jvmTest` (prefer both when concurrency/state machine touched) | Tests pass |
+| `src/jvmMain/**` (BlueZ scanner/peripheral) | `./gradlew jvmTest` (includes `BlueZScannerLifecycleTest`, `BlueZPeripheralLifecycleTest` with fake sessions) | Tests pass |
 | `src/commonMain/**/gatt/**`, `**/peripheral/**`, concurrency | `./gradlew jvmTest` | Lincheck / concurrency tests pass |
 | `src/androidMain/**`, Android quirks host logic | `./gradlew testAndroidHostTest` | Host tests pass |
 | `src/androidDeviceTest/**` or Android framework integration | `./gradlew connectedAndroidDeviceTest` (emulator/device) | Instrumented tests pass |
