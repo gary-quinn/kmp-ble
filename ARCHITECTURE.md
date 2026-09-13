@@ -6,7 +6,9 @@ This document explains the key design decisions and internal structure of kmp-bl
 
 ## Overview
 
-kmp-ble is a Kotlin Multiplatform BLE library targeting Android and iOS. The core design principle is: **shared logic in `commonMain`, platform bridges in `expect/actual`, no platform details leaking into the public API.**
+kmp-ble is a Kotlin Multiplatform BLE library targeting **Android**, **iOS**, and **Linux JVM (BlueZ M1: scan-only)**. The core design principle is: **shared logic in `commonMain`, platform bridges in `expect/actual`, portable public API with explicit platform opt-ins where needed.**
+
+On Linux JVM, M1 ships LE scan through BlueZ over D-Bus. Use the explicit [`BlueZScanner`](src/jvmMain/kotlin/com/atruedev/kmpble/scanner/BlueZScanner.kt) constructor, or set `-Dkmpble.bluez.enabled=true` to opt in through the portable `Scanner { }` factory (lazy: no D-Bus probe at construction; failures surface when `scanEvents` is collected). Default `Scanner { }` on JVM throws on CI and headless hosts. `jvmTest` and GitHub Actions use [`FakeScanner`](src/commonMain/kotlin/com/atruedev/kmpble/testing/FakeScanner.kt) - no adapter required. GATT, peripheral, server, and L2CAP remain unsupported on JVM until later milestones. See [ADR-0001: JVM Linux BlueZ](docs/adr/ADR-0001-jvm-linux-bluez.md) and [Platform Setup: Linux](docs/platform-setup-linux.md).
 
 ![Architecture Overview](docs/images/architecture-overview.png)
 
@@ -386,7 +388,7 @@ Use with any `@Serializable` payload: given `@Serializable data class MyEvent(..
 
 ## Testing Infrastructure
 
-Every major component has a Fake* counterpart for unit testing without hardware:
+Every major component has a Fake* counterpart for unit testing without hardware. On JVM, **`FakeScanner` is the conformance default** for `jvmTest` and CI; BlueZ integration is opt-in and not exercised on GitHub-hosted runners.
 
 | Real | Fake | Purpose |
 |------|------|---------|
@@ -406,6 +408,19 @@ Every major component has a Fake* counterpart for unit testing without hardware:
 ---
 
 ## Scanner
+
+### JVM (Linux BlueZ M1)
+
+| Entry point | When to use |
+|-------------|-------------|
+| `BlueZScanner { }` | Recommended on Linux with BlueZ |
+| `Scanner { }` | Throws on CI/headless JVM by default |
+| `Scanner { }` + `-Dkmpble.bluez.enabled=true` | Opt-in alias; constructs `BlueZScanner` without probing D-Bus first (failures at collect time) |
+| `FakeScanner { }` | Unit tests and CI (no hardware) |
+
+M1 scope is **scan-only**. Post-processing reuses common [`ScannerPipeline`](src/commonMain/kotlin/com/atruedev/kmpble/scanner/internal/ScannerPipeline.kt) (`toScanEvents`, filters, emission policy, timeout) so behavior matches Android/iOS where scanning applies. See [ADR-0001](docs/adr/ADR-0001-jvm-linux-bluez.md).
+
+### Cold Flow and lifecycle
 
 `Scanner.scanEvents` is a **cold Flow**. Creating a `Scanner` starts nothing - no OS resources, no scanning. Scanning starts on first `collect()`, stops when the collector's coroutine is cancelled.
 
@@ -428,13 +443,15 @@ Scanner {
 
 Some filters are OS-level (hardware-offloaded, power-efficient), others are post-filters applied in the library:
 
-| Filter | Android | iOS |
-|--------|---------|-----|
-| Service UUID | OS-level | OS-level |
-| Name | OS-level | Post-filter |
-| Manufacturer data | OS-level | Post-filter |
-| Service data | OS-level | Post-filter |
-| RSSI threshold | Post-filter | Post-filter |
+| Filter | Android | iOS | JVM (BlueZ M1) |
+|--------|---------|-----|----------------|
+| Service UUID | OS-level | OS-level | Post-filter |
+| Name | OS-level | Post-filter | Post-filter |
+| Manufacturer data | OS-level | Post-filter | Post-filter |
+| Service data | OS-level | Post-filter | Post-filter |
+| RSSI threshold | Post-filter | Post-filter | Post-filter |
+
+On BlueZ M1, only LE transport is pushed to `Adapter1.SetDiscoveryFilter`; predicate filters run in common `ScannerPipeline`.
 
 ### Emission Policy
 
@@ -447,10 +464,10 @@ Some filters are OS-level (hardware-offloaded, power-efficient), others are post
 
 The `expect/actual` boundary is kept minimal. Platform code does two things:
 
-1. **Receive OS callbacks** on a platform-appropriate thread/queue
-2. **Complete `CompletableDeferred` values** to bridge into the common coroutine layer
+1. **Receive OS callbacks** on a platform-appropriate thread/queue (or D-Bus property updates on Linux JVM)
+2. **Complete `CompletableDeferred` values** or emit into a callback `Flow` to bridge into the common coroutine layer
 
-Everything else - state transitions, queue management, observation tracking, error normalization - lives in `commonMain`.
+Everything else - state transitions, queue management, observation tracking, error normalization, scan post-processing - lives in `commonMain`.
 
 ```
 Android: BluetoothGattCallback.onCharacteristicRead()
@@ -461,7 +478,18 @@ Android: BluetoothGattCallback.onCharacteristicRead()
 iOS: CBPeripheralDelegate.peripheral(_:didUpdateValueFor:error:)
     → pendingRead.complete(GattResult(value, error))
         → (same common path)
+
+Linux JVM (BlueZ M1): org.bluez.Device1 PropertiesChanged / poll loop
+    → Advertisement snapshots merged and emitted
+        → ScannerPipeline.toScanEvents (filters, emission policy)
+            → ScanEvent.Found / ScanEvent.Failed
 ```
+
+| Platform | Production entry | JVM notes |
+|----------|------------------|-----------|
+| Android | `Scanner { }` | n/a |
+| iOS | `Scanner { }` | n/a |
+| Linux JVM | `BlueZScanner { }` or `Scanner { }` with `-Dkmpble.bluez.enabled=true` | M1 scan-only; `FakeScanner` in CI |
 
 ---
 
