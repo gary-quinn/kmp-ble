@@ -60,7 +60,7 @@ Then depend on Maven-style coordinates as usual:
 
 ```kotlin
 commonMain.dependencies {
-    implementation("com.atruedev:kmp-ble:0.13.3") // from Central
+    implementation("com.atruedev:kmp-ble:0.13.4") // from Central
     implementation("com.atruedev:kmp-ble-profiles") // resolved to local project
 }
 ```
@@ -88,7 +88,7 @@ pre-monolith published artifacts without building from source.
 kotlin {
     sourceSets {
         commonMain.dependencies {
-            implementation("com.atruedev:kmp-ble:0.13.3")
+            implementation("com.atruedev:kmp-ble:0.13.4")
         }
     }
 }
