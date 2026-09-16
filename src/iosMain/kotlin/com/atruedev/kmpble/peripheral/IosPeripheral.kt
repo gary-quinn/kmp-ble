@@ -223,7 +223,9 @@ public class IosPeripheral(
     ): Flow<ByteArray> = observeValuesGatt(characteristic, backpressure)
 
     internal fun enableNotifications(characteristic: Characteristic) {
-        if (peripheralContext.state.value !is State.Connected) return
+        // No Kotlin state guard here: [resubscribeObservations] runs from finishDiscovery
+        // while still in Connecting.Configuring (before ConfigurationComplete -> Ready).
+        // Native guards in ApplePeripheralBridge reject the call when the link is down.
         bridge.setNotifyValue(true, requireNativeCbChar(characteristic))
     }
 
