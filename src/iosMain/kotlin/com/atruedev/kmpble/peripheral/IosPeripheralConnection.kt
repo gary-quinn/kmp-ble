@@ -41,7 +41,9 @@ internal suspend fun IosPeripheral.connectInternal(options: ConnectionOptions) {
         centralDelegate.registerConnectionCallback(identifier.value, connectionCallback)
 
         val deferred = slots.armConnect()
-        bridge.connect()
+        if (!bridge.connect()) {
+            throw BleException(ConnectionFailed("Bluetooth adapter is not powered on"))
+        }
 
         try {
             withTimeout(options.timeouts.connect) { deferred.await() }
@@ -168,7 +170,13 @@ internal fun IosPeripheral.handleConnectionCallback(
  */
 internal suspend fun IosPeripheral.discoverServicesSafely() {
     try {
-        bridge.discoverServices(discoveryGeneration.value)
+        if (!failDiscoveryIfRejected(
+                bridge.discoverServices(discoveryGeneration.value),
+                "discoverServices",
+            )
+        ) {
+            return
+        }
     } catch (e: CancellationException) {
         throw e
     } catch (e: Throwable) {

@@ -35,6 +35,9 @@ internal class CentralDelegateImpl(
         error: NSError?,
     ) = state.handleConnectionFailure(peripheralId, error)
 
+    override fun registerAdapterOffHandler(handler: () -> Unit) =
+        state.registerAdapterOffHandler(handler)
+
     internal fun handleAdapterStateUpdate(central: CBCentralManager) {
         state.handleAdapterStateUpdate(central)
     }

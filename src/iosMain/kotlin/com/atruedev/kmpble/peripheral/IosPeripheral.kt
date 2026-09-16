@@ -154,6 +154,7 @@ public class IosPeripheral(
         { connected, error -> handleConnectionCallback(connected, error) }
 
     init {
+        IosPeripheralAdapterOff.ensureRegistered()
         bridge.onEvent = { event -> handleBridgeEvent(event) }
         centralDelegate.registerConnectionCallback(identifier.value, connectionCallback)
         if (CentralManagerProvider.isStateRestorationEnabled) {
@@ -222,6 +223,7 @@ public class IosPeripheral(
     ): Flow<ByteArray> = observeValuesGatt(characteristic, backpressure)
 
     internal fun enableNotifications(characteristic: Characteristic) {
+        if (peripheralContext.state.value !is State.Connected) return
         bridge.setNotifyValue(true, requireNativeCbChar(characteristic))
     }
 

@@ -2,6 +2,7 @@ package com.atruedev.kmpble.peripheral
 
 import com.atruedev.kmpble.error.BleException
 import com.atruedev.kmpble.error.GattError
+import com.atruedev.kmpble.error.GattStatus
 import com.atruedev.kmpble.gatt.BackpressureStrategy
 import com.atruedev.kmpble.gatt.Characteristic
 import com.atruedev.kmpble.gatt.Descriptor
@@ -13,6 +14,7 @@ import com.atruedev.kmpble.peripheral.internal.ObservationToBytes
 import com.atruedev.kmpble.peripheral.internal.ObservationToObservation
 import com.atruedev.kmpble.peripheral.internal.awaitGatt
 import com.atruedev.kmpble.peripheral.internal.buildObservationFlow
+import com.atruedev.kmpble.internal.CoreBluetoothGuards
 import com.atruedev.kmpble.peripheral.state.State
 import kotlinx.coroutines.flow.Flow
 import platform.CoreBluetooth.CBCharacteristicWriteWithResponse
@@ -126,6 +128,9 @@ internal suspend fun IosPeripheral.readRssiGatt(): Int {
 
 internal suspend fun IosPeripheral.requestMtuGatt(mtu: Int): Int {
     checkNotClosed()
+    if (!CoreBluetoothGuards.canIssuePeripheralCommand(cbPeripheral)) {
+        throw BleException(GattError("requestMtu", GattStatus.Failure))
+    }
     val actualMtu =
         cbPeripheral
             .maximumWriteValueLengthForType(CBCharacteristicWriteWithResponse)

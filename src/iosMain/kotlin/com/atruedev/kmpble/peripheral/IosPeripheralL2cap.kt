@@ -37,7 +37,10 @@ internal suspend fun IosPeripheral.openL2capChannelInternal(
         }
         val deferred = CompletableDeferred<CBL2CAPChannel>()
         pendingL2capChannel = deferred
-        bridge.openL2CAPChannel(psm.toUShort())
+        if (!bridge.openL2CAPChannel(psm.toUShort())) {
+            pendingL2capChannel = null
+            throw L2capException.OpenFailed(psm, "Peripheral not connected or Bluetooth off")
+        }
 
         try {
             val cbChannel = withTimeout(currentTimeouts.l2capOpen) { deferred.await() }
