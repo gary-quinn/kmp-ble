@@ -55,6 +55,15 @@ internal object PeripheralRegistry {
             .keys
             .mapTo(mutableSetOf()) { it.value }
 
+    /** Invokes [block] for every registry entry whose [Lazy] has already been evaluated. */
+    internal fun forEachInitialized(block: (Peripheral) -> Unit) {
+        registry.load().values.forEach { lazy ->
+            if (lazy.isInitialized()) {
+                block(lazy.value)
+            }
+        }
+    }
+
     internal fun clear() {
         registry.store(emptyMap())
     }

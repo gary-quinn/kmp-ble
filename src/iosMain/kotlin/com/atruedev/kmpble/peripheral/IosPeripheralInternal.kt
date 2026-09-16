@@ -91,10 +91,20 @@ internal suspend fun IosPeripheral.refreshServicesInternal(): List<DiscoveredSer
         val deferred = slots.armDiscovery()
         // New discovery cycle: increment generation to invalidate stale callbacks
         discoveryGeneration.incrementAndGet()
+        knownServicesValid.value = false
         // Clear stale native handle mappings from previous cycle
         nativeCharMap.clear()
         nativeDescMap.clear()
-        bridge.discoverServices(discoveryGeneration.value)
+        val cbServices = currentServices()
+        when (currentDiscoveryAction(cbServices)) {
+            DiscoveryPolicy.DiscoveryAction.WaitForTable -> finishDiscoveryFromRetrievedTable()
+            else -> {
+                failDiscoveryIfRejected(
+                    bridge.discoverServices(discoveryGeneration.value),
+                    "discoverServices",
+                )
+            }
+        }
         try {
             withTimeout(currentTimeouts.serviceDiscovery) { deferred.await() }
         } finally {

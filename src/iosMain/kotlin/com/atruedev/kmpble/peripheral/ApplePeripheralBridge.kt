@@ -1,6 +1,7 @@
 package com.atruedev.kmpble.peripheral
 
 import com.atruedev.kmpble.internal.CentralManagerProvider
+import com.atruedev.kmpble.internal.CoreBluetoothGuards
 import kotlinx.atomicfu.atomic
 import platform.CoreBluetooth.CBCharacteristic
 import platform.CoreBluetooth.CBCharacteristicWriteWithResponse
@@ -175,26 +176,33 @@ internal class ApplePeripheralBridge(
         cbPeripheral.delegate = peripheralDelegate
     }
 
-    internal fun connect() {
+    internal fun connect(): Boolean {
+        if (!CoreBluetoothGuards.canIssueCentralCommand()) return false
         cbPeripheral.delegate = peripheralDelegate
         CentralManagerProvider.manager.connectPeripheral(cbPeripheral, options = null)
+        return true
     }
 
-    internal fun discoverServices(generation: Int) {
+    internal fun discoverServices(generation: Int): Boolean {
+        if (!CoreBluetoothGuards.canIssuePeripheralCommand(cbPeripheral)) return false
         // Re-affirm delegate before discoverServices - retrieved peripherals
         // (retrieveConnectedPeripheralsWithServices) may carry a stale delegate
         // reference that CoreBluetooth routes callbacks to incorrectly.
         cbPeripheral.delegate = peripheralDelegate
         _pendingDiscoverServicesGeneration.value = generation
         cbPeripheral.discoverServices(null)
+        return true
     }
 
-    internal fun discoverCharacteristics(service: CBService) {
+    internal fun discoverCharacteristics(service: CBService): Boolean {
+        if (!CoreBluetoothGuards.canIssuePeripheralCommand(cbPeripheral)) return false
         cbPeripheral.delegate = peripheralDelegate
         cbPeripheral.discoverCharacteristics(null, service)
+        return true
     }
 
     internal fun readCharacteristic(characteristic: CBCharacteristic): Boolean {
+        if (!CoreBluetoothGuards.canIssuePeripheralCommand(cbPeripheral)) return false
         cbPeripheral.delegate = peripheralDelegate
         cbPeripheral.readValueForCharacteristic(characteristic)
         return true
@@ -205,6 +213,7 @@ internal class ApplePeripheralBridge(
         data: NSData,
         withResponse: Boolean,
     ): Boolean {
+        if (!CoreBluetoothGuards.canIssuePeripheralCommand(cbPeripheral)) return false
         cbPeripheral.delegate = peripheralDelegate
         val type = if (withResponse) CBCharacteristicWriteWithResponse else CBCharacteristicWriteWithoutResponse
         cbPeripheral.writeValue(data, characteristic, type)
@@ -212,6 +221,7 @@ internal class ApplePeripheralBridge(
     }
 
     internal fun readDescriptor(descriptor: CBDescriptor): Boolean {
+        if (!CoreBluetoothGuards.canIssuePeripheralCommand(cbPeripheral)) return false
         cbPeripheral.readValueForDescriptor(descriptor)
         return true
     }
@@ -220,6 +230,7 @@ internal class ApplePeripheralBridge(
         descriptor: CBDescriptor,
         data: NSData,
     ): Boolean {
+        if (!CoreBluetoothGuards.canIssuePeripheralCommand(cbPeripheral)) return false
         cbPeripheral.writeValue(data, descriptor)
         return true
     }
@@ -227,20 +238,26 @@ internal class ApplePeripheralBridge(
     internal fun setNotifyValue(
         enabled: Boolean,
         characteristic: CBCharacteristic,
-    ) {
+    ): Boolean {
+        if (!CoreBluetoothGuards.canIssuePeripheralCommand(cbPeripheral)) return false
         cbPeripheral.setNotifyValue(enabled, characteristic)
+        return true
     }
 
     internal fun readRSSI(): Boolean {
+        if (!CoreBluetoothGuards.canIssuePeripheralCommand(cbPeripheral)) return false
         cbPeripheral.readRSSI()
         return true
     }
 
-    internal fun openL2CAPChannel(psm: UShort) {
+    internal fun openL2CAPChannel(psm: UShort): Boolean {
+        if (!CoreBluetoothGuards.canIssuePeripheralCommand(cbPeripheral)) return false
         cbPeripheral.openL2CAPChannel(psm)
+        return true
     }
 
     internal fun disconnect() {
+        if (CoreBluetoothGuards.shouldSkipDisconnect(cbPeripheral)) return
         CentralManagerProvider.manager.cancelPeripheralConnection(cbPeripheral)
     }
 
