@@ -12,14 +12,11 @@ import platform.CoreBluetooth.CBPeripheralStateDisconnected
  * keeps typed Kotlin errors on the caller path instead of undefined native behavior.
  */
 internal object CoreBluetoothGuards {
-    fun isCentralPoweredOn(): Boolean =
-        CentralManagerProvider.manager.state == CBCentralManagerStatePoweredOn
+    fun isCentralPoweredOn(): Boolean = CentralManagerProvider.manager.state == CBCentralManagerStatePoweredOn
 
-    fun isPeripheralConnected(peripheral: CBPeripheral): Boolean =
-        peripheral.state == CBPeripheralStateConnected
+    fun isPeripheralConnected(peripheral: CBPeripheral): Boolean = peripheral.state == CBPeripheralStateConnected
 
-    fun canIssueCentralCommand(): Boolean =
-        CoreBluetoothCommandPolicy.canIssueCentralCommand(isCentralPoweredOn())
+    fun canIssueCentralCommand(): Boolean = CoreBluetoothCommandPolicy.canIssueCentralCommand(isCentralPoweredOn())
 
     fun canIssuePeripheralCommand(peripheral: CBPeripheral): Boolean =
         CoreBluetoothCommandPolicy.canIssuePeripheralCommand(

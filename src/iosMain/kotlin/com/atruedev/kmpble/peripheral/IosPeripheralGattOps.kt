@@ -10,11 +10,11 @@ import com.atruedev.kmpble.gatt.Observation
 import com.atruedev.kmpble.gatt.WriteType
 import com.atruedev.kmpble.gatt.internal.LargeWriteHandler
 import com.atruedev.kmpble.gatt.internal.PendingOp
+import com.atruedev.kmpble.internal.CoreBluetoothGuards
 import com.atruedev.kmpble.peripheral.internal.ObservationToBytes
 import com.atruedev.kmpble.peripheral.internal.ObservationToObservation
 import com.atruedev.kmpble.peripheral.internal.awaitGatt
 import com.atruedev.kmpble.peripheral.internal.buildObservationFlow
-import com.atruedev.kmpble.internal.CoreBluetoothGuards
 import com.atruedev.kmpble.peripheral.state.State
 import kotlinx.coroutines.flow.Flow
 import platform.CoreBluetooth.CBCharacteristicWriteWithResponse
