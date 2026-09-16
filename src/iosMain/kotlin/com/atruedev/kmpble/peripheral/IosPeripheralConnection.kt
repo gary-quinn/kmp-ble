@@ -6,6 +6,7 @@ import com.atruedev.kmpble.error.ConnectionFailed
 import com.atruedev.kmpble.error.ConnectionFailureReason
 import com.atruedev.kmpble.error.ConnectionLost
 import com.atruedev.kmpble.error.OperationFailed
+import com.atruedev.kmpble.internal.CoreBluetoothGuards
 import com.atruedev.kmpble.peripheral.state.ConnectionEvent
 import com.atruedev.kmpble.peripheral.state.State
 import kotlinx.coroutines.CancellationException
@@ -31,6 +32,10 @@ internal suspend fun IosPeripheral.connectInternal(options: ConnectionOptions) {
     reconnectionHandler.start(options)
     bondManager.start()
     withContext(peripheralContext.dispatcher) {
+        if (!CoreBluetoothGuards.canIssueCentralCommand()) {
+            throw BleException(ConnectionFailed("Bluetooth adapter is not powered on"))
+        }
+
         peripheralContext.processEvent(ConnectionEvent.ConnectRequested)
         peripheralContext.gattQueue.start(options.gattOperationTimeout)
 
@@ -41,11 +46,13 @@ internal suspend fun IosPeripheral.connectInternal(options: ConnectionOptions) {
         centralDelegate.registerConnectionCallback(identifier.value, connectionCallback)
 
         val deferred = slots.armConnect()
-        if (!bridge.connect()) {
-            throw BleException(ConnectionFailed("Bluetooth adapter is not powered on"))
-        }
-
         try {
+            if (!bridge.connect()) {
+                peripheralContext.processEvent(
+                    ConnectionEvent.ConnectionLost(ConnectionFailed("Bluetooth adapter is not powered on")),
+                )
+                throw BleException(ConnectionFailed("Bluetooth adapter is not powered on"))
+            }
             withTimeout(options.timeouts.connect) { deferred.await() }
         } catch (_: TimeoutCancellationException) {
             // Cancel the link and await didDisconnect BEFORE transitioning state, so the
