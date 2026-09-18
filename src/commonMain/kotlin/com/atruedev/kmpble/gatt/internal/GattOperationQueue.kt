@@ -178,7 +178,10 @@ internal class GattOperationQueue(
                 ),
             )
         } catch (e: Throwable) {
-            throw BleException(OperationFailed(e.message ?: "GATT operation failed"))
+            throw BleException(
+                e.asPlatformConnectionLoss()
+                    ?: OperationFailed(e.message ?: "GATT operation failed"),
+            )
         }
 
     fun drain() {
