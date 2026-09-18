@@ -15,6 +15,14 @@ _Changes on `main` that have not yet been tagged for release._
 
 ---
 
+## [0.13.5] - 2026-09-18
+
+### Fixed
+- fix: wrap closed and not-connected failures in BleException
+
+
+---
+
 ## [0.13.4] - 2026-09-16
 
 ### Added
@@ -2511,7 +2519,8 @@ _No notable changes._
 
 ---
 
-[Unreleased]: https://github.com/gary-quinn/kmp-ble/compare/v0.13.4...HEAD
+[Unreleased]: https://github.com/gary-quinn/kmp-ble/compare/v0.13.5...HEAD
+[0.13.5]: https://github.com/gary-quinn/kmp-ble/compare/v0.13.4...v0.13.5
 [0.13.4]: https://github.com/gary-quinn/kmp-ble/compare/v0.13.3...v0.13.4
 [0.13.3]: https://github.com/gary-quinn/kmp-ble/compare/v0.13.2...v0.13.3
 [0.13.2]: https://github.com/gary-quinn/kmp-ble/compare/v0.13.1...v0.13.2
