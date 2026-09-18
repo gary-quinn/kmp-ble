@@ -5,7 +5,9 @@ import com.atruedev.kmpble.connection.ConnectionParameterUpdateResult
 import com.atruedev.kmpble.connection.ConnectionParameters
 import com.atruedev.kmpble.connection.ConnectionPriority
 import com.atruedev.kmpble.connection.Phy
+import com.atruedev.kmpble.error.BleException
 import com.atruedev.kmpble.error.ConnectionLost
+import com.atruedev.kmpble.error.PeripheralClosed
 import com.atruedev.kmpble.isochronous.IsochronousException
 import com.atruedev.kmpble.peripheral.state.ConnectionEvent
 import com.atruedev.kmpble.peripheral.state.State
@@ -119,9 +121,11 @@ class FakePeripheralTest {
             val peripheral = createPeripheral()
             peripheral.close()
 
-            assertFailsWith<IllegalStateException> {
-                peripheral.connect()
-            }
+            val ex =
+                assertFailsWith<BleException> {
+                    peripheral.connect()
+                }
+            assertIs<PeripheralClosed>(ex.error)
         }
 
     @Test

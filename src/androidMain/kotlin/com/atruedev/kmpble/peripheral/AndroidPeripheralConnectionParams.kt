@@ -30,7 +30,7 @@ internal suspend fun AndroidPeripheral.requestConnectionPriorityGatt(priority: C
             ConnectionPriority.High -> BluetoothGatt.CONNECTION_PRIORITY_HIGH
             ConnectionPriority.LowPower -> BluetoothGatt.CONNECTION_PRIORITY_LOW_POWER
         }
-    return peripheralContext.gattQueue.enqueue {
+    return peripheralContext.gattQueue.enqueueBle {
         bridge.requestConnectionPriority(androidPriority)
     }
 }
@@ -41,9 +41,9 @@ internal suspend fun AndroidPeripheral.requestConnectionParameterUpdateGatt(
 ): ConnectionParameterUpdateResult? {
     checkNotClosed()
     val androidPriority = params.intervalRange.toAndroidConnectionPriority()
-    return peripheralContext.gattQueue.enqueue {
+    return peripheralContext.gattQueue.enqueueBle {
         val dispatched = bridge.requestConnectionPriority(androidPriority)
-        if (!dispatched) return@enqueue null
+        if (!dispatched) return@enqueueBle null
         ConnectionParameterUpdateResult(
             negotiatedInterval = params.intervalRange.endInclusive,
             negotiatedLatency = params.slaveLatency,
@@ -60,7 +60,7 @@ internal suspend fun AndroidPeripheral.setPreferredPhyGatt(
     checkNotClosed()
     val txMask = phyToMask(tx)
     val rxMask = phyToMask(rx)
-    return peripheralContext.gattQueue.enqueue {
+    return peripheralContext.gattQueue.enqueueBle {
         val result =
             pendingOps.awaitGatt(PendingOp.PhyUpdate, "setPreferredPhy") {
                 bridge.setPreferredPhy(
@@ -69,7 +69,7 @@ internal suspend fun AndroidPeripheral.setPreferredPhyGatt(
                     BluetoothDevice.PHY_OPTION_NO_PREFERRED,
                 )
             }
-        if (!result.status.isSuccess()) return@enqueue null
+        if (!result.status.isSuccess()) return@enqueueBle null
         PhyResult(
             tx = phyConstantToPhy(result.txPhyConstant),
             rx = phyConstantToPhy(result.rxPhyConstant),
@@ -80,12 +80,12 @@ internal suspend fun AndroidPeripheral.setPreferredPhyGatt(
 @OptIn(ExperimentalBleApi::class)
 internal suspend fun AndroidPeripheral.readPhyGatt(): PhyResult? {
     checkNotClosed()
-    return peripheralContext.gattQueue.enqueue {
+    return peripheralContext.gattQueue.enqueueBle {
         val result =
             pendingOps.awaitGatt(PendingOp.PhyRead, "readPhy") {
                 bridge.readPhy()
             }
-        if (!result.status.isSuccess()) return@enqueue null
+        if (!result.status.isSuccess()) return@enqueueBle null
         PhyResult(
             tx = phyConstantToPhy(result.txPhyConstant),
             rx = phyConstantToPhy(result.rxPhyConstant),

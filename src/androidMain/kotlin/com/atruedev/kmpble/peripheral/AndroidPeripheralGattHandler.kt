@@ -254,7 +254,7 @@ internal suspend fun AndroidPeripheral.enableNotifications(characteristic: Chara
     bridge.setCharacteristicNotification(native, true)
     val cccd = native.getDescriptor(UUID.fromString(CCCD_UUID.toString())) ?: return
     val value = if (characteristic.properties.indicate) ENABLE_INDICATION_VALUE else ENABLE_NOTIFICATION_VALUE
-    peripheralContext.gattQueue.enqueue {
+    peripheralContext.gattQueue.enqueueBle {
         val status =
             pendingOps.awaitGatt(PendingOp.DescriptorWrite, "enableNotifications") {
                 bridge.writeDescriptor(cccd, value)
@@ -274,7 +274,7 @@ internal fun AndroidPeripheral.disableNotificationsBestEffort(characteristic: Ch
     val cccd = native.getDescriptor(UUID.fromString(CCCD_UUID.toString())) ?: return
     peripheralContext.scope.launch {
         try {
-            peripheralContext.gattQueue.enqueue {
+            peripheralContext.gattQueue.enqueueBle {
                 pendingOps.awaitGatt(PendingOp.DescriptorWrite, "disableNotifications") {
                     bridge.writeDescriptor(cccd, DISABLE_NOTIFICATION_VALUE)
                 }

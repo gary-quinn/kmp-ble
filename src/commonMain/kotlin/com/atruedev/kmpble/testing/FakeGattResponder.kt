@@ -31,6 +31,7 @@ import com.atruedev.kmpble.periodic.PastException
 import com.atruedev.kmpble.periodic.PeriodicAdvertisingSync
 import com.atruedev.kmpble.peripheral.PhyResult
 import com.atruedev.kmpble.peripheral.internal.PeripheralContext
+import com.atruedev.kmpble.peripheral.internal.requirePeripheralOpen
 import com.atruedev.kmpble.peripheral.state.State
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.coroutineScope
@@ -94,7 +95,7 @@ internal class FakeGattResponder(
     }
 
     internal fun checkNotClosed() {
-        check(!closedFlag()) { "Peripheral is closed" }
+        requirePeripheralOpen(closedFlag())
     }
 
     internal fun checkConnected() {

@@ -47,6 +47,12 @@ class BleErrorRecoveryHintTest {
     }
 
     @Test
+    fun peripheralClosedHasRecoveryHint() {
+        val error = PeripheralClosed()
+        assertTrue(error.recoveryHint.isNotEmpty())
+    }
+
+    @Test
     fun operationFailedHasRecoveryHint() {
         val error = OperationFailed("unknown")
         assertTrue(error.recoveryHint.isNotEmpty())

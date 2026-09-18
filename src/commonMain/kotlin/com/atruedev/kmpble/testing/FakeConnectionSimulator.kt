@@ -5,6 +5,7 @@ import com.atruedev.kmpble.error.ConnectionLost
 import com.atruedev.kmpble.gatt.DiscoveredService
 import com.atruedev.kmpble.gatt.internal.ObservationManager
 import com.atruedev.kmpble.peripheral.internal.PeripheralContext
+import com.atruedev.kmpble.peripheral.internal.requirePeripheralOpen
 import com.atruedev.kmpble.peripheral.state.ConnectionEvent
 import com.atruedev.kmpble.peripheral.state.State
 import com.atruedev.kmpble.scanner.uuidFrom
@@ -159,6 +160,6 @@ internal class FakeConnectionSimulator(
     }
 
     private fun checkNotClosed() {
-        check(!closedFlag()) { "Peripheral is closed" }
+        requirePeripheralOpen(closedFlag())
     }
 }

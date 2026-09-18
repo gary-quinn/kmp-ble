@@ -62,7 +62,7 @@ internal suspend fun AndroidPeripheral.writeReliableGatt(
         return
     }
 
-    peripheralContext.gattQueue.enqueue(timeout = currentTimeouts.reliableWrite) {
+    peripheralContext.gattQueue.enqueueBle(timeout = currentTimeouts.reliableWrite) {
         if (!bridge.beginReliableWrite()) {
             throw BleException(OperationFailed("beginReliableWrite initiation failed"))
         }

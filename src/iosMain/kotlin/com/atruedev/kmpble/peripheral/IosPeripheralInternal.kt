@@ -10,6 +10,7 @@ import com.atruedev.kmpble.gatt.DiscoveredService
 import com.atruedev.kmpble.gatt.internal.NotConnectedException
 import com.atruedev.kmpble.internal.StateRestorationHandler
 import com.atruedev.kmpble.peripheral.internal.PeripheralRegistry
+import com.atruedev.kmpble.peripheral.internal.requirePeripheralOpen
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import platform.CoreBluetooth.CBCharacteristic
@@ -22,7 +23,7 @@ import kotlin.time.Duration.Companion.seconds
  */
 
 internal fun IosPeripheral.checkNotClosed() {
-    check(!_closed.value) { "Peripheral is closed" }
+    requirePeripheralOpen(_closed.value)
 }
 
 internal fun IosPeripheral.requireNativeCbChar(c: Characteristic): CBCharacteristic =
