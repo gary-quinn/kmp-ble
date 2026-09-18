@@ -13,6 +13,7 @@ import com.atruedev.kmpble.scanner.uuidFrom
 import com.atruedev.kmpble.testing.FakeIsochronousChannel
 import com.atruedev.kmpble.error.BleException
 import com.atruedev.kmpble.error.PeripheralClosed
+import com.atruedev.kmpble.testing.FakePeripheral
 import com.atruedev.kmpble.testing.simulateEvent
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
