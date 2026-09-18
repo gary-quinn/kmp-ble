@@ -154,6 +154,7 @@ public class IosPeripheral(
         { connected, error -> handleConnectionCallback(connected, error) }
 
     init {
+        IosPeripheralAdapterOff.ensureRegistered()
         bridge.onEvent = { event -> handleBridgeEvent(event) }
         centralDelegate.registerConnectionCallback(identifier.value, connectionCallback)
         if (CentralManagerProvider.isStateRestorationEnabled) {
@@ -222,6 +223,9 @@ public class IosPeripheral(
     ): Flow<ByteArray> = observeValuesGatt(characteristic, backpressure)
 
     internal fun enableNotifications(characteristic: Characteristic) {
+        // No Kotlin state guard here: [resubscribeObservations] runs from finishDiscovery
+        // while still in Connecting.Configuring (before ConfigurationComplete -> Ready).
+        // Native guards in ApplePeripheralBridge reject the call when the link is down.
         bridge.setNotifyValue(true, requireNativeCbChar(characteristic))
     }
 

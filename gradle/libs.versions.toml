@@ -30,7 +30,7 @@ jsoup = "1.23.1"
 atomicfu = "0.33.0"
 bluezDbus = "0.3.5"
 dbusJava = "5.2.0"
-slf4j = "2.0.16"
+slf4j = "2.0.19"
 
 [libraries]
 androidx-core = { module = "androidx.core:core-ktx", version = "1.19.0" }

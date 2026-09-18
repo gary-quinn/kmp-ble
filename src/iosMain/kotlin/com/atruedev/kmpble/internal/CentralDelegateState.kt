@@ -43,6 +43,8 @@ internal class CentralDelegateState {
     // Atomic ensures visibility across threads; mutation always creates a new map instance.
     private val connectionCallbacks = atomic(mapOf<String, (connected: Boolean, error: NSError?) -> Unit>())
 
+    private val adapterOffHandlers = atomic(listOf<() -> Unit>())
+
     internal fun registerConnectionCallback(
         peripheralId: String,
         callback: (connected: Boolean, error: NSError?) -> Unit,
@@ -69,19 +71,33 @@ internal class CentralDelegateState {
         }
     }
 
-    internal fun handleAdapterStateUpdate(central: CBCentralManager) {
-        _adapterStateFlow.value =
-            when (central.state) {
-                CBCentralManagerStatePoweredOn -> BluetoothAdapterState.On
-                CBCentralManagerStatePoweredOff -> BluetoothAdapterState.Off
-                CBCentralManagerStateResetting,
-                CBCentralManagerStateUnknown,
-                -> BluetoothAdapterState.Unavailable
-                CBCentralManagerStateUnauthorized -> BluetoothAdapterState.Unauthorized
-                CBCentralManagerStateUnsupported -> BluetoothAdapterState.Unsupported
-                else -> BluetoothAdapterState.Unavailable
-            }
+    internal fun registerAdapterOffHandler(handler: () -> Unit) {
+        adapterOffHandlers.update { it + handler }
     }
+
+    internal fun handleAdapterStateUpdate(central: CBCentralManager) {
+        handleAdapterStateTransition(mapAdapterState(central.state))
+    }
+
+    internal fun handleAdapterStateTransition(newState: BluetoothAdapterState) {
+        val wasOn = _adapterStateFlow.value == BluetoothAdapterState.On
+        _adapterStateFlow.value = newState
+        if (wasOn && newState != BluetoothAdapterState.On) {
+            adapterOffHandlers.value.forEach { it.invoke() }
+        }
+    }
+
+    internal fun mapAdapterState(centralState: Long): BluetoothAdapterState =
+        when (centralState) {
+            CBCentralManagerStatePoweredOn -> BluetoothAdapterState.On
+            CBCentralManagerStatePoweredOff -> BluetoothAdapterState.Off
+            CBCentralManagerStateResetting,
+            CBCentralManagerStateUnknown,
+            -> BluetoothAdapterState.Unavailable
+            CBCentralManagerStateUnauthorized -> BluetoothAdapterState.Unauthorized
+            CBCentralManagerStateUnsupported -> BluetoothAdapterState.Unsupported
+            else -> BluetoothAdapterState.Unavailable
+        }
 
     internal fun handleScanResult(
         cbPeripheral: CBPeripheral,

@@ -1,7 +1,12 @@
 package com.atruedev.kmpble.gatt.internal
 
+import com.atruedev.kmpble.error.BleException
+import com.atruedev.kmpble.error.ConnectionFailureReason
+import com.atruedev.kmpble.error.ConnectionLost
+import com.atruedev.kmpble.error.OperationFailed
 import kotlinx.atomicfu.atomic
 import kotlinx.atomicfu.update
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -140,11 +145,44 @@ internal class GattOperationQueue(
         } catch (e: Throwable) {
             // Cancel the in-flight action (if running) or mark it cancelled (if
             // still queued) so it does not keep executing after the caller gave up.
-            entry.job.value?.cancel()
+            entry.job.value?.let { child ->
+                child.cancel()
+                // Wait for cleanup (e.g. abortReliableWrite) before returning so
+                // the next queued operation cannot overlap with teardown.
+                child.join()
+            }
             entry.cancelled.compareAndSet(null, e)
             throw e
         }
     }
+
+    /**
+     * Like [enqueue], but maps internal queue failures and unexpected platform
+     * throwables to [BleException] so callers can catch a single public type.
+     */
+    suspend fun <T> enqueueBle(
+        timeout: Duration = state.value.operationTimeout,
+        block: suspend () -> T,
+    ): T =
+        try {
+            enqueue(timeout, block)
+        } catch (e: BleException) {
+            throw e
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: NotConnectedException) {
+            throw BleException(
+                ConnectionLost(
+                    reason = "Peripheral is not connected",
+                    failureReason = ConnectionFailureReason.LINK_LOSS,
+                ),
+            )
+        } catch (e: Throwable) {
+            throw BleException(
+                e.asPlatformConnectionLoss()
+                    ?: OperationFailed(e.message ?: "GATT operation failed"),
+            )
+        }
 
     fun drain() {
         drainChannel(state.value.channel)

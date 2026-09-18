@@ -15,6 +15,37 @@ _Changes on `main` that have not yet been tagged for release._
 
 ---
 
+## [0.13.5] - 2026-09-18
+
+### Fixed
+- fix: wrap closed and not-connected failures in BleException
+
+
+---
+
+## [0.13.4] - 2026-09-16
+
+### Added
+- feat(sample): restore sample-quickstart module and refresh DX docs
+- feat(scanner): Linux BlueZ JVM scanner (M1)
+
+### Changed
+- test: Fake-backed UI smoke test for sample-quickstart
+- chore: bounded architecture-drift fixes (docs, CI, deps)
+- chore: eliminate Kotlin compiler warnings in CI test compilation
+- build(dependabot): bump org.junit.jupiter:junit-jupiter from 5.11.4 to 6.1.3
+- build(dependabot): bump org.slf4j:slf4j-nop from 2.0.16 to 2.0.19
+- ci(dependabot): bump actions/setup-java from 6.0.0 to 6.0.1
+
+### Fixed
+- fix(ios): guard CoreBluetooth commands and fan out adapter off
+
+### Other
+- docs: verification-first ADR-0002 and agent verification matrix
+
+
+---
+
 ## [0.13.3] - 2026-09-08
 
 ### Added
@@ -2488,7 +2519,9 @@ _No notable changes._
 
 ---
 
-[Unreleased]: https://github.com/gary-quinn/kmp-ble/compare/v0.13.3...HEAD
+[Unreleased]: https://github.com/gary-quinn/kmp-ble/compare/v0.13.5...HEAD
+[0.13.5]: https://github.com/gary-quinn/kmp-ble/compare/v0.13.4...v0.13.5
+[0.13.4]: https://github.com/gary-quinn/kmp-ble/compare/v0.13.3...v0.13.4
 [0.13.3]: https://github.com/gary-quinn/kmp-ble/compare/v0.13.2...v0.13.3
 [0.13.2]: https://github.com/gary-quinn/kmp-ble/compare/v0.13.1...v0.13.2
 [0.13.1]: https://github.com/gary-quinn/kmp-ble/compare/v0.13.0...v0.13.1

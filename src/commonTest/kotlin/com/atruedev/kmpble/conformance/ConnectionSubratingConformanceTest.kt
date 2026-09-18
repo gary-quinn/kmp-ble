@@ -6,6 +6,8 @@ import com.atruedev.kmpble.connection.ConnectionOptions
 import com.atruedev.kmpble.connection.ConnectionSubratingParameters
 import com.atruedev.kmpble.connection.ConnectionSubratingResult
 import com.atruedev.kmpble.connection.OperationTimeouts
+import com.atruedev.kmpble.error.BleException
+import com.atruedev.kmpble.error.PeripheralClosed
 import com.atruedev.kmpble.peripheral.state.State
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
@@ -292,12 +294,9 @@ public abstract class ConnectionSubratingConformanceTest : BleConformanceTest() 
 
             try {
                 peripheral.requestConnectionSubrating(params)
-                throw AssertionError("Expected IllegalStateException")
-            } catch (e: IllegalStateException) {
-                assertTrue(
-                    "closed" in e.message.orEmpty().lowercase(),
-                    "Error message should mention closed state, got: ${e.message}",
-                )
+                throw AssertionError("Expected BleException")
+            } catch (e: BleException) {
+                assertIs<PeripheralClosed>(e.error)
             }
         }
 

@@ -86,7 +86,11 @@ internal suspend fun IosPeripheral.handleServicesDiscovered(event: AppleCallback
     val pending = cbServices.map { it.UUID.UUIDString }.toMutableList()
     currentDiscovery = DiscoveryCycle(generation = generation, pendingServices = pending)
 
-    cbServices.forEach { bridge.discoverCharacteristics(it) }
+    for (service in cbServices) {
+        if (!failDiscoveryIfRejected(bridge.discoverCharacteristics(service), "discoverCharacteristics")) {
+            return
+        }
+    }
 }
 
 @OptIn(ExperimentalUuidApi::class)
@@ -226,7 +230,27 @@ internal suspend fun IosPeripheral.handleServicesModified() {
     nativeCharMap.clear()
     nativeDescMap.clear()
     currentDiscovery = null
-    bridge.discoverServices(discoveryGeneration.value)
+    failDiscoveryIfRejected(
+        bridge.discoverServices(discoveryGeneration.value),
+        "discoverServices",
+    )
+}
+
+/**
+ * Records a typed discovery failure when the bridge rejects a native call because the
+ * peripheral is disconnected or the adapter is not powered on.
+ */
+internal suspend fun IosPeripheral.failDiscoveryIfRejected(
+    accepted: Boolean,
+    operation: String,
+): Boolean {
+    if (accepted) return true
+    val failure = OperationFailed("$operation rejected: peripheral not connected or Bluetooth off")
+    peripheralContext.processEvent(ConnectionEvent.DiscoveryFailed(failure))
+    slots.failDiscovery(BleException(failure))
+    slots.completeConnect()
+    currentDiscovery = null
+    return false
 }
 
 @OptIn(ExperimentalUuidApi::class)

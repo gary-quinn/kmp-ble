@@ -1,7 +1,9 @@
 package com.atruedev.kmpble.internal
 
+import com.atruedev.kmpble.adapter.BluetoothAdapterState
 import platform.Foundation.NSError
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -74,5 +76,23 @@ class CentralDelegateStateTest {
 
         assertTrue(secondInvoked)
         assertFalse(firstInvoked)
+    }
+
+    @Test
+    fun adapterOffHandlerFiresWhenTransitioningAwayFromOn() {
+        val state = CentralDelegateState()
+        var adapterOffCount = 0
+        state.registerAdapterOffHandler { adapterOffCount++ }
+
+        state.handleAdapterStateTransition(BluetoothAdapterState.On)
+        assertEquals(BluetoothAdapterState.On, state.adapterStateFlow.value)
+
+        state.handleAdapterStateTransition(BluetoothAdapterState.Off)
+        assertEquals(BluetoothAdapterState.Off, state.adapterStateFlow.value)
+        assertEquals(1, adapterOffCount)
+
+        // Repeated off updates must not fan out again.
+        state.handleAdapterStateTransition(BluetoothAdapterState.Off)
+        assertEquals(1, adapterOffCount)
     }
 }

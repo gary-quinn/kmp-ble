@@ -30,4 +30,6 @@ internal interface CentralDelegate {
         peripheralId: String,
         error: NSError?,
     )
+
+    fun registerAdapterOffHandler(handler: () -> Unit)
 }

@@ -12,6 +12,7 @@ import com.atruedev.kmpble.error.StaleGattHandle
 import com.atruedev.kmpble.gatt.Characteristic
 import com.atruedev.kmpble.gatt.Descriptor
 import com.atruedev.kmpble.gatt.internal.NotConnectedException
+import com.atruedev.kmpble.peripheral.internal.requirePeripheralOpen
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
@@ -23,7 +24,7 @@ import kotlin.time.Duration.Companion.seconds
  */
 
 internal fun AndroidPeripheral.checkNotClosed() {
-    check(!closed) { "Peripheral is closed" }
+    requirePeripheralOpen(closed)
 }
 
 internal fun AndroidPeripheral.requireNativeChar(c: Characteristic): BluetoothGattCharacteristic =

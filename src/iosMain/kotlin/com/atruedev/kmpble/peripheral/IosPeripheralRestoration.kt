@@ -1,5 +1,7 @@
 package com.atruedev.kmpble.peripheral
 
+import com.atruedev.kmpble.error.BleException
+import com.atruedev.kmpble.error.OperationFailed
 import com.atruedev.kmpble.gatt.internal.PersistedObservation
 import com.atruedev.kmpble.peripheral.state.ConnectionEvent
 import kotlinx.coroutines.withContext
@@ -68,7 +70,13 @@ internal suspend fun IosPeripheral.restoreFromStateRestorationExt(savedObservati
                     }
                     DiscoveryPolicy.DiscoveryAction.Rediscover ->
                         restoreDiscovery {
-                            bridge.discoverServices(discoveryGeneration.value)
+                            if (!bridge.discoverServices(discoveryGeneration.value)) {
+                                throw BleException(
+                                    OperationFailed(
+                                        "discoverServices rejected: peripheral not connected or Bluetooth off",
+                                    ),
+                                )
+                            }
                         }
                 }
             } finally {

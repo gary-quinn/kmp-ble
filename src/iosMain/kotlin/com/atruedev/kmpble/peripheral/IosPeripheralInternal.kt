@@ -10,6 +10,7 @@ import com.atruedev.kmpble.gatt.DiscoveredService
 import com.atruedev.kmpble.gatt.internal.NotConnectedException
 import com.atruedev.kmpble.internal.StateRestorationHandler
 import com.atruedev.kmpble.peripheral.internal.PeripheralRegistry
+import com.atruedev.kmpble.peripheral.internal.requirePeripheralOpen
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import platform.CoreBluetooth.CBCharacteristic
@@ -22,7 +23,7 @@ import kotlin.time.Duration.Companion.seconds
  */
 
 internal fun IosPeripheral.checkNotClosed() {
-    check(!_closed.value) { "Peripheral is closed" }
+    requirePeripheralOpen(_closed.value)
 }
 
 internal fun IosPeripheral.requireNativeCbChar(c: Characteristic): CBCharacteristic =
@@ -91,10 +92,20 @@ internal suspend fun IosPeripheral.refreshServicesInternal(): List<DiscoveredSer
         val deferred = slots.armDiscovery()
         // New discovery cycle: increment generation to invalidate stale callbacks
         discoveryGeneration.incrementAndGet()
+        knownServicesValid.value = false
         // Clear stale native handle mappings from previous cycle
         nativeCharMap.clear()
         nativeDescMap.clear()
-        bridge.discoverServices(discoveryGeneration.value)
+        val cbServices = currentServices()
+        when (currentDiscoveryAction(cbServices)) {
+            DiscoveryPolicy.DiscoveryAction.WaitForTable -> finishDiscoveryFromRetrievedTable()
+            else -> {
+                failDiscoveryIfRejected(
+                    bridge.discoverServices(discoveryGeneration.value),
+                    "discoverServices",
+                )
+            }
+        }
         try {
             withTimeout(currentTimeouts.serviceDiscovery) { deferred.await() }
         } finally {
