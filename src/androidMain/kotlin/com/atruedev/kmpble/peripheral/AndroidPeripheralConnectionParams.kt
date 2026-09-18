@@ -43,7 +43,7 @@ internal suspend fun AndroidPeripheral.requestConnectionParameterUpdateGatt(
     val androidPriority = params.intervalRange.toAndroidConnectionPriority()
     return peripheralContext.gattQueue.enqueueBle {
         val dispatched = bridge.requestConnectionPriority(androidPriority)
-        if (!dispatched) return@enqueue null
+        if (!dispatched) return@enqueueBle null
         ConnectionParameterUpdateResult(
             negotiatedInterval = params.intervalRange.endInclusive,
             negotiatedLatency = params.slaveLatency,
@@ -69,7 +69,7 @@ internal suspend fun AndroidPeripheral.setPreferredPhyGatt(
                     BluetoothDevice.PHY_OPTION_NO_PREFERRED,
                 )
             }
-        if (!result.status.isSuccess()) return@enqueue null
+        if (!result.status.isSuccess()) return@enqueueBle null
         PhyResult(
             tx = phyConstantToPhy(result.txPhyConstant),
             rx = phyConstantToPhy(result.rxPhyConstant),
@@ -85,7 +85,7 @@ internal suspend fun AndroidPeripheral.readPhyGatt(): PhyResult? {
             pendingOps.awaitGatt(PendingOp.PhyRead, "readPhy") {
                 bridge.readPhy()
             }
-        if (!result.status.isSuccess()) return@enqueue null
+        if (!result.status.isSuccess()) return@enqueueBle null
         PhyResult(
             tx = phyConstantToPhy(result.txPhyConstant),
             rx = phyConstantToPhy(result.rxPhyConstant),
