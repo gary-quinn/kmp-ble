@@ -132,6 +132,7 @@ class AndroidScannerIntegrationTest {
         val result = AndroidScanner.buildOsFilters(config.filterGroups)
         assertNotNull(result)
         assertEquals(1, result.size)
+        assertEquals("TestDevice", result[0].deviceName)
     }
 
     @Test
