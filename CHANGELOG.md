@@ -15,6 +15,19 @@ _Changes on `main` that have not yet been tagged for release._
 
 ---
 
+## [0.13.6] - 2026-09-18
+
+### Fixed
+- fix(gatt): await queue cleanup on caller cancel; revoke BLE perms in test
+- fix(gatt): map platform connection-loss throwables to ConnectionLost
+- fix(test): move BLE permission and scan-filter checks to Robolectric host tests
+
+### Other
+- docs: sync ARCHITECTURE.md with BlueZ M1 scanner (#672)
+
+
+---
+
 ## [0.13.5] - 2026-09-18
 
 ### Fixed
@@ -2519,7 +2532,8 @@ _No notable changes._
 
 ---
 
-[Unreleased]: https://github.com/gary-quinn/kmp-ble/compare/v0.13.5...HEAD
+[Unreleased]: https://github.com/gary-quinn/kmp-ble/compare/v0.13.6...HEAD
+[0.13.6]: https://github.com/gary-quinn/kmp-ble/compare/v0.13.5...v0.13.6
 [0.13.5]: https://github.com/gary-quinn/kmp-ble/compare/v0.13.4...v0.13.5
 [0.13.4]: https://github.com/gary-quinn/kmp-ble/compare/v0.13.3...v0.13.4
 [0.13.3]: https://github.com/gary-quinn/kmp-ble/compare/v0.13.2...v0.13.3
