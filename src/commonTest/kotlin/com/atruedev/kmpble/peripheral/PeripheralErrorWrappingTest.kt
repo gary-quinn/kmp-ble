@@ -12,6 +12,7 @@ import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
+import kotlin.test.assertTrue
 import kotlin.uuid.ExperimentalUuidApi
 
 /**
@@ -111,7 +112,7 @@ class PeripheralErrorWrappingTest {
             } catch (_: Exception) {
                 // Any other exception type means the leak regressed.
             }
-            assert(caughtClosed)
+            assertTrue(caughtClosed)
 
             val queue = GattOperationQueue(this)
             queue.start()
@@ -125,7 +126,7 @@ class PeripheralErrorWrappingTest {
             } catch (_: Exception) {
                 // Any other exception type means the leak regressed.
             }
-            assert(caughtNotConnected)
+            assertTrue(caughtNotConnected)
 
             queue.close()
         }
