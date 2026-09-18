@@ -16,17 +16,24 @@ import kotlin.test.assertIs
 /**
  * Validates [checkBlePermissions] on a real Android runtime.
  *
- * Skipped when permissions are already granted (e.g. via auto-granting test runner).
+ * Revokes BLE permissions first so the denied path is exercised even when the
+ * emulator auto-grants them to the test APK.
  */
 @RunWith(AndroidJUnit4::class)
 class BlePermissionsTest {
     @Before
     fun setup() {
-        val appContext = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val appContext = instrumentation.targetContext.applicationContext
         KmpBle.init(appContext)
 
+        val uiAutomation = instrumentation.uiAutomation
+        for (permission in listOf(Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT)) {
+            uiAutomation.executeShellCommand("pm revoke ${appContext.packageName} $permission")
+        }
+
         Assume.assumeFalse(
-            "BLE permissions already granted",
+            "BLE permissions could not be revoked for denied-state test",
             appContext.checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN) ==
                 PackageManager.PERMISSION_GRANTED,
         )

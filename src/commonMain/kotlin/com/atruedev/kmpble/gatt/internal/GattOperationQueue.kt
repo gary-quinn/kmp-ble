@@ -145,7 +145,12 @@ internal class GattOperationQueue(
         } catch (e: Throwable) {
             // Cancel the in-flight action (if running) or mark it cancelled (if
             // still queued) so it does not keep executing after the caller gave up.
-            entry.job.value?.cancel()
+            entry.job.value?.let { child ->
+                child.cancel()
+                // Wait for cleanup (e.g. abortReliableWrite) before returning so
+                // the next queued operation cannot overlap with teardown.
+                child.join()
+            }
             entry.cancelled.compareAndSet(null, e)
             throw e
         }

@@ -99,6 +99,36 @@ class GattOperationQueueTest {
         }
 
     @Test
+    fun callerCancellationWaitsForInFlightCleanupBeforeReturning() =
+        runTest {
+            val queue = GattOperationQueue(backgroundScope)
+            queue.start()
+
+            var cleanupCompleted = false
+            val job =
+                launch {
+                    runCatching {
+                        queue.enqueue(timeout = 5.seconds) {
+                            try {
+                                delay(10_000)
+                            } catch (e: CancellationException) {
+                                cleanupCompleted = true
+                                throw e
+                            }
+                        }
+                    }
+                }
+            repeat(10) { yield() }
+            job.cancel()
+            job.join()
+
+            assertTrue(
+                cleanupCompleted,
+                "cleanup must finish before the cancelled caller returns",
+            )
+        }
+
+    @Test
     fun cancelledActionStillRunsIsolatedFromNext() =
         runTest {
             val queue = GattOperationQueue(backgroundScope)
