@@ -137,6 +137,11 @@ public data class StaleGattHandle(
     val recoveryHint: String = "GATT handle is stale. Reconnect and re-discover services.",
 ) : GattOperationError
 
+/** The [com.atruedev.kmpble.peripheral.Peripheral] instance has been closed and no longer accepts operations. */
+public data class PeripheralClosed(
+    val recoveryHint: String = "Obtain a new Peripheral instance before retrying.",
+) : OperationConstraintError
+
 /** A catch-all for operation failures that don't fit a more specific category. */
 public data class OperationFailed(
     val message: String,

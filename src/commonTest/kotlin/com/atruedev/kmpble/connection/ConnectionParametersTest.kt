@@ -1,11 +1,13 @@
 package com.atruedev.kmpble.connection
 
 import com.atruedev.kmpble.ExperimentalBleApi
+import com.atruedev.kmpble.error.BleException
+import com.atruedev.kmpble.error.PeripheralClosed
 import com.atruedev.kmpble.testing.FakePeripheral
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertNotNull
+import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.test.fail
@@ -241,9 +243,9 @@ class ConnectionParametersTest {
                         supervisionTimeout = 2000.milliseconds,
                     ),
                 )
-                fail("expected IllegalStateException")
-            } catch (e: IllegalStateException) {
-                // closed check passes through FakeGattResponder.checkNotClosed()
+                fail("expected BleException")
+            } catch (e: BleException) {
+                assertIs<PeripheralClosed>(e.error)
             }
         }
 

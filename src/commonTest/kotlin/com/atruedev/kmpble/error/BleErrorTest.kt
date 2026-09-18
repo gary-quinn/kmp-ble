@@ -103,6 +103,27 @@ class BleErrorTest {
     }
 
     @Test
+    fun peripheralClosedCanBeCreatedAndThrown() {
+        val error = PeripheralClosed()
+        assertTrue(error.recoveryHint.isNotEmpty())
+    }
+
+    @Test
+    fun peripheralClosedWrappedInBleException() {
+        val ex =
+            assertFailsWith<BleException> {
+                throw BleException(PeripheralClosed())
+            }
+        assertIs<PeripheralClosed>(ex.error)
+    }
+
+    @Test
+    fun peripheralClosedImplementsOperationConstraintError() {
+        val error: BleError = PeripheralClosed()
+        assertIs<OperationConstraintError>(error)
+    }
+
+    @Test
     fun connectionLostUsesLinkLossByDefault() {
         val error = ConnectionLost("remote disconnect")
         assertEquals(ConnectionFailureReason.LINK_LOSS, error.failureReason)

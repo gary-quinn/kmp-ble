@@ -30,6 +30,7 @@ import com.atruedev.kmpble.periodic.PeriodicAdvertisingSync
 import com.atruedev.kmpble.peripheral.Peripheral
 import com.atruedev.kmpble.peripheral.PhyResult
 import com.atruedev.kmpble.peripheral.internal.PeripheralContext
+import com.atruedev.kmpble.peripheral.internal.requirePeripheralOpen
 import com.atruedev.kmpble.peripheral.state.ConnectionEvent
 import com.atruedev.kmpble.peripheral.state.State
 import kotlinx.coroutines.CoroutineDispatcher
@@ -252,6 +253,6 @@ public class FakePeripheral internal constructor(
     override val dataLengthParameters: StateFlow<DataLengthParameters?> get() = gattResponder.dataLengthParameters
 
     private fun checkNotClosed() {
-        check(!closed) { "Peripheral is closed" }
+        requirePeripheralOpen(closed)
     }
 }

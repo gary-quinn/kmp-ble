@@ -53,7 +53,7 @@ internal suspend fun AndroidPeripheral.refreshServicesGatt(): List<DiscoveredSer
 
 internal suspend fun AndroidPeripheral.readCharacteristicGatt(characteristic: Characteristic): ByteArray {
     checkNotClosed()
-    return peripheralContext.gattQueue.enqueue(timeout = currentTimeouts.read) {
+    return peripheralContext.gattQueue.enqueueBle(timeout = currentTimeouts.read) {
         val native = requireNativeChar(characteristic)
         val result =
             pendingOps.awaitGatt(PendingOp.CharacteristicRead, "read") {
@@ -76,7 +76,7 @@ internal suspend fun AndroidPeripheral.writeCharacteristicGatt(
     val androidWriteType = writeType.toAndroidWriteType()
     val chunks = LargeWriteHandler.chunk(data, maximumWriteValueLength.value)
 
-    peripheralContext.gattQueue.enqueue(timeout = currentTimeouts.write) {
+    peripheralContext.gattQueue.enqueueBle(timeout = currentTimeouts.write) {
         for (chunk in chunks) {
             val status =
                 pendingOps.awaitGatt(PendingOp.CharacteristicWrite, "write") {
@@ -121,7 +121,7 @@ internal fun AndroidPeripheral.observeValuesGatt(
 
 internal suspend fun AndroidPeripheral.readDescriptorGatt(descriptor: Descriptor): ByteArray {
     checkNotClosed()
-    return peripheralContext.gattQueue.enqueue(timeout = currentTimeouts.read) {
+    return peripheralContext.gattQueue.enqueueBle(timeout = currentTimeouts.read) {
         val native = requireNativeDesc(descriptor)
         val result =
             pendingOps.awaitGatt(PendingOp.DescriptorRead, "readDescriptor") {
@@ -137,7 +137,7 @@ internal suspend fun AndroidPeripheral.writeDescriptorGatt(
     data: ByteArray,
 ) {
     checkNotClosed()
-    peripheralContext.gattQueue.enqueue(timeout = currentTimeouts.write) {
+    peripheralContext.gattQueue.enqueueBle(timeout = currentTimeouts.write) {
         val native = requireNativeDesc(descriptor)
         val status =
             pendingOps.awaitGatt(PendingOp.DescriptorWrite, "writeDescriptor") {
@@ -149,14 +149,14 @@ internal suspend fun AndroidPeripheral.writeDescriptorGatt(
 
 internal suspend fun AndroidPeripheral.readRssiGatt(): Int {
     checkNotClosed()
-    return peripheralContext.gattQueue.enqueue {
+    return peripheralContext.gattQueue.enqueueBle {
         pendingOps.awaitGatt(PendingOp.RssiRead, "readRssi") { bridge.readRemoteRssi() }
     }
 }
 
 internal suspend fun AndroidPeripheral.requestMtuGatt(mtu: Int): Int {
     checkNotClosed()
-    return peripheralContext.gattQueue.enqueue(timeout = currentTimeouts.mtuNegotiation) {
+    return peripheralContext.gattQueue.enqueueBle(timeout = currentTimeouts.mtuNegotiation) {
         pendingOps.awaitGatt(PendingOp.MtuRequest, "requestMtu") { bridge.requestMtu(mtu) }
     }
 }

@@ -11,7 +11,8 @@ import com.atruedev.kmpble.peripheral.state.ConnectionEvent
 import com.atruedev.kmpble.peripheral.state.State
 import com.atruedev.kmpble.scanner.uuidFrom
 import com.atruedev.kmpble.testing.FakeIsochronousChannel
-import com.atruedev.kmpble.testing.FakePeripheral
+import com.atruedev.kmpble.error.BleException
+import com.atruedev.kmpble.error.PeripheralClosed
 import com.atruedev.kmpble.testing.simulateEvent
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
@@ -119,9 +120,11 @@ class FakePeripheralTest {
             val peripheral = createPeripheral()
             peripheral.close()
 
-            assertFailsWith<IllegalStateException> {
-                peripheral.connect()
-            }
+            val ex =
+                assertFailsWith<BleException> {
+                    peripheral.connect()
+                }
+            assertIs<PeripheralClosed>(ex.error)
         }
 
     @Test
