@@ -4,8 +4,8 @@ import com.atruedev.kmpble.error.BleException
 import com.atruedev.kmpble.error.ConnectionLost
 import com.atruedev.kmpble.error.OperationFailed
 import com.atruedev.kmpble.error.PeripheralClosed
-import com.atruedev.kmpble.gatt.internal.GattOperationQueue
 import com.atruedev.kmpble.gatt.WriteType
+import com.atruedev.kmpble.gatt.internal.GattOperationQueue
 import com.atruedev.kmpble.scanner.uuidFrom
 import com.atruedev.kmpble.testing.FakePeripheral
 import kotlinx.coroutines.test.runTest

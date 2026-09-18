@@ -5,8 +5,8 @@ import com.atruedev.kmpble.error.ConnectionFailureReason
 import com.atruedev.kmpble.error.ConnectionLost
 import com.atruedev.kmpble.error.OperationFailed
 import kotlinx.atomicfu.atomic
-import kotlinx.coroutines.CancellationException
 import kotlinx.atomicfu.update
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job

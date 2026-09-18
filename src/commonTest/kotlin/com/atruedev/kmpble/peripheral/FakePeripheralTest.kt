@@ -5,14 +5,14 @@ import com.atruedev.kmpble.connection.ConnectionParameterUpdateResult
 import com.atruedev.kmpble.connection.ConnectionParameters
 import com.atruedev.kmpble.connection.ConnectionPriority
 import com.atruedev.kmpble.connection.Phy
+import com.atruedev.kmpble.error.BleException
 import com.atruedev.kmpble.error.ConnectionLost
+import com.atruedev.kmpble.error.PeripheralClosed
 import com.atruedev.kmpble.isochronous.IsochronousException
 import com.atruedev.kmpble.peripheral.state.ConnectionEvent
 import com.atruedev.kmpble.peripheral.state.State
 import com.atruedev.kmpble.scanner.uuidFrom
 import com.atruedev.kmpble.testing.FakeIsochronousChannel
-import com.atruedev.kmpble.error.BleException
-import com.atruedev.kmpble.error.PeripheralClosed
 import com.atruedev.kmpble.testing.FakePeripheral
 import com.atruedev.kmpble.testing.simulateEvent
 import kotlinx.coroutines.test.runTest
