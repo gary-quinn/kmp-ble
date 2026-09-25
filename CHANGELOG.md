@@ -35,6 +35,7 @@ _Changes on `main` that have not yet been tagged for release._
 - fix(bluez): `InterfacesAdded` signals were matched on the emitter path instead of the added object path
 - fix(bluez): `reconnectionStrategy`, `bondingPreference`, and `pairingHandler` were ignored; link-loss D-Bus errors were not mapped to `ConnectionLost`
 - fix(bluez): `connect()` and bonding hung until the connect timeout against a real `bluetoothd`: `Device1.Connect` and `Device1.Pair` return no value, and dbus-java's `DBusAsyncReply` never reports a reply for such calls
+- fix(bluez): turning the adapter off during a connection ended it in `Disconnected.ByError(ConnectionLost)` instead of `Disconnected.BySystemEvent`, because BlueZ emits `Device1.Connected = false` before `Adapter1.Powered = false`; a link loss is now reported after a 500 ms grace window, as on macOS
 
 ---
 
