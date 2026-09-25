@@ -36,6 +36,7 @@ _Changes on `main` that have not yet been tagged for release._
 - fix(bluez): `reconnectionStrategy`, `bondingPreference`, and `pairingHandler` were ignored; link-loss D-Bus errors were not mapped to `ConnectionLost`
 - fix(bluez): `connect()` and bonding hung until the connect timeout against a real `bluetoothd`: `Device1.Connect` and `Device1.Pair` return no value, and dbus-java's `DBusAsyncReply` never reports a reply for such calls
 - fix(bluez): turning the adapter off during a connection ended it in `Disconnected.ByError(ConnectionLost)` instead of `Disconnected.BySystemEvent`, because BlueZ emits `Device1.Connected = false` before `Adapter1.Powered = false`; a link loss is now reported after a 500 ms grace window, as on macOS
+- fix(bluez): the GATT server could hand consecutive writes to `onWrite` out of order; `bluetoothd` does not wait for the `WriteValue` reply on characteristics that allow write without response, and dbus-java dispatched the calls on several threads. The exported application now uses its own connection with a single method-call thread
 
 ---
 
