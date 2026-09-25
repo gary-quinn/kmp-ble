@@ -38,6 +38,18 @@ PeripheralRegistry.
 ./gradlew jvmTest
 ```
 
+### JVM Backend Tests
+
+The shared JVM implementations run against fake transports in core, and each
+backend runs against fakes of its OS layer. On a macOS arm64 host,
+`kmp-ble-macos` also rebuilds the CoreBluetooth shim and runs a JNI smoke test
+that never starts CoreBluetooth.
+
+```bash
+./gradlew :jvmTest --tests "com.atruedev.kmpble.backend.*"
+./gradlew :kmp-ble-bluez:jvmTest :kmp-ble-macos:jvmTest
+```
+
 ## Manual E2E Test Checklist
 
 Real BLE operations require physical hardware. Complete this checklist using
@@ -109,3 +121,28 @@ the `sample` app before tagging a release.
 | 24 | Bluetooth off during connection | Turn off Bluetooth while connected | Disconnection event emitted |
 | 25 | Out of range | Walk away from peripheral | ConnectionLost error, reconnection if configured |
 | 26 | Rapid connect/disconnect | Connect and disconnect 5 times quickly | No crashes, state machine consistent |
+
+## JVM Desktop Checklist (Linux BlueZ, macOS arm64)
+
+Run with `sample-jvm` on each desktop OS before tagging a release. Human only.
+
+### Prerequisites
+
+- Linux: BlueZ 5.62+ with `bluetoothd` running, the user in the `bluetooth` group
+- macOS: Apple silicon, macOS 11+, Bluetooth allowed for the terminal app
+- A BLE peripheral with a notifying characteristic (for example a heart-rate sensor or nRF Connect on a phone)
+
+| # | Scenario | Steps | Pass Criteria |
+|---|----------|-------|---------------|
+| D1 | Permissions | `./gradlew :sample-jvm:run --args="permissions"` | `Granted` (macOS: after allowing the prompt once) |
+| D2 | Adapter state | `--args="adapter"`, then toggle Bluetooth | `state=On`; off/on reflected on rerun |
+| D3 | Scan | `--args="scan 10"` | Nearby advertisements with names, RSSI, service UUIDs |
+| D4 | Connect + GATT | `--args="connect <identifier> 15"` | Services listed, readable values printed, `mtu` above 23 on BlueZ 5.62+ |
+| D5 | Notifications | Same run as D4 | `notify` lines appear; they stop after the run (CCCD disabled) |
+| D6 | Remote disconnect | Power off the peripheral during D4 | State ends in `Disconnected`, no hang |
+| D7 | Bluetooth off | Turn Bluetooth off during D4 | `Disconnected.BySystemEvent`, process keeps running |
+| D8 | Linux pairing | Connect with `BondingPreference.Required` and a `pairingHandler` to a device that needs pairing | Handler receives the prompt; `bondState` becomes `Bonded` |
+| D9 | GATT server + advertising | Start `GattServer { }` and `Advertiser()`; connect from a phone | Phone sees the service, reads and writes reach the handlers |
+| D10 | macOS packaged app | Package with jpackage **without** `NSBluetoothAlwaysUsageDescription` | kmp-ble reports `ERROR_USAGE_DESCRIPTION_MISSING` instead of the process being killed |
+| D11 | macOS host app | Run D1-D3 from Terminal.app, then from a terminal app without the key | Terminal.app prompts and scans; the other host gets `ERROR_USAGE_DESCRIPTION_MISSING` naming that app, no crash report |
+

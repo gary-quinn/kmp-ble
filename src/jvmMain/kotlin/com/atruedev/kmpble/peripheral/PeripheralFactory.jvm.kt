@@ -1,22 +1,23 @@
+@file:OptIn(KmpBleBackendApi::class)
+
 package com.atruedev.kmpble.peripheral
 
+import com.atruedev.kmpble.backend.BleBackends
+import com.atruedev.kmpble.backend.KmpBleBackendApi
+import com.atruedev.kmpble.backend.internal.BackendAdvertisementContext
+import com.atruedev.kmpble.backend.peripheral
 import com.atruedev.kmpble.scanner.Advertisement
-import com.atruedev.kmpble.scanner.BlueZ
-import com.atruedev.kmpble.unsupportedBle
 
 /**
- * Portable JVM [Peripheral] factory. Remains disabled on CI unless
- * [BlueZ.ENABLE_PROPERTY] is set to `"true"`.
+ * Portable JVM [Peripheral] factory.
  *
- * For Linux desktop apps, prefer [Advertisement.toBlueZPeripheral] from a [BlueZScanner]
- * advertisement, or construct [BlueZPeripheral] directly with a known D-Bus device path.
+ * An advertisement produced by a JVM backend scanner connects through that backend. Any
+ * other advertisement (for example one built from a stored identifier) uses the backend
+ * resolved by [BleBackends]. Throws [UnsupportedOperationException] when no backend
+ * supports this host.
  */
 public actual fun Advertisement.toPeripheral(): Peripheral {
-    if (BlueZ.isExplicitlyEnabled()) {
-        return toBlueZPeripheral()
-    }
-    unsupportedBle(
-        "Peripheral (use Advertisement.toBlueZPeripheral() from BlueZScanner on Linux, " +
-            "or FakePeripheral in tests; set -D${BlueZ.ENABLE_PROPERTY}=true to opt in via toPeripheral())",
-    )
+    val context = platformContext as? BackendAdvertisementContext
+    if (context != null) return context.backend.peripheral(identifier, context.handle)
+    return BleBackends.require("Peripheral").peripheral(identifier)
 }

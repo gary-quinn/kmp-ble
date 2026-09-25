@@ -1,22 +1,17 @@
+@file:OptIn(KmpBleBackendApi::class)
+
 package com.atruedev.kmpble.scanner
 
-import com.atruedev.kmpble.unsupportedBle
+import com.atruedev.kmpble.backend.BleBackends
+import com.atruedev.kmpble.backend.KmpBleBackendApi
+import com.atruedev.kmpble.backend.newScanner
 
 /**
- * Portable JVM [Scanner] factory. Remains disabled on CI and non-Linux hosts unless
- * [BlueZ.ENABLE_PROPERTY] is set to `"true"`.
+ * Portable JVM [Scanner] factory. Delegates to the [com.atruedev.kmpble.backend.BleBackend]
+ * resolved by [BleBackends]: `kmp-ble-bluez` on Linux, `kmp-ble-macos` on macOS arm64.
  *
- * Opt-in does not probe D-Bus; [BlueZScanner] fails cleanly at collect time when BlueZ
- * is unavailable. Use [BlueZ.isAvailable] only when an explicit availability probe is needed.
- *
- * For Linux desktop apps, prefer the explicit [BlueZScanner] factory.
+ * Construction does not touch the Bluetooth stack; failures surface when [Scanner.scanEvents]
+ * is collected. Throws [UnsupportedOperationException] when no backend supports this host.
  */
-public actual fun Scanner(configure: ScannerConfig.() -> Unit): Scanner {
-    if (BlueZ.isExplicitlyEnabled()) {
-        return BlueZScanner(configure)
-    }
-    unsupportedBle(
-        "Scanner (use BlueZScanner { } on Linux with BlueZ, or FakeScanner in tests; " +
-            "set -D${BlueZ.ENABLE_PROPERTY}=true to opt in via Scanner { })",
-    )
-}
+public actual fun Scanner(configure: ScannerConfig.() -> Unit): Scanner =
+    BleBackends.require("Scanner").newScanner(configure)

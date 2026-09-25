@@ -1,6 +1,6 @@
 # Platform Parity Audit
 
-> Generated 2026-06-19. androidMain: 45 files, 4,566 LOC | iosMain: 37 files, 4,015 LOC
+> Generated 2026-06-19. androidMain: 45 files, 4,566 LOC | iosMain: 37 files, 4,015 LOC. JVM rows updated for ADR-0003 (backend SPI, `kmp-ble-bluez`, `kmp-ble-macos`).
 
 ## File Inventory
 
@@ -122,12 +122,12 @@
 | Feature | Status |
 |---------|--------|
 | Scanner (mobile) | Android + iOS full parity |
-| Scanner (JVM) | **Partial M1:** LE scan via `BlueZScanner` on Linux only; not parity with Android/iOS |
-| Peripheral | Android + iOS only (JVM unsupported) |
-| Server | Android + iOS only (JVM unsupported) |
-| L2CAP | Android + iOS |
-| Adapter | Android + iOS |
-| Permissions | Android + iOS |
+| Scanner (JVM) | Linux (`kmp-ble-bluez`) and macOS arm64 (`kmp-ble-macos`) through the backend SPI |
+| Peripheral | Android + iOS; JVM Linux and macOS (see ADR-0003 parity table) |
+| Server | Android + iOS; JVM Linux and macOS |
+| L2CAP | Android + iOS; JVM macOS only |
+| Adapter | Android + iOS; JVM Linux and macOS |
+| Permissions | Android + iOS; JVM Linux (D-Bus access) and macOS (`CBManager.authorization`) |
 | State restoration | Android + iOS |
 | LE Audio (ISO) | Android + iOS stub |
 | Cache | Android + iOS |

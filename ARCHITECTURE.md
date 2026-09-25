@@ -6,9 +6,9 @@ This document explains the key design decisions and internal structure of kmp-bl
 
 ## Overview
 
-kmp-ble is a Kotlin Multiplatform BLE library targeting **Android**, **iOS**, and **Linux JVM (BlueZ M1: scan-only)**. The core design principle is: **shared logic in `commonMain`, platform bridges in `expect/actual`, portable public API with explicit platform opt-ins where needed.**
+kmp-ble is a Kotlin Multiplatform BLE library targeting **Android**, **iOS**, and **JVM desktop** (Linux through BlueZ, macOS on Apple silicon through CoreBluetooth). The core design principle is: **shared logic in `commonMain`, platform bridges in `expect/actual`, portable public API with explicit platform opt-ins where needed.**
 
-On Linux JVM, M1 ships LE scan through BlueZ over D-Bus. Use the explicit [`BlueZScanner`](src/jvmMain/kotlin/com/atruedev/kmpble/scanner/BlueZScanner.kt) constructor, or set `-Dkmpble.bluez.enabled=true` to opt in through the portable `Scanner { }` factory (lazy: no D-Bus probe at construction; failures surface when `scanEvents` is collected). Default `Scanner { }` on JVM throws on CI and headless hosts. `jvmTest` and GitHub Actions use [`FakeScanner`](src/commonMain/kotlin/com/atruedev/kmpble/testing/FakeScanner.kt) - no adapter required. GATT, peripheral, server, and L2CAP remain unsupported on JVM until later milestones. See [ADR-0001: JVM Linux BlueZ](docs/adr/ADR-0001-jvm-linux-bluez.md) and [Platform Setup: Linux](docs/platform-setup-linux.md).
+On the JVM, core `jvmMain` holds a backend SPI ([`com.atruedev.kmpble.backend`](src/jvmMain/kotlin/com/atruedev/kmpble/backend/BleBackend.kt), gated by `@KmpBleBackendApi`) and one shared implementation of `Scanner`, `Peripheral`, `BluetoothAdapter`, `GattServer`, `Advertiser`, `ExtendedAdvertiser`, and `L2capListener` built on the same common internals as Android and iOS. Backend modules implement plain-typed transports and register through `ServiceLoader`: [`kmp-ble-bluez`](kmp-ble-bluez) (Linux, D-Bus) and [`kmp-ble-macos`](kmp-ble-macos) (macOS arm64, Objective-C shim over JNI). With no backend on the classpath the portable factories throw `UnsupportedOperationException`, so `jvmTest` and CI keep using the `Fake*` doubles. See [ADR-0003](docs/adr/ADR-0003-jvm-backend-spi.md), [Platform Setup: Linux](docs/platform-setup-linux.md), and [Platform Setup: macOS](docs/platform-setup-macos.md).
 
 ![Architecture Overview](docs/images/architecture-overview.png)
 
@@ -251,12 +251,12 @@ The builder validates at construction time: duplicate UUIDs are rejected, read-e
 
 ### Platform Mapping
 
-| Common | Android | iOS |
-|--------|---------|-----|
-| `GattServer` | `BluetoothGattServer` | `CBPeripheralManager` |
-| `Advertiser` | `BluetoothLeAdvertiser` | `CBPeripheralManager` |
-| `server.open()` | `openGattServer()` + `addService()` | `add(service)` |
-| `server.notify()` | `notifyCharacteristicChanged()` | `updateValue()` |
+| Common | Android | iOS | Linux JVM (BlueZ) | macOS JVM |
+|--------|---------|-----|-------------------|-----------|
+| `GattServer` | `BluetoothGattServer` | `CBPeripheralManager` | `GattManager1.RegisterApplication` | `CBPeripheralManager` |
+| `Advertiser` | `BluetoothLeAdvertiser` | `CBPeripheralManager` | `LEAdvertisingManager1` | `CBPeripheralManager` |
+| `server.open()` | `openGattServer()` + `addService()` | `add(service)` | Export GATT objects + register | `add(service)` |
+| `server.notify()` | `notifyCharacteristicChanged()` | `updateValue()` | `PropertiesChanged(Value)` | `updateValue()` |
 
 ---
 
@@ -297,7 +297,8 @@ interface L2capListener : AutoCloseable {
 |----------|--------|--------|
 | Android | `BluetoothDevice.createL2capChannel(psm)` → `BluetoothSocket` | `BluetoothAdapter.listenUsingL2capChannel()` + accept loop |
 | iOS | `CBPeripheral.openL2CAPChannel(PSM:)` (iOS 11+) | `CBPeripheralManager.publishL2CAPChannelWithEncryption(_:)` via shared manager |
-| JVM | n/a (throws `L2capException.NotSupported`) | n/a (throws `L2capException.NotSupported`) |
+| macOS JVM | `CBPeripheral.openL2CAPChannel` through the JNI shim | `publishL2CAPChannel` on the shared manager |
+| Linux JVM | n/a (throws `L2capException.NotSupported`; BlueZ needs `AF_BLUETOOTH` sockets) | n/a (throws `L2capException.NotSupported`) |
 
 ### Single-Listener Constraint (iOS)
 
@@ -388,7 +389,7 @@ Use with any `@Serializable` payload: given `@Serializable data class MyEvent(..
 
 ## Testing Infrastructure
 
-Every major component has a Fake* counterpart for unit testing without hardware. On JVM, **`FakeScanner` is the conformance default** for `jvmTest` and CI; BlueZ integration is opt-in and not exercised on GitHub-hosted runners.
+Every major component has a Fake* counterpart for unit testing without hardware. On JVM, **`FakeScanner` is the conformance default** for `jvmTest` and CI. The shared backend implementations are tested against fake transports in core; each backend module tests its transports against fake D-Bus sessions or a fake native API, and `kmp-ble-macos` adds a JNI smoke test that runs on macOS hosts without starting CoreBluetooth.
 
 | Real | Fake | Purpose |
 |------|------|---------|
@@ -409,16 +410,15 @@ Every major component has a Fake* counterpart for unit testing without hardware.
 
 ## Scanner
 
-### JVM (Linux BlueZ M1)
+### JVM (Linux and macOS)
 
 | Entry point | When to use |
 |-------------|-------------|
-| `BlueZScanner { }` | Recommended on Linux with BlueZ |
-| `Scanner { }` | Throws on CI/headless JVM by default |
-| `Scanner { }` + `-Dkmpble.bluez.enabled=true` | Opt-in alias; constructs `BlueZScanner` without probing D-Bus first (failures at collect time) |
+| `Scanner { }` | Any JVM host with a backend on the classpath (`kmp-ble-bluez` on Linux, `kmp-ble-macos` on macOS arm64) |
+| `BlueZScanner { }` | Force BlueZ regardless of the active backend |
 | `FakeScanner { }` | Unit tests and CI (no hardware) |
 
-M1 scope is **scan-only**. Post-processing reuses common [`ScannerPipeline`](src/commonMain/kotlin/com/atruedev/kmpble/scanner/internal/ScannerPipeline.kt) (`toScanEvents`, filters, emission policy, timeout) so behavior matches Android/iOS where scanning applies. See [ADR-0001](docs/adr/ADR-0001-jvm-linux-bluez.md).
+Backends emit raw records; post-processing reuses common [`ScannerPipeline`](src/commonMain/kotlin/com/atruedev/kmpble/scanner/internal/ScannerPipeline.kt) (`toScanEvents`, filters, emission policy, timeout) so behavior matches Android/iOS. See [ADR-0003](docs/adr/ADR-0003-jvm-backend-spi.md).
 
 ### Cold Flow and lifecycle
 
@@ -443,15 +443,15 @@ Scanner {
 
 Some filters are OS-level (hardware-offloaded, power-efficient), others are post-filters applied in the library:
 
-| Filter | Android | iOS | JVM (BlueZ M1) |
-|--------|---------|-----|----------------|
-| Service UUID | OS-level | OS-level | Post-filter |
-| Name | OS-level | Post-filter | Post-filter |
-| Manufacturer data | OS-level | Post-filter | Post-filter |
-| Service data | OS-level | Post-filter | Post-filter |
-| RSSI threshold | Post-filter | Post-filter | Post-filter |
+| Filter | Android | iOS | Linux JVM (BlueZ) | macOS JVM |
+|--------|---------|-----|-------------------|-----------|
+| Service UUID | OS-level | OS-level | OS-level hint + post-filter | Post-filter |
+| Name | OS-level | Post-filter | Post-filter | Post-filter |
+| Manufacturer data | OS-level | Post-filter | Post-filter | Post-filter |
+| Service data | OS-level | Post-filter | Post-filter | Post-filter |
+| RSSI threshold | Post-filter | Post-filter | Post-filter | Post-filter |
 
-On BlueZ M1, only LE transport is pushed to `Adapter1.SetDiscoveryFilter`; predicate filters run in common `ScannerPipeline`.
+BlueZ receives `Transport=le`, `DuplicateData=true`, and the service UUIDs every filter group requires through `Adapter1.SetDiscoveryFilter`; all predicates still run in `ScannerPipeline`.
 
 ### Emission Policy
 
@@ -479,17 +479,18 @@ iOS: CBPeripheralDelegate.peripheral(_:didUpdateValueFor:error:)
     → pendingRead.complete(GattResult(value, error))
         → (same common path)
 
-Linux JVM (BlueZ M1): org.bluez.Device1 PropertiesChanged / poll loop
-    → Advertisement snapshots merged and emitted
-        → ScannerPipeline.toScanEvents (filters, emission policy)
-            → ScanEvent.Found / ScanEvent.Failed
+JVM backends: D-Bus signal (BlueZ) or NativeCallback.onEvent (macOS JNI shim)
+    → transport completes its pending request or emits a PeripheralEvent
+        → BackendPeripheral handles it on the peripheral's serial dispatcher
+            → (same common path)
 ```
 
 | Platform | Production entry | JVM notes |
 |----------|------------------|-----------|
 | Android | `Scanner { }` | n/a |
 | iOS | `Scanner { }` | n/a |
-| Linux JVM | `BlueZScanner { }` or `Scanner { }` with `-Dkmpble.bluez.enabled=true` | M1 scan-only; `FakeScanner` in CI |
+| Linux JVM | `Scanner { }` with `kmp-ble-bluez` | `FakeScanner` in CI |
+| macOS JVM | `Scanner { }` with `kmp-ble-macos` | arm64 only; `FakeScanner` in CI |
 
 ---
 

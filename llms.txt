@@ -4,7 +4,7 @@
 
 ## What is kmp-ble?
 
-kmp-ble is a Kotlin Multiplatform Bluetooth Low Energy library. It provides a coroutine-based API for BLE communication across Android (API 33+) and iOS (15+) from shared Kotlin code. It covers the full BLE stack: GATT client, GATT server, advertising, L2CAP channels, firmware updates (DFU), type-safe GATT profile parsing, and a complete testing framework.
+kmp-ble is a Kotlin Multiplatform Bluetooth Low Energy library. It provides a coroutine-based API for BLE communication across Android (API 33+), iOS (15+), and JVM desktop (Linux with BlueZ, macOS 11+ on Apple silicon) from shared Kotlin code. It covers the full BLE stack: GATT client, GATT server, advertising, L2CAP channels, firmware updates (DFU), type-safe GATT profile parsing, and a complete testing framework.
 
 ## Installation
 
@@ -27,6 +27,17 @@ From 0.12.0 onward only `kmp-ble` is published to Maven Central.
 (`kmp-ble-profiles`, `kmp-ble-dfu`, `kmp-ble-codec`, and
 `kmp-ble-codec-serialization`) were last published at 0.11.2 and are no
 longer published as separate artifacts.
+
+JVM desktop: add a backend to `jvmMain`; the portable API picks it at runtime.
+
+```kotlin
+jvmMain.dependencies {
+    implementation("com.atruedev:kmp-ble-bluez:<version>") // Linux (BlueZ over D-Bus)
+    implementation("com.atruedev:kmp-ble-macos:<version>") // macOS arm64 (CoreBluetooth over JNI)
+}
+```
+
+Packaged macOS apps must declare `NSBluetoothAlwaysUsageDescription` in Info.plist.
 
 Android initialization:
 

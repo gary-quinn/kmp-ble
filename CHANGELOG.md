@@ -13,6 +13,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _Changes on `main` that have not yet been tagged for release._
 
+### Added
+- feat(jvm): backend SPI in core (`com.atruedev.kmpble.backend`, `@KmpBleBackendApi`) with shared JVM implementations of Scanner, Peripheral, BluetoothAdapter, GattServer, Advertiser, ExtendedAdvertiser, and L2capListener, selected at runtime through `ServiceLoader` (ADR-0003)
+- feat(bluez): `kmp-ble-bluez` module - Linux backend with GATT client, bonding (`Pair`, `RemoveDevice`), `PairingHandler` via `org.bluez.Agent1`, reliable writes, negotiated MTU, adapter state, GATT server (`GattManager1`), and advertising (`LEAdvertisingManager1`)
+- feat(macos): `kmp-ble-macos` module - macOS arm64 backend over CoreBluetooth through an Objective-C JNI shim: scan, connect, GATT client, L2CAP channels and listener, GATT server, advertising, adapter state, and `CBManager.authorization` permissions; it refuses to start CoreBluetooth, instead of being killed by TCC, when the responsible app lacks `NSBluetoothAlwaysUsageDescription`
+- feat(mesh): `MeshNetwork { }` and `MeshProvisioner()` on JVM, matching Android and iOS
+- feat(sample): `sample-jvm` desktop CLI for Linux and macOS hardware checks
+
+### Changed
+- refactor(jvm)!: BlueZ code moved from core `jvmMain` to `kmp-ble-bluez` under `com.atruedev.kmpble.bluez`; `-Dkmpble.bluez.enabled` removed (adding the backend is the opt-in). See MIGRATION.md
+- build(jvm): core `kmp-ble` no longer depends on bluez-dbus, dbus-java, or slf4j-nop
+
+### Fixed
+- fix(scanner): `ScannerConfig.timeout` now counts from the start of each collection and ends it even when nothing is advertising; it was measured from `Scanner` creation and only checked when an advertisement arrived
+- fix(scanner): `scanAndConnect()` throws the `ScanFailedException` when the scan fails instead of waiting out `scanTimeout` and throwing `ScanTimeoutException`; `FakeScanner` collections complete after `emitScanFailed()` like platform scanners
+- fix(scanner)!: a collection of `scanEvents` now completes after `ScanEvent.Failed`; it previously suspended forever because the platform scan had already ended. `first { }` on a failed scan now throws `NoSuchElementException` (see MIGRATION.md)
+- fix(gatt): cancelling the last collector of `observe()` / `observeValues()` now disables notifications; the unsubscribe result was lost to `withContext` prompt cancellation on every platform
+- fix(bluez): notification handle lookups ran on the D-Bus signal thread without synchronization
+- fix(bluez): MTU never left 23, capping `maximumWriteValueLength` at 20
+- fix(bluez): write options were double-wrapped in `Variant`, and `reliable-write` was reported as `signedWrite` while `authenticated-signed-writes` was ignored
+- fix(bluez): `InterfacesAdded` signals were matched on the emitter path instead of the added object path
+- fix(bluez): `reconnectionStrategy`, `bondingPreference`, and `pairingHandler` were ignored; link-loss D-Bus errors were not mapped to `ConnectionLost`
+
 ---
 
 ## [0.13.6] - 2026-09-18
