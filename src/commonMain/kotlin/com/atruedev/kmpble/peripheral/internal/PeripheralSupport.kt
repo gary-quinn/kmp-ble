@@ -14,11 +14,13 @@ import com.atruedev.kmpble.gatt.internal.PendingOp
 import com.atruedev.kmpble.gatt.internal.PendingOperations
 import com.atruedev.kmpble.gatt.internal.applyBackpressure
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.FlowCollector
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.withContext
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
@@ -104,8 +106,12 @@ internal fun <T> buildObservationFlow(
         if (isReady()) enable(characteristic)
     }.applyBackpressure(backpressure)
         .onCompletion {
-            val wasLastCollector = observationManager.unsubscribe(serviceUuid, charUuid)
-            if (wasLastCollector) disable(characteristic)
+            // A cancelled collector would otherwise lose the unsubscribe result to withContext's
+            // prompt-cancellation check and never disable the CCCD.
+            withContext(NonCancellable) {
+                val wasLastCollector = observationManager.unsubscribe(serviceUuid, charUuid)
+                if (wasLastCollector) disable(characteristic)
+            }
         }
 }
 

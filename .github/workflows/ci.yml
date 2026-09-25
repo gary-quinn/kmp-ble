@@ -103,6 +103,9 @@ jobs:
       - name: Compile sample app (Android)
         run: ./gradlew :sample:compileAndroidMain :sample-android:compileDebugKotlin :sample-quickstart:compileAndroidMain :sample-quickstart-android:compileDebugKotlin
 
+      - name: Compile sample (JVM desktop)
+        run: ./gradlew :sample-jvm:compileKotlinJvm
+
   android-instrumented:
     runs-on: ubuntu-latest
     steps:
@@ -189,6 +192,9 @@ jobs:
           :kmp-ble-codec-serialization:iosSimulatorArm64Test
           :kmp-ble-profiles:iosSimulatorArm64Test
           :kmp-ble-dfu:iosSimulatorArm64Test
+
+      - name: Test (JVM macOS backend - native shim + JNI smoke test)
+        run: ./gradlew :kmp-ble-macos:jvmTest
 
       - name: Upload test results
         if: always()

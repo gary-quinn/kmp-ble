@@ -11,7 +11,11 @@ ASCII only in this repo (see `AGENTS.md`).
 | Surface touched | Agent MUST run | Evidence artifact |
 | --- | --- | --- |
 | `src/commonMain/**` (core) | `./gradlew iosSimulatorArm64Test` **or** `./gradlew jvmTest` (prefer both when concurrency/state machine touched) | Tests pass |
-| `src/jvmMain/**` (BlueZ scanner/peripheral) | `./gradlew jvmTest` (includes `BlueZScannerLifecycleTest`, `BlueZPeripheralLifecycleTest` with fake sessions) | Tests pass |
+| `src/jvmMain/**` (backend SPI + shared JVM implementations) | `./gradlew :jvmTest` (includes `com.atruedev.kmpble.backend.*` tests against fake transports) | Tests pass |
+| `kmp-ble-bluez/**` | `./gradlew :kmp-ble-bluez:jvmTest :kmp-ble-bluez:ktlintCheck` (fake D-Bus sessions) | Tests pass |
+| `kmp-ble-macos/**` (Kotlin) | `./gradlew :kmp-ble-macos:jvmTest :kmp-ble-macos:ktlintCheck` (fake native API; JNI smoke test runs on macOS arm64 hosts) | Tests pass |
+| `kmp-ble-macos/src/native/**` | macOS host: `./gradlew :kmp-ble-macos:jvmTest` (rebuilds the dylib with `-Werror`, runs `MacosNativeSmokeTest`) | Smoke test passes, not skipped |
+| `sample-jvm/**` | `./gradlew :sample-jvm:compileKotlinJvm :sample-jvm:ktlintCheck` | Compile clean |
 | `src/commonMain/**/gatt/**`, `**/peripheral/**`, concurrency | `./gradlew jvmTest` | Lincheck / concurrency tests pass |
 | `src/androidMain/**`, Android quirks host logic | `./gradlew testAndroidHostTest` | Host tests pass |
 | `src/androidDeviceTest/**` or Android framework integration | `./gradlew connectedAndroidDeviceTest` (emulator/device) | Instrumented tests pass |
@@ -24,7 +28,7 @@ ASCII only in this repo (see `AGENTS.md`).
 | `sample/**`, `sample-android/**`, `sample-quickstart/**`, `sample-quickstart-android/**` | Match CI sample job: compile common + Android (and iOS compile when iOS sample paths touched) | Compile clean |
 | `ARCHITECTURE.md`, `docs/adr/**`, public API KDoc | Human review; add/update ADR when one-way door | ADR or review note |
 | `.github/workflows/**`, branch protection, publish config | **Human review only** | -- |
-| Physical BLE / GATT Lab E2E (`TESTING.md` manual checklist) | **Human only** | Human checklist; agents never claim this |
+| Physical BLE / GATT Lab E2E (`TESTING.md` manual checklist, including the JVM desktop checklist) | **Human only** | Human checklist; agents never claim this |
 
 If a Gradle task name differs slightly on the branch you land on, use the closest existing module test task and record the exact command in the PR evidence.
 
@@ -42,6 +46,9 @@ If a Gradle task name differs slightly on the branch you land on, use the closes
 
 # L1 -- Android instrumented (needs emulator/device)
 ./gradlew connectedAndroidDeviceTest --no-daemon
+
+# L1 -- JVM backends (when those trees are touched)
+./gradlew :kmp-ble-bluez:jvmTest :kmp-ble-macos:jvmTest --no-daemon
 
 # L1 -- extension modules (when those trees are touched)
 ./gradlew :kmp-ble-codec:allTests :kmp-ble-codec-serialization:allTests :kmp-ble-profiles:allTests :kmp-ble-dfu:allTests --no-daemon

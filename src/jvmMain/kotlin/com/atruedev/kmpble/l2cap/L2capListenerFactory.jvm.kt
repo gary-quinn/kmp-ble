@@ -1,4 +1,13 @@
+@file:OptIn(KmpBleBackendApi::class)
+
 package com.atruedev.kmpble.l2cap
 
-public actual fun L2capListener(): L2capListener =
-    throw L2capException.NotSupported("L2capListener is not supported on JVM - BLE requires Android or iOS")
+import com.atruedev.kmpble.backend.BleBackends
+import com.atruedev.kmpble.backend.KmpBleBackendApi
+import com.atruedev.kmpble.backend.newL2capListener
+
+public actual fun L2capListener(): L2capListener {
+    val backend =
+        BleBackends.current() ?: throw L2capException.NotSupported(BleBackends.unavailableMessage("L2capListener"))
+    return backend.newL2capListener()
+}

@@ -126,9 +126,9 @@ public suspend fun Scanner.firstOrThrow(
  * )
  * ```
  *
- * [ScanEvent.Failed] events are skipped; a scan-hardware failure with an infinite
- * [maxWait] would suspend forever. Callers that need failure visibility should
- * collect [Scanner.scanEvents] directly.
+ * A scan-hardware failure ends the scan, so this returns `null` without reporting why.
+ * Callers that need failure visibility should use [firstOrThrow] or collect
+ * [Scanner.scanEvents] directly.
  */
 public suspend fun Scanner.scanUntil(
     maxWait: Duration = Duration.INFINITE,
@@ -152,8 +152,8 @@ public suspend fun Scanner.scanUntil(
  * val devices = scanner.scanUntil(count = 5, maxWait = 20.seconds)
  * ```
  *
- * Returns fewer than [count] items if [maxWait] expires first. [ScanEvent.Failed]
- * events are skipped (see [scanUntil] for the caveat with infinite waits).
+ * Returns fewer than [count] items if [maxWait] expires or the scan fails first
+ * (see [scanUntil] for the failure caveat).
  */
 public suspend fun Scanner.scanUntil(
     count: Int,

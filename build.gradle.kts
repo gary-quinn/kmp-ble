@@ -143,11 +143,6 @@ kotlin {
         jvmTest.dependencies {
             implementation(libs.lincheck)
         }
-        jvmMain.dependencies {
-            implementation(libs.bluez.dbus)
-            implementation(libs.dbus.java.transport.junixsocket)
-            runtimeOnly(libs.slf4j.nop)
-        }
         androidMain.dependencies {
             implementation(libs.kotlinx.coroutines.android)
             implementation(libs.androidx.core)
@@ -254,6 +249,8 @@ dependencies {
     dokka(project(":kmp-ble-profiles"))
     dokka(project(":kmp-ble-mesh"))
     dokka(project(":kmp-ble-quirks"))
+    dokka(project(":kmp-ble-bluez"))
+    dokka(project(":kmp-ble-macos"))
 }
 
 mavenPublishing {

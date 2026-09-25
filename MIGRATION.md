@@ -1,3 +1,56 @@
+# Migration Guide
+
+## JVM desktop backends (unreleased, after 0.13.6)
+
+JVM BLE moved out of the core `kmp-ble` jar into backend modules that the portable API finds through `ServiceLoader` ([ADR-0003](docs/adr/ADR-0003-jvm-backend-spi.md)).
+
+### Who is affected
+
+JVM consumers that used the BlueZ scanner from 0.13.4 - 0.13.6. The scan-flow changes below apply on every platform; apart from those, Android, iOS, and JVM code that relies on `Fake*` test doubles is unchanged.
+
+### Steps
+
+1. Add the backend to `jvmMain`:
+
+   ```kotlin
+   jvmMain.dependencies {
+       implementation("com.atruedev:kmp-ble-bluez:<version>")   // Linux
+       implementation("com.atruedev:kmp-ble-macos:<version>")   // macOS arm64 (new)
+   }
+   ```
+
+2. Drop `-Dkmpble.bluez.enabled=true`. Having the backend on the classpath is now the opt-in; the portable `Scanner { }` and `Advertisement.toPeripheral()` use it on Linux.
+
+3. Update imports. The BlueZ API moved to `com.atruedev.kmpble.bluez`:
+
+   | Before | After |
+   |--------|-------|
+   | `com.atruedev.kmpble.scanner.BlueZScanner` | `com.atruedev.kmpble.bluez.BlueZScanner` |
+   | `com.atruedev.kmpble.scanner.BlueZ` | `com.atruedev.kmpble.bluez.BlueZ` |
+   | `BlueZ.ENABLE_PROPERTY` | removed |
+   | `com.atruedev.kmpble.peripheral.toBlueZPeripheral` | `com.atruedev.kmpble.bluez.toBlueZPeripheral` |
+   | `BlueZPeripheral` class (never released) | `Peripheral` returned by `toBlueZPeripheral()` / `toPeripheral()` |
+   | `BlueZPeripheral.ERROR_*` | `BlueZ.ERROR_*` |
+
+   `BlueZScanner.ERROR_*` scan error codes keep their values.
+
+### Scan flow changes (all platforms)
+
+- A collection of `Scanner.scanEvents` now completes after it emits `ScanEvent.Failed`, because the platform scan has ended. It used to suspend forever. Code that picks a device with `first { }` now gets `NoSuchElementException` when the scan fails; use `firstOrNull { }`, `Scanner.firstOrNull()`, or `Scanner.firstOrThrow()` (which rethrows the `ScanFailedException`).
+- `ScannerConfig.timeout` counts from the start of each collection and ends it even when nothing is advertising. It used to be measured from `Scanner` creation and was only checked when an advertisement arrived.
+- `Scanner.scanAndConnect()` throws the `ScanFailedException` as soon as the scan fails; it used to wait out `scanTimeout` and throw `ScanTimeoutException`. `scanUntil()`, `scanBatch()`, and `Scanner.firstOrNull()` return early.
+- `FakeScanner` behaves the same way: a collection completes after `emitScanFailed()`.
+
+### Behavior changes on Linux
+
+- Connected peripherals report the negotiated MTU, so `maximumWriteValueLength` is no longer stuck at 20.
+- `reconnectionStrategy`, `bondingPreference = Required`, `pairingHandler`, `removeBond()`, and `writeReliable()` now work on BlueZ.
+- `BluetoothAdapter()`, `GattServer { }`, `Advertiser()`, and `ExtendedAdvertiser()` are available instead of throwing.
+- `checkBlePermissions()` reports D-Bus access instead of always returning `Denied`.
+- GATT failures that mean the link dropped surface as `ConnectionLost`.
+
+---
+
 # Migration Guide: v0.8.x to v0.9.0
 
 > **Distribution change (0.12.0+):** `kmp-ble-profiles`, `kmp-ble-dfu`,

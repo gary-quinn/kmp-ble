@@ -49,8 +49,10 @@ dependencyResolutionManagement {
 rootProject.name = "kmp-ble"
 
 include(":kmp-ble-benchmark")
+include(":kmp-ble-bluez")
 include(":kmp-ble-codec")
 include(":kmp-ble-codec-serialization")
+include(":kmp-ble-macos")
 include(":kmp-ble-quirks")
 include(":kmp-ble-dfu")
 include(":kmp-ble-profiles")
@@ -58,5 +60,6 @@ include(":kmp-ble-mesh")
 include(":docs")
 include(":sample")
 include(":sample-android")
+include(":sample-jvm")
 include(":sample-quickstart")
 include(":sample-quickstart-android")

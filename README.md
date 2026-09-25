@@ -6,7 +6,7 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.4.20-purple.svg)](https://kotlinlang.org)
 
-Kotlin Multiplatform BLE library for Android and iOS.
+Kotlin Multiplatform BLE library for Android, iOS, and JVM desktop (Linux via BlueZ, macOS on Apple silicon via CoreBluetooth).
 
 ## Modules
 
@@ -17,6 +17,8 @@ Kotlin Multiplatform BLE library for Android and iOS.
 | **kmp-ble-dfu** | Firmware updates - Nordic Secure DFU, MCUboot SMP, Espressif ESP OTA - with auto-detection and progress tracking |
 | **kmp-ble-codec** | Format-agnostic typed read/write via composable `BleEncoder`/`BleDecoder` |
 | **kmp-ble-codec-serialization** | `kotlinx-serialization` adapters (CBOR) bridging `@Serializable` types to `BleCodec` |
+| **kmp-ble-bluez** | JVM backend for Linux (BlueZ over D-Bus) - picked up automatically on Linux |
+| **kmp-ble-macos** | JVM backend for macOS on Apple silicon (CoreBluetooth over JNI) - picked up automatically on macOS arm64 |
 
 ## Published artifacts
 
@@ -28,6 +30,8 @@ coordinates from here or [Setup](#setup) below - they match Central.
 |----------|-------------------|-------|
 | Core | `com.atruedev:kmp-ble:0.13.3` | Required for all apps |
 | Android quirks | `com.atruedev:kmp-ble-quirks:0.13.3` | Transitive on Android via `kmp-ble`; rarely declared directly |
+| Linux JVM backend | `com.atruedev:kmp-ble-bluez` | New in the next release; add to `jvmMain` for Linux desktop / edge apps |
+| macOS JVM backend | `com.atruedev:kmp-ble-macos` | New in the next release; add to `jvmMain` for macOS arm64 desktop apps |
 
 Satellite modules (`kmp-ble-profiles`, `kmp-ble-dfu`, `kmp-ble-codec`,
 `kmp-ble-codec-serialization`) were last published at **0.11.2**. From
@@ -118,6 +122,23 @@ Select the version and add `KmpBle` to your target.
 ```swift
 import KmpBle
 ```
+
+### JVM desktop (Linux / macOS)
+
+Add the backend for each desktop OS you ship on. The portable API (`Scanner { }`, `toPeripheral()`, `GattServer { }`, `Advertiser()`, `BluetoothAdapter()`) picks the backend that matches the host at runtime through `ServiceLoader`; without a backend it throws `UnsupportedOperationException`, as before.
+
+```kotlin
+kotlin {
+    sourceSets {
+        jvmMain.dependencies {
+            implementation("com.atruedev:kmp-ble-bluez:<version>") // Linux, BlueZ 5.x
+            implementation("com.atruedev:kmp-ble-macos:<version>") // macOS 11+, Apple silicon
+        }
+    }
+}
+```
+
+See [Platform Setup: Linux](docs/platform-setup-linux.md) and [Platform Setup: macOS (JVM)](docs/platform-setup-macos.md) for permissions, the macOS `NSBluetoothAlwaysUsageDescription` requirement, and per-OS limits.
 
 ## Usage
 
@@ -473,6 +494,15 @@ Minimal single-screen Compose Multiplatform app (~200 lines of UI): scan, tap a 
 ./gradlew :sample-quickstart:linkDebugFrameworkIosSimulatorArm64
 ```
 
+### Desktop CLI (`sample-jvm/`)
+
+Command-line sample for Linux and macOS: permissions, adapter state, scanning, and a connect-dump-read-observe pass over one device. Useful for hardware checks of the JVM backends.
+
+```bash
+./gradlew :sample-jvm:run --args="scan 10"
+./gradlew :sample-jvm:run --args="connect <identifier> 15"
+```
+
 ## Architecture
 
 - **State machine:** 14 states with declarative transition table - no invalid states in production
@@ -489,6 +519,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for design details and [STREAMS.md](STREA
 - Kotlin 2.4.20+
 - Android minSdk 33
 - iOS 15+
+- JVM desktop: Java 17+; Linux with BlueZ 5.x, or macOS 11+ on Apple silicon
 - kotlinx-coroutines 1.10+
 
 ## Documentation
@@ -497,8 +528,10 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for design details and [STREAMS.md](STREA
 - [API Quick Reference](docs/api-quick-reference.md) -- copy-paste-ready snippets for common BLE workflows
 - [Platform Setup: iOS](docs/platform-setup-ios.md) -- Info.plist keys, background modes, entitlements
 - [Platform Setup: Android](docs/platform-setup-android.md) -- manifest permissions, runtime permission flow, location
+- [Platform Setup: Linux](docs/platform-setup-linux.md) -- BlueZ backend, D-Bus permissions, pairing agent
+- [Platform Setup: macOS (JVM)](docs/platform-setup-macos.md) -- CoreBluetooth backend, Info.plist, packaging
 - [Troubleshooting](docs/troubleshooting.md) -- common BLE errors and their fixes
-- [Migration Guide v0.8.x to v0.9.0](MIGRATION.md) -- breaking changes and upgrade steps
+- [Migration Guide](MIGRATION.md) -- breaking changes and upgrade steps, including the JVM backend split
 - [Architecture](ARCHITECTURE.md) -- state machine, concurrency, GATT queue design
 - [L2CAP Architecture](docs/L2CAP.md) -- Connection-Oriented Channel subsystem
 - [API Reference](https://gary-quinn.github.io/kmp-ble/) -- KDoc-generated API docs
