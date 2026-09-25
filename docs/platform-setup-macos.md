@@ -41,6 +41,18 @@ kmp-ble looks up the responsible app before starting CoreBluetooth and fails ins
 
 `checkBlePermissions()` reads `CBManager.authorization` without prompting: `Granted`, `Denied` (not determined yet), or `PermanentlyDenied` (denied or restricted).
 
+### Host app results
+
+Results of `permissions`, `adapter`, and `scan 5` from `sample-jvm`, run with `java` directly from each host (macOS 27, Apple silicon):
+
+| Host | Declares the key | Result |
+|------|------------------|--------|
+| Terminal.app | No (platform app, not checked) | Not terminated and no crash report. On first use `checkBlePermissions()` reads `Denied` (not determined), the adapter state stays `Unavailable`, and the scan ends without results while the authorization is undetermined; allow Terminal in System Settings > Privacy & Security > Bluetooth |
+| Terminal emulators that declare the key | Yes | Prompt once, then D1-D3 pass |
+| A CLI tool bundle without the key | No | `ERROR_USAGE_DESCRIPTION_MISSING` naming the bundle, `PermanentlyDenied`, no crash report |
+| `jpackage` app without the key | No | `ERROR_USAGE_DESCRIPTION_MISSING` for scan, connect, and the GATT server, `PermanentlyDenied`, no crash report |
+| `jpackage` app with the key | Yes | Starts CoreBluetooth; until the prompt is answered the authorization stays undetermined |
+
 ### jpackage
 
 Add the key to the generated `Info.plist` through a resource directory:
@@ -56,6 +68,8 @@ with `packaging/macos/Info.plist` based on the default template plus:
 <key>NSBluetoothAlwaysUsageDescription</key>
 <string>MyBleApp uses Bluetooth to talk to your sensors.</string>
 ```
+
+`sample-jvm` does this in `./gradlew :sample-jvm:packageMacApp -Pkmpble.sample.usageDescription=true` with [`sample-jvm/packaging/macos/Info.plist`](../sample-jvm/packaging/macos/Info.plist); without the property it packages the app without the key.
 
 Compose Desktop users can set the same key through `nativeDistributions { macOS { infoPlist { extraKeysRawXml = "..." } } }`.
 
@@ -90,7 +104,7 @@ Compose Desktop users can set the same key through `nativeDistributions { macOS 
 | Process exits with a TCC crash report | CoreBluetooth started outside kmp-ble, or with `kmpble.macos.usageDescriptionCheck=false`, under a responsible app without the usage description | Add `NSBluetoothAlwaysUsageDescription`, or launch from a host that has it |
 | `ERROR_USAGE_DESCRIPTION_MISSING` from a plain `java` run | The terminal or IDE that launched the JVM lacks the key | Run from Terminal.app or a host that declares it |
 | `ScanEvent.Failed` with `Macos.ERROR_UNAUTHORIZED` | Bluetooth access denied for the responsible app | Allow it in System Settings > Privacy & Security > Bluetooth |
-| `ScanEvent.Failed` with `Macos.ERROR_ADAPTER_OFF` | Bluetooth is off | Turn Bluetooth on |
+| `ScanEvent.Failed` with `Macos.ERROR_ADAPTER_OFF` | Bluetooth is off, or, on the first run of a host, the Bluetooth prompt has not been answered yet (CoreBluetooth stays in the unknown state) | Turn Bluetooth on, or answer the prompt and retry |
 | `ConnectionFailed` with `UNKNOWN_DEVICE` | CoreBluetooth has not seen the identifier in this process | Scan first, or use an identifier from a previous scan on the same Mac |
 | A bonded peripheral no longer shows up in scans | Some peripherals stop advertising in a form CoreBluetooth reports to scanners once they are bonded | Build an `Advertisement` from the stored identifier and call `toPeripheral().connect()`; CoreBluetooth retrieves the known peripheral and connects when it is reachable (`sample-jvm connect` does this) |
 

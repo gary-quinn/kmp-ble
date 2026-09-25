@@ -7,7 +7,7 @@ This guide covers kmp-ble on Linux desktop and edge hosts through the `kmp-ble-b
 - Linux with BlueZ 5.x (`bluetoothd` running). BlueZ 5.62+ reports the negotiated MTU; older daemons report 23.
 - Java 17+
 - A working adapter (for example `hci0` in `bluetoothctl list`)
-- Access to `org.bluez` on the **system** D-Bus bus, usually membership in the `bluetooth` group or an equivalent polkit rule
+- Access to `org.bluez` on the **system** D-Bus bus: membership in the `bluetooth` group, an equivalent polkit rule, or a distribution policy that allows every local user (Ubuntu 24.04 does)
 
 ## Gradle dependency
 
@@ -68,7 +68,7 @@ Or run the bundled CLI:
 
 | Feature | BlueZ behavior |
 |---------|----------------|
-| Scan | `Adapter1.StartDiscovery` with `Transport=le`, `DuplicateData=true`, and the service UUIDs every filter group requires. Filters, deduplication, and timeouts run in core. |
+| Scan | `Adapter1.StartDiscovery` with `Transport=le`, `DuplicateData=true`, and the service UUIDs every filter group requires. Filters, deduplication, and timeouts run in core. `isConnectable` is derived from `Device1.AdvertisingFlags`, an experimental property that `bluetoothd` only publishes with `--experimental`; without it every advertisement reports `isConnectable = false`. |
 | Connect / discovery | `Device1.Connect`, then the GATT table from `ObjectManager.GetManagedObjects` once `ServicesResolved` is true. A cancelled or timed-out connect sends `Device1.Disconnect`. |
 | MTU | `GattCharacteristic1.MTU` (BlueZ 5.62+). `requestMtu()` returns the negotiated value; BlueZ negotiates on its own. |
 | Writes | `WithResponse` maps to `type=request`, `WithoutResponse` and `Signed` to `type=command`, `writeReliable()` to `type=reliable`. |
@@ -76,9 +76,9 @@ Or run the bundled CLI:
 | RSSI | `readRssi()` returns the last value BlueZ reported. BlueZ has no D-Bus call for the RSSI of a connected link, so it fails with `GattStatus.RequestNotSupported` when none is cached. |
 | Bonding | `bondState` follows `Paired`/`Bonded`; `BondingPreference.Required` calls `Device1.Pair`; `removeBond()` calls `Adapter1.RemoveDevice`. |
 | Pairing prompts | Setting `ConnectionOptions.pairingHandler` registers a process-wide `org.bluez.Agent1` (capability `KeyboardDisplay`) and makes it the default agent while any handler is set. Requests for devices without a handler are rejected. |
-| GATT server | `GattManager1.RegisterApplication`. BlueZ manages CCCDs and does not name the subscribing central, so `notify()` reaches every subscriber and long (prepared) writes are rejected with `InvalidOffset`. |
+| GATT server | `GattManager1.RegisterApplication`. BlueZ manages CCCDs and does not name the subscribing central, so `notify()` reaches every subscriber and long (prepared) writes are rejected with `InvalidOffset`. `bluetoothd` passes no write type, so `onWrite` always sees `responseNeeded = true`; on a characteristic that also allows write without response it acknowledges every write before the handler runs and ignores the returned status. Writes reach the handlers in the order `bluetoothd` sends them. |
 | Advertising | `LEAdvertisingManager1.RegisterAdvertisement`, one object per set. Interval, TX power, and the secondary PHY are experimental BlueZ properties and only apply when `bluetoothd` runs with `--experimental`. Periodic advertising is not supported. |
-| Adapter state | `Adapter1.Powered`, updated live. `getBondedDevices()` lists paired devices. |
+| Adapter state | `Adapter1.Powered`, updated live. `getBondedDevices()` lists paired devices. Powering the adapter off during a connection ends it in `Disconnected.BySystemEvent`; other link losses end in `Disconnected.ByError(ConnectionLost)` about 500 ms after `Device1.Connected` turns false, because BlueZ reports the disconnect before the adapter state. |
 | Permissions | `checkBlePermissions()` returns `Granted` when `org.bluez` answers on the system bus, `PermanentlyDenied` on D-Bus access denial, and `Denied` when `bluetoothd` is unreachable. |
 | Not supported | L2CAP channels and listeners (BlueZ exposes LE CoC only through `AF_BLUETOOTH` sockets), PHY and connection-parameter requests, subrating, isochronous channels, PAST, direction finding. |
 
@@ -95,7 +95,7 @@ Or run the bundled CLI:
 
 ## CI note
 
-GitHub Actions `jvmTest` does **not** need BlueZ. Backend tests use fake D-Bus sessions (`FakeBlueZAdapterSession`, `FakeBlueZDeviceSession`), and core conformance tests use `FakeScanner` / `FakePeripheral`. Hardware checks are manual (see `TESTING.md`).
+GitHub Actions `jvmTest` does **not** need BlueZ. Backend tests use fake D-Bus sessions (`FakeBlueZAdapterSession`, `FakeBlueZDeviceSession`) and, for the D-Bus call semantics the fakes cannot model, an in-process D-Bus daemon (`DbusBlueZDeviceSessionTest`, `DbusBlueZGattServerTest`). Core conformance tests use `FakeScanner` / `FakePeripheral`. Hardware checks are manual (see `TESTING.md`), which also describes running `bluetoothd` against virtual controllers when no radio is available.
 
 ## See also
 
