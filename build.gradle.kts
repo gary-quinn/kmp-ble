@@ -22,6 +22,7 @@ buildscript {
                         CatalogVersions.requiredVersion("httpclient", rootDir),
                     )
                 "org.jsoup:jsoup" -> useVersion(CatalogVersions.requiredVersion("jsoup", rootDir))
+                "org.freemarker:freemarker" -> useVersion(CatalogVersions.requiredVersion("freemarker", rootDir))
                 "org.jetbrains.kotlin:kotlin-gradle-plugin" ->
                     useVersion(
                         CatalogVersions.requiredVersion("kotlin", rootDir),
@@ -55,6 +56,7 @@ val securityPatches: Action<DependencyResolveDetails> =
             "org.apache.commons:commons-lang3" -> useVersion(libs.versions.commonsLang3.get())
             "org.apache.httpcomponents:httpclient" -> useVersion(libs.versions.httpclient.get())
             "org.jsoup:jsoup" -> useVersion(libs.versions.jsoup.get())
+            "org.freemarker:freemarker" -> useVersion(libs.versions.freemarker.get())
             "org.jetbrains.kotlin:kotlin-gradle-plugin" -> useVersion(libs.versions.kotlin.get())
         }
     }
