@@ -6,6 +6,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
 
 class ScanAndConnectTest {
     @Test
@@ -20,6 +21,18 @@ class ScanAndConnectTest {
                     )
                 }
             assertEquals(10.milliseconds, ex.scanTimeout)
+        }
+
+    @Test
+    fun throwsScanFailedExceptionWhenTheScanFails() =
+        runTest {
+            val scanner = FakeScanner {}
+            scanner.emitScanFailed(7)
+            val ex =
+                assertFailsWith<ScanFailedException> {
+                    scanner.scanAndConnect(scanTimeout = 5.seconds, predicate = { true })
+                }
+            assertEquals(7, ex.errorCode)
         }
 
     @Test

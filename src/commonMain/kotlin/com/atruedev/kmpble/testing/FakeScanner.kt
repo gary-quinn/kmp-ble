@@ -10,7 +10,9 @@ import com.atruedev.kmpble.scanner.ScanFailedException
 import com.atruedev.kmpble.scanner.Scanner
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.transformWhile
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
@@ -50,7 +52,12 @@ public class FakeScanner internal constructor(
             for (ad in fakeAdvertisements) {
                 emit(ScanEvent.Found(ad))
             }
-            dynamicEvents.collect { emit(it) }
+            emitAll(
+                dynamicEvents.transformWhile { event ->
+                    emit(event)
+                    event !is ScanEvent.Failed
+                },
+            )
         }
 
     /** Emit an advertisement dynamically after construction. */
@@ -58,7 +65,10 @@ public class FakeScanner internal constructor(
         dynamicEvents.tryEmit(ScanEvent.Found(advertisement))
     }
 
-    /** Emit a scan failure for testing error handling paths. */
+    /**
+     * Emit a scan failure for testing error handling paths. Like a platform scanner, each
+     * collection of [scanEvents] completes after delivering it.
+     */
     public fun emitScanFailed(errorCode: Int) {
         dynamicEvents.tryEmit(ScanEvent.Failed(ScanFailedException(errorCode)))
     }

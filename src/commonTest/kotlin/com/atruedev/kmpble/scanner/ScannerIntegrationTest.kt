@@ -468,6 +468,19 @@ class ScannerIntegrationTest {
         }
 
     @Test
+    fun `scan collection completes after a failure`() =
+        runTest {
+            val scanner = FakeScanner { advertisement { name("BeforeFailure") } }
+            scanner.emitScanFailed(3)
+
+            val events = scanner.scanEvents.toList()
+
+            assertEquals(2, events.size)
+            assertIs<ScanEvent.Failed>(events.last())
+            scanner.close()
+        }
+
+    @Test
     fun `firstOrThrow throws ScanFailedException on scan failure`() =
         runTest {
             val scanner = FakeScanner {}

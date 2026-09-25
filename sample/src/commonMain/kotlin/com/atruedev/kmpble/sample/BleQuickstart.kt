@@ -13,6 +13,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.launch
 
@@ -59,11 +60,11 @@ suspend fun bleQuickstartHeartRate() =
                                 null
                             }
                         }
-                    }.first() // Suspends until first matching device found
+                    }.firstOrNull() // Suspends until a match; null once the scan has ended (ScanEvent.Failed)
             } finally {
                 // Scanner resources released as soon as we have a device to connect to.
                 scanner.close()
-            }
+            } ?: return@coroutineScope println("Scan ended before a Heart Rate device was found")
 
         println("Found: ${advertisement.name ?: "Unknown"} (${advertisement.identifier})")
 
@@ -158,10 +159,10 @@ suspend fun bleQuickstartReadOnce(
                         (event as? ScanEvent.Found)?.advertisement?.takeIf {
                             it.name == targetName
                         }
-                    }.first()
+                    }.firstOrNull()
             } finally {
                 scanner.close()
-            }
+            } ?: return@coroutineScope null
 
         val peripheral = advertisement.toPeripheral()
         try {

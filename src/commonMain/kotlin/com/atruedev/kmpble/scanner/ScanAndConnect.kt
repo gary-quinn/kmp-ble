@@ -6,7 +6,7 @@ import com.atruedev.kmpble.peripheral.Peripheral
 import com.atruedev.kmpble.peripheral.connectAndDiscover
 import com.atruedev.kmpble.peripheral.toPeripheral
 import kotlinx.coroutines.flow.firstOrNull
-import kotlinx.coroutines.flow.mapNotNull
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
@@ -35,6 +35,7 @@ import kotlin.time.Duration.Companion.seconds
  * @return A connected [Peripheral] with services discovered. The caller owns the
  *   returned peripheral and MUST call [Peripheral.close] when done.
  * @throws [ScanTimeoutException] if no device matches within [scanTimeout].
+ * @throws [ScanFailedException] if the platform scan fails before a device matches.
  * @throws com.atruedev.kmpble.error.BleException if connect or discovery fails.
  */
 public suspend fun Scanner.scanAndConnect(
@@ -45,8 +46,12 @@ public suspend fun Scanner.scanAndConnect(
     val advertisement =
         withTimeoutOrNull(scanTimeout) {
             scanEvents
-                .mapNotNull { event -> (event as? ScanEvent.Found)?.advertisement }
-                .firstOrNull(predicate)
+                .map { event ->
+                    when (event) {
+                        is ScanEvent.Found -> event.advertisement
+                        is ScanEvent.Failed -> throw event.error
+                    }
+                }.firstOrNull(predicate)
         } ?: throw ScanTimeoutException(scanTimeout)
     val peripheral = advertisement.toPeripheral()
     try {
