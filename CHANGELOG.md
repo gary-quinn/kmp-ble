@@ -19,6 +19,7 @@ _Changes on `main` that have not yet been tagged for release._
 - feat(macos): `kmp-ble-macos` module - macOS arm64 backend over CoreBluetooth through an Objective-C JNI shim: scan, connect, GATT client, L2CAP channels and listener, GATT server, advertising, adapter state, and `CBManager.authorization` permissions; it refuses to start CoreBluetooth, instead of being killed by TCC, when the responsible app lacks `NSBluetoothAlwaysUsageDescription`
 - feat(mesh): `MeshNetwork { }` and `MeshProvisioner()` on JVM, matching Android and iOS
 - feat(sample): `sample-jvm` desktop CLI for Linux and macOS hardware checks
+- feat(sample): `sample-jvm` `bond`, `unbond`, and `server` commands for the pairing and GATT server checks (TESTING.md D8, D9), `installSampleLibs`, and `packageMacApp` to build the macOS app with or without `NSBluetoothAlwaysUsageDescription` (D10)
 
 ### Changed
 - refactor(jvm)!: BlueZ code moved from core `jvmMain` to `kmp-ble-bluez` under `com.atruedev.kmpble.bluez`; `-Dkmpble.bluez.enabled` removed (adding the backend is the opt-in). See MIGRATION.md
