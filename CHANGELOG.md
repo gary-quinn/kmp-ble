@@ -13,6 +13,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _Changes on `main` that have not yet been tagged for release._
 
+---
+
+## [0.14.0] - 2026-09-25
+
+### Added
+- feat(jvm): BlueZ connect and GATT client (M2)
+- feat(jvm)!: pluggable JVM backends with BlueZ and macOS CoreBluetooth modules
+
+### Fixed
+- fix(security): force freemarker 2.3.35 for CVE-2026-84939
+
+### Other
+- docs: drop third-party product names from the desktop testing docs
+
+
 ### Added
 - feat(jvm): backend SPI in core (`com.atruedev.kmpble.backend`, `@KmpBleBackendApi`) with shared JVM implementations of Scanner, Peripheral, BluetoothAdapter, GattServer, Advertiser, ExtendedAdvertiser, and L2capListener, selected at runtime through `ServiceLoader` (ADR-0003)
 - feat(bluez): `kmp-ble-bluez` module - Linux backend with GATT client, bonding (`Pair`, `RemoveDevice`), `PairingHandler` via `org.bluez.Agent1`, reliable writes, negotiated MTU, adapter state, GATT server (`GattManager1`), and advertising (`LEAdvertisingManager1`)
@@ -2554,7 +2569,8 @@ _No notable changes._
 
 ---
 
-[Unreleased]: https://github.com/gary-quinn/kmp-ble/compare/v0.13.6...HEAD
+[Unreleased]: https://github.com/gary-quinn/kmp-ble/compare/v0.14.0...HEAD
+[0.14.0]: https://github.com/gary-quinn/kmp-ble/compare/v0.13.6...v0.14.0
 [0.13.6]: https://github.com/gary-quinn/kmp-ble/compare/v0.13.5...v0.13.6
 [0.13.5]: https://github.com/gary-quinn/kmp-ble/compare/v0.13.4...v0.13.5
 [0.13.4]: https://github.com/gary-quinn/kmp-ble/compare/v0.13.3...v0.13.4
