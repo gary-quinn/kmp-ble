@@ -58,6 +58,7 @@ class BlueZPeripheralTransportTest {
             sessionFactory = factory,
             pollInterval = 5.milliseconds,
             tableChangeDebounce = 20.milliseconds,
+            linkLossGrace = LINK_LOSS_GRACE,
         ) to factory
     }
 
@@ -136,8 +137,77 @@ class BlueZPeripheralTransportTest {
             session.signals?.onAdapterPowered(false)
             assertEquals(PeripheralEvent.AdapterOff, events.last())
             session.simulateDisconnected()
-            assertIs<PeripheralEvent.Disconnected>(events.last())
+            withTimeout(2.seconds) { while (events.last() !is PeripheralEvent.Disconnected) delay(5) }
             transport.close()
+        }
+
+    @Test
+    fun linkLossIsReportedAfterTheGraceWindow() =
+        runBlocking<Unit> {
+            val session = FakeBlueZDeviceSession()
+            val (transport, _) = transport(session)
+            val events = CopyOnWriteArrayList<PeripheralEvent>()
+            transport.setEventListener { events += it }
+            transport.connect(options)
+
+            session.simulateDisconnected()
+            assertTrue(events.isEmpty())
+            withTimeout(2.seconds) { while (events.isEmpty()) delay(5) }
+
+            assertIs<PeripheralEvent.Disconnected>(events.single())
+            transport.close()
+        }
+
+    @Test
+    fun adapterPowerOffRightAfterLinkLossReportsAdapterOff() =
+        runBlocking<Unit> {
+            val session = FakeBlueZDeviceSession()
+            val (transport, _) = transport(session)
+            val events = CopyOnWriteArrayList<PeripheralEvent>()
+            transport.setEventListener { events += it }
+            transport.connect(options)
+
+            session.simulateDisconnected()
+            session.signals?.onAdapterPowered(false)
+            delay(LINK_LOSS_GRACE * 3)
+
+            assertEquals(listOf<PeripheralEvent>(PeripheralEvent.AdapterOff), events.toList())
+            transport.close()
+        }
+
+    @Test
+    fun reconnectWithinTheGraceWindowDropsTheEarlierLinkLoss() =
+        runBlocking<Unit> {
+            val session = FakeBlueZDeviceSession()
+            val (transport, _) = transport(session)
+            val events = CopyOnWriteArrayList<PeripheralEvent>()
+            transport.setEventListener { events += it }
+            transport.connect(options)
+
+            session.simulateDisconnected()
+            transport.connect(options)
+            delay(LINK_LOSS_GRACE * 3)
+
+            assertTrue(events.none { it is PeripheralEvent.Disconnected })
+            transport.close()
+        }
+
+    @Test
+    fun adapterPowerOffWhileConnectedEndsBySystemEvent() =
+        runBlocking<Unit> {
+            val session = FakeBlueZDeviceSession()
+            val (transport, _) = transport(session)
+            val peripheral = peripheralOver(transport)
+            peripheral.connect(options)
+
+            session.simulateDisconnected()
+            session.signals?.onAdapterPowered(false)
+
+            assertEquals(
+                State.Disconnected.BySystemEvent,
+                withTimeout(2.seconds) { peripheral.state.first { it is State.Disconnected } },
+            )
+            peripheral.close()
         }
 
     @Test
@@ -318,4 +388,8 @@ class BlueZPeripheralTransportTest {
             peripheral.close()
             withTimeout(2.seconds) { while (session.closeCalls == 0) delay(5) }
         }
+
+    private companion object {
+        val LINK_LOSS_GRACE = 50.milliseconds
+    }
 }

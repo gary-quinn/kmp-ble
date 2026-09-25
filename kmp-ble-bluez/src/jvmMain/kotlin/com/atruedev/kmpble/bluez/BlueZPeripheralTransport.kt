@@ -29,6 +29,7 @@ import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import org.bluez.exceptions.BluezInProgressException
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
@@ -40,6 +41,10 @@ import kotlin.time.Duration.Companion.seconds
  * capped by dbus-java's 20 s reply timeout and a cancelled caller aborts them with `Disconnect`
  * / `CancelPairing`. Other calls block on [Dispatchers.IO] through [runInterruptible], so a
  * GATT timeout interrupts the waiting thread instead of holding the queue until D-Bus replies.
+ *
+ * Powering the adapter off makes BlueZ emit `Device1.Connected = false` shortly before
+ * `Adapter1.Powered = false`, so a link loss is reported after [linkLossGrace] and becomes
+ * [PeripheralEvent.AdapterOff] when the adapter goes down within that window.
  */
 internal class BlueZPeripheralTransport(
     private val address: String,
@@ -47,6 +52,7 @@ internal class BlueZPeripheralTransport(
     private val sessionFactory: BlueZDeviceSessionFactory = DefaultBlueZDeviceSessionFactory,
     private val pollInterval: Duration = POLL_INTERVAL,
     private val tableChangeDebounce: Duration = TABLE_CHANGE_DEBOUNCE,
+    private val linkLossGrace: Duration = LINK_LOSS_GRACE,
 ) : PeripheralTransport,
     BlueZDeviceSignals {
     override val features: PeripheralFeatures =
@@ -71,6 +77,8 @@ internal class BlueZPeripheralTransport(
 
     @Volatile private var pairingHandler: PairingHandler? = null
 
+    private val linkLossPending = AtomicBoolean(false)
+
     override fun setEventListener(listener: PeripheralEventListener?) {
         this.listener = listener
     }
@@ -78,6 +86,7 @@ internal class BlueZPeripheralTransport(
     override suspend fun connect(options: ConnectionOptions) {
         val session = openSession()
         servicesReady = false
+        linkLossPending.set(false)
         withContext(Dispatchers.IO) {
             if (!signalsRegistered) {
                 if (!session.registerSignals(this@BlueZPeripheralTransport)) {
@@ -272,7 +281,7 @@ internal class BlueZPeripheralTransport(
     override fun onDeviceChanged(changed: Map<String, Any?>) {
         if ((changed["Connected"] as? Boolean) == false) {
             servicesReady = false
-            listener?.onEvent(PeripheralEvent.Disconnected())
+            deferLinkLoss()
         }
         val bonded = (changed["Bonded"] as? Boolean) ?: (changed["Paired"] as? Boolean)
         if (bonded != null) {
@@ -309,7 +318,16 @@ internal class BlueZPeripheralTransport(
     override fun onAdapterPowered(powered: Boolean) {
         if (!powered) {
             servicesReady = false
+            linkLossPending.set(false)
             listener?.onEvent(PeripheralEvent.AdapterOff)
+        }
+    }
+
+    private fun deferLinkLoss() {
+        linkLossPending.set(true)
+        scope.launch {
+            delay(linkLossGrace)
+            if (linkLossPending.compareAndSet(true, false)) listener?.onEvent(PeripheralEvent.Disconnected())
         }
     }
 
@@ -395,6 +413,7 @@ internal class BlueZPeripheralTransport(
         const val DEFAULT_ATT_MTU = 23
         val POLL_INTERVAL = 50.milliseconds
         val TABLE_CHANGE_DEBOUNCE = 250.milliseconds
+        val LINK_LOSS_GRACE = 500.milliseconds
         val DISCONNECT_WAIT = 3.seconds
         val cleanupScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     }
