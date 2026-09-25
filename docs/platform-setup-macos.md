@@ -31,7 +31,7 @@ The module registers `MacosBackend` through `META-INF/services`, so `Scanner { }
 
 ## Bluetooth permission (TCC)
 
-macOS asks the user for Bluetooth access the first time a process starts CoreBluetooth, and attributes the request to the *responsible* app: the packaged `.app` itself, or for a plain `java` process the app that launched it (Terminal, iTerm, an IDE, or another tool). That app's `Info.plist` must contain `NSBluetoothAlwaysUsageDescription`; when it does not, macOS terminates the whole process with a TCC crash report the moment CoreBluetooth starts.
+macOS asks the user for Bluetooth access the first time a process starts CoreBluetooth, and attributes the request to the *responsible* app: the packaged `.app` itself, or for a plain `java` process the app that launched it (a terminal emulator, an IDE, or another tool). That app's `Info.plist` must contain `NSBluetoothAlwaysUsageDescription`; when it does not, macOS terminates the whole process with a TCC crash report the moment CoreBluetooth starts.
 
 kmp-ble looks up the responsible app before starting CoreBluetooth and fails instead of being killed: scans report `ScanEvent.Failed` with `Macos.ERROR_USAGE_DESCRIPTION_MISSING` (the message names the app), connects throw `ConnectionFailed` with that `platformCode`, and `checkBlePermissions()` returns `PermanentlyDenied(["NSBluetoothAlwaysUsageDescription"])`. Apple's own apps under `/System` (Terminal.app) are not checked.
 
