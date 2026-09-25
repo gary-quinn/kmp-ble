@@ -130,7 +130,7 @@ Run with `sample-jvm` on each desktop OS before tagging a release. Human only.
 
 - Linux: BlueZ 5.62+ with `bluetoothd` running, the user in the `bluetooth` group
 - macOS: Apple silicon, macOS 11+, Bluetooth allowed for the terminal app
-- A BLE peripheral with a notifying characteristic (for example a heart-rate sensor or nRF Connect on a phone)
+- A BLE peripheral with a notifying characteristic (for example a heart-rate sensor or a BLE peripheral simulator app on a phone)
 
 | # | Scenario | Steps | Pass Criteria |
 |---|----------|-------|---------------|
