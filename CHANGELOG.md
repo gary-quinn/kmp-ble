@@ -34,6 +34,7 @@ _Changes on `main` that have not yet been tagged for release._
 - fix(bluez): write options were double-wrapped in `Variant`, and `reliable-write` was reported as `signedWrite` while `authenticated-signed-writes` was ignored
 - fix(bluez): `InterfacesAdded` signals were matched on the emitter path instead of the added object path
 - fix(bluez): `reconnectionStrategy`, `bondingPreference`, and `pairingHandler` were ignored; link-loss D-Bus errors were not mapped to `ConnectionLost`
+- fix(bluez): `connect()` and bonding hung until the connect timeout against a real `bluetoothd`: `Device1.Connect` and `Device1.Pair` return no value, and dbus-java's `DBusAsyncReply` never reports a reply for such calls
 
 ---
 

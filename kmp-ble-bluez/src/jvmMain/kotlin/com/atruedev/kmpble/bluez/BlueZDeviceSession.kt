@@ -12,6 +12,7 @@ import org.freedesktop.dbus.interfaces.ObjectManager
 import org.freedesktop.dbus.interfaces.Properties
 import org.freedesktop.dbus.types.UInt16
 import org.freedesktop.dbus.types.Variant
+import org.freedesktop.dbus.messages.Error as DBusError
 
 /**
  * Unsolicited BlueZ signals for one device, delivered on a D-Bus dispatch thread.
@@ -332,13 +333,18 @@ internal class DbusBlueZDeviceSession(
         runCatching { connection.close() }
     }
 
+    /**
+     * Polls the underlying [org.freedesktop.dbus.messages.MethodCall] instead of
+     * `DBusAsyncReply.hasReply()`, which never turns true for methods without a return value
+     * such as `Connect` and `Pair`.
+     */
     private fun asyncCall(method: String): BlueZPendingCall {
-        val reply = connection.callMethodAsync(device, method)
+        val call = connection.callMethodAsync(device, method).call
         return object : BlueZPendingCall {
-            override fun isDone(): Boolean = reply.hasReply()
+            override fun isDone(): Boolean = call.hasReply()
 
             override fun result() {
-                reply.reply
+                (call.reply as? DBusError)?.throwException()
             }
         }
     }
