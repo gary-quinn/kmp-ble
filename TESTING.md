@@ -124,25 +124,36 @@ the `sample` app before tagging a release.
 
 ## JVM Desktop Checklist (Linux BlueZ, macOS arm64)
 
-Run with `sample-jvm` on each desktop OS before tagging a release. Human only.
+Run with `sample-jvm` on each desktop OS before tagging a release. Human only. Add `-Dkmpble.log=true` to see state transitions, for example `./gradlew :sample-jvm:run -Dkmpble.log=true --args="connect <identifier> 15"`.
 
 ### Prerequisites
 
-- Linux: BlueZ 5.62+ with `bluetoothd` running, the user in the `bluetooth` group
-- macOS: Apple silicon, macOS 11+, Bluetooth allowed for the terminal app
-- A BLE peripheral with a notifying characteristic (for example a heart-rate sensor or a BLE peripheral simulator app on a phone)
+- Linux: BlueZ 5.62+ with `bluetoothd` running and access to `org.bluez` on the system bus (the `bluetooth` group or the distribution default policy)
+- macOS: Apple silicon, macOS 11+, a terminal app that declares `NSBluetoothAlwaysUsageDescription` and has Bluetooth access
+- A BLE peripheral with a readable and a notifying characteristic; one that requires pairing for D8
+- A phone with a generic BLE client app for D9
 
 | # | Scenario | Steps | Pass Criteria |
 |---|----------|-------|---------------|
 | D1 | Permissions | `./gradlew :sample-jvm:run --args="permissions"` | `Granted` (macOS: after allowing the prompt once) |
 | D2 | Adapter state | `--args="adapter"`, then toggle Bluetooth | `state=On`; off/on reflected on rerun |
-| D3 | Scan | `--args="scan 10"` | Nearby advertisements with names, RSSI, service UUIDs |
+| D3 | Scan | `--args="scan 10"` | Nearby advertisements with names, RSSI, service UUIDs; the scan ends after 10 s |
 | D4 | Connect + GATT | `--args="connect <identifier> 15"` | Services listed, readable values printed, `mtu` above 23 on BlueZ 5.62+ |
-| D5 | Notifications | Same run as D4 | `notify` lines appear; they stop after the run (CCCD disabled) |
-| D6 | Remote disconnect | Power off the peripheral during D4 | State ends in `Disconnected`, no hang |
-| D7 | Bluetooth off | Turn Bluetooth off during D4 | `Disconnected.BySystemEvent`, process keeps running |
-| D8 | Linux pairing | Connect with `BondingPreference.Required` and a `pairingHandler` to a device that needs pairing | Handler receives the prompt; `bondState` becomes `Bonded` |
-| D9 | GATT server + advertising | Start `GattServer { }` and `Advertiser()`; connect from a phone | Phone sees the service, reads and writes reach the handlers |
-| D10 | macOS packaged app | Package with jpackage **without** `NSBluetoothAlwaysUsageDescription` | kmp-ble reports `ERROR_USAGE_DESCRIPTION_MISSING` instead of the process being killed |
-| D11 | macOS host app | Run D1-D3 from Terminal.app, then from a terminal app without the key | Terminal.app prompts and scans; the other host gets `ERROR_USAGE_DESCRIPTION_MISSING` naming that app, no crash report |
+| D5 | Notifications | Same run as D4, then run it again | `notify` lines appear; the second run behaves the same, no `Disabling notifications ... failed` warnings |
+| D6 | Remote disconnect | Power off the peripheral during D4 | State ends in `Disconnected.ByError(ConnectionLost)`, no hang |
+| D7 | Bluetooth off | Turn Bluetooth off during D4 | `Disconnected.BySystemEvent`, process exits cleanly |
+| D8 | Linux pairing | `--args="bond <identifier> 15"` against a device that needs pairing; answer the prompt on stdin. `--args="unbond <identifier>"` resets it | The `pairing:` line shows the prompt; `connected:` reports `bond=Bonded`; `adapter` lists the device as bonded |
+| D9 | GATT server + advertising | `--args="server 60"`; from the phone connect to `kmp-ble-sample`, read and write `6b6d7062-6c65-4e00-8000-000000000002`, subscribe to `...0003` | Phone sees the name and service `6b6d7062-6c65-4e00-8000-000000000001`; reads and writes are logged in order and the echo reads back the last write; counter notifications arrive |
+| D10 | macOS packaged app | `./gradlew :sample-jvm:packageMacApp`, then `open -W --stdout out.txt --stderr out.txt sample-jvm/build/jpackage/without-usage-description/KmpBleSample.app --args scan 5` (also `permissions`, `connect <identifier> 5`) | `ERROR_USAGE_DESCRIPTION_MISSING` (-33) for scan and connect, `PermanentlyDenied` for permissions, no crash report in `~/Library/Logs/DiagnosticReports` |
+| D10b | macOS packaged app with the key | `./gradlew :sample-jvm:packageMacApp -Pkmpble.sample.usageDescription=true`, launch from `build/jpackage/with-usage-description` | The Bluetooth prompt appears once; after allowing it, D1-D3 pass |
+| D11 | macOS host app | `./gradlew :sample-jvm:installSampleLibs`, then from each host run `java -cp 'sample-jvm/build/sample/lib/*' com.atruedev.kmpble.sample.jvm.MainKt scan 5` (and `permissions`, `adapter`): Terminal.app, then a host without the key | Terminal.app is not terminated and scans once Bluetooth is allowed for it; the other host gets `ERROR_USAGE_DESCRIPTION_MISSING` naming that app, no crash report |
 
+Launch `java` directly for D11 so that the host under test starts the JVM, rather than a Gradle daemon started from another host.
+
+### BlueZ without a radio
+
+`bluetoothd` can be exercised end to end on any Linux VM through virtual controllers. This covers the D-Bus integration, not RF behavior, and does not replace the hardware run.
+
+1. Load `hci_vhci` (Ubuntu: `linux-modules-extra-$(uname -r)`) and start two virtual controllers with `btvirt -l2` (BlueZ `emulator/`, packaged as `bluez-test-tools` on Ubuntu). Use dual-mode controllers: the LE-only type (`-L`) sends a single advertising report when a scan starts, so `bluetoothd` never lists the peer.
+2. Before starting `bluetoothd`, bring the second controller down (`hciconfig hci1 down`) and bind a user-space BLE host stack to it through an HCI user channel to act as the peer: a peripheral with a readable, a notifying, and an authenticated characteristic for D3-D8, and a central that writes and subscribes for D9. Keep its advertising data within 31 bytes.
+3. Run `sample-jvm` with `-Dkmpble.bluez.adapter=hci0`. Drop the link from the peer for D6 and use `bluetoothctl power off` for D2 and D7.
