@@ -36,8 +36,9 @@ import kotlin.uuid.Uuid
  */
 @OptIn(ExperimentalUuidApi::class)
 internal class BlueZGattServerTransport(
-    private val openBus: () -> DBusConnection = BlueZ::openSystemBus,
+    private val openBus: () -> DBusConnection = { BlueZ.openGattServerBus() },
     private val requestTimeoutMs: Long = REQUEST_TIMEOUT_MS,
+    private val isHostSupported: () -> Boolean = BlueZ::isLinux,
 ) : GattServerTransport,
     BlueZGattRequestHandler {
     override val reportsConnections: Boolean = false
@@ -62,7 +63,7 @@ internal class BlueZGattServerTransport(
 
     override suspend fun open(services: List<ServerServiceSpec>) {
         withContext(Dispatchers.IO) {
-            if (!BlueZ.isLinux()) throw ServerException.NotSupported("BlueZ GATT server requires Linux")
+            if (!isHostSupported()) throw ServerException.NotSupported("BlueZ GATT server requires Linux")
             val connection =
                 try {
                     openBus()

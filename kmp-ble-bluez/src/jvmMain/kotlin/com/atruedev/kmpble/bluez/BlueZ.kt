@@ -46,6 +46,19 @@ public object BlueZ {
     internal fun openSystemBus(): DBusConnection = DBusConnectionBuilder.forSystemBus().build()
 
     /**
+     * Private connection for an exported GATT application. bluetoothd does not wait for the
+     * `WriteValue` reply on characteristics that allow write without response, so method calls
+     * run on one thread to reach the application in the order bluetoothd sent them.
+     */
+    internal fun openGattServerBus(address: String? = null): DBusConnection =
+        (if (address == null) DBusConnectionBuilder.forSystemBus() else DBusConnectionBuilder.forAddress(address))
+            .withShared(false)
+            .receivingThreadConfig()
+            .withMethodCallThreadCount(1)
+            .connectionConfig()
+            .build()
+
+    /**
      * Object path of the adapter selected by [ADAPTER_PROPERTY] (name such as `hci0` or MAC),
      * or the first adapter. `null` when BlueZ reports none.
      */
