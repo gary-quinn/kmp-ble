@@ -31,7 +31,7 @@ freemarker = "2.3.35"
 atomicfu = "0.33.0"
 bluezDbus = "0.3.5"
 dbusJava = "5.2.1"
-slf4j = "2.0.19"
+slf4j = "2.0.20"
 
 [libraries]
 androidx-core = { module = "androidx.core:core-ktx", version = "1.19.1" }
