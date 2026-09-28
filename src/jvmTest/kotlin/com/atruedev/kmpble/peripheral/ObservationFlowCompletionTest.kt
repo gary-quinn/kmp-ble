@@ -8,11 +8,9 @@ import com.atruedev.kmpble.peripheral.internal.buildObservationFlow
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertTrue
-import kotlin.time.Duration.Companion.seconds
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
@@ -20,8 +18,8 @@ import kotlin.uuid.Uuid
 class ObservationFlowCompletionTest {
     @Test
     fun cancellingTheLastCollectorDisablesNotifications() =
-        runBlocking<Unit> {
-            val manager = ObservationManager(Dispatchers.Default.limitedParallelism(1))
+        runTest {
+            val manager = ObservationManager(Dispatchers.Unconfined)
             val characteristic = Characteristic(Uuid.random(), Uuid.random(), Characteristic.Properties(notify = true))
             val enabled = CompletableDeferred<Unit>()
             val disabled = CompletableDeferred<Characteristic>()
@@ -37,9 +35,10 @@ class ObservationFlowCompletionTest {
                 )
 
             val collector = launch { flow.collect { } }
-            withTimeout(2.seconds) { enabled.await() }
+            enabled.await()
             collector.cancel()
+            collector.join()
 
-            assertTrue(withTimeout(2.seconds) { disabled.await() } === characteristic)
+            assertTrue(disabled.getCompleted() === characteristic)
         }
 }
