@@ -256,7 +256,7 @@ dependencies {
 }
 
 mavenPublishing {
-    publishToMavenCentral()
+    publishToMavenCentral(automaticRelease = true)
     signAllPublications()
 
     coordinates("com.atruedev", "kmp-ble", version.toString())
