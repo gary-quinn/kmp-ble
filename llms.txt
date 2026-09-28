@@ -16,7 +16,7 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             // Core - scan, connect, GATT client/server, advertise, L2CAP
-            implementation("com.atruedev:kmp-ble:0.13.6")
+            implementation("com.atruedev:kmp-ble:0.14.0")
         }
     }
 }
@@ -32,8 +32,8 @@ JVM desktop: add a backend to `jvmMain`; the portable API picks it at runtime.
 
 ```kotlin
 jvmMain.dependencies {
-    implementation("com.atruedev:kmp-ble-bluez:<version>") // Linux (BlueZ over D-Bus)
-    implementation("com.atruedev:kmp-ble-macos:<version>") // macOS arm64 (CoreBluetooth over JNI)
+    implementation("com.atruedev:kmp-ble-bluez:0.14.0") // Linux (BlueZ over D-Bus)
+    implementation("com.atruedev:kmp-ble-macos:0.14.0") // macOS arm64 (CoreBluetooth over JNI)
 }
 ```
 
