@@ -45,7 +45,7 @@ dokka {
 }
 
 mavenPublishing {
-    publishToMavenCentral()
+    publishToMavenCentral(automaticRelease = true)
     signAllPublications()
 
     coordinates("com.atruedev", "kmp-ble-quirks", version.toString())
