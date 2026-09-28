@@ -106,7 +106,7 @@ dokka {
 }
 
 mavenPublishing {
-    publishToMavenCentral()
+    publishToMavenCentral(automaticRelease = true)
     signAllPublications()
 
     coordinates("com.atruedev", "kmp-ble-macos", version.toString())
