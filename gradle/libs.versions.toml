@@ -34,7 +34,7 @@ dbusJava = "5.2.1"
 slf4j = "2.0.20"
 
 [libraries]
-androidx-core = { module = "androidx.core:core-ktx", version = "1.19.0" }
+androidx-core = { module = "androidx.core:core-ktx", version = "1.19.1" }
 androidx-startup = { module = "androidx.startup:startup-runtime", version = "1.2.0" }
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidxActivityCompose" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
