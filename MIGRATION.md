@@ -1,5 +1,18 @@
 # Migration Guide
 
+## ConnectionOptions.resetNotificationsOnSubscribe (unreleased, after 0.14.0)
+
+`ConnectionOptions` has a new last constructor parameter, `resetNotificationsOnSubscribe: Boolean = false`. When `true`, the first enable of each characteristic in a connection turns notifications off and on again, for peripherals that only start notifying on a CCCD 0 -> 1 transition.
+
+### Who is affected
+
+Source code needs no change, and the default keeps the old behavior. Code compiled against 0.14.0 or earlier that calls the `ConnectionOptions` primary constructor or `copy()` must be recompiled, because both signatures changed. This includes libraries built on kmp-ble.
+
+### Steps
+
+1. Recompile against the new version.
+2. Replace any subscribe, cancel and subscribe again workaround with `ConnectionOptions(resetNotificationsOnSubscribe = true)`.
+
 ## JVM desktop backends (unreleased, after 0.13.6)
 
 JVM BLE moved out of the core `kmp-ble` jar into backend modules that the portable API finds through `ServiceLoader` ([ADR-0003](docs/adr/ADR-0003-jvm-backend-spi.md)).
