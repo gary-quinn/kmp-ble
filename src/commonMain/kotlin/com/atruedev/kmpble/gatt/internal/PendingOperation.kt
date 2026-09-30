@@ -44,6 +44,9 @@ internal sealed interface PendingOp<T> {
 
     data object SubrateRequest : PendingOp<ConnectionSubratingResult>
 
+    /** CoreBluetooth `didUpdateNotificationStateFor`, awaited only while resetting notifications. */
+    data object NotificationState : PendingOp<GattStatus>
+
     companion object {
         val all: List<PendingOp<*>> =
             listOf(
@@ -57,6 +60,7 @@ internal sealed interface PendingOp<T> {
                 PhyUpdate,
                 PhyRead,
                 SubrateRequest,
+                NotificationState,
             )
     }
 }

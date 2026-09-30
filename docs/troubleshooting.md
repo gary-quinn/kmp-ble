@@ -156,6 +156,12 @@ try {
    on `observe()`.
 3. **Android: background service killed.** Android may kill background
    processes. Use a foreground service for long-running observations.
+4. **Reads work but no notification ever arrives.** Some peripherals only
+   start notifying when the CCCD goes from 0 to 1, and keep it at 1 across
+   connections or app restarts, so a plain enable changes nothing. Connect
+   with `ConnectionOptions(resetNotificationsOnSubscribe = true)` to turn
+   notifications off and on the first time each characteristic is observed
+   in a connection.
 
 ## Build error: `Unresolved reference: KmpBle`
 

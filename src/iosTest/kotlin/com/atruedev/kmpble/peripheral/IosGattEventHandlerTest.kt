@@ -237,6 +237,7 @@ class IosGattEventHandlerTest {
                 "DidDiscoverCharacteristics",
                 "DidUpdateValueForCharacteristic",
                 "DidWriteValueForCharacteristic",
+                "DidUpdateNotificationState",
                 "DidUpdateValueForDescriptor",
                 "DidWriteValueForDescriptor",
                 "DidReadRSSI",
@@ -244,7 +245,7 @@ class IosGattEventHandlerTest {
                 "DidModifyServices",
             )
 
-        assertEquals(9, subtypes.size, "All AppleCallbackEvent subtypes should be documented")
+        assertEquals(10, subtypes.size, "All AppleCallbackEvent subtypes should be documented")
     }
 
     // -- Multiple pending operations don't interfere --

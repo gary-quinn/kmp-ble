@@ -60,6 +60,7 @@ internal class FakeGattResponder(
     private val onPastSyncHandler: PastSyncHandler?,
     private val cccdWritesState: MutableStateFlow<List<FakePeripheral.CccdWrite>>,
     private val closedFlag: () -> Boolean,
+    private val resetNotificationsRequested: () -> Boolean,
     private val onDirectionFindingHandler: (
         suspend (DirectionFindingParameters) -> DirectionFindingResult
     )? = null,
@@ -235,7 +236,7 @@ internal class FakeGattResponder(
             eventFlow.collect { event -> mapper(event) }
         }.onStart {
             if (context.state.value is State.Connected.Ready) {
-                recordCccdWrite(serviceUuid, charUuid, enabled = true)
+                cccdWritesState.recordEnable(observationManager, serviceUuid, charUuid, resetNotificationsRequested())
             }
         }.applyBackpressure(backpressure)
             .onCompletion { cause ->
@@ -364,5 +365,18 @@ internal class FakeGattResponder(
         } else {
             DirectionFindingResult.NotSupported
         }
+    }
+}
+
+/** Records the CCCD writes a platform peripheral makes to enable notifications. */
+internal suspend fun MutableStateFlow<List<FakePeripheral.CccdWrite>>.recordEnable(
+    observationManager: ObservationManager,
+    serviceUuid: Uuid,
+    charUuid: Uuid,
+    resetRequested: Boolean,
+) {
+    observationManager.enableNotifications(serviceUuid, charUuid, resetRequested) { reset ->
+        if (reset) update { it + FakePeripheral.CccdWrite(serviceUuid, charUuid, enabled = false) }
+        update { it + FakePeripheral.CccdWrite(serviceUuid, charUuid, enabled = true) }
     }
 }

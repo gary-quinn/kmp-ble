@@ -65,6 +65,32 @@ public data class ConnectionOptions(
      * with exponential backoff, or [RetryPolicy.AGGRESSIVE] for 5 attempts.
      */
     val gattRetryPolicy: RetryPolicy = RetryPolicy.NONE,
+    /**
+     * Turn notifications off and on again the first time each characteristic is enabled
+     * in a connection, so the peripheral always sees its CCCD go from 0 to 1.
+     *
+     * Some peripherals only start notifying or indicating on that transition. When such a
+     * peripheral keeps the CCCD at 1 across connections (bonded) or across an app restart,
+     * a plain enable writes 1 over 1, or the OS skips it because it believes notifications
+     * are already on: reads work, but no notification arrives. This option replaces the
+     * workaround of subscribing, cancelling and subscribing again.
+     *
+     * Only the first enable of a characteristic after the link comes up resets: the first
+     * collector of `observe`/`observeValues`, or the re-subscribe after a reconnect. Later
+     * collectors in the same connection enable normally. The steps share one GATT queue
+     * slot and each waits for the previous one to complete.
+     *
+     * - Android writes `0x0000` to the CCCD, then the notify or indicate value.
+     * - iOS calls `setNotifyValue(false)`, then `setNotifyValue(true)`. CoreBluetooth owns
+     *   the CCCD and may ignore turning off a subscription it does not know about, so the
+     *   library subscribes first when the characteristic is not notifying yet.
+     * - The JVM backends subscribe, unsubscribe and subscribe again through the OS for the
+     *   same reason (BlueZ rejects `StopNotify` without a subscription).
+     *
+     * Where the OS owns the CCCD and another client also subscribes to the characteristic,
+     * the OS keeps the CCCD at 1 and the peripheral sees no transition.
+     */
+    val resetNotificationsOnSubscribe: Boolean = false,
 ) {
     init {
         require(gattOperationTimeout.isPositive() && gattOperationTimeout.isFinite()) {
