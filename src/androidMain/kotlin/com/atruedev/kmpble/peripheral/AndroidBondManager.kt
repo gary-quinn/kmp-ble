@@ -10,6 +10,8 @@ import android.content.Intent
 import android.content.IntentFilter
 import com.atruedev.kmpble.bonding.BondRemovalResult
 import com.atruedev.kmpble.bonding.BondState
+import com.atruedev.kmpble.error.ConnectionFailed
+import com.atruedev.kmpble.error.ConnectionFailureReason
 import com.atruedev.kmpble.peripheral.internal.PeripheralContext
 import com.atruedev.kmpble.peripheral.state.ConnectionEvent
 import kotlinx.coroutines.CompletableDeferred
@@ -134,8 +136,10 @@ internal class AndroidBondManager(
                                 if (previousState == BluetoothDevice.BOND_BONDING) {
                                     peripheralContext.processEvent(
                                         ConnectionEvent.BondFailed(
-                                            com.atruedev.kmpble.error
-                                                .ConnectionFailed(reason = "Bonding failed"),
+                                            ConnectionFailed(
+                                                reason = "Bonding failed",
+                                                failureReason = ConnectionFailureReason.BONDING_FAILED,
+                                            ),
                                         ),
                                     )
                                     bondComplete?.complete(false)
