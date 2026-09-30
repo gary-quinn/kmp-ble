@@ -77,6 +77,7 @@ public class FakePeripheral internal constructor(
             fakeServices = fakeServices,
             cccdWritesState = cccdWritesState,
             closedFlag = { closed },
+            resetNotificationsRequested = ::resetNotificationsRequested,
         )
 
     internal val gattResponder =
@@ -89,8 +90,11 @@ public class FakePeripheral internal constructor(
             onPastSyncHandler = onPastSyncHandler,
             cccdWritesState = cccdWritesState,
             closedFlag = { closed },
+            resetNotificationsRequested = ::resetNotificationsRequested,
             onDirectionFindingHandler = onDirectionFindingHandler,
         )
+
+    private fun resetNotificationsRequested(): Boolean = _lastConnectionOptions?.resetNotificationsOnSubscribe == true
 
     public data class CccdWrite(
         val serviceUuid: Uuid,
@@ -137,6 +141,8 @@ public class FakePeripheral internal constructor(
         context.processEvent(ConnectionEvent.DisconnectRequested)
         onDisconnectHandler()
         context.processEvent(ConnectionEvent.ConnectionLost(OperationFailed("disconnect")))
+        // Platform peripherals forget resets in their link cleanup; this fake has none.
+        observationManager.clearNotificationResets()
     }
 
     override fun removeBond(): com.atruedev.kmpble.bonding.BondRemovalResult =

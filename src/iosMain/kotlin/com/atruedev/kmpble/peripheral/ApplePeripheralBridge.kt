@@ -3,6 +3,7 @@ package com.atruedev.kmpble.peripheral
 import com.atruedev.kmpble.internal.CentralManagerProvider
 import com.atruedev.kmpble.internal.CoreBluetoothGuards
 import kotlinx.atomicfu.atomic
+import kotlinx.cinterop.ObjCSignatureOverride
 import platform.CoreBluetooth.CBCharacteristic
 import platform.CoreBluetooth.CBCharacteristicWriteWithResponse
 import platform.CoreBluetooth.CBCharacteristicWriteWithoutResponse
@@ -45,6 +46,11 @@ internal sealed interface AppleCallbackEvent {
     ) : AppleCallbackEvent
 
     data class DidWriteValueForCharacteristic(
+        val characteristic: CBCharacteristic,
+        val error: NSError?,
+    ) : AppleCallbackEvent
+
+    data class DidUpdateNotificationState(
         val characteristic: CBCharacteristic,
         val error: NSError?,
     ) : AppleCallbackEvent
@@ -127,6 +133,7 @@ internal class ApplePeripheralBridge(
             // Kotlin signature. Only didUpdateValue is overridden - handles reads + notifications.
             // Write confirmations are handled by the IosPeripheral completing the write deferred
             // when this callback fires with a pending write operation.
+            @ObjCSignatureOverride
             override fun peripheral(
                 peripheral: CBPeripheral,
                 didUpdateValueForCharacteristic: CBCharacteristic,
@@ -134,6 +141,19 @@ internal class ApplePeripheralBridge(
             ) {
                 _onEvent.value?.invoke(
                     AppleCallbackEvent.DidUpdateValueForCharacteristic(didUpdateValueForCharacteristic, error),
+                )
+            }
+
+            // Shares the Kotlin signature above; @ObjCSignatureOverride binds each override to
+            // its own selector. A notification reset waits for this before turning notifications on.
+            @ObjCSignatureOverride
+            override fun peripheral(
+                peripheral: CBPeripheral,
+                didUpdateNotificationStateForCharacteristic: CBCharacteristic,
+                error: NSError?,
+            ) {
+                _onEvent.value?.invoke(
+                    AppleCallbackEvent.DidUpdateNotificationState(didUpdateNotificationStateForCharacteristic, error),
                 )
             }
 
