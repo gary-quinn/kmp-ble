@@ -7,6 +7,7 @@ import com.atruedev.kmpble.error.ConnectionFailureReason
 import com.atruedev.kmpble.error.ConnectionLost
 import com.atruedev.kmpble.error.OperationFailed
 import com.atruedev.kmpble.internal.CoreBluetoothGuards
+import com.atruedev.kmpble.peripheral.internal.awaitConnectSettled
 import com.atruedev.kmpble.peripheral.state.ConnectionEvent
 import com.atruedev.kmpble.peripheral.state.State
 import kotlinx.coroutines.CancellationException
@@ -20,12 +21,14 @@ import platform.CoreBluetooth.CBErrorConnectionTimeout
 import platform.CoreBluetooth.CBErrorPeripheralDisconnected
 import platform.CoreBluetooth.CBPeripheralStateConnected
 import platform.Foundation.NSError
+import kotlin.time.TimeSource
 
 /**
  * Connection lifecycle management for [IosPeripheral].
  */
 
 internal suspend fun IosPeripheral.connectInternal(options: ConnectionOptions) {
+    val deadline = TimeSource.Monotonic.markNow() + options.timeouts.connect
     checkNotClosed()
     currentTimeouts = options.timeouts
     pairingRequestHandler.setHandler(options.pairingHandler)
@@ -55,32 +58,38 @@ internal suspend fun IosPeripheral.connectInternal(options: ConnectionOptions) {
             }
             withTimeout(options.timeouts.connect) { deferred.await() }
         } catch (_: TimeoutCancellationException) {
-            // Cancel the link and await didDisconnect BEFORE transitioning state, so the
-            // timeout's disconnect is consumed before an auto-reconnect (which wakes on the
-            // Disconnected emission) can start -- a stale didDisconnect would otherwise kill
-            // the next connect. The didDisconnect callback skips its own transition while
-            // [pendingTimeoutDisconnect] is set.
-            pendingTimeoutDisconnect = true
-            try {
-                val disconnected = slots.armDisconnect()
-                bridge.disconnect()
-                try {
-                    withTimeout(DISCONNECT_TIMEOUT) { disconnected.await() }
-                } catch (_: TimeoutCancellationException) {
-                    // didDisconnect never arrived; the transition below still fires. A late
-                    // delivery can still race a reconnect (see #633).
-                } finally {
-                    slots.clearDisconnect()
-                }
-            } finally {
-                pendingTimeoutDisconnect = false
-            }
+            cancelLinkAndAwaitDisconnect()
             peripheralContext.processEvent(
                 ConnectionEvent.ConnectionLost(ConnectionFailed("Connection timeout")),
             )
         } finally {
             slots.clearConnect()
         }
+        peripheralContext.awaitConnectSettled(deadline) { cancelLinkAndAwaitDisconnect() }
+    }
+}
+
+/**
+ * Cancels the link and awaits didDisconnect BEFORE the caller transitions state, so the
+ * disconnect is consumed before an auto-reconnect (which wakes on the Disconnected
+ * emission) can start -- a stale didDisconnect would otherwise kill the next connect. The
+ * didDisconnect callback skips its own transition while [pendingTimeoutDisconnect] is set.
+ */
+private suspend fun IosPeripheral.cancelLinkAndAwaitDisconnect() {
+    pendingTimeoutDisconnect = true
+    try {
+        val disconnected = slots.armDisconnect()
+        bridge.disconnect()
+        try {
+            withTimeout(DISCONNECT_TIMEOUT) { disconnected.await() }
+        } catch (_: TimeoutCancellationException) {
+            // didDisconnect never arrived; the caller's transition still fires. A late
+            // delivery can still race a reconnect (see #633).
+        } finally {
+            slots.clearDisconnect()
+        }
+    } finally {
+        pendingTimeoutDisconnect = false
     }
 }
 
