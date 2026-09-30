@@ -101,6 +101,28 @@ class FakeScannerTest {
             assertEquals(-60, ad.rssi)
             assertEquals(true, ad.isConnectable)
             assertEquals(emptyList(), ad.serviceUuids)
+            assertFalse(ad.isRetrieved)
+        }
+
+    @Test
+    fun emitsRetrievedAdvertisement() =
+        runTest {
+            val scanner =
+                FakeScanner {
+                    advertisement {
+                        rssi(0)
+                        isRetrieved(true)
+                    }
+                }
+
+            val ad =
+                scanner.scanEvents
+                    .mapNotNull { (it as? ScanEvent.Found)?.advertisement }
+                    .take(1)
+                    .toList()
+                    .first()
+            assertTrue(ad.isRetrieved)
+            assertEquals(0, ad.rssi)
         }
 
     @Test

@@ -16,6 +16,7 @@ class EmissionPolicyFilterTest {
         identifier: String = "device-1",
         name: String? = "Sensor",
         rssi: Int = -60,
+        isRetrieved: Boolean = false,
     ) = Advertisement(
         identifier = Identifier(identifier),
         name = name,
@@ -26,6 +27,7 @@ class EmissionPolicyFilterTest {
         manufacturerData = emptyMap(),
         serviceData = emptyMap(),
         timestampNanos = 0L,
+        isRetrieved = isRetrieved,
     )
 
     private fun found(ad: Advertisement) = ScanEvent.Found(ad)
@@ -76,6 +78,22 @@ class EmissionPolicyFilterTest {
             assertEquals(2, result.size)
             assertEquals(-60, result[0].rssi)
             assertEquals(-66, result[1].rssi)
+        }
+
+    @Test
+    fun firstThenChangesReEmitsWhenRetrievedPeripheralIsHeardOnAir() =
+        runTest {
+            val result =
+                flowOf(
+                    found(ad(identifier = "device-1", rssi = 0, isRetrieved = true)),
+                    // within threshold of the placeholder RSSI, but now heard on air
+                    found(ad(identifier = "device-1", rssi = -3)),
+                    found(ad(identifier = "device-1", rssi = -3)),
+                ).applyEmissionPolicy(EmissionPolicy.FirstThenChanges(rssiThreshold = 5))
+                    .mapNotNull { (it as? ScanEvent.Found)?.advertisement }
+                    .toList()
+
+            assertEquals(listOf(true, false), result.map { it.isRetrieved })
         }
 
     @Test

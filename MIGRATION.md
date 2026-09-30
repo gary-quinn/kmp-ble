@@ -1,5 +1,18 @@
 # Migration Guide
 
+## Advertisement.isRetrieved (unreleased, after 0.14.0)
+
+`Advertisement` has a new last constructor parameter, `isRetrieved: Boolean = false`. It is `true` for a peripheral the OS returned as already connected (iOS `retrieveConnectedPeripheralsWithServices`) instead of one heard advertising. Those advertisements have `rssi = 0` and no `rawAdvertising`.
+
+### Who is affected
+
+Source code needs no change. Code compiled against 0.14.0 or earlier that calls the `Advertisement` constructor or `copy()` must be recompiled, because both signatures changed. This includes libraries built on kmp-ble.
+
+### Steps
+
+1. Recompile against the new version.
+2. Replace `rawAdvertising == null && rssi == 0` checks with `advertisement.isRetrieved`.
+
 ## JVM desktop backends (unreleased, after 0.13.6)
 
 JVM BLE moved out of the core `kmp-ble` jar into backend modules that the portable API finds through `ServiceLoader` ([ADR-0003](docs/adr/ADR-0003-jvm-backend-spi.md)).

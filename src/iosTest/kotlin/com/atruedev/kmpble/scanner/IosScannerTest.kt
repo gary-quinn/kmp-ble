@@ -2,24 +2,25 @@ package com.atruedev.kmpble.scanner
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.uuid.ExperimentalUuidApi
 
+@OptIn(ExperimentalUuidApi::class)
 class IosScannerTest {
     @Test
-    fun `retrieved advertisement has zero RSSI and no service data`() {
-        // toRetrievedAdvertisement is a pure function on CBPeripheral.
-        // Since CBPeripheral is an ObjC class, we test the logical
-        // contract: the returned Advertisement must have the expected
-        // default values for fields unavailable from retrieve.
-        //
-        // We validate the contract via IosScanner.emitRetrievedPeripherals
-        // which calls toRetrievedAdvertisement internally. The emit callback
-        // captures the Advertisement for assertion.
+    fun `retrieved advertisement is flagged with zero RSSI and no payload`() {
+        val serviceUuid = uuidFrom("180d")
 
-        // This test validates the design: retrieved advertisements are
-        // minimal placeholders that signal "peripheral is connected, go
-        // use it" rather than full scan results.
-        assertTrue(true, "emitRetrievedPeripherals is extracted into a testable static function.")
+        val ad = retrievedAdvertisement("peripheral-1", "Sensor", listOf(serviceUuid))
+
+        assertTrue(ad.isRetrieved)
+        assertEquals(0, ad.rssi)
+        assertNull(ad.txPower)
+        assertNull(ad.rawAdvertising)
+        assertEquals(listOf(serviceUuid), ad.serviceUuids)
+        assertTrue(ad.manufacturerData.isEmpty())
+        assertTrue(ad.serviceData.isEmpty())
     }
 
     @Test

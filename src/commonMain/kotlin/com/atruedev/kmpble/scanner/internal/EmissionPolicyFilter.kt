@@ -49,6 +49,7 @@ private data class AdvertisementSnapshot(
     val serviceUuids: List<kotlin.uuid.Uuid>,
     val manufacturerDataHash: Int,
     val serviceDataHash: Int,
+    val isRetrieved: Boolean,
 )
 
 @OptIn(ExperimentalUuidApi::class)
@@ -59,6 +60,7 @@ private fun Advertisement.snapshot() =
         serviceUuids = serviceUuids,
         manufacturerDataHash = manufacturerData.hashCode(),
         serviceDataHash = serviceData.hashCode(),
+        isRetrieved = isRetrieved,
     )
 
 @OptIn(ExperimentalUuidApi::class)
@@ -68,6 +70,9 @@ private fun hasChanged(
     rssiThreshold: Int,
 ): Boolean {
     if (previous.name != current.name) return true
+    // Collectors must see a retrieved placeholder (rssi = 0) give way to an
+    // on-air result whatever the RSSI threshold is.
+    if (previous.isRetrieved != current.isRetrieved) return true
     if (previous.serviceUuids != current.serviceUuids) return true
     if (abs(previous.rssi - current.rssi) > rssiThreshold) return true
     val currentSnapshot = current.snapshot()
