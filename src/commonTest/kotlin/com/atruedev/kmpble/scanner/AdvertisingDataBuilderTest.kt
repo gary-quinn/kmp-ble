@@ -168,6 +168,19 @@ class AdvertisingDataBuilderTest {
     }
 
     @Test
+    fun `isRetrieved defaults to false and can be set`() {
+        assertFalse(AdvertisingDataBuilder().build().isRetrieved)
+
+        val ad =
+            AdvertisingDataBuilder()
+                .apply {
+                    isRetrieved(true)
+                }.build()
+
+        assertTrue(ad.isRetrieved)
+    }
+
+    @Test
     fun `timestamp and data status are propagated`() {
         val ad =
             AdvertisingDataBuilder()

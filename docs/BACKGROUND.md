@@ -420,7 +420,7 @@ val scanner = IosScanner {
 
 3. **Duplicate filtering**: iOS automatically deduplicates scan results. Use `EmissionPolicy.Every` in the foreground only -- background scans are always deduplicated by the OS.
 
-4. **Connected peripherals**: iOS auto-connects to bonded peripherals in the background, and `IosScanner` emits these via `retrieveConnectedPeripheralsWithServices`. This means bonded peripherals are always "visible" in the background via their service UUIDs.
+4. **Connected peripherals**: iOS auto-connects to bonded peripherals in the background, and `IosScanner` emits these via `retrieveConnectedPeripheralsWithServices`. This means bonded peripherals are always "visible" in the background via their service UUIDs. These advertisements have `isRetrieved = true` and `rssi = 0`, so do not compare their RSSI with scanned ones.
 
 ## kmp-ble Background Patterns
 
