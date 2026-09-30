@@ -11,6 +11,7 @@ import com.atruedev.kmpble.gatt.internal.NotConnectedException
 import com.atruedev.kmpble.internal.StateRestorationHandler
 import com.atruedev.kmpble.peripheral.internal.PeripheralRegistry
 import com.atruedev.kmpble.peripheral.internal.requirePeripheralOpen
+import com.atruedev.kmpble.peripheral.internal.runTeardown
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import platform.CoreBluetooth.CBCharacteristic
@@ -61,24 +62,31 @@ internal const val ATT_HEADER_SIZE = 3
  * disposal, observer deregistration, and state restoration persistence.
  */
 internal fun IosPeripheral.closeInternal() {
-    if (_closed.value) return
-    _closed.value = true
-    reconnectionHandler.stop()
-    bondManager.stop()
-    pairingRequestHandler.closeSync()
-    closeL2capChannels()
-    centralDelegate.unregisterConnectionCallback(identifier.value, connectionCallback)
-
-    // Invalidate in-flight discovery cycle callbacks before teardown.
-    discoveryGeneration.incrementAndGet()
-    currentDiscovery = null
-    bridge.close()
-
-    observationManager.onObservationsChanged = null
-    observationManager.clear()
-    StateRestorationHandler.default.clearPersistedObservations(identifier.value)
-    peripheralContext.close()
-    PeripheralRegistry.remove(identifier)
+    if (!_closed.compareAndSet(false, true)) return
+    try {
+        runTeardown(
+            { reconnectionHandler.stop() },
+            { bondManager.stop() },
+            { pairingRequestHandler.closeSync() },
+            { closeL2capChannels() },
+            { centralDelegate.unregisterConnectionCallback(identifier.value, connectionCallback) },
+            {
+                // Invalidate in-flight discovery cycle callbacks before teardown.
+                discoveryGeneration.incrementAndGet()
+                currentDiscovery = null
+                bridge.close()
+            },
+            {
+                observationManager.onObservationsChanged = null
+                observationManager.clear()
+            },
+            { StateRestorationHandler.default.clearPersistedObservations(identifier.value) },
+            { peripheralContext.close() },
+        )
+    } finally {
+        // A closed instance left registered would fail every later connect with PeripheralClosed.
+        PeripheralRegistry.remove(identifier)
+    }
 }
 
 /**

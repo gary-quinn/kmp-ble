@@ -49,6 +49,7 @@ import com.atruedev.kmpble.peripheral.internal.PeripheralContext
 import com.atruedev.kmpble.peripheral.internal.PeripheralRegistry
 import com.atruedev.kmpble.peripheral.internal.findCharacteristic
 import com.atruedev.kmpble.peripheral.internal.findDescriptor
+import com.atruedev.kmpble.peripheral.internal.runTeardown
 import com.atruedev.kmpble.peripheral.state.State
 import com.atruedev.kmpble.quirks.QuirkRegistry
 import kotlinx.coroutines.flow.Flow
@@ -174,17 +175,22 @@ public class AndroidPeripheral internal constructor(
 
     @OptIn(ExperimentalBleApi::class)
     override fun close() {
-        if (_closed.get()) return
-        _closed.set(true)
-        reconnectionHandler.stop()
-        pairingRequestHandler.closeSync()
-        bondManager.stop()
-        closeL2capChannels()
-        bridge.close()
-        observationManager.clear()
-        observationPersistence.clear(identifier.value)
-        peripheralContext.close()
-        PeripheralRegistry.remove(identifier)
+        if (!_closed.compareAndSet(false, true)) return
+        try {
+            runTeardown(
+                { reconnectionHandler.stop() },
+                { pairingRequestHandler.closeSync() },
+                { bondManager.stop() },
+                { closeL2capChannels() },
+                { bridge.close() },
+                { observationManager.clear() },
+                { observationPersistence.clear(identifier.value) },
+                { peripheralContext.close() },
+            )
+        } finally {
+            // A closed instance left registered would fail every later connect with PeripheralClosed.
+            PeripheralRegistry.remove(identifier)
+        }
     }
 
     override fun removeBond(): BondRemovalResult {
