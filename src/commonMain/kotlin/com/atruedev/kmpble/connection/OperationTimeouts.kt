@@ -25,7 +25,12 @@ import kotlin.time.Duration.Companion.seconds
  * different limit, run them inside [withGattOperationTimeout].
  */
 public data class OperationTimeouts(
-    /** Maximum time to establish a BLE connection. Default: 30s. */
+    /**
+     * Maximum time for [com.atruedev.kmpble.peripheral.Peripheral.connect] to reach
+     * `Connected.Ready`. When the connection has not settled in `Connected.Ready` or
+     * `Disconnected` by then, connect() tears the link down and throws a `BleException`
+     * with `ConnectionFailed` and `ConnectionFailureReason.TIMEOUT`. Default: 30s.
+     */
     val connect: Duration = 30.seconds,
     /** Maximum time for GATT service/characteristic discovery. Default: 15s. */
     val serviceDiscovery: Duration = 15.seconds,
