@@ -12,6 +12,7 @@ import com.atruedev.kmpble.connection.ConnectionOptions
 import com.atruedev.kmpble.connection.EncryptionLevel
 import com.atruedev.kmpble.connection.OperationTimeouts
 import com.atruedev.kmpble.connection.ReconnectionStrategy
+import com.atruedev.kmpble.connection.withGattOperationTimeout
 import com.atruedev.kmpble.error.BleException
 import com.atruedev.kmpble.error.ConnectionFailed
 import com.atruedev.kmpble.error.ConnectionFailureReason
@@ -29,6 +30,7 @@ import com.atruedev.kmpble.peripheral.state.State
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
@@ -119,6 +121,36 @@ class BackendPeripheralTest {
             assertContentEquals(byteArrayOf(0x01, 0x00), peripheral.readDescriptor(cccd))
             assertEquals(-42, peripheral.readRssi())
             assertEquals(185, peripheral.requestMtu(517))
+            peripheral.close()
+        }
+
+    @Test
+    fun gattOperationTimeoutScopeLengthensOnlyTheWrappedRead() =
+        runBlocking<Unit> {
+            val transport = FakePeripheralTransport().apply { readLatency = 300.milliseconds }
+            val (peripheral, _) = peripheral(transport)
+            peripheral.connect(options.copy(timeouts = options.timeouts.copy(read = 100.milliseconds)))
+            val heartRate = peripheral.heartRate()
+
+            assertFailsWith<TimeoutCancellationException> { peripheral.read(heartRate) }
+            val value = withGattOperationTimeout(5.seconds) { peripheral.read(heartRate) }
+            assertContentEquals(byteArrayOf(0x4B), value)
+            assertFailsWith<TimeoutCancellationException> { peripheral.read(heartRate) }
+            peripheral.close()
+        }
+
+    @Test
+    fun gattOperationTimeoutScopeShortensTheWrappedRead() =
+        runBlocking<Unit> {
+            val transport = FakePeripheralTransport().apply { readLatency = 300.milliseconds }
+            val (peripheral, _) = peripheral(transport)
+            peripheral.connect(options)
+            val heartRate = peripheral.heartRate()
+
+            assertFailsWith<TimeoutCancellationException> {
+                withGattOperationTimeout(100.milliseconds) { peripheral.read(heartRate) }
+            }
+            assertContentEquals(byteArrayOf(0x4B), peripheral.read(heartRate))
             peripheral.close()
         }
 

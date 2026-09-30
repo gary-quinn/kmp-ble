@@ -1,5 +1,6 @@
 package com.atruedev.kmpble.gatt.internal
 
+import com.atruedev.kmpble.connection.GattOperationTimeoutOverride
 import com.atruedev.kmpble.error.BleException
 import com.atruedev.kmpble.error.ConnectionFailureReason
 import com.atruedev.kmpble.error.ConnectionLost
@@ -11,6 +12,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
 import kotlin.time.Duration
@@ -103,10 +105,18 @@ internal class GattOperationQueue(
             )
     }
 
+    /**
+     * [timeout] is only the per-operation default: a
+     * [com.atruedev.kmpble.connection.withGattOperationTimeout] scope in the
+     * caller's context takes precedence, so callers can lengthen or shorten a
+     * single operation without changing the connection's
+     * [com.atruedev.kmpble.connection.OperationTimeouts].
+     */
     suspend fun <T> enqueue(
         timeout: Duration = state.value.operationTimeout,
         block: suspend () -> T,
     ): T {
+        val effectiveTimeout = currentCoroutineContext()[GattOperationTimeoutOverride]?.timeout ?: timeout
         val deferred = CompletableDeferred<T>()
         lateinit var entry: QueueEntry
         entry =
@@ -139,7 +149,7 @@ internal class GattOperationQueue(
         }
 
         return try {
-            withTimeout(timeout) {
+            withTimeout(effectiveTimeout) {
                 deferred.await()
             }
         } catch (e: Throwable) {
