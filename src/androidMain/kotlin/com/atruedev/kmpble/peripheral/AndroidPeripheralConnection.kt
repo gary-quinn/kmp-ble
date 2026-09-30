@@ -15,6 +15,7 @@ import com.atruedev.kmpble.error.ConnectionLost
 import com.atruedev.kmpble.error.OperationFailed
 import com.atruedev.kmpble.logging.BleLogEvent
 import com.atruedev.kmpble.logging.logEvent
+import com.atruedev.kmpble.peripheral.internal.processLinkLoss
 import com.atruedev.kmpble.peripheral.state.ConnectionEvent
 import com.atruedev.kmpble.peripheral.state.State
 import com.atruedev.kmpble.quirks.BleQuirks
@@ -233,7 +234,7 @@ internal suspend fun AndroidPeripheral.handleLinkDown(rawStatus: Int) {
         } else {
             ConnectionLost("Remote disconnect", ConnectionFailureReason.LINK_LOSS, rawStatus)
         }
-    peripheralContext.processEvent(ConnectionEvent.ConnectionLost(bleError))
+    peripheralContext.processLinkLoss(bleError)
     if (disconnectRequested) slots.completeDisconnect()
     onDisconnectCleanup()
     // Release a discovery cycle left in flight by the disconnect, so the next
