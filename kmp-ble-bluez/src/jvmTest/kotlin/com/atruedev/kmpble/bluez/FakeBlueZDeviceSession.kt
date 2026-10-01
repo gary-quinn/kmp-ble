@@ -21,15 +21,18 @@ internal open class FakeBlueZDeviceSession(
 
     @Volatile var paired = false
 
-    var connectCalls = 0
+    @Volatile var connectCalls = 0
+
+    @Volatile var disconnectCalls = 0
+
     var registerCalls = 0
     var echoReads = false
-    var disconnectCalls = 0
     var pairCalls = 0
     var cancelPairingCalls = 0
     var removeCalls = 0
     var closeCalls = 0
     var connectBlock: CountDownLatch? = null
+    var onConnect: (() -> Unit)? = null
     var readFailure: Exception? = null
     val reads = CopyOnWriteArrayList<String>()
     val writes = CopyOnWriteArrayList<Triple<String, ByteArray, String>>()
@@ -66,6 +69,7 @@ internal open class FakeBlueZDeviceSession(
 
     override fun connect(): BlueZPendingCall {
         connectCalls++
+        onConnect?.invoke()
         val gate = connectBlock
         return object : BlueZPendingCall {
             override fun isDone(): Boolean = gate == null || gate.count == 0L
