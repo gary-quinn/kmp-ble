@@ -68,7 +68,7 @@ Or run the bundled CLI:
 
 | Feature | BlueZ behavior |
 |---------|----------------|
-| Scan | `Adapter1.StartDiscovery` with `Transport=le`, `DuplicateData=true`, and the service UUIDs every filter group requires. Filters, deduplication, and timeouts run in core. `isConnectable` is derived from `Device1.AdvertisingFlags`, an experimental property that `bluetoothd` only publishes with `--experimental`; without it every advertisement reports `isConnectable = false`. |
+| Scan | `Adapter1.StartDiscovery` with `Transport=le`, `DuplicateData=true`, and the service UUIDs every filter group requires. Filters, deduplication, and timeouts run in core. `isConnectable` is derived from `Device1.AdvertisingFlags`, an experimental property that `bluetoothd` only publishes with `--experimental`; without it every advertisement reports `isConnectable = true`, including non-connectable advertisers. |
 | Connect / discovery | `Device1.Connect`, then the GATT table from `ObjectManager.GetManagedObjects` once `ServicesResolved` is true. A cancelled or timed-out connect sends `Device1.Disconnect`. |
 | MTU | `GattCharacteristic1.MTU` (BlueZ 5.62+). `requestMtu()` returns the negotiated value; BlueZ negotiates on its own. |
 | Writes | `WithResponse` maps to `type=request`, `WithoutResponse` and `Signed` to `type=command`, `writeReliable()` to `type=reliable`. |
