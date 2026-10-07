@@ -30,6 +30,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import org.bluez.exceptions.BluezInProgressException
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicReference
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
@@ -103,7 +104,7 @@ internal class BlueZPeripheralTransport(
             if (pairingHandler != null) BlueZPairingAgent.ensureRegistered()
         }
         try {
-            awaitCall(withContext(Dispatchers.IO) { session.connect() }) { session.disconnect() }
+            awaitCall(issue = { session.connect() }, abort = { session.disconnect() })
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -219,7 +220,7 @@ internal class BlueZPeripheralTransport(
         val session = openSession()
         if (pairingHandler != null) withContext(Dispatchers.IO) { BlueZPairingAgent.ensureRegistered() }
         try {
-            awaitCall(withContext(Dispatchers.IO) { session.pair() }) { session.cancelPairing() }
+            awaitCall(issue = { session.pair() }, abort = { session.cancelPairing() })
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -349,16 +350,25 @@ internal class BlueZPeripheralTransport(
         }
     }
 
+    /**
+     * The call is recorded on the IO thread that issues it: a cancellation that lands while that
+     * withContext is returning discards its result, and the issued D-Bus call would then run on
+     * without ever being aborted.
+     */
     private suspend fun awaitCall(
-        call: BlueZPendingCall,
+        issue: () -> BlueZPendingCall,
         abort: () -> Unit,
     ) {
-        try {
-            while (!call.isDone()) delay(pollInterval)
-        } catch (e: CancellationException) {
-            withContext(NonCancellable + Dispatchers.IO) { runCatching(abort) }
-            throw e
-        }
+        val issued = AtomicReference<BlueZPendingCall?>(null)
+        val call =
+            try {
+                withContext(Dispatchers.IO) { issue().also(issued::set) }.also { call ->
+                    while (!call.isDone()) delay(pollInterval)
+                }
+            } catch (e: CancellationException) {
+                if (issued.get() != null) withContext(NonCancellable + Dispatchers.IO) { runCatching(abort) }
+                throw e
+            }
         withContext(Dispatchers.IO) { call.result() }
     }
 

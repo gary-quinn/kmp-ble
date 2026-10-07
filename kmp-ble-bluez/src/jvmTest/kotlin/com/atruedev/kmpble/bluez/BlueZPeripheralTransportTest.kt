@@ -19,6 +19,8 @@ import com.atruedev.kmpble.error.GattStatus
 import com.atruedev.kmpble.gatt.WriteType
 import com.atruedev.kmpble.peripheral.Peripheral
 import com.atruedev.kmpble.peripheral.state.State
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -294,6 +296,22 @@ class BlueZPeripheralTransportTest {
             job.cancel()
             job.join()
             withTimeout(2.seconds) { while (session.disconnectCalls == 0) delay(5) }
+            transport.close()
+        }
+
+    @Test
+    fun connectCancelledWhileTheCallIsIssuedStillAborts() =
+        runBlocking<Unit> {
+            val session = FakeBlueZDeviceSession().apply { connectBlock = CountDownLatch(1) }
+            val (transport, _) = transport(session)
+            lateinit var job: Job
+            // The cancel lands on the IO thread right after Connect is issued, so the
+            // withContext that issued it returns into a cancelled caller.
+            session.onConnect = { job.cancel() }
+            job = launch(start = CoroutineStart.LAZY) { runCatching { transport.connect(options) } }
+            job.start()
+            job.join()
+            assertEquals(1, session.disconnectCalls)
             transport.close()
         }
 
