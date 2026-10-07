@@ -108,6 +108,7 @@ internal class FakePeripheralTransport(
     var discoverFailure: Throwable? = null
     var onDiscover: (suspend () -> Unit)? = null
     var setNotifyLatency: Duration = Duration.ZERO
+    var readLatency: Duration = Duration.ZERO
     var bond: BondState = BondState.NotBonded
     var bondFailure: Throwable? = null
     var mtuValue = 185
@@ -150,6 +151,7 @@ internal class FakePeripheralTransport(
     }
 
     override suspend fun read(characteristic: Long): ByteArray {
+        delay(readLatency)
         requireLink()
         return values[characteristic] ?: byteArrayOf(0x4B)
     }

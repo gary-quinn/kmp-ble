@@ -1,9 +1,15 @@
 package com.atruedev.kmpble.gatt.internal
 
+import com.atruedev.kmpble.connection.withGattOperationTimeout
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.currentTime
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.yield
 import kotlin.test.Test
@@ -11,6 +17,8 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
@@ -216,5 +224,163 @@ class GattOperationQueueTest {
             job.join()
 
             assertTrue(actionCancelled, "close() must cancel in-flight actions")
+        }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun withoutScopeTheOperationDefaultApplies() =
+        runTest {
+            val queue = GattOperationQueue(backgroundScope)
+            queue.start()
+
+            val start = currentTime
+            assertFailsWith<TimeoutCancellationException> {
+                queue.enqueue(timeout = 5.seconds) { delay(20.seconds) }
+            }
+            assertEquals(5_000, currentTime - start)
+        }
+
+    @Test
+    fun scopeLengthensOperationPastDefault() =
+        runTest {
+            val queue = GattOperationQueue(backgroundScope)
+            queue.start()
+
+            val result =
+                withGattOperationTimeout(30.seconds) {
+                    queue.enqueue(timeout = 5.seconds) {
+                        delay(20.seconds)
+                        "late"
+                    }
+                }
+            assertEquals("late", result)
+        }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun scopeShortensOperationBelowDefault() =
+        runTest {
+            val queue = GattOperationQueue(backgroundScope)
+            queue.start()
+
+            val start = currentTime
+            assertFailsWith<TimeoutCancellationException> {
+                withGattOperationTimeout(1.seconds) {
+                    queue.enqueue(timeout = 5.seconds) { delay(3.seconds) }
+                }
+            }
+            assertEquals(1_000, currentTime - start)
+        }
+
+    @Test
+    fun scopeAlsoOverridesQueueWideDefault() =
+        runTest {
+            val queue = GattOperationQueue(backgroundScope)
+            queue.start(timeout = 1.seconds)
+
+            val result =
+                withGattOperationTimeout(30.seconds) {
+                    queue.enqueueBle {
+                        delay(20.seconds)
+                        "late"
+                    }
+                }
+            assertEquals("late", result)
+        }
+
+    @Test
+    fun innermostScopeWins() =
+        runTest {
+            val queue = GattOperationQueue(backgroundScope)
+            queue.start()
+
+            val lengthened =
+                withGattOperationTimeout(1.seconds) {
+                    withGattOperationTimeout(30.seconds) {
+                        queue.enqueue(timeout = 5.seconds) {
+                            delay(20.seconds)
+                            "inner"
+                        }
+                    }
+                }
+            assertEquals("inner", lengthened)
+
+            withGattOperationTimeout(30.seconds) {
+                assertFailsWith<TimeoutCancellationException> {
+                    withGattOperationTimeout(1.seconds) {
+                        queue.enqueue(timeout = 5.seconds) { delay(3.seconds) }
+                    }
+                }
+                // The inner scope must not leak into the rest of the outer block.
+                val outer =
+                    queue.enqueue(timeout = 5.seconds) {
+                        delay(20.seconds)
+                        "outer"
+                    }
+                assertEquals("outer", outer)
+            }
+        }
+
+    @Test
+    fun scopeDoesNotOutliveItsBlock() =
+        runTest {
+            val queue = GattOperationQueue(backgroundScope)
+            queue.start()
+
+            withGattOperationTimeout(30.seconds) {
+                queue.enqueue(timeout = 5.seconds) { delay(20.seconds) }
+            }
+            assertFailsWith<TimeoutCancellationException> {
+                queue.enqueue(timeout = 5.seconds) { delay(20.seconds) }
+            }
+        }
+
+    @Test
+    fun scopeIsInheritedByChildCoroutines() =
+        runTest {
+            val queue = GattOperationQueue(backgroundScope)
+            queue.start()
+
+            val result =
+                withGattOperationTimeout(30.seconds) {
+                    coroutineScope {
+                        async {
+                            queue.enqueue(timeout = 5.seconds) {
+                                delay(20.seconds)
+                                "child"
+                            }
+                        }.await()
+                    }
+                }
+            assertEquals("child", result)
+        }
+
+    @Test
+    fun infiniteScopeRemovesTheLimit() =
+        runTest {
+            val queue = GattOperationQueue(backgroundScope)
+            queue.start()
+
+            val result =
+                withGattOperationTimeout(Duration.INFINITE) {
+                    queue.enqueue(timeout = 1.milliseconds) {
+                        delay(1.hours)
+                        "done"
+                    }
+                }
+            assertEquals("done", result)
+        }
+
+    @Test
+    fun scopeRejectsNonPositiveTimeout() =
+        runTest {
+            var ran = false
+            assertFailsWith<IllegalArgumentException> {
+                withGattOperationTimeout(Duration.ZERO) { ran = true }
+            }
+            assertFailsWith<IllegalArgumentException> {
+                withGattOperationTimeout((-1).seconds) { ran = true }
+            }
+            assertFalse(ran, "block must not run when the timeout is rejected")
         }
 }
