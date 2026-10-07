@@ -94,6 +94,15 @@ internal class MacosPeripheralTransport(
                     ConnectionFailed(e.message ?: "", ConnectionFailureReason.UNKNOWN, Macos.ERROR_NATIVE_UNAVAILABLE),
                 )
             }
+        if (stack.awaitingBluetoothDecision(state)) {
+            throw BleException(
+                ConnectionFailed(
+                    AWAITING_BLUETOOTH_DECISION_MESSAGE,
+                    ConnectionFailureReason.UNKNOWN,
+                    Macos.ERROR_UNAUTHORIZED,
+                ),
+            )
+        }
         if (state != CbManagerState.POWERED_ON) {
             throw BleException(
                 ConnectionFailed(

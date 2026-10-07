@@ -76,12 +76,21 @@ internal class MacosStack(
         return api.missingUsageDescriptionHost()
     }
 
-    /** Waits until the central leaves `Unknown`/`Resetting`; returns the settled state. */
+    /**
+     * Waits until the central leaves `Unknown`/`Resetting`; returns the settled state. Returns the
+     * unsettled state at once while [awaitingBluetoothDecision], since the central stays `Unknown`
+     * until the user answers the Bluetooth prompt, however long that takes.
+     */
     suspend fun awaitCentralSettled(timeout: Duration): Int {
         ensureCentral()
         _centralState.compareAndSet(CbManagerState.UNKNOWN, api.centralState())
+        if (awaitingBluetoothDecision(_centralState.value)) return _centralState.value
         return withTimeoutOrNull(timeout) { centralState.first { it.isSettled() } } ?: _centralState.value
     }
+
+    /** True when the central is in [state] only because macOS has no Bluetooth decision for this app yet. */
+    fun awaitingBluetoothDecision(state: Int): Boolean =
+        !state.isSettled() && api.authorization() == CbAuthorization.NOT_DETERMINED
 
     suspend fun awaitPeripheralManagerSettled(timeout: Duration): Int {
         ensurePeripheralManager()
@@ -218,6 +227,9 @@ internal class MacosStack(
         val shared: MacosStack by lazy { MacosStack(JniMacosNativeApi) }
     }
 }
+
+internal const val AWAITING_BLUETOOTH_DECISION_MESSAGE =
+    "macOS is waiting for the user to allow Bluetooth for this app; retry once access is granted"
 
 /** [host] lacks `NSBluetoothAlwaysUsageDescription`; macOS would terminate the process. */
 internal class MissingUsageDescriptionException(

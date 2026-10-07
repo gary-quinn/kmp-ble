@@ -45,6 +45,14 @@ internal object CbManagerState {
     const val POWERED_ON = 5
 }
 
+/** `CBManagerAuthorization` raw values. */
+internal object CbAuthorization {
+    const val NOT_DETERMINED = 0
+    const val RESTRICTED = 1
+    const val DENIED = 2
+    const val ALLOWED_ALWAYS = 3
+}
+
 /** One discovered attribute: `handle|uuid[|properties]` in the native payload. */
 internal data class AttributeLine(
     val handle: Long,

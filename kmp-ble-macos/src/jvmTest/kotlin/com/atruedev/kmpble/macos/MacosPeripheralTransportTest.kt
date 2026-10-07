@@ -242,6 +242,18 @@ class MacosPeripheralTransportTest {
                 ).platformCode,
             )
 
+            val (undecided, _) =
+                transport {
+                    initialCentralState = CbManagerState.UNKNOWN
+                    authorizationValue = 0
+                }
+            assertEquals(
+                Macos.ERROR_UNAUTHORIZED,
+                assertIs<ConnectionFailed>(
+                    assertFailsWith<BleException> { undecided.connect(options) }.error,
+                ).platformCode,
+            )
+
             val (missing, _) = transport { missingUsageHost = "/Applications/Host.app" }
             assertEquals(
                 Macos.ERROR_USAGE_DESCRIPTION_MISSING,
