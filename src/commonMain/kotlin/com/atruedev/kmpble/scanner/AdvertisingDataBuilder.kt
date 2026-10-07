@@ -31,6 +31,7 @@ import kotlin.uuid.Uuid
  * - isLegacy: true
  * - primaryPhy: Phy.Le1M
  * - dataStatus: DataStatus.Complete
+ * - isRetrieved: false
  */
 @OptIn(ExperimentalUuidApi::class)
 public class AdvertisingDataBuilder {
@@ -50,6 +51,7 @@ public class AdvertisingDataBuilder {
     private var dataStatus: DataStatus = DataStatus.Complete
     private var timestampNanos: Long = 0L
     private var rawAdvertising: RawAdvertising? = null
+    private var isRetrieved: Boolean = false
 
     public fun identifier(value: String) {
         identifier = Identifier(value)
@@ -107,6 +109,10 @@ public class AdvertisingDataBuilder {
         rawAdvertising = value
     }
 
+    public fun isRetrieved(value: Boolean) {
+        isRetrieved = value
+    }
+
     public fun serviceUuids(vararg uuids: String) {
         serviceUuids = uuids.map { uuidFrom(it) }
     }
@@ -157,6 +163,7 @@ public class AdvertisingDataBuilder {
             periodicAdvertisingInterval = periodicAdvertisingInterval,
             dataStatus = dataStatus,
             rawAdvertising = rawAdvertising,
+            isRetrieved = isRetrieved,
         )
 
     public companion object {

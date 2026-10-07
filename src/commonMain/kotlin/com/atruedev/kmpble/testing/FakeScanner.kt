@@ -137,6 +137,15 @@ public class FakeAdvertisementBuilder {
         delegate.dataStatus(value)
     }
 
+    /**
+     * Marks the advertisement as one the OS returned as already connected
+     * instead of one heard on air. See [Advertisement.isRetrieved]; pair it
+     * with `rssi(0)` to match what a platform scanner emits.
+     */
+    public fun isRetrieved(value: Boolean) {
+        delegate.isRetrieved(value)
+    }
+
     public fun serviceUuids(vararg uuids: String) {
         delegate.serviceUuids(*uuids)
     }

@@ -4,8 +4,10 @@ import com.atruedev.kmpble.BleData
 import com.atruedev.kmpble.Identifier
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotEquals
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import kotlin.uuid.ExperimentalUuidApi
 
 @OptIn(ExperimentalUuidApi::class)
@@ -27,6 +29,20 @@ class AdvertisementTest {
     @Test
     fun rawAdvertisingDefaultsToNull() {
         assertNull(ad().rawAdvertising)
+    }
+
+    @Test
+    fun isRetrievedDefaultsToFalse() {
+        assertFalse(ad().isRetrieved)
+    }
+
+    @Test
+    fun equalityIncludesIsRetrieved() {
+        val heard = ad()
+        val retrieved = heard.copy(isRetrieved = true)
+
+        assertTrue(retrieved.isRetrieved)
+        assertNotEquals(heard, retrieved)
     }
 
     @Test
