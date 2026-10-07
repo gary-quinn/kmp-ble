@@ -42,6 +42,7 @@ import com.atruedev.kmpble.peripheral.internal.PeripheralRegistry
 import com.atruedev.kmpble.peripheral.internal.findCharacteristic
 import com.atruedev.kmpble.peripheral.internal.findDescriptor
 import com.atruedev.kmpble.peripheral.internal.requirePeripheralOpen
+import com.atruedev.kmpble.peripheral.internal.runTeardown
 import com.atruedev.kmpble.peripheral.state.State
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
@@ -136,15 +137,23 @@ internal class BackendPeripheral(
 
     override fun close() {
         if (!closed.compareAndSet(false, true)) return
-        reconnectionHandler.stop()
-        l2capChannels.forEach { it.close() }
-        l2capChannels.clear()
-        transport.setEventListener(null)
-        runCatching { transport.close() }
-        events.close()
-        observationManager.clear()
-        context.close()
-        PeripheralRegistry.remove(identifier)
+        try {
+            runTeardown(
+                { reconnectionHandler.stop() },
+                {
+                    l2capChannels.forEach { it.close() }
+                    l2capChannels.clear()
+                },
+                { transport.setEventListener(null) },
+                { runCatching { transport.close() } },
+                { events.close() },
+                { observationManager.clear() },
+                { context.close() },
+            )
+        } finally {
+            // A closed instance left registered would fail every later connect with PeripheralClosed.
+            PeripheralRegistry.remove(identifier)
+        }
     }
 
     override fun removeBond(): BondRemovalResult {

@@ -30,8 +30,18 @@ import kotlin.uuid.Uuid
  */
 @OptIn(ExperimentalUuidApi::class)
 internal fun CBPeripheral.toRetrievedAdvertisement(serviceUuids: List<Uuid>): Advertisement =
+    retrievedAdvertisement(identifier.UUIDString, name, serviceUuids)
+        .also { it.platformContext = this }
+
+// Split from the CBPeripheral extension because tests cannot create a CBPeripheral.
+@OptIn(ExperimentalUuidApi::class)
+internal fun retrievedAdvertisement(
+    identifier: String,
+    name: String?,
+    serviceUuids: List<Uuid>,
+): Advertisement =
     Advertisement(
-        identifier = Identifier(identifier.UUIDString),
+        identifier = Identifier(identifier),
         name = name,
         rssi = 0,
         txPower = null,
@@ -41,7 +51,8 @@ internal fun CBPeripheral.toRetrievedAdvertisement(serviceUuids: List<Uuid>): Ad
         serviceData = emptyMap(),
         timestampNanos = (NSDate().timeIntervalSince1970 * 1_000_000_000).toLong(),
         rawAdvertising = null,
-    ).also { it.platformContext = this }
+        isRetrieved = true,
+    )
 
 @OptIn(ExperimentalUuidApi::class)
 internal fun RawScanResult.toAdvertisement(): Advertisement {

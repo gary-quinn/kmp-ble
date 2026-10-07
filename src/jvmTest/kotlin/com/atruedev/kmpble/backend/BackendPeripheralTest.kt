@@ -12,6 +12,7 @@ import com.atruedev.kmpble.connection.ConnectionOptions
 import com.atruedev.kmpble.connection.EncryptionLevel
 import com.atruedev.kmpble.connection.OperationTimeouts
 import com.atruedev.kmpble.connection.ReconnectionStrategy
+import com.atruedev.kmpble.connection.withGattOperationTimeout
 import com.atruedev.kmpble.error.BleException
 import com.atruedev.kmpble.error.ConnectionFailed
 import com.atruedev.kmpble.error.ConnectionFailureReason
@@ -24,24 +25,30 @@ import com.atruedev.kmpble.gatt.WriteType
 import com.atruedev.kmpble.l2cap.L2capChannelError
 import com.atruedev.kmpble.l2cap.L2capChannelState
 import com.atruedev.kmpble.l2cap.L2capException
+import com.atruedev.kmpble.peripheral.Peripheral
 import com.atruedev.kmpble.peripheral.internal.PeripheralRegistry
 import com.atruedev.kmpble.peripheral.state.State
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import java.util.concurrent.CopyOnWriteArrayList
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
+import kotlin.test.assertNotSame
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
@@ -119,6 +126,36 @@ class BackendPeripheralTest {
             assertContentEquals(byteArrayOf(0x01, 0x00), peripheral.readDescriptor(cccd))
             assertEquals(-42, peripheral.readRssi())
             assertEquals(185, peripheral.requestMtu(517))
+            peripheral.close()
+        }
+
+    @Test
+    fun gattOperationTimeoutScopeLengthensOnlyTheWrappedRead() =
+        runBlocking<Unit> {
+            val transport = FakePeripheralTransport().apply { readLatency = 300.milliseconds }
+            val (peripheral, _) = peripheral(transport)
+            peripheral.connect(options.copy(timeouts = options.timeouts.copy(read = 100.milliseconds)))
+            val heartRate = peripheral.heartRate()
+
+            assertFailsWith<TimeoutCancellationException> { peripheral.read(heartRate) }
+            val value = withGattOperationTimeout(5.seconds) { peripheral.read(heartRate) }
+            assertContentEquals(byteArrayOf(0x4B), value)
+            assertFailsWith<TimeoutCancellationException> { peripheral.read(heartRate) }
+            peripheral.close()
+        }
+
+    @Test
+    fun gattOperationTimeoutScopeShortensTheWrappedRead() =
+        runBlocking<Unit> {
+            val transport = FakePeripheralTransport().apply { readLatency = 300.milliseconds }
+            val (peripheral, _) = peripheral(transport)
+            peripheral.connect(options)
+            val heartRate = peripheral.heartRate()
+
+            assertFailsWith<TimeoutCancellationException> {
+                withGattOperationTimeout(100.milliseconds) { peripheral.read(heartRate) }
+            }
+            assertContentEquals(byteArrayOf(0x4B), peripheral.read(heartRate))
             peripheral.close()
         }
 
@@ -450,6 +487,27 @@ class BackendPeripheralTest {
             assertTrue(transport.l2capStreams.single().closed)
             assertFailsWith<L2capException.NotConnected> { peripheral.openL2capChannel(psm = 0x81) }
             peripheral.close()
+        }
+
+    @Test
+    fun closeUnregistersAndFinishesTeardownWhenAStepThrows() =
+        runBlocking<Unit> {
+            val failure = IllegalStateException("listener teardown failed")
+            val transports = CopyOnWriteArrayList<FakePeripheralTransport>()
+            val backend =
+                FakeBackend(peripheralFactory = { _, _ -> FakePeripheralTransport().also(transports::add) })
+            val first = assertIs<BackendPeripheral>(backend.peripheral(identifier))
+            transports.single().clearListenerFailure = failure
+
+            assertSame(failure, assertFailsWith<IllegalStateException> { first.close() })
+            assertEquals(1, transports.single().closeCalls, "steps after the failing one must still run")
+            assertFalse(first.context.scope.isActive, "steps after the failing one must still run")
+
+            val second = backend.peripheral(identifier)
+            assertNotSame<Peripheral>(first, second)
+            second.connect(options)
+            assertIs<State.Connected.Ready>(second.state.value)
+            second.close()
         }
 
     @Test

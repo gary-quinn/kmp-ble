@@ -20,6 +20,9 @@ import kotlin.time.Duration.Companion.seconds
  *     ),
  * ))
  * ```
+ *
+ * These values hold for the whole connection. To give specific GATT operations a
+ * different limit, run them inside [withGattOperationTimeout].
  */
 public data class OperationTimeouts(
     /** Maximum time to establish a BLE connection. Default: 30s. */

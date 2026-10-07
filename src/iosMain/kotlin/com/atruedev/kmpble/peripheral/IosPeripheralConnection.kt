@@ -7,6 +7,7 @@ import com.atruedev.kmpble.error.ConnectionFailureReason
 import com.atruedev.kmpble.error.ConnectionLost
 import com.atruedev.kmpble.error.OperationFailed
 import com.atruedev.kmpble.internal.CoreBluetoothGuards
+import com.atruedev.kmpble.peripheral.internal.processLinkLoss
 import com.atruedev.kmpble.peripheral.state.ConnectionEvent
 import com.atruedev.kmpble.peripheral.state.State
 import kotlinx.coroutines.CancellationException
@@ -158,9 +159,7 @@ internal fun IosPeripheral.handleConnectionCallback(
         // Skip the transition when it is owned elsewhere: the connect-timeout path performs
         // it after awaiting this callback, and an already-Disconnected peripheral must not
         // replay an invalid ConnectionLost (e.g. a late didDisconnect after the await expired).
-        if (!pendingTimeoutDisconnect && peripheralContext.state.value !is State.Disconnected) {
-            peripheralContext.processEvent(ConnectionEvent.ConnectionLost(bleError))
-        }
+        if (!pendingTimeoutDisconnect) peripheralContext.processLinkLoss(bleError)
         slots.completeDisconnect()
         onDisconnectCleanup()
         // Release a discovery cycle left in flight by the disconnect, so the next

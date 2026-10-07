@@ -10,8 +10,11 @@ import android.content.Intent
 import android.content.IntentFilter
 import com.atruedev.kmpble.bonding.BondRemovalResult
 import com.atruedev.kmpble.bonding.BondState
+import com.atruedev.kmpble.error.ConnectionFailed
+import com.atruedev.kmpble.error.ConnectionFailureReason
 import com.atruedev.kmpble.peripheral.internal.PeripheralContext
 import com.atruedev.kmpble.peripheral.state.ConnectionEvent
+import com.atruedev.kmpble.peripheral.state.State
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -134,13 +137,15 @@ internal class AndroidBondManager(
                                 if (previousState == BluetoothDevice.BOND_BONDING) {
                                     peripheralContext.processEvent(
                                         ConnectionEvent.BondFailed(
-                                            com.atruedev.kmpble.error
-                                                .ConnectionFailed(reason = "Bonding failed"),
+                                            ConnectionFailed(
+                                                reason = "Bonding failed",
+                                                failureReason = ConnectionFailureReason.BONDING_FAILED,
+                                            ),
                                         ),
                                     )
                                     bondComplete?.complete(false)
                                 } else {
-                                    peripheralContext.processEvent(ConnectionEvent.BondStateChanged)
+                                    onBondRemoved()
                                 }
                             }
                         }
@@ -156,6 +161,15 @@ internal class AndroidBondManager(
             filter,
             androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED,
         )
+    }
+
+    private suspend fun onBondRemoved() {
+        val state = peripheralContext.processEvent(ConnectionEvent.BondStateChanged)
+        if (state !is State.Connected.BondingChange) return
+        // bondState and encryptionLevel already reflect the removed bond, and nothing else
+        // on Android depends on it. Staying in BondingChange would keep the peripheral out
+        // of Ready, so observe() would never enable another CCCD on this link.
+        peripheralContext.processEvent(ConnectionEvent.BondChangeProcessed)
     }
 
     private fun unregisterReceiver() {

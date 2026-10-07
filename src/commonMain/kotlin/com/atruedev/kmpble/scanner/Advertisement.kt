@@ -28,6 +28,20 @@ import kotlin.uuid.Uuid
  * variant before using the bytes for byte-exact comparisons. Use the parsed
  * fields above for cross-platform code, [rawAdvertising] for diagnostics or
  * vendor-specific AD types the library does not parse.
+ *
+ * ## Retrieved peripherals
+ *
+ * [isRetrieved] is `true` when the scanner did not hear this peripheral
+ * advertise but got it from the OS as already connected. On iOS the scanner
+ * asks CoreBluetooth for connected peripherals that expose the filtered
+ * service UUIDs, because a bonded peripheral the system connected on its own
+ * stops advertising and cannot be found any other way. Such an advertisement
+ * carries only [identifier], [name] and the scan filter's service UUIDs in
+ * [serviceUuids]: [rssi] is `0` rather than a measurement, [txPower] is
+ * `null`, and there is no [rawAdvertising] payload. Because `0` passes any
+ * [ScanPredicate.MinRssi] filter, leave these out when ranking or
+ * thresholding by signal strength. Advertisements heard on air always have
+ * [isRetrieved] = `false`.
  */
 @OptIn(ExperimentalUuidApi::class)
 public data class Advertisement(
@@ -47,13 +61,14 @@ public data class Advertisement(
     public val periodicAdvertisingInterval: Int? = null,
     public val dataStatus: DataStatus = DataStatus.Complete,
     public val rawAdvertising: RawAdvertising? = null,
+    public val isRetrieved: Boolean = false,
 ) {
     internal var platformContext: Any? = null
 
     override fun toString(): String =
         "Advertisement(identifier=$identifier, name=$name, rssi=$rssi, " +
             "serviceUuids=$serviceUuids, isLegacy=$isLegacy, " +
-            "rawAdvertising=${rawAdvertising?.describe()})"
+            "rawAdvertising=${rawAdvertising?.describe()}, isRetrieved=$isRetrieved)"
 }
 
 private fun RawAdvertising.describe(): String =
