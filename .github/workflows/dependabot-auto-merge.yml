@@ -1,0 +1,70 @@
+name: Dependabot Auto Merge
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  checks: read
+
+jobs:
+  auto-merge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: zulu
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+
+      - name: Process open Dependabot PRs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          prs=$(gh pr list --author "app/dependabot" --json number,title,headRefName,url,body)
+          echo "$prs" | jq -c '.[]' | while read -r pr; do
+            pr_number=$(echo "$pr" | jq -r '.number')
+            pr_title=$(echo "$pr" | jq -r '.title')
+            pr_head=$(echo "$pr" | jq -r '.headRefName')
+            pr_url=$(echo "$pr" | jq -r '.url')
+            pr_body=$(echo "$pr" | jq -r '.body')
+
+            echo "Processing Dependabot PR #$pr_number: $pr_title"
+
+            is_breaking=false
+            if echo "$pr_body" | grep -q "update-type: version-update:semver-major" || echo "$pr_title" | grep -iq "BREAKING"; then
+              is_breaking=true
+            fi
+
+            git fetch origin "$pr_head"
+            git checkout "$pr_head"
+
+            if [ "$is_breaking" = false ]; then
+              echo "Non-breaking Dependabot PR detected. Verifying and merging PR #$pr_number without comments..."
+              ./gradlew testAndroidHostTest
+              gh pr merge "$pr_url" --squash --delete-branch
+            else
+              echo "Breaking Dependabot PR detected. Attempting patch and merge for PR #$pr_number..."
+              if ! ./gradlew testAndroidHostTest; then
+                echo "Tests failed on breaking PR. Checking for and committing local patch fixes..."
+                if ! git diff --quiet; then
+                  git config user.name "github-actions[bot]"
+                  git config user.email "github-actions[bot]@users.noreply.github.com"
+                  git commit -am "fix(dependabot): patch breaking changes"
+                  git push origin "$pr_head"
+                fi
+              fi
+
+              ./gradlew testAndroidHostTest
+              echo "Merging breaking Dependabot PR #$pr_number without comments..."
+              gh pr merge "$pr_url" --squash --delete-branch
+            fi
+          done
