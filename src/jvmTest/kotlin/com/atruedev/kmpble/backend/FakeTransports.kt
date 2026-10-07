@@ -120,7 +120,11 @@ internal class FakePeripheralTransport(
     val notifyCalls = CopyOnWriteArrayList<Pair<Long, Boolean>>()
     val l2capStreams = CopyOnWriteArrayList<FakeL2capStream>()
 
+    /** Thrown when the peripheral clears its listener, i.e. from a step in the middle of close(). */
+    var clearListenerFailure: Throwable? = null
+
     override fun setEventListener(listener: PeripheralEventListener?) {
+        if (listener == null) clearListenerFailure?.let { throw it }
         this.listener = listener
     }
 
