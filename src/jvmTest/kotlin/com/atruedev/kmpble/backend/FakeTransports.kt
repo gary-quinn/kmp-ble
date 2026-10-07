@@ -108,6 +108,7 @@ internal class FakePeripheralTransport(
     var discoverFailure: Throwable? = null
     var onDiscover: (suspend () -> Unit)? = null
     var setNotifyLatency: Duration = Duration.ZERO
+    var readLatency: Duration = Duration.ZERO
     var bond: BondState = BondState.NotBonded
     var bondFailure: Throwable? = null
     var mtuValue = 185
@@ -120,7 +121,11 @@ internal class FakePeripheralTransport(
     val notifyCalls = CopyOnWriteArrayList<Pair<Long, Boolean>>()
     val l2capStreams = CopyOnWriteArrayList<FakeL2capStream>()
 
+    /** Thrown when the peripheral clears its listener, i.e. from a step in the middle of close(). */
+    var clearListenerFailure: Throwable? = null
+
     override fun setEventListener(listener: PeripheralEventListener?) {
+        if (listener == null) clearListenerFailure?.let { throw it }
         this.listener = listener
     }
 
@@ -146,6 +151,7 @@ internal class FakePeripheralTransport(
     }
 
     override suspend fun read(characteristic: Long): ByteArray {
+        delay(readLatency)
         requireLink()
         return values[characteristic] ?: byteArrayOf(0x4B)
     }

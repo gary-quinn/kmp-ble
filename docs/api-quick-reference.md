@@ -255,6 +255,26 @@ try {
 }
 ```
 
+### Change the timeout for one operation
+
+`OperationTimeouts` holds for the whole connection, and wrapping a call in a longer
+`withTimeout` does not help: the shorter per-operation limit fires first. To give
+specific operations a different limit, run them inside `withGattOperationTimeout`:
+
+```kotlin
+import com.atruedev.kmpble.connection.withGattOperationTimeout
+import kotlin.time.Duration.Companion.seconds
+
+// This read can trigger pairing and wait for the user to type a passkey.
+val value = withGattOperationTimeout(60.seconds) {
+    peripheral.read(protectedCharacteristic)
+}
+```
+
+- Applies to each GATT operation inside the block; operations outside keep their defaults.
+- May lengthen or shorten the limit. Nested scopes: the innermost wins.
+- Operations on one connection run one at a time, so others wait behind a long one.
+
 ### Write with response
 
 ```kotlin

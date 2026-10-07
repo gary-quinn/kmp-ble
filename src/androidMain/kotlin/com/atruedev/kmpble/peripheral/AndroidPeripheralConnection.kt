@@ -15,6 +15,7 @@ import com.atruedev.kmpble.error.ConnectionLost
 import com.atruedev.kmpble.error.OperationFailed
 import com.atruedev.kmpble.logging.BleLogEvent
 import com.atruedev.kmpble.logging.logEvent
+import com.atruedev.kmpble.peripheral.internal.processLinkLoss
 import com.atruedev.kmpble.peripheral.state.ConnectionEvent
 import com.atruedev.kmpble.peripheral.state.State
 import com.atruedev.kmpble.quirks.BleQuirks
@@ -114,6 +115,13 @@ internal suspend fun AndroidPeripheral.connectWithRetry(options: ConnectionOptio
         }
 
         if (peripheralContext.state.value is State.Connected) return
+        if (peripheralContext.state.value.isBondingFailure()) {
+            // A rejected or timed-out bond is not a transient link error: another attempt
+            // would only prompt for pairing again.
+            bridge.disconnect()
+            bridge.releaseGatt()
+            return
+        }
 
         if (attempt < maxAttempts - 1) {
             bridge.releaseGatt()
@@ -144,7 +152,6 @@ internal suspend fun AndroidPeripheral.handleLinkUp(
         return
     }
 
-    peripheralContext.processEvent(ConnectionEvent.LinkEstablished)
     if (!bondIfRequiredForLink()) return
     // Duplicate STATE_CONNECTED callback; a discovery cycle already in flight covers it.
     if (!slots.tryArmDiscovery()) return
@@ -175,14 +182,23 @@ internal suspend fun AndroidPeripheral.handleLinkUp(
 }
 
 /**
+ * Moves a freshly established link out of Connecting.Transport: through
+ * Connecting.Authenticating when [BondingPreference.Required] needs a new bond, otherwise
+ * straight to Connecting.Discovering.
+ *
  * Returns false if the connection has been failed and the caller should not proceed
  * with discovery.
  */
 internal suspend fun AndroidPeripheral.bondIfRequiredForLink(): Boolean {
     val pref = currentConnectionOptions?.bondingPreference
-    if (pref != BondingPreference.Required) return true
-    if (device.bondState == BluetoothDevice.BOND_BONDED) return true
+    if (pref != BondingPreference.Required || device.bondState == BluetoothDevice.BOND_BONDED) {
+        peripheralContext.processEvent(ConnectionEvent.LinkEstablished)
+        return true
+    }
 
+    // BondRequired is only accepted in Connecting.Transport, so it must replace
+    // LinkEstablished: after it, BondRequired and BondFailed are both rejected and a failed
+    // bond leaves the state in Connecting.Discovering.
     peripheralContext.processEvent(ConnectionEvent.BondRequired)
     val bondTimeout = quirkRegistry.resolve(BleQuirks.BondStateTimeout)
     val bonded =
@@ -207,6 +223,11 @@ internal suspend fun AndroidPeripheral.bondIfRequiredForLink(): Boolean {
         )
         slots.completeConnect()
         return false
+    }
+    // The bond receiver sends BondSucceeded before it releases createBond(); this covers a
+    // bond that createBond() found already in place, which sends no broadcast.
+    if (peripheralContext.state.value is State.Connecting.Authenticating) {
+        peripheralContext.processEvent(ConnectionEvent.BondSucceeded)
     }
 
     if (quirkRegistry.resolve(BleQuirks.RefreshServicesOnBond)) {
@@ -233,7 +254,7 @@ internal suspend fun AndroidPeripheral.handleLinkDown(rawStatus: Int) {
         } else {
             ConnectionLost("Remote disconnect", ConnectionFailureReason.LINK_LOSS, rawStatus)
         }
-    peripheralContext.processEvent(ConnectionEvent.ConnectionLost(bleError))
+    peripheralContext.processLinkLoss(bleError)
     if (disconnectRequested) slots.completeDisconnect()
     onDisconnectCleanup()
     // Release a discovery cycle left in flight by the disconnect, so the next
@@ -281,4 +302,9 @@ internal suspend fun AndroidPeripheral.disconnectInternal() {
             bridge.releaseGatt()
         }
     }
+}
+
+private fun State.isBondingFailure(): Boolean {
+    val error = (this as? State.Disconnected.ByError)?.error as? ConnectionFailed
+    return error?.failureReason == ConnectionFailureReason.BONDING_FAILED
 }
