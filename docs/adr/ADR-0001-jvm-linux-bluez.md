@@ -63,7 +63,9 @@ Implement **Linux JVM BLE through BlueZ over the system D-Bus bus**, in mileston
 - **Remaining gaps (after ADR-0003):** L2CAP, isochronous, PAST, direction finding, PHY and
   connection-parameter requests stay unsupported on BlueZ. See the parity table in ADR-0003.
 - **Connectable / extended advertising:** Missing or empty `AdvertisingFlags` maps to
-  `isConnectable = false` (unknown is not connectable). Richer AD parsing deferred to M3.
+  `isConnectable = true`. `bluetoothd` only publishes the property with `--experimental` and
+  exposes no PDU type, so on a default daemon "unknown" is the common case and most devices
+  BlueZ lists are connectable (#701). Richer AD parsing deferred to M3.
 - **D-Bus callbacks:** High-rate property updates are not stress-tested; buffer/drop
   behavior under load is a known limitation.
 
