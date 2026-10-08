@@ -1,0 +1,92 @@
+name: Dependabot Auto Merge
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  auto-merge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: zulu
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+
+      - name: Process Dependabot PRs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          prs=$(gh pr list --author "app/dependabot" --state open --json number,title,headRefName,baseRefName)
+          if [ -z "$prs" ] || [ "$prs" = "[]" ]; then
+            echo "No open Dependabot PRs found."
+            exit 0
+          fi
+
+          echo "$prs" | jq -c '.[]' | while read -r pr; do
+            pr_num=$(echo "$pr" | jq -r '.number')
+            title=$(echo "$pr" | jq -r '.title')
+            head_ref=$(echo "$pr" | jq -r '.headRefName')
+
+            echo "Processing PR #$pr_num: $title"
+
+            # Parse version bump from title e.g. "bump foo from 1.2.3 to 2.0.0"
+            is_breaking=false
+            if [[ "$title" =~ from[[:space:]]+([0-9]+)\.([0-9]+)\.([0-9]+)[[:space:]]+to[[:space:]]+([0-9]+)\.([0-9]+)\.([0-9]+) ]]; then
+              old_major="${BASH_REMATCH[1]}"
+              old_minor="${BASH_REMATCH[2]}"
+              new_major="${BASH_REMATCH[4]}"
+              new_minor="${BASH_REMATCH[5]}"
+
+              if [ "$old_major" -eq 0 ] && [ "$new_major" -eq 0 ]; then
+                if [ "$new_minor" -gt "$old_minor" ]; then
+                  is_breaking=true
+                fi
+              elif [ "$new_major" -gt "$old_major" ]; then
+                is_breaking=true
+              fi
+            elif [[ "$title" =~ !: ]] || [[ "$title" =~ BREAKING[[:space:]]CHANGE ]]; then
+              is_breaking=true
+            fi
+
+            if [ "$is_breaking" = false ]; then
+              echo "PR #$pr_num is non-breaking. Merging PR."
+              gh pr merge "$pr_num" --squash --auto || gh pr merge "$pr_num" --squash
+            else
+              echo "PR #$pr_num is a breaking change. Attempting patch and verification."
+              git fetch origin "$head_ref:$head_ref"
+              git checkout "$head_ref"
+
+              # Attempt build/test and apply automated fixes/patching if available
+              if ./.githooks/pre-commit 2>/dev/null; then
+                echo "Pre-commit checks passed."
+              fi
+
+              if [ -n "$(git status --porcelain)" ]; then
+                git config user.name "github-actions[bot]"
+                git config user.email "github-actions[bot]@users.noreply.github.com"
+                git commit -am "fix: patch breaking changes for dependency update"
+                git push origin "$head_ref"
+              fi
+
+              # Verify build and host tests pass before merging
+              if ./gradlew testAndroidHostTest; then
+                git checkout main
+                gh pr merge "$pr_num" --squash --auto || gh pr merge "$pr_num" --squash
+              else
+                echo "Tests failed for breaking change PR #$pr_num after patching attempt. Skipping merge."
+                git checkout main
+              fi
+            fi
+          done
