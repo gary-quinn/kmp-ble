@@ -187,6 +187,41 @@ class MacosBackendTest {
         }
 
     @Test
+    fun scanFailsAtOnceWhileBluetoothPromptIsUnanswered() =
+        runBlocking<Unit> {
+            val (stack, api) =
+                FakeMacosNativeApi.stack {
+                    initialCentralState = CbManagerState.UNKNOWN
+                    authorizationValue = 0
+                }
+            val scan = MacosScanTransport(stack, settleTimeout = 10.seconds)
+            val error =
+                withTimeout(1.seconds) {
+                    assertFailsWith<ScanFailedException> { scan.scan(ScanRequest(emptyList(), true)).first() }
+                }
+            assertEquals(Macos.ERROR_UNAUTHORIZED, error.errorCode)
+            assertTrue("allow Bluetooth" in error.message.orEmpty())
+            assertTrue("scanStart" !in api.calls)
+        }
+
+    @Test
+    fun adapterIsUnauthorizedWhileBluetoothPromptIsUnanswered() =
+        runBlocking<Unit> {
+            val (stack, api) =
+                FakeMacosNativeApi.stack {
+                    initialCentralState = CbManagerState.UNKNOWN
+                    authorizationValue = 0
+                }
+            val adapter = MacosAdapterTransport(stack)
+            withTimeout(2.seconds) { adapter.state.first { it == BluetoothAdapterState.Unauthorized } }
+
+            api.authorizationValue = 3
+            api.emit(MacosEvent.CentralState(CbManagerState.POWERED_ON))
+            withTimeout(2.seconds) { adapter.state.first { it == BluetoothAdapterState.On } }
+            adapter.close()
+        }
+
+    @Test
     fun usageDescriptionCheckCanBeDisabled() =
         runBlocking<Unit> {
             val (stack, api) = FakeMacosNativeApi.stack { missingUsageHost = HOST_APP }
