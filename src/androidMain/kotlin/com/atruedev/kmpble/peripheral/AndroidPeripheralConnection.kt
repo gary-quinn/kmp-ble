@@ -15,6 +15,7 @@ import com.atruedev.kmpble.error.ConnectionLost
 import com.atruedev.kmpble.error.OperationFailed
 import com.atruedev.kmpble.logging.BleLogEvent
 import com.atruedev.kmpble.logging.logEvent
+import com.atruedev.kmpble.peripheral.internal.awaitConnectSettled
 import com.atruedev.kmpble.peripheral.internal.processLinkLoss
 import com.atruedev.kmpble.peripheral.state.ConnectionEvent
 import com.atruedev.kmpble.peripheral.state.State
@@ -24,6 +25,7 @@ import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+import kotlin.time.TimeSource
 
 /*
  * Extension functions for connection lifecycle management.
@@ -73,6 +75,8 @@ internal suspend fun AndroidPeripheral.connectWithRetry(options: ConnectionOptio
     val timeout = maxOf(options.timeouts.connect, quirkRegistry.resolve(BleQuirks.ConnectionTimeout))
 
     repeat(maxAttempts) { attempt ->
+        // Each attempt gets the full budget, so the settle deadline is per attempt too.
+        val deadline = TimeSource.Monotonic.markNow() + timeout
         if (attempt > 0) {
             logEvent(
                 BleLogEvent.GattOperation(
@@ -112,6 +116,10 @@ internal suspend fun AndroidPeripheral.connectWithRetry(options: ConnectionOptio
             )
         } finally {
             slots.clearConnect()
+        }
+        peripheralContext.awaitConnectSettled(deadline) {
+            bridge.disconnect()
+            bridge.releaseGatt()
         }
 
         if (peripheralContext.state.value is State.Connected) return
