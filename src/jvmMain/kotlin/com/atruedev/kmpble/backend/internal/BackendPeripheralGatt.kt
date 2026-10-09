@@ -138,8 +138,21 @@ internal fun BackendPeripheral.observeValuesInternal(
 }
 
 internal suspend fun BackendPeripheral.enableNotifications(characteristic: Characteristic) {
-    context.gattQueue.enqueueBle {
-        transport.setNotify(requireCharHandle(characteristic), enabled = true)
+    observationManager.enableNotifications(
+        characteristic.serviceUuid,
+        characteristic.uuid,
+        resetRequested = lastConnectionOptions?.resetNotificationsOnSubscribe == true,
+    ) { reset ->
+        context.gattQueue.enqueueBle {
+            val handle = requireCharHandle(characteristic)
+            if (reset) {
+                // Backends toggle an OS subscription, not the CCCD, and ending one needs one
+                // to exist (BlueZ rejects StopNotify without it), so subscribe first.
+                transport.setNotify(handle, enabled = true)
+                transport.setNotify(handle, enabled = false)
+            }
+            transport.setNotify(handle, enabled = true)
+        }
     }
 }
 
