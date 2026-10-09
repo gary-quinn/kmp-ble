@@ -1,0 +1,145 @@
+name: Dependabot Auto Merge
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  dependabot-auto-merge:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: 21
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Check, patch, and merge Dependabot PRs
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { execSync } = require('child_process');
+
+            execSync('git config user.name "github-actions[bot]"');
+            execSync('git config user.email "github-actions[bot]@users.noreply.github.com"');
+
+            const { data: repoData } = await github.rest.repos.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+            });
+            const baseBranch = repoData.default_branch || 'main';
+
+            const { data: pullRequests } = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              per_page: 100,
+            });
+
+            const dependabotPRs = pullRequests.filter(pr =>
+              (pr.user && pr.user.login.includes('dependabot')) ||
+              (pr.head && pr.head.ref.startsWith('dependabot/'))
+            );
+
+            core.info(`Found ${dependabotPRs.length} open Dependabot PR(s).`);
+
+            for (const pr of dependabotPRs) {
+              core.info(`Processing PR #${pr.number}: ${pr.title}`);
+
+              try {
+                execSync(`git checkout ${baseBranch}`);
+                execSync(`git reset --hard origin/${baseBranch}`);
+                execSync('git clean -fd');
+              } catch (cleanErr) {
+                core.warning(`Cleanup failed before processing PR #${pr.number}: ${cleanErr.message}`);
+              }
+
+              const body = pr.body || '';
+              const title = pr.title || '';
+
+              const isMajorBody = body.includes('version-update:semver-major');
+              const isMajorTitle = title.includes('!') || title.includes('BREAKING CHANGE');
+
+              let isMajorVersionBump = false;
+              const match = title.match(/from\s+v?(\d+)\.\S+\s+to\s+v?(\d+)\.\S+/i);
+              if (match) {
+                const oldMajor = parseInt(match[1], 10);
+                const newMajor = parseInt(match[2], 10);
+                if (!isNaN(oldMajor) && !isNaN(newMajor) && newMajor > oldMajor) {
+                  isMajorVersionBump = true;
+                }
+              }
+
+              const isBreaking = isMajorBody || isMajorTitle || isMajorVersionBump;
+              let canMerge = true;
+
+              try {
+                execSync(`git fetch origin ${pr.head.ref}:${pr.head.ref}`);
+                execSync(`git checkout ${pr.head.ref}`);
+
+                if (isBreaking) {
+                  core.info(`PR #${pr.number} identified as breaking change. Patching...`);
+                  try {
+                    execSync('./gradlew ktlintFormat --continue', { stdio: 'inherit' });
+                  } catch (e) {
+                    core.warning(`ktlintFormat produced warnings/errors: ${e.message}`);
+                  }
+
+                  const status = execSync('git status --porcelain').toString();
+                  if (status.trim().length > 0) {
+                    execSync('git add -A');
+                    execSync('git commit -m "fix: patch breaking change updates"');
+                    execSync(`git push origin ${pr.head.ref}`);
+                    core.info(`Patched and pushed updates to branch ${pr.head.ref}`);
+                  }
+                } else {
+                  core.info(`PR #${pr.number} identified as non-breaking change.`);
+                }
+
+                try {
+                  execSync('./gradlew ktlintCheck testAndroidHostTest jvmTest', { stdio: 'inherit' });
+                } catch (e) {
+                  core.error(`Build/test failed for PR #${pr.number}: ${e.message}`);
+                  canMerge = false;
+                }
+              } catch (err) {
+                core.error(`Failed during checkout/preparation of PR #${pr.number}: ${err.message}`);
+                canMerge = false;
+              }
+
+              if (canMerge) {
+                try {
+                  await github.rest.pulls.merge({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    pull_number: pr.number,
+                    merge_method: 'squash',
+                  });
+                  core.info(`Successfully merged PR #${pr.number}`);
+                } catch (mergeErr) {
+                  core.error(`Failed to merge PR #${pr.number}: ${mergeErr.message}`);
+                }
+              }
+
+              try {
+                execSync(`git checkout ${baseBranch}`);
+                execSync(`git reset --hard origin/${baseBranch}`);
+                execSync('git clean -fd');
+              } catch (cleanErr) {
+                core.warning(`Cleanup failed after processing PR #${pr.number}: ${cleanErr.message}`);
+              }
+            }
