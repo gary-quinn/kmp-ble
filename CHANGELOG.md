@@ -15,6 +15,30 @@ _Changes on `main` that have not yet been tagged for release._
 
 ---
 
+## [0.14.1] - 2026-10-13
+
+### Added
+- feat(gatt): add withGattOperationTimeout for per-call GATT timeouts
+- feat(scanner): flag advertisements the OS returned as already connected
+
+### Changed
+- ci(dependabot): bump gradle/actions/setup-gradle from 6.3.0 to 6.4.0
+- build(dependabot): bump com.github.hypfvieh:dbus-java-transport-junixsocket from 5.2.1 to 5.2.2
+- build(dependabot): bump gradle-wrapper from 9.7.1 to 9.8.0
+- ci(dependabot): bump actions/download-artifact from 8.0.1 to 8.0.2
+- ci(dependabot): bump actions/upload-artifact from 7.0.1 to 7.0.2
+
+### Fixed
+- fix(peripheral): always unregister a closed peripheral
+- fix(android): return to Ready after a bond is removed while connected
+- fix(android): send bond events before the link counts as established
+- fix(peripheral): drive a lost link all the way to Disconnected
+- fix(bluez): abort a connect or pair cancelled while it is issued
+- fix(build): patch jackson, jsoup and buildSrc kotlin-gradle-plugin CVEs
+
+
+---
+
 ## [0.14.0] - 2026-09-28
 
 ### Added
@@ -2579,7 +2603,8 @@ _No notable changes._
 
 ---
 
-[Unreleased]: https://github.com/gary-quinn/kmp-ble/compare/v0.14.0...HEAD
+[Unreleased]: https://github.com/gary-quinn/kmp-ble/compare/v0.14.1...HEAD
+[0.14.1]: https://github.com/gary-quinn/kmp-ble/compare/v0.14.0...v0.14.1
 [0.14.0]: https://github.com/gary-quinn/kmp-ble/compare/v0.13.6...v0.14.0
 [0.13.6]: https://github.com/gary-quinn/kmp-ble/compare/v0.13.5...v0.13.6
 [0.13.5]: https://github.com/gary-quinn/kmp-ble/compare/v0.13.4...v0.13.5
