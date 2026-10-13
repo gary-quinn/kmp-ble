@@ -56,7 +56,16 @@ internal class MacosAdapterTransport(
             _state.value = BluetoothAdapterState.Unsupported
             return
         }
-        scope.launch { stack.centralState.collect { _state.value = it.toAdapterState() } }
+        scope.launch {
+            stack.centralState.collect { state ->
+                _state.value =
+                    if (stack.awaitingBluetoothDecision(state)) {
+                        BluetoothAdapterState.Unauthorized
+                    } else {
+                        state.toAdapterState()
+                    }
+            }
+        }
     }
 }
 
@@ -74,20 +83,16 @@ internal object MacosPermissions {
     const val BLUETOOTH = "bluetooth"
     const val USAGE_DESCRIPTION = "NSBluetoothAlwaysUsageDescription"
 
-    private const val NOT_DETERMINED = 0
-    private const val RESTRICTED = 1
-    private const val DENIED = 2
-    private const val ALLOWED_ALWAYS = 3
-
     fun check(stack: MacosStack): PermissionResult =
         try {
             if (stack.missingUsageDescriptionHost() != null) {
                 PermissionResult.PermanentlyDenied(listOf(USAGE_DESCRIPTION))
             } else {
                 when (stack.api.authorization()) {
-                    ALLOWED_ALWAYS -> PermissionResult.Granted
-                    RESTRICTED, DENIED -> PermissionResult.PermanentlyDenied(listOf(BLUETOOTH))
-                    NOT_DETERMINED -> PermissionResult.Denied(listOf(BLUETOOTH))
+                    CbAuthorization.ALLOWED_ALWAYS -> PermissionResult.Granted
+                    CbAuthorization.RESTRICTED, CbAuthorization.DENIED ->
+                        PermissionResult.PermanentlyDenied(listOf(BLUETOOTH))
+                    CbAuthorization.NOT_DETERMINED -> PermissionResult.Denied(listOf(BLUETOOTH))
                     else -> PermissionResult.Denied(listOf(BLUETOOTH))
                 }
             }

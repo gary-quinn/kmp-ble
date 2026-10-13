@@ -47,7 +47,7 @@ Results of `permissions`, `adapter`, and `scan 5` from `sample-jvm`, run with `j
 
 | Host | Declares the key | Result |
 |------|------------------|--------|
-| Terminal.app | No (platform app, not checked) | Not terminated and no crash report. On first use `checkBlePermissions()` reads `Denied` (not determined), the adapter state stays `Unavailable`, and the scan ends without results while the authorization is undetermined; allow Terminal in System Settings > Privacy & Security > Bluetooth |
+| Terminal.app | No (platform app, not checked) | Not terminated and no crash report. On first use `checkBlePermissions()` reads `Denied` (not determined), the adapter state stays `Unavailable`, and the scan ends without results while the authorization is undetermined (since #702 kmp-ble reports `Unauthorized` and fails scan and connect with `ERROR_UNAUTHORIZED` instead; not yet re-run on hardware, see #703); allow Terminal in System Settings > Privacy & Security > Bluetooth |
 | Terminal emulators that declare the key | Yes | Prompt once, then D1-D3 pass |
 | A CLI tool bundle without the key | No | `ERROR_USAGE_DESCRIPTION_MISSING` naming the bundle, `PermanentlyDenied`, no crash report |
 | `jpackage` app without the key | No | `ERROR_USAGE_DESCRIPTION_MISSING` for scan, connect, and the GATT server, `PermanentlyDenied`, no crash report |
@@ -90,7 +90,7 @@ Compose Desktop users can set the same key through `nativeDistributions { macOS 
 | CCCD | Writes to the Client Characteristic Configuration descriptor are translated to `setNotifyValue`, because CoreBluetooth forbids writing it directly. |
 | RSSI | `readRSSI` on the connected peripheral. |
 | Bonding | Managed by macOS: `bondState` stays `Unknown`, `removeBond()` returns `NotSupported`, and `PairingHandler` is not used. |
-| Adapter state | `CBManager.state`, updated live. `getBondedDevices()` is empty. `capabilities` are fixed, not queried (CoreBluetooth on macOS has no feature API): LE 2M and LE Coded PHY `true` as on iOS (Apple silicon ships Bluetooth 5.x, the OS picks the PHY), extended and periodic advertising `false`. |
+| Adapter state | `CBManager.state`, updated live; `Unauthorized` while the central is unknown and `CBManager.authorization` is not determined. `getBondedDevices()` is empty. `capabilities` are fixed, not queried (CoreBluetooth on macOS has no feature API): LE 2M and LE Coded PHY `true` as on iOS (Apple silicon ships Bluetooth 5.x, the OS picks the PHY), extended and periodic advertising `false`. |
 | GATT server | `CBPeripheralManager` services. CoreBluetooth manages CCCDs and reports no central connect/disconnect, so connections are inferred from requests and evicted when idle. Descriptors in the server DSL are not published. |
 | Advertising | Local name and service UUIDs only, one set per process. Other `AdvertiseConfig` / `ExtendedAdvertiseConfig` fields are logged and ignored. |
 | L2CAP | `openL2CAPChannel` and `publishL2CAPChannel`. The PSM encryption requirement is set by the listener; the `secure` flag of `openL2capChannel()` has no effect on macOS. |
@@ -103,8 +103,8 @@ Compose Desktop users can set the same key through `nativeDistributions { macOS 
 | `UnsupportedOperationException` from `Scanner { }` | `kmp-ble-macos` missing, Intel Mac, or a jar built without the dylib | Add the dependency; run an arm64 JDK on Apple silicon |
 | Process exits with a TCC crash report | CoreBluetooth started outside kmp-ble, or with `kmpble.macos.usageDescriptionCheck=false`, under a responsible app without the usage description | Add `NSBluetoothAlwaysUsageDescription`, or launch from a host that has it |
 | `ERROR_USAGE_DESCRIPTION_MISSING` from a plain `java` run | The terminal or IDE that launched the JVM lacks the key | Run from Terminal.app or a host that declares it |
-| `ScanEvent.Failed` with `Macos.ERROR_UNAUTHORIZED` | Bluetooth access denied for the responsible app | Allow it in System Settings > Privacy & Security > Bluetooth |
-| `ScanEvent.Failed` with `Macos.ERROR_ADAPTER_OFF` | Bluetooth is off, or, on the first run of a host, the Bluetooth prompt has not been answered yet (CoreBluetooth stays in the unknown state) | Turn Bluetooth on, or answer the prompt and retry |
+| `ScanEvent.Failed` with `Macos.ERROR_UNAUTHORIZED` | Bluetooth access denied for the responsible app, or, on the first run of a host, the Bluetooth prompt has not been answered yet (the message says macOS is waiting for the user) | Allow it in System Settings > Privacy & Security > Bluetooth, or answer the prompt, then retry |
+| `ScanEvent.Failed` with `Macos.ERROR_ADAPTER_OFF` | Bluetooth is off | Turn Bluetooth on |
 | `ConnectionFailed` with `UNKNOWN_DEVICE` | CoreBluetooth has not seen the identifier in this process | Scan first, or use an identifier from a previous scan on the same Mac |
 | A bonded peripheral no longer shows up in scans | Some peripherals stop advertising in a form CoreBluetooth reports to scanners once they are bonded | Build an `Advertisement` from the stored identifier and call `toPeripheral().connect()`; CoreBluetooth retrieves the known peripheral and connects when it is reachable (`sample-jvm connect` does this) |
 

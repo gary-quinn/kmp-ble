@@ -43,13 +43,15 @@ internal class MacosScanTransport(
         }
 
     private fun scanFailure(state: Int): ScanFailedException =
-        when (state) {
-            CbManagerState.UNAUTHORIZED ->
+        when {
+            stack.awaitingBluetoothDecision(state) ->
+                ScanFailedException(Macos.ERROR_UNAUTHORIZED, AWAITING_BLUETOOTH_DECISION_MESSAGE)
+            state == CbManagerState.UNAUTHORIZED ->
                 ScanFailedException(
                     Macos.ERROR_UNAUTHORIZED,
                     "Bluetooth access is not authorized for this process",
                 )
-            CbManagerState.UNSUPPORTED ->
+            state == CbManagerState.UNSUPPORTED ->
                 ScanFailedException(
                     Macos.ERROR_UNSUPPORTED,
                     "This Mac does not support Bluetooth LE",
