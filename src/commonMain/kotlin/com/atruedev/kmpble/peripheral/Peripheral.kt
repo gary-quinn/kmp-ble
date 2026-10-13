@@ -37,6 +37,22 @@ public interface Peripheral : AutoCloseable {
     public val identifier: Identifier
 
     // --- Connection ---
+
+    /**
+     * Connects to the peripheral, discovers its services and re-enables active observations.
+     *
+     * Returns only once [state] is [State.Connected.Ready] or a [State.Disconnected] state,
+     * never while a [State.Connecting] handshake is still in progress. On Android and iOS an
+     * attempt that ends in [State.Disconnected] returns and leaves the error in [state]; the
+     * JVM backends throw it.
+     *
+     * @throws com.atruedev.kmpble.error.BleException with
+     *   [com.atruedev.kmpble.error.ConnectionFailed] and
+     *   [com.atruedev.kmpble.error.ConnectionFailureReason.TIMEOUT] when the state has not
+     *   settled in [State.Connected.Ready] or [State.Disconnected] within
+     *   [OperationTimeouts.connect] of the call (of each retried attempt on Android). The
+     *   link is torn down first and [state] ends in [State.Disconnected.ByError].
+     */
     public suspend fun connect(options: ConnectionOptions = ConnectionOptions(timeouts = OperationTimeouts()))
 
     public suspend fun disconnect()
