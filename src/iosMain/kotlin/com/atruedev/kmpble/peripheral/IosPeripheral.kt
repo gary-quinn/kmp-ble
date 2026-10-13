@@ -135,6 +135,9 @@ public class IosPeripheral(
     /** Current discovery cycle state, confined to peripheralContext.dispatcher. */
     internal var currentDiscovery: DiscoveryCycle? = null
 
+    /** Characteristic a notification reset is waiting on, confined to peripheralContext.dispatcher. */
+    internal var notificationStateTarget: CBCharacteristic? = null
+
     internal val reconnectionHandler =
         ReconnectionHandler(
             scope = peripheralContext.scope,
@@ -222,11 +225,21 @@ public class IosPeripheral(
         backpressure: BackpressureStrategy,
     ): Flow<ByteArray> = observeValuesGatt(characteristic, backpressure)
 
-    internal fun enableNotifications(characteristic: Characteristic) {
+    internal suspend fun enableNotifications(characteristic: Characteristic) {
         // No Kotlin state guard here: [resubscribeObservations] runs from finishDiscovery
         // while still in Connecting.Configuring (before ConfigurationComplete -> Ready).
         // Native guards in ApplePeripheralBridge reject the call when the link is down.
-        bridge.setNotifyValue(true, requireNativeCbChar(characteristic))
+        observationManager.enableNotifications(
+            characteristic.serviceUuid,
+            characteristic.uuid,
+            resetRequested = _lastConnectionOptions?.resetNotificationsOnSubscribe == true,
+        ) { reset ->
+            if (reset) {
+                resetNotifications(characteristic)
+            } else {
+                bridge.setNotifyValue(true, requireNativeCbChar(characteristic))
+            }
+        }
     }
 
     internal fun disableNotifications(characteristic: Characteristic) {

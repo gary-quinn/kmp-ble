@@ -17,6 +17,7 @@ import com.atruedev.kmpble.peripheral.internal.awaitGatt
 import com.atruedev.kmpble.peripheral.internal.buildObservationFlow
 import com.atruedev.kmpble.peripheral.state.State
 import kotlinx.coroutines.flow.Flow
+import platform.CoreBluetooth.CBCharacteristic
 import platform.CoreBluetooth.CBCharacteristicWriteWithResponse
 
 internal suspend fun IosPeripheral.readGatt(characteristic: Characteristic): ByteArray {
@@ -89,6 +90,37 @@ internal fun IosPeripheral.observeValuesGatt(
         disable = ::disableNotifications,
         mapper = ObservationToBytes,
     )
+}
+
+/**
+ * Turns notifications off and on so the peripheral sees its CCCD go from 0 to 1. Each
+ * toggle waits for CoreBluetooth to confirm it before the next one is issued, because
+ * CoreBluetooth judges a request against the notification state it last confirmed.
+ */
+internal suspend fun IosPeripheral.resetNotifications(characteristic: Characteristic) {
+    peripheralContext.gattQueue.enqueueBle(timeout = currentTimeouts.write) {
+        val native = requireNativeCbChar(characteristic)
+        // CoreBluetooth may ignore turning off a subscription it does not know about.
+        if (!native.isNotifying) setNotifyValueConfirmed(native, enabled = true)
+        setNotifyValueConfirmed(native, enabled = false)
+        bridge.setNotifyValue(true, native)
+    }
+}
+
+private suspend fun IosPeripheral.setNotifyValueConfirmed(
+    native: CBCharacteristic,
+    enabled: Boolean,
+) {
+    notificationStateTarget = native
+    try {
+        val status =
+            pendingOps.awaitGatt(PendingOp.NotificationState, "resetNotifications") {
+                bridge.setNotifyValue(enabled, native)
+            }
+        if (!status.isSuccess()) throw BleException(GattError("resetNotifications", status))
+    } finally {
+        notificationStateTarget = null
+    }
 }
 
 internal suspend fun IosPeripheral.readDescriptorGatt(descriptor: Descriptor): ByteArray {

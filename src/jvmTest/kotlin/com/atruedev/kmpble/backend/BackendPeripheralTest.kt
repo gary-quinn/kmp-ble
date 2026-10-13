@@ -379,6 +379,39 @@ class BackendPeripheralTest {
         }
 
     @Test
+    fun resetNotificationsTogglesTheSubscriptionOncePerCharacteristicAndConnection() =
+        runBlocking<Unit> {
+            val (peripheral, transport) = peripheral()
+            peripheral.connect(
+                options.copy(
+                    resetNotificationsOnSubscribe = true,
+                    reconnectionStrategy = ReconnectionStrategy.LinearBackoff(delay = 50.milliseconds, maxAttempts = 3),
+                ),
+            )
+            val heartRate = peripheral.heartRate()
+            val handle = FakePeripheralTransport.HEART_RATE_HANDLE
+
+            val first = launch { peripheral.observeValues(heartRate).collect {} }
+            withTimeout(2.seconds) { while (transport.notifyCalls.size < 3) delay(5) }
+            val second = launch { peripheral.observeValues(heartRate).collect {} }
+            withTimeout(2.seconds) { while (transport.notifyCalls.size < 4) delay(5) }
+            assertEquals(
+                listOf(handle to true, handle to false, handle to true, handle to true),
+                transport.notifyCalls.toList(),
+            )
+
+            awaitCollector(peripheral)
+            transport.notifyCalls.clear()
+            transport.dropLink()
+            withTimeout(3.seconds) { while (transport.notifyCalls.size < 3) delay(5) }
+            assertEquals(listOf(handle to true, handle to false, handle to true), transport.notifyCalls.toList())
+
+            first.cancelAndJoin()
+            second.cancelAndJoin()
+            peripheral.close()
+        }
+
+    @Test
     fun disconnectRightAfterObservingStillDisablesNotifications() =
         runBlocking<Unit> {
             val (peripheral, transport) = peripheral()

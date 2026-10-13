@@ -4,6 +4,7 @@ package com.atruedev.kmpble.peripheral
 
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothGattCharacteristic
+import android.bluetooth.BluetoothGattDescriptor
 import com.atruedev.kmpble.connection.ConnectionSubratingParameters
 import com.atruedev.kmpble.connection.ConnectionSubratingResult
 import com.atruedev.kmpble.connection.PhyUpdate
@@ -254,13 +255,26 @@ internal suspend fun AndroidPeripheral.enableNotifications(characteristic: Chara
     bridge.setCharacteristicNotification(native, true)
     val cccd = native.getDescriptor(UUID.fromString(CCCD_UUID.toString())) ?: return
     val value = if (characteristic.properties.indicate) ENABLE_INDICATION_VALUE else ENABLE_NOTIFICATION_VALUE
-    peripheralContext.gattQueue.enqueueBle {
-        val status =
-            pendingOps.awaitGatt(PendingOp.DescriptorWrite, "enableNotifications") {
-                bridge.writeDescriptor(cccd, value)
-            }
-        if (!status.isSuccess()) throw BleException(GattError("enableNotifications", status))
+    observationManager.enableNotifications(
+        characteristic.serviceUuid,
+        characteristic.uuid,
+        resetRequested = lastConnectionOptions?.resetNotificationsOnSubscribe == true,
+    ) { reset ->
+        // One queue slot for both writes, so no other operation lands between the 0 and the enable.
+        peripheralContext.gattQueue.enqueueBle {
+            if (reset) writeCccd(cccd, DISABLE_NOTIFICATION_VALUE, "resetNotifications")
+            writeCccd(cccd, value, "enableNotifications")
+        }
     }
+}
+
+private suspend fun AndroidPeripheral.writeCccd(
+    cccd: BluetoothGattDescriptor,
+    value: ByteArray,
+    label: String,
+) {
+    val status = pendingOps.awaitGatt(PendingOp.DescriptorWrite, label) { bridge.writeDescriptor(cccd, value) }
+    if (!status.isSuccess()) throw BleException(GattError(label, status))
 }
 
 /**

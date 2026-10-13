@@ -31,6 +31,7 @@ internal fun IosPeripheral.handleBridgeEvent(event: AppleCallbackEvent) {
                     generations[PendingOp.CharacteristicWrite],
                     event.error.toGattStatus(),
                 )
+            is AppleCallbackEvent.DidUpdateNotificationState -> handleNotificationState(event, generations)
             is AppleCallbackEvent.DidUpdateValueForDescriptor -> handleDescriptorValue(event, generations)
             is AppleCallbackEvent.DidWriteValueForDescriptor ->
                 pendingOps.complete(
@@ -78,6 +79,22 @@ internal fun IosPeripheral.handleCharacteristicValue(
             observationManager.emitByUuid(svcUuid, charUuid, value)
         }
     }
+}
+
+/**
+ * Plain enables and disables do not wait for this callback, so only the characteristic a
+ * notification reset is waiting on may complete the pending slot.
+ */
+internal fun IosPeripheral.handleNotificationState(
+    event: AppleCallbackEvent.DidUpdateNotificationState,
+    generations: GenerationSnapshot,
+) {
+    if (event.characteristic != notificationStateTarget) return
+    pendingOps.complete(
+        PendingOp.NotificationState,
+        generations[PendingOp.NotificationState],
+        event.error.toGattStatus(),
+    )
 }
 
 internal fun IosPeripheral.handleDescriptorValue(

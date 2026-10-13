@@ -10,7 +10,6 @@ import com.atruedev.kmpble.peripheral.state.ConnectionEvent
 import com.atruedev.kmpble.peripheral.state.State
 import com.atruedev.kmpble.scanner.uuidFrom
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.update
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
@@ -21,6 +20,7 @@ internal class FakeConnectionSimulator(
     private var fakeServices: List<DiscoveredService>,
     private val cccdWritesState: MutableStateFlow<List<FakePeripheral.CccdWrite>>,
     private val closedFlag: () -> Boolean,
+    private val resetNotificationsRequested: () -> Boolean,
 ) {
     /** Drives the state machine with a [ConnectionEvent]. */
     internal suspend fun simulateEvent(event: ConnectionEvent): State {
@@ -94,7 +94,12 @@ internal class FakeConnectionSimulator(
         for (key in toResubscribe) {
             val char = findCharacteristic(key.serviceUuid, key.charUuid)
             if (char != null) {
-                recordCccdWrite(key.serviceUuid, key.charUuid, enabled = true)
+                cccdWritesState.recordEnable(
+                    observationManager,
+                    key.serviceUuid,
+                    key.charUuid,
+                    resetNotificationsRequested(),
+                )
             } else {
                 observationManager.completeObservation(key)
             }
@@ -150,14 +155,6 @@ internal class FakeConnectionSimulator(
         serviceUuid: Uuid,
         charUuid: Uuid,
     ): Boolean = observationManager.hasCollectors(serviceUuid, charUuid)
-
-    private fun recordCccdWrite(
-        serviceUuid: Uuid,
-        charUuid: Uuid,
-        enabled: Boolean,
-    ) {
-        cccdWritesState.update { it + FakePeripheral.CccdWrite(serviceUuid, charUuid, enabled) }
-    }
 
     private fun checkNotClosed() {
         requirePeripheralOpen(closedFlag())

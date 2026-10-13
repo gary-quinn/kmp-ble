@@ -12,6 +12,7 @@ internal class ObservationManager(
 ) {
     private val registry = ObservationRegistry(dispatcher)
     private val emitter = ObservationEmitter(registry, registry.dispatcher)
+    private val notificationResets = NotificationResets()
 
     /** Optional callback invoked when the set of active observations changes. */
     internal var onObservationsChanged: ((Set<PersistedObservation>) -> Unit)?
@@ -34,6 +35,21 @@ internal class ObservationManager(
         charUuid: Uuid,
         backpressure: BackpressureStrategy,
     ): Flow<ObservationEvent> = emitter.subscribe(serviceUuid, charUuid, backpressure)
+
+    /**
+     * Enable notifications for a characteristic through [enable]. `reset` is `true` for the
+     * first enable of the characteristic since the last disconnect when [resetRequested]; see
+     * [com.atruedev.kmpble.connection.ConnectionOptions.resetNotificationsOnSubscribe].
+     */
+    suspend fun enableNotifications(
+        serviceUuid: Uuid,
+        charUuid: Uuid,
+        resetRequested: Boolean,
+        enable: suspend (reset: Boolean) -> Unit,
+    ) = notificationResets.enable(ObservationKey(serviceUuid, charUuid), resetRequested, enable)
+
+    /** Forget which characteristics were reset, so the next connection resets them again. */
+    fun clearNotificationResets() = notificationResets.clear()
 
     /**
      * Unsubscribe from a characteristic. Decrements the collector count.
@@ -65,15 +81,22 @@ internal class ObservationManager(
 
     /**
      * Called on disconnect. Emits [ObservationEvent.Disconnected] to all active observations.
-     * Does NOT clear observations - they persist for reconnection.
+     * Does NOT clear observations - they persist for reconnection. Notification resets are
+     * per connection, so they are forgotten here.
      */
-    fun onDisconnect() = emitter.onDisconnect()
+    fun onDisconnect() {
+        notificationResets.clear()
+        emitter.onDisconnect()
+    }
 
     /**
      * Called when reconnection exhausts max attempts (permanent disconnect).
      * Emits [ObservationEvent.PermanentlyDisconnected] to all observations, then clears them.
      */
-    suspend fun onPermanentDisconnect() = registry.onPermanentDisconnect()
+    suspend fun onPermanentDisconnect() {
+        notificationResets.clear()
+        registry.onPermanentDisconnect()
+    }
 
     /** Returns list of observation keys that need CCCD re-enabled on reconnect. */
     suspend fun getObservationsToResubscribe(): List<ObservationKey> = registry.getObservationsToResubscribe()
