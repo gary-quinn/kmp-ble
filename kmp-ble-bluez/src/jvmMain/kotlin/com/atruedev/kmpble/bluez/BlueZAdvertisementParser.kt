@@ -82,9 +82,13 @@ internal fun snapshotFromChangedProperties(
         advertisingFlags = byteArrayFromProperty(changed["AdvertisingFlags"]),
     )
 
+/**
+ * `Device1.AdvertisingFlags` is experimental and only published when `bluetoothd` runs with
+ * `--experimental`, and BlueZ exposes no PDU type. Without flags the device is assumed connectable.
+ */
 private fun isConnectableFromFlags(flags: ByteArray?): Boolean {
     if (flags == null || flags.isEmpty()) {
-        return false
+        return true
     }
     val flagByte = flags[0].toInt() and 0xFF
     val discoverable = (flagByte and 0x03) != 0
