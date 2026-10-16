@@ -35,6 +35,8 @@ internal sealed interface AppleCallbackEvent {
     data class DidDiscoverCharacteristics(
         val serviceUuid: String,
         val error: NSError?,
+        /** Services whose characteristics held foreign attributes, already dropped by [dropForeignCharacteristics]. */
+        val corruptedServices: List<String> = emptyList(),
     ) : AppleCallbackEvent
 
     // Kotlin/Native collapses didUpdateValue and didWriteValue for characteristics
@@ -121,10 +123,13 @@ internal class ApplePeripheralBridge(
                 didDiscoverCharacteristicsForService: CBService,
                 error: NSError?,
             ) {
+                // Repaired here, on the delegate queue, before any later disconnect can invalidate the table.
+                val corrupted = dropForeignCharacteristics(peripheral.services?.filterIsInstance<CBService>().orEmpty())
                 _onEvent.value?.invoke(
                     AppleCallbackEvent.DidDiscoverCharacteristics(
                         didDiscoverCharacteristicsForService.UUID.UUIDString,
                         error,
+                        corrupted,
                     ),
                 )
             }
