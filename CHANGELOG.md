@@ -15,6 +15,23 @@ _Changes on `main` that have not yet been tagged for release._
 
 ---
 
+## [0.14.2] - 2026-10-16
+
+### Added
+- feat(connection): reset notifications on the first subscribe per connection
+
+### Changed
+- build(dependabot): bump gradle-wrapper from 9.8.0 to 9.8.1
+
+### Fixed
+- fix(peripheral): return from connect only once the state settles
+- fix(bluez): treat advertisements without AdvertisingFlags as connectable
+- fix(macos): report an unanswered Bluetooth prompt as ERROR_UNAUTHORIZED
+- fix(ios): break cached attribute cycles before CoreBluetooth invalidates them
+
+
+---
+
 ## [0.14.1] - 2026-10-13
 
 ### Added
@@ -2603,7 +2620,8 @@ _No notable changes._
 
 ---
 
-[Unreleased]: https://github.com/gary-quinn/kmp-ble/compare/v0.14.1...HEAD
+[Unreleased]: https://github.com/gary-quinn/kmp-ble/compare/v0.14.2...HEAD
+[0.14.2]: https://github.com/gary-quinn/kmp-ble/compare/v0.14.1...v0.14.2
 [0.14.1]: https://github.com/gary-quinn/kmp-ble/compare/v0.14.0...v0.14.1
 [0.14.0]: https://github.com/gary-quinn/kmp-ble/compare/v0.13.6...v0.14.0
 [0.13.6]: https://github.com/gary-quinn/kmp-ble/compare/v0.13.5...v0.13.6

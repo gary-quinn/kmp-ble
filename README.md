@@ -64,7 +64,7 @@ Then depend on Maven-style coordinates as usual:
 
 ```kotlin
 commonMain.dependencies {
-    implementation("com.atruedev:kmp-ble:0.14.1") // from Central
+    implementation("com.atruedev:kmp-ble:0.14.2") // from Central
     implementation("com.atruedev:kmp-ble-profiles") // resolved to local project
 }
 ```
@@ -92,7 +92,7 @@ pre-monolith published artifacts without building from source.
 kotlin {
     sourceSets {
         commonMain.dependencies {
-            implementation("com.atruedev:kmp-ble:0.14.1")
+            implementation("com.atruedev:kmp-ble:0.14.2")
         }
     }
 }
@@ -131,8 +131,8 @@ Add the backend for each desktop OS you ship on. The portable API (`Scanner { }`
 kotlin {
     sourceSets {
         jvmMain.dependencies {
-            implementation("com.atruedev:kmp-ble-bluez:0.14.1") // Linux, BlueZ 5.x
-            implementation("com.atruedev:kmp-ble-macos:0.14.1") // macOS 11+, Apple silicon
+            implementation("com.atruedev:kmp-ble-bluez:0.14.2") // Linux, BlueZ 5.x
+            implementation("com.atruedev:kmp-ble-macos:0.14.2") // macOS 11+, Apple silicon
         }
     }
 }
