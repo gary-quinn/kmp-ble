@@ -1,11 +1,13 @@
 package com.atruedev.kmpble.peripheral
 
+import com.atruedev.kmpble.error.AttributeCacheCorrupted
 import com.atruedev.kmpble.error.BleException
 import com.atruedev.kmpble.error.OperationFailed
 import com.atruedev.kmpble.error.ServiceDiscoveryError
 import com.atruedev.kmpble.gatt.Characteristic
 import com.atruedev.kmpble.gatt.Descriptor
 import com.atruedev.kmpble.gatt.DiscoveredService
+import com.atruedev.kmpble.internal.CentralManagerProvider
 import com.atruedev.kmpble.peripheral.internal.findCharacteristic
 import com.atruedev.kmpble.peripheral.state.ConnectionEvent
 import com.atruedev.kmpble.peripheral.state.State
@@ -32,6 +34,7 @@ internal data class DiscoveryCycle(
     val generation: Int,
     val pendingServices: MutableList<String>,
     val discoveredServices: MutableList<DiscoveredService> = mutableListOf(),
+    val corruptedServices: MutableSet<String> = mutableSetOf(),
 )
 
 /** The live CoreBluetooth service table, or empty when iOS has not populated it yet. */
@@ -111,6 +114,7 @@ internal suspend fun IosPeripheral.handleCharacteristicsDiscovered(
     // Removes only the first matching entry, so a duplicate-UUID service still has
     // its own outstanding entry after this one is cleared.
     cycle.pendingServices.remove(event.serviceUuid)
+    cycle.corruptedServices += event.corruptedServices
 
     if (event.error != null) {
         val status = event.error.toGattStatus()
@@ -124,6 +128,11 @@ internal suspend fun IosPeripheral.handleCharacteristicsDiscovered(
     }
 
     if (cycle.pendingServices.isNotEmpty()) return
+
+    if (cycle.corruptedServices.isNotEmpty()) {
+        failAttributeCacheCorrupted(cycle.corruptedServices.toList())
+        return
+    }
 
     // All services' characteristics discovered - build final service list
     val discovered =
@@ -163,7 +172,22 @@ internal suspend fun IosPeripheral.finishDiscovery(discovered: List<DiscoveredSe
  */
 @OptIn(ExperimentalUuidApi::class)
 internal suspend fun IosPeripheral.finishDiscoveryFromCache(cbServices: List<CBService>) {
+    var corrupted = emptyList<String>()
+    CentralManagerProvider.runOnDelegateQueue { corrupted = dropForeignCharacteristics(cbServices) }
+    if (corrupted.isNotEmpty()) {
+        failAttributeCacheCorrupted(corrupted)
+        return
+    }
     finishDiscovery(cbServices.map { it.toDiscoveredService(this) })
+}
+
+/** The repaired table still lists the wrong attributes, so nothing is published from it. */
+private suspend fun IosPeripheral.failAttributeCacheCorrupted(serviceUuids: List<String>) {
+    val failure = AttributeCacheCorrupted(serviceUuids)
+    peripheralContext.processEvent(ConnectionEvent.DiscoveryFailed(failure))
+    currentDiscovery = null
+    slots.completeConnect()
+    slots.failDiscovery(BleException(failure))
 }
 
 /**

@@ -12,9 +12,15 @@ import platform.CoreBluetooth.CBCentralManager
 import platform.CoreBluetooth.CBCentralManagerDelegateProtocol
 import platform.CoreBluetooth.CBCentralManagerOptionRestoreIdentifierKey
 import platform.darwin.dispatch_queue_create
+import platform.darwin.dispatch_sync
 
 internal object CentralManagerProvider {
     private val queue = dispatch_queue_create("com.atruedev.kmpble", null)
+
+    /** Runs [block] on the queue CoreBluetooth delivers callbacks on; never call it from that queue. */
+    internal fun runOnDelegateQueue(block: () -> Unit) {
+        dispatch_sync(queue, block)
+    }
 
     // Lazily initialized when manager is first accessed.
     // The delegate type depends on whether state restoration is enabled.

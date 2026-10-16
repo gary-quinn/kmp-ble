@@ -88,6 +88,19 @@ public data class ServiceDiscoveryError(
         "Service discovery failed. Verify the peripheral supports the requested services.",
 ) : GattOperationError
 
+/**
+ * The platform's cached attribute table for this peripheral is internally inconsistent, so no
+ * GATT operation on it can be trusted. Seen on iOS after a bonded peripheral changed its GATT
+ * layout without indicating Service Changed: CoreBluetooth rebuilt the table from its cache and
+ * placed a service where a characteristic belongs. Only clearing the OS cache fixes it.
+ */
+public data class AttributeCacheCorrupted(
+    /** UUIDs of the services whose characteristic lists held something other than a characteristic. */
+    val serviceUuids: List<String>,
+    val recoveryHint: String =
+        "Forget the device in the system Bluetooth settings, then pair it again.",
+) : GattOperationError
+
 /** A GATT operation targeting a specific characteristic failed. */
 public data class CharacteristicError(
     val charUuid: String,
