@@ -124,7 +124,7 @@ the `sample` app before tagging a release.
 
 ## JVM Desktop Checklist (Linux BlueZ, macOS arm64)
 
-Run with `sample-jvm` on each desktop OS before tagging a release. Human only. Add `-Dkmpble.log=true` to see state transitions, for example `./gradlew :sample-jvm:run -Dkmpble.log=true --args="connect <identifier> 15"`.
+Run with `sample-jvm` on each desktop OS before tagging a release. Human only. Add `-Dkmpble.log=true` to see state transitions, for example `./gradlew :sample-jvm:run -Dkmpble.log=true --args="connect <identifier> 15"`. Record the commit under test with each result (`git rev-parse --short HEAD`), and rerun the checklist if the backend changed since.
 
 ### Prerequisites
 
@@ -145,8 +145,8 @@ Run with `sample-jvm` on each desktop OS before tagging a release. Human only. A
 | D8 | Linux pairing | `--args="bond <identifier> 15"` against a device that needs pairing; answer the prompt on stdin. `--args="unbond <identifier>"` resets it | The `pairing:` line shows the prompt; `connected:` reports `bond=Bonded`; `adapter` lists the device as bonded |
 | D9 | GATT server + advertising | `--args="server 60"`; from the phone connect to `kmp-ble-sample`, read and write `6b6d7062-6c65-4e00-8000-000000000002`, subscribe to `...0003` | Phone sees the name and service `6b6d7062-6c65-4e00-8000-000000000001`; reads and writes are logged in order and the echo reads back the last write; counter notifications arrive |
 | D10 | macOS packaged app | `./gradlew :sample-jvm:packageMacApp`, then `open -W --stdout out.txt --stderr out.txt sample-jvm/build/jpackage/without-usage-description/KmpBleSample.app --args scan 5` (also `permissions`, `connect <identifier> 5`) | `ERROR_USAGE_DESCRIPTION_MISSING` (-33) for scan and connect, `PermanentlyDenied` for permissions, no crash report in `~/Library/Logs/DiagnosticReports` |
-| D10b | macOS packaged app with the key | `./gradlew :sample-jvm:packageMacApp -Pkmpble.sample.usageDescription=true`, launch from `build/jpackage/with-usage-description` | The Bluetooth prompt appears once; after allowing it, D1-D3 pass |
-| D11 | macOS host app | `./gradlew :sample-jvm:installSampleLibs`, then from each host run `java -cp 'sample-jvm/build/sample/lib/*' com.atruedev.kmpble.sample.jvm.MainKt scan 5` (and `permissions`, `adapter`): Terminal.app, then a host without the key | Terminal.app is not terminated and scans once Bluetooth is allowed for it; the other host gets `ERROR_USAGE_DESCRIPTION_MISSING` naming that app, no crash report |
+| D10b | macOS packaged app with the key | `./gradlew :sample-jvm:packageMacApp -Pkmpble.sample.usageDescription=true`, launch from `build/jpackage/with-usage-description`, run `scan 5` and `connect <identifier> 5` before answering the prompt, then answer it | Before the prompt is answered, scan and connect fail with `Macos.ERROR_UNAUTHORIZED` and the message says macOS is waiting for the user (since #724); the prompt appears once; after allowing, D1-D3 pass. Restart the app if the state stays `Unauthorized` after allowing |
+| D11 | macOS host app | `./gradlew :sample-jvm:installSampleLibs`, then from each host run `java -cp 'sample-jvm/build/sample/lib/*' com.atruedev.kmpble.sample.jvm.MainKt scan 5` (and `permissions`, `adapter`): Terminal.app before allowing it in System Settings, Terminal.app after allowing it, then a host without the key | Before allowing, Terminal.app is not terminated and scan and connect fail with `ERROR_UNAUTHORIZED`; after allowing, the same run passes D1-D3; the host without the key gets `ERROR_USAGE_DESCRIPTION_MISSING` naming that app, no crash report. Restart the JVM if it still reports `Unauthorized` after allowing |
 
 Launch `java` directly for D11 so that the host under test starts the JVM, rather than a Gradle daemon started from another host.
 
