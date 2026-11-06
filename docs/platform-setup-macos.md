@@ -47,7 +47,7 @@ Results of `permissions`, `adapter`, and `scan 5` from `sample-jvm`, run with `j
 
 | Host | Declares the key | Result |
 |------|------------------|--------|
-| Terminal.app | No (platform app, not checked) | Not terminated and no crash report. On first use `checkBlePermissions()` reads `Denied` (not determined), the adapter state stays `Unavailable`, and the scan ends without results while the authorization is undetermined (since #702 kmp-ble reports `Unauthorized` and fails scan and connect with `ERROR_UNAUTHORIZED` instead; not yet re-run on hardware, see #703); allow Terminal in System Settings > Privacy & Security > Bluetooth |
+| Terminal.app | No (platform app, not checked) | Not terminated and no crash report. On first use `checkBlePermissions()` reads `Denied` (not determined), the adapter state stays `Unavailable`, and the scan ends without results while the authorization is undetermined (since #724 kmp-ble reports `Unauthorized` and fails scan and connect with `ERROR_UNAUTHORIZED` instead; not yet re-run on hardware, see #741); allow Terminal in System Settings > Privacy & Security > Bluetooth |
 | Terminal emulators that declare the key | Yes | Prompt once, then D1-D3 pass |
 | A CLI tool bundle without the key | No | `ERROR_USAGE_DESCRIPTION_MISSING` naming the bundle, `PermanentlyDenied`, no crash report |
 | `jpackage` app without the key | No | `ERROR_USAGE_DESCRIPTION_MISSING` for scan, connect, and the GATT server, `PermanentlyDenied`, no crash report |
